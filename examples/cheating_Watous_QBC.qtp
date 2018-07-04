@@ -1,0 +1,30 @@
+given Honest: unit process,
+      Liar: unit process
+      
+Alice(cq:^qbit, cc:^bit*bit, r:^bit) =
+    (newq qx,qw)
+    qx >> _H.
+    qw,qx >> _CNot.
+    cq!qx.
+    r?(basis).
+    qw >> if basis=0b1 then _H else _I fi.
+    qw??(value).
+    cc!value,basis. 
+    _0
+        
+Bob(cq:^qbit, cc:^bit*bit) =
+    cq?(qx).
+    cc?(value,basis).
+    qx >> if basis=0b1 then _H else _I fi.
+    qx??(measure).
+    if measure = value then Honest() else Liar() fi
+    
+Random(q:qbit, r:^bit) =
+    q >> _H.
+    q??(b).
+    r!b.
+    Random(q,r)
+ 
+System() = 
+    (new cq:^qbit, cc:^(bit*bit), r:^bit)
+    ( Alice(cq,cc,r) | Bob(cq,cc) | (newq q) Random(q,r) )

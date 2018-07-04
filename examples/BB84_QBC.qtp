@@ -1,0 +1,57 @@
+given hd        : 'a list -> 'a,
+      tl        : 'a list -> 'a list,
+      fst       : 'a*'b -> 'a,
+      snd       : 'a*'b -> 'b,
+      Honest    : unit process,
+      Liar      : unit process,
+      BobWin    : unit process,
+      BobLose   : unit process
+
+Alice(n:int, r:^bit, qB:^qbit, bB:^bit, vB:^bit*bit list) = AliceChoose(n,r,[],qB,bB,vB)
+
+AliceChoose(n:int, r:^bit, vs:bit list, qB:^qbit, bB:^bit, vB:^(bit*bit list)) =
+    if n=0 then r?(basis:bit).AliceSend(vs,vs,basis,qB,bB,vB)
+    else r?(v:bit).AliceChoose(n-1,r,vs@[v],qB,bB,vB)
+    fi
+
+AliceSend(vs:bit list, ovs:bit list, basis:bit, qB:^qbit, bB:^bit, vB:^(bit*bit list)) =
+    if vs=[] then AliceReport(basis,ovs,bB,vB)
+    else (newq q)
+         q >> if hd(vs)=0b1 then _Phi(1) else _I fi.
+         q >> if basis=0b1 then _H else _I fi.
+         qB!q.
+         AliceSend(tl(vs),ovs,basis,qB,bB,vB)
+    fi
+
+AliceReport(basis:bit,vs:bit list, bB:^bit, vB:^(bit*bit list)) = 
+    bB?(guess:bit).vB!basis,vs.if guess=basis then BobWin() else BobLose() fi 
+
+Bob(n:int, r:^bit, qA:^qbit, bA:^bit, vA:^(bit*bit list)) = BobReceive(n,[],r,qA,bA,vA)
+
+BobReceive(n:int, vs:(bit*bit) list, r:^bit, qA:^qbit, bA:^bit, vA:^(bit*bit list)) =
+    if n = 0 then r?(guess:bit). 
+                  bA!guess. 
+                  vA?(basis:bit, as:bit list). 
+                  BobVerify (vs,basis,as) 
+    else 
+                  qA?(q:qbit).
+                  r?(basis:bit).
+                  q >> if basis=0b1 then _H else _I fi.
+                  q ?? (value).
+                  BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
+    fi
+
+BobVerify (vs:(bit*bit) list, basis:bit, as:bit list) = 
+  if vs=[] && as=[] then Honest()
+  else if vs=[] || as=[] then Liar()
+       else if basis=fst(hd(vs)) && hd(as)<>snd(hd(vs)) then Liar()
+            else BobVerify(tl(vs),basis,tl(as))
+            fi
+       fi
+  fi
+       
+Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
+
+System(n:int) =
+    (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
+        (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q)Random(q,r))

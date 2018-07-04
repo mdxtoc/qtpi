@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CurrentWorkingDirectory</key>
+	<string>/Users/richard/Documents/research/quantum/cqp/qtpi</string>
+	<key>WorksheetContents</key>
+	<string>#    Copyright (C) 2018 Richard Bornat
+#     
+#        richard@bornat.me.uk
+#
+#    This file is part of Qtpi, an interpreter for Gay and Nagarajan's CQP.
+#
+#    Qtpi is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    Qtpi is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Qtpi; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#    (or look at http://www.gnu.org).
+
+cd ~/gitrepositories/qtpi
+
+make clean
+make links
+
+make Qtpi
+
+
+./Qtpi -verbose qsim examples/cointoss.qtp
+./Qtpi -verbose qsim examples/teleport.qtp
+./Qtpi -verbose qsim examples/teleportEPR.qtp
+./Qtpi examples/BB84_QBC.qtp
+./Qtpi examples/Watous_QBC.qtp
+./Qtpi examples/cheating_Watous_QBC.qtp
+</string>
+</dict>
+</plist>

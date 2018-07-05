@@ -272,7 +272,7 @@ and typecheck_process cxt p =
         )
       in
       let ets = try zip args ts
-                with Invalid_argument _ -> 
+                with Zip -> 
                        raise (TypeCheckError (Printf.sprintf "%s: should have %d arguments"
                                                              (string_of_process p)
                                                              (List.length ts)

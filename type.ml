@@ -145,6 +145,6 @@ let instantiate t =
   match t with
   | Univ (ns, t) -> let newns = List.map (fun _ -> new_unknown_name ()) ns in
                     (try rename (zip ns newns) t
-                     with _ -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
+                     with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
                     )
   | _            -> t

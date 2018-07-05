@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
  
+open Functionutils
+
 let string_of_option string_of = function
   | Some x -> "Some (" ^ string_of x ^ ")"
   | None   -> "None"
@@ -29,9 +31,33 @@ exception Failed_The
 
 let _The = function Some x -> x | None -> raise Failed_The
 
-let _Some x = Some x;;
+let _Some x = Some x
 
-let _SomeSome x = Some (Some x);;
+let _SomeSome x = Some (Some x)
 
 let bool_of_opt = function Some _ -> true | None -> false
+
+let (&~~) v g =
+  match v with 
+    None    -> None
+  | Some v' -> g v'
+
+let (|~~) v g =
+  match v with
+    None -> g ()
+  | v    -> v
+
+let (&~) f g x = f x &~~ g
+
+let (|~) f g x =
+  match f x with
+    None -> g x
+  | v    -> v
+
+let (||~) f g x =
+  match f x with
+  | Some x' -> x'
+  | None    -> g x
+
+let anyway f = f ||~ id (* same as either x (f x), and to be preferred in those circumstances *)
 

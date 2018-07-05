@@ -38,6 +38,8 @@ let verbose_qsim = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
 
+let symbq = ref true
+
 let verboseopts = [("all"              , verbose                  ); 
                    ("interpret"        , verbose_interpret        );
                    ("qsim"             , verbose_qsim             );

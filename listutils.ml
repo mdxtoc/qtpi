@@ -21,8 +21,12 @@
     (or look at http://www.gnu.org).
 *)
 
-let zip = List.combine 
+exception Zip
+
+let zip xs ys = try List.combine xs ys with Invalid_argument _ -> raise Zip
 let unzip = List.split
+
+let null xs = match xs with [] -> true | _ -> false
 
 let (<@>) xys x = List.assoc x xys
 let (<@@>) xys x = List.assq x xys

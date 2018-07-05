@@ -27,6 +27,7 @@ open Settings
 open Array
 open Listutils
 open Functionutils
+open Optionutils
 
 exception Error of string
 
@@ -35,13 +36,12 @@ type qbit = int
 type prob = 
   | P_0
   | P_1
+  | P_h of int              (* (sqrt 1/2)**n *)
   | P_i                     (* sqrt -1 *)
-  | P_rh of int             (* (sqrt 1/2)**n *)
-  | Prand of bool * qbit    (* if true a, otherwise b, both random unknowns s.t. a**2+b**2 = 1 *)
+  | Psymb of bool * qbit    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
   | Pneg of prob
-  | Pprod of prob*prob
-  | Psum of prob*prob
-  | Pdiff of prob*prob
+  | Pprod of prob list      (* associative *)
+  | Psum of prob list       (* associative *)
 
 type qval = qbit list * prob array (* 2^n probs in the array *)
 
@@ -50,41 +50,34 @@ let string_of_qbit = string_of_int
 let short_string_of_qbit = string_of_int
 
 let rec string_of_prob p = 
+  (* everything is associative *)
   let prio = function
     | P_0
     | P_1
     | P_i             
-    | P_rh  _ 
-    | Prand _         -> Expr.NonAssoc, 10
-    | Pneg  _         -> Expr.NonAssoc,  8
-    | Pprod _         -> Expr.Assoc   ,  6
-    | Psum  _         -> Expr.Assoc   ,  4
-    | Pdiff _         -> Expr.Left    ,  4
+    | P_h  _ 
+    | Psymb _         -> 10
+    | Pneg  _         -> 8
+    | Pprod _         -> 6
+    | Psum  _         -> 4
   in
-  let binary p1 p2 op =
-    let _, supprio = prio p in
-    let lassoc, lprio = prio p1 in
-    let rassoc, rprio = prio p2 in
-    let s1 = string_of_prob p1 in
-    let s2 = string_of_prob p2 in
-    let s1 = if lprio<supprio || (lprio=supprio && lassoc=Expr.Right) then "(" ^ s1 ^ ")" else s1 in
-    let s2 = if rprio<supprio || (rprio=supprio && rassoc=Expr.Left) then "(" ^ s2 ^ ")" else s2 in
-    s1 ^ op ^ s2
+  let possbra p' = 
+    let supprio = prio p in
+    let subprio = prio p' in
+    let s = string_of_prob p' in
+    if subprio<supprio then "(" ^ s ^ ")" else s
   in
+  let nary ps op = String.concat op (List.map possbra ps) in
   match p with
   | P_0             -> "0"
   | P_1             -> "1"
-  | P_rh 1          -> "rh"
-  | P_rh n          -> Printf.sprintf "rh(%d)" n
+  | P_h 1           -> "h"
+  | P_h n           -> Printf.sprintf "h(%d)" n
   | P_i             -> "i"
-  | Prand (b,q)     -> Printf.sprintf "%s(%s)" (if b then "a" else "b") (string_of_qbit q)
-  | Pneg p'         -> let s = string_of_prob p' in
-                       let _, supprio = prio p in
-                       let _, subprio = prio p' in
-                       if subprio<supprio then "-(" ^ s ^ ")" else "-" ^ s
-  | Pprod (p1,p2)   -> binary p1 p2 "*"
-  | Psum  (p1,p2)   -> binary p1 p2 "+"    
-  | Pdiff (p1,p2)   -> binary p1 p2 "-"
+  | Psymb (b,q)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
+  | Pneg p'         -> "-" ^ possbra p'
+  | Pprod ps        -> nary ps "*"
+  | Psum  ps        -> nary ps "+"    
 
 and string_of_probvec v =
   let estrings = Array.fold_right (fun p ss -> string_of_prob p::ss) v [] in
@@ -126,12 +119,19 @@ let qval q = try Hashtbl.find qstate q
                                             )
                                      )
 
+let v_0 = Array.init 2 (fun i -> if i=0 then P_1 else P_0)
+let v_1 = Array.init 2 (fun i -> if i=0 then P_0 else P_1)
+
 let newqbit = (* hide the reference *)
   (let qbitcount = ref 0 in
    let newqbit () = 
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
-     let vec = Array.init 2 (fun i -> Prand (i=0, q)) in
+     let vec = if !Settings.symbq then
+                 Array.init 2 (fun i -> Psymb (i=1, q)) 
+               else
+                 if Random.bool () then v_0 else v_1
+     in
      Hashtbl.add qstate q ([q],vec);
      q
    in
@@ -141,19 +141,24 @@ let newqbit = (* hide the reference *)
 let rec is_pconst = function
     | P_0
     | P_1
-    | P_rh _
+    | P_h _
     | P_i             
-    | Prand _         -> true
+    | Psymb _         -> true
     | Pneg  _         
     | Pprod _         
-    | Psum  _         
-    | Pdiff _         -> false
+    | Psum  _         -> false
 
+(* The normal form is a sum of possibly-negated products. 
+ * Both sums and products are left-recursive.
+ * Products are sorted P_0, P_1, P_h, P_i 
+ *)
+
+  
 let rec neg p =
   let r = match p with
           | Pneg p        -> p
           | P_0           -> p
-          | Pdiff (p1,p2) -> diff p2 p1
+          | Psum ps       -> simplify_sum (List.map neg ps)
           | _             -> Pneg p
   in
   if !verbose_simplify then
@@ -162,116 +167,176 @@ let rec neg p =
     
 and prod p1 p2 =
   let r = match p1, p2 with
-          | P_0      , _            -> P_0
-          | _        , P_0          -> P_0
-          | P_1      , _            -> p2
-          | _        , P_1          -> p1
-          | P_rh i   , P_rh j       -> rhalf (i+j)
-          | P_i      , P_i          -> neg P_1
-          | Pneg (p1), _            -> neg (prod p1 p2)
-          | _        , Pneg (p2)    -> neg (prod p1 p2)
-          | _        , Psum  _ 
-          | _        , Pdiff _ 
-              when is_pconst p1     -> distrib (prod p1) p2
-          | Psum  _  , _        
-          | Pdiff _  , _       
-              when is_pconst p2     -> distrib (fun p -> prod p p2) p1
-          | _ when not (is_pconst p1)
-                && is_pconst p2     -> prod p2 p1
-          | _                       -> Pprod (p1,p2)
+          | Pneg p1         , _                 -> neg (prod p1 p2)
+          | _               , Pneg p2           -> neg (prod p1 p2)
+          | _               , Psum p2s          -> simplify_sum (List.map (prod p1) p2s)
+          | Psum p1s        , _                 -> simplify_sum (List.map (fun p1 -> prod p1 p2) p1s)
+          | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
+          | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
+          | Pprod p1s       , _                 -> simplify_prod (p1s @ [p2])
+          | _                                   -> simplify_prod [p1;p2]
   in
   if !verbose_simplify then
     Printf.printf "prod (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
   r
 
+and simplify_prod ps = (* basically we deal with constants *)
+  let r = let rec sp is_neg r ps = 
+            match ps with
+            | P_0            :: ps -> false, [P_0]
+            | P_1            :: ps -> sp is_neg r ps
+            | P_i   :: P_i   :: ps -> sp (not is_neg) r ps
+            | P_h i :: P_h j :: ps -> sp is_neg r (sqrt_half (i+j) :: ps)
+            | p              :: ps -> sp is_neg (p::r) ps
+            | []                   -> is_neg, List.rev r
+          in
+          let is_neg, ps = sp false [] (List.sort compare ps) in
+          let p = match ps with 
+                  | []  -> P_1
+                  | [p] -> p 
+                  | _   -> Pprod ps 
+          in
+          if is_neg then neg p else p
+  in
+  if !verbose_simplify then
+    Printf.printf "simplify_prod (%s) -> %s\n" (string_of_prob (Pprod ps)) (string_of_prob r);
+  r
+
 and sum  p1 p2 = 
   let r = match p1, p2 with
-          | P_0      , _         -> p2
-          | _        , P_0       -> p1
-          | P_rh i   , P_rh j     
-              when i=j && i>=2   -> rhalf (i-2)
-          | Pneg (p1), _         -> diff p2 p1
-          | _        , Pneg (p2) -> diff p1 p2
-          | _                    -> Psum (p1,p2)
+          | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
+          | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
+          | Psum p1s, _         -> simplify_sum (p1s @ [p2]) 
+          | _                   -> simplify_sum [p1;p2]
   in
   if !verbose_simplify then
     Printf.printf "sum (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
   r
 
-and diff p1 p2 = 
-  let r = match p1, p2 with
-          | P_0      , _         -> neg p2
-          | _        , P_0       -> p1
-          | Pneg (p1), _         -> neg (sum p1 p2)
-          | _        , Pneg (p2) -> sum p1 p2
-          | _ when p1=p2         -> P_0
-          | _                    -> Pdiff (p1,p2)
+and simplify_sum ps = 
+  let r = let rec scompare p1 p2 =
+            match p1, p2 with
+            | Pneg p1  , _         -> let r = scompare p1 p2 in if r=0 then 1 else 0
+            | _        , Pneg p2   -> scompare p1 p2
+            | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s
+            | _                    -> Pervasives.compare p1 p2
+          in
+          let rec double p1 p2 = (* looking for h(k)*X+h(k)*X. We know p1=p2 *)
+            match p1, p2 with
+            | Pneg p1           , Pneg p2                          
+                    -> double p1 p2 &~~ (_Some <.> neg)
+            | Pprod (P_h i::p1s), Pprod (P_h j::p2s) when i>=2                               
+                    -> Some (simplify_prod (sqrt_half (i-2) :: p1s))
+            | _     -> None
+          in
+          let rec a2b2 p1 p2 = (* looking for X*a**2+X*b**2 *)
+            match p1, p2 with
+            | Pneg p1  , Pneg p2   -> a2b2 p1 p2 &~~ (_Some <.> neg)
+            | Pprod p1s, Pprod p2s ->
+                (try let pps = zip p1s p2s in
+                     let rec partition_1 r pps =
+                       match pps with
+                       | (a,b) as h :: pps when a=b -> partition_1 (h::r) pps
+                       | _                          -> List.rev r, pps
+                     in
+                     let pre, rest = partition_1 [] pps in
+                     let all_same pps =
+                       let pre, post = partition_1 [] pps in
+                       null post
+                     in
+                     match rest with
+                     | (Psymb (false, q1), Psymb (true, q2)) ::
+                       (Psymb (false, q3), Psymb (true, q4)) :: post  
+                       when q1=q2 && q1=q3 && q1=q4 && all_same post
+                             -> let pre, _ = unzip pre in
+                                let post, _ = unzip post in
+                                Some (simplify_prod (pre @ post))
+                     | _     -> None
+                 with Zip -> None
+                )
+            | _ -> None
+          in
+          let rec sp again r ps =
+            match ps with
+            | P_0                :: ps            -> sp again r ps
+            | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
+            | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
+            | p1      :: p2      :: ps when p1=p2 -> (match double p1 p2 with
+                                                      | Some p -> sp true (p::r) ps
+                                                      | None   -> sp again (p1::r) (p2::ps)
+                                                     )
+            | p1      :: p2      :: ps            -> (match a2b2 p1 p2 with
+                                                      | Some p -> sp true (p::r) ps
+                                                      | None   -> sp again (p1::r) (p2::ps)
+                                                     )
+            | p                  :: ps            -> sp again (p::r) ps
+            | []                                  -> let r = List.rev r in
+                                                     if again then doit r else r
+          and doit ps = sp false [] (List.sort scompare ps)
+          in
+          match doit ps with
+          | []  -> P_0
+          | [p] -> p
+          | ps  -> Psum ps
   in
   if !verbose_simplify then
-    Printf.printf "diff (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+    Printf.printf "simplify_sum (%s) -> %s\n" (string_of_prob (Psum ps)) (string_of_prob r);
   r
 
-and rhalf i =
-  let r = if i=0 then P_1 else P_rh i in
+
+and sqrt_half i =   (* (1/sqrt 2)**i *)
+  let r = if i=0 then P_1 else P_h i in
   if !verbose_simplify then
-    Printf.printf "rhalf %d -> %s\n" i (string_of_prob r);
+    Printf.printf "sqrt_half %d -> %s\n" i (string_of_prob r);
   r
 
 and r2 p = (* multiply by sqrt 2. Happens: see normalise *)
   let r = match p with
           | P_0                 -> p
-          | P_rh i when i>=1    -> rhalf (i-1)
+          | P_h i when i>=1     -> sqrt_half (i-1)
           | Pneg p              -> neg (r2 p)
-          | Pprod (p1,p2)       -> prod (r2 p1) (r2 p2)
-          | Psum (p1,p2)        -> sum  (r2 p1) (r2 p2)
-          | Pdiff (p1,p2)       -> diff (r2 p1) (r2 p2)
+          | Pprod ps            -> simplify_prod (List.map r2 ps)
+          | Psum  ps            -> simplify_sum  (List.map r2 ps)
           | _                   -> raise (Error (Printf.sprintf "r2 %s" (string_of_prob p)))
   in
   if !verbose_simplify then
     Printf.printf "r2 (%s) -> %s\n" (string_of_prob p) (string_of_prob r);
   r
 
-and div p1 p2 = (* happens in normalise *)
-  let r = match p1,p2 with
-          | P_0, _            -> P_0
+and div p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
+  let bad () = 
+    raise (Error (Printf.sprintf "div (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))
+  in
+  let r = match p1 with
+          | P_0               -> P_0
           | _ when p1=p2      -> P_1
-          | Psum (p11,p12), _ -> sum (div p11 p2) (div p12 p2)
-          | _                 -> raise (Error (Printf.sprintf "div (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))
+          | Pprod ps          -> let rec del ps =
+                                   match ps with
+                                   | [] -> bad()
+                                   | p::ps -> if p=p2 then ps else p::del ps
+                                 in
+                                 Pprod (del ps)
+          | Psum ps           -> simplify_sum (List.map (fun p -> div p p2) ps)
+          | _                 -> bad ()
   in
   if !verbose_simplify then
     Printf.printf "div (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
   r
   
-and distrib f p =
-  let r = match p with
-          | P_0
-          | P_1
-          | P_rh _
-          | P_i             
-          | Prand _         -> raise (Error (Printf.sprintf "distrib ?? (%s)" (string_of_prob p)))
-          | Pneg  p         -> neg (f p)
-          | Pprod (p1,p2)   -> prod (f p1) (f p2)         
-          | Psum  (p1,p2)   -> sum  (f p1) (f p2)         
-          | Pdiff (p1,p2)   -> diff (f p1) (f p2)
-  in
-  if !verbose_simplify then
-    Printf.printf "distrib ?? (%s) -> %s\n" (string_of_prob p) (string_of_prob r);
-  r
-  
 let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 
-let mH  = make_ug [[P_rh 1 ; P_rh 1      ];
-                   [P_rh 1 ; neg (P_rh 1)]]
-let mI  = make_ug [[P_1    ; P_0         ];
-                   [P_0    ; P_1         ]] 
-let mX  = make_ug [[P_0    ; P_1         ];
-                   [P_1    ; P_0         ]] 
-let mY  = make_ug [[P_0    ; P_1         ];
-                   [neg P_1; P_0         ]] 
-let mYi = make_ug [[P_0    ; neg P_i     ];
-                   [P_i    ; P_0         ]] 
-let mZ =  make_ug [[P_1    ; P_0         ];
-                   [P_0    ; neg P_1     ]] 
+let mH  = make_ug [[P_h 1  ; P_h 1      ];
+                   [P_h 1  ; neg (P_h 1)]]
+let mI  = make_ug [[P_1    ; P_0        ];
+                   [P_0    ; P_1        ]] 
+let mX  = make_ug [[P_0    ; P_1        ];
+                   [P_1    ; P_0        ]] 
+let mY  = make_ug [[P_0    ; P_1        ];
+                   [neg P_1; P_0        ]] 
+let mYi = make_ug [[P_0    ; neg P_i    ];
+                   [P_i    ; P_0        ]] 
+let mZ =  make_ug [[P_1    ; P_0        ];
+                   [P_0    ; neg P_1    ]] 
 
 let mPhi = function
   | 0 -> mI
@@ -404,7 +469,7 @@ let ibit q qs =
   1 lsl (List.length qs-i-1)
 
 let ugstep qs ugv = 
-  let id_string () = Printf.sprintf "ugstep [%s] >> %s"
+  let id_string () = Printf.sprintf (if List.length qs =1 then "ugstep %s >> %s" else "ugstep [%s] >> %s")
                                     (string_of_list string_of_qbit ";" qs)
                                     (string_of_ugv ugv)
   in
@@ -506,7 +571,7 @@ let qmeasure q =
   let r = match prob with
   | P_0    -> 0
   | P_1    -> 1
-  | P_rh i -> if i=0 then 1
+  | P_h i -> if i=0 then 1
               else (let rg = Random.float 1.0 in
                     let rec iexp i rf = if i=0 then rf else iexp (i-1) (rf/.2.0) in
                     if iexp i 1.0 < rg then 1 else 0
@@ -521,14 +586,14 @@ let qmeasure q =
   if !verbose_qsim then Printf.printf " (un-normalised %s modulus %s)" (string_of_qval (qs,v)) (string_of_prob modulus);
   (match modulus with
    | P_1                -> ()
-   | P_rh k  when k mod 2 = 0 
+   | P_h k  when k mod 2 = 0 
                         -> let n = k/2 in
                            (* multiply by 2**(n/2) *)
                            let halfn = n/2 in
                            _for 0 1 halfn (fun _ -> _for 0 1 (vsize v) (fun i -> v.(i) <- sum v.(i) v.(i)));
                            if n mod 2 = 1 then
                              _for 0 1 (vsize v) (fun i -> v.(i) <- r2 v.(i))
-   | Pprod (p1,p2) when p1=p2 
+   | Pprod [p1;p2] when p1=p2 
                         -> _for 0 1 (vsize v) (fun i -> v.(i) <- div v.(i) p1)
    | _                  -> if !verbose_qsim then 
                              Printf.printf " oh dear!\n"; 

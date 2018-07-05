@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CurrentWorkingDirectory</key>
-	<string>/Users/richard/Documents/research/quantum/cqp/qtpi</string>
+	<string>/Users/richard/gitrepositories/qtpi</string>
 	<key>WorksheetContents</key>
 	<string>#    Copyright (C) 2018 Richard Bornat
 #     
@@ -34,6 +34,7 @@ make links
 make Qtpi
 
 
+./Qtpi -verbose qsim examples/hadamard.qtp
 ./Qtpi -verbose qsim examples/cointoss.qtp
 ./Qtpi -verbose qsim examples/teleport.qtp
 ./Qtpi -verbose qsim examples/teleportEPR.qtp

@@ -35,12 +35,14 @@ let parse_typevars = ref false
 let verbose = ref false
 let verbose_interpret = ref false
 let verbose_qsim = ref false
+let verbose_qcalc = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
 
 let symbq = ref true
 
-let verboseopts = [("all"              , verbose                  ); 
+let verboseopts = [("all"              , verbose                  );
+                   ("qcalc"            , verbose_qcalc            );
                    ("interpret"        , verbose_interpret        );
                    ("qsim"             , verbose_qsim             );
                    ("simplify"         , verbose_simplify         );

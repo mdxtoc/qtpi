@@ -61,3 +61,8 @@ let (||~) f g x =
 
 let anyway f = f ||~ id (* same as either x (f x), and to be preferred in those circumstances *)
 
+let rec optfirst optf xs =
+  match xs with
+  | []    -> None
+  | x::xs -> optf x |~~ (fun () -> optfirst optf xs)
+

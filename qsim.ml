@@ -364,11 +364,14 @@ let mYi = make_ug [[P_0    ; neg P_i    ];
 let mZ =  make_ug [[P_1    ; P_0        ];
                    [P_0    ; neg P_1    ]] 
 
+let mH  = make_ug [[P_h 1  ; P_h 1      ];
+                   [P_h 1  ; neg (P_h 1)]]
+
 let mPhi = function
   | 0 -> mI
   | 1 -> mX
-  | 2 -> mYi
-  | 3 -> mZ
+  | 2 -> mZ     (* Gay and Nagarajan had mYi *)
+  | 3 -> mY     (* Gay and Nagarajan had mZ *)
   | i -> raise (Error ("** Disaster: _Phi(" ^ string_of_int i ^ ")"))
 
 let mCnot = make_ug [[P_1; P_0; P_0; P_0];

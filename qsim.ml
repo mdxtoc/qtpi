@@ -243,7 +243,7 @@ let newqbit = (* hide the reference *)
      let qv = [q],vec in
      Hashtbl.add qstate q qv;
      if !verbose_qsim then
-       Printf.printf "newqbit %s (%s) -> %s where %s|->%s\n"
+       Printf.printf "newqbit %s (%s) -> %s; now %s|->%s\n"
                      (Name.string_of_name n)
                      (string_of_option Process.string_of_basisv vopt)
                      (string_of_qbit q)

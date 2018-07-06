@@ -145,11 +145,7 @@ name:
   
 typespec:
   | func_typespec                       {$1}
-  | typespec PROCESS                    {Process (match $1 with
-                                                  | Tuple ts -> ts
-                                                  | Unit     -> []
-                                                  | t        -> [t]
-                                                 )
+  | typespec PROCESS                    {Process (Type.relist $1)
                                         }
 
 func_typespec:
@@ -241,7 +237,7 @@ step:
                                         }
   | expr MEASURE LPAR param RPAR        {Measure ($1,$4)}
   | ntexprs THROUGH ugate               {Ugatestep ($1,$3)}
-  | LBRACE expr RBRACE                  {Eval $2}
+  /* | LBRACE expr RBRACE                  {Eval $2} */
 
 args:
   |                                     {[]}

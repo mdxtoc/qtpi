@@ -51,6 +51,9 @@ let short_string_of_qbit = string_of_int
 
 let rec string_of_prob p = 
   (* everything is associative *)
+  (* Everything is associative, but the normal form is sum of negated products.
+   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
+   *)
   let prio = function
     | P_0
     | P_1
@@ -59,6 +62,8 @@ let rec string_of_prob p =
     | Psymb _         -> 10
     | Pneg  _         -> 8
     | Pprod _         -> 6
+    | Pprod _         -> 8
+    | Pneg  _         -> 6
     | Psum  _         -> 4
   in
   let possbra p' = 
@@ -66,6 +71,7 @@ let rec string_of_prob p =
     let subprio = prio p' in
     let s = string_of_prob p' in
     if subprio<supprio then "(" ^ s ^ ")" else s
+    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
   in
   let nary ps op = String.concat op (List.map possbra ps) in
   match p with
@@ -131,32 +137,47 @@ let v_minus = make_v [P_h 1 ; Pneg (P_h 1)]
 let newqbit = (* hide the reference *)
   (let qbitcount = ref 0 in
    let newqbit () = 
+   let newqbit n vopt = 
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
      let vec = if !Settings.symbq then
                  Array.init 2 (fun i -> Psymb (i=1, q)) 
                else
                  if Random.bool () then v_0 else v_1
+     let vec = match vopt with
+               | Some Process.VZero  -> Array.copy v_0
+               | Some Process.VOne   -> Array.copy v_1
+               | Some Process.VPlus  -> Array.copy v_plus
+               | Some Process.VMinus -> Array.copy v_minus
+               | None                -> if !Settings.symbq then
+                                          Array.init 2 (fun i -> Psymb (i=1, q)) 
+                                        else (* random basis, random fixed value *)
+                                          Array.copy (if Random.bool () then 
+                                                        (if Random.bool () then v_0 else v_1)
+                                                      else 
+                                                        (if Random.bool () then v_plus else v_minus)
+                                                     )
      in
      Hashtbl.add qstate q ([q],vec);
+     let qv = [q],vec in
+     Hashtbl.add qstate q qv;
+     if !verbose_qsim then
+       Printf.printf "newqbit %s (%s) -> %s where %s|->%s\n"
+                     (Name.string_of_name n)
+                     (string_of_option Process.string_of_basisv vopt)
+                     (string_of_qbit q)
+                     (string_of_qbit q)
+                     (string_of_qval qv);
      q
    in
    newqbit
   )
 
-let rec is_pconst = function
-    | P_0
-    | P_1
-    | P_h _
-    | P_i             
-    | Psymb _         -> true
-    | Pneg  _         
-    | Pprod _         
-    | Psum  _         -> false
-
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted P_0, P_1, P_h, P_i 
+ * Products are sorted according to the type definition: i.e.
+ * P_0, P_1, P_h, P_i, Psymb.
  *)
 
   

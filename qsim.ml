@@ -447,14 +447,12 @@ let _for i inc n f = (* n is size, so up to n-1 *)
   in
   rf i
   
-let _forlf i inc n f v =
 let _for_leftfold i inc n f v =
   let rec ff i v =
     if i<n then ff (i+inc) (f i v) else v
   in
   ff i v
 
-let rec _forrf i inc n f v =
 let rec _for_righttfold i inc n f v =
   let rec ff i v =
     if i<n then f i (ff (i+inc) v) else v

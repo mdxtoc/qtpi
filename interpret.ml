@@ -244,7 +244,7 @@ and evalug env ug =
 
 let rec interp sysenv proc =
   Qsim.init ();
-  let newqbit () = VQbit (Qsim.newqbit ()) in
+  let newqbit n vopt = VQbit (Qsim.newqbit n vopt) in
   let chancount = ref 0 in
   let chanpool = ref [] in
   let newchan () = 
@@ -289,7 +289,7 @@ let rec interp sysenv proc =
             let ps = List.map (fun (n, _) -> (n, newchan ())) ps in
             addrunner (pn, proc, (ps @ env))
         | pn, WithQbit (ns, proc), env ->
-            let ps = List.map (fun n -> (n, newqbit ())) ns in
+            let ps = List.map (fun (n,vopt) -> (n, newqbit n vopt)) ns in
             addrunner (pn, proc, (ps @ env))
         | pn, WithStep (step, proc), env ->
             (match step with

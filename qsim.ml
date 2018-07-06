@@ -121,6 +121,12 @@ let qval q = try Hashtbl.find qstate q
 
 let v_0 = Array.init 2 (fun i -> if i=0 then P_1 else P_0)
 let v_1 = Array.init 2 (fun i -> if i=0 then P_0 else P_1)
+let make_v = Array.of_list
+
+let v_0     = make_v [P_1   ; P_0         ]
+let v_1     = make_v [P_0   ; P_1         ]
+let v_plus  = make_v [P_h 1 ; P_h 1       ]
+let v_minus = make_v [P_h 1 ; Pneg (P_h 1)]
 
 let newqbit = (* hide the reference *)
   (let qbitcount = ref 0 in

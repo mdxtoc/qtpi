@@ -118,6 +118,11 @@ rule make_token = parse
   | '+'         {PLUS}
   | '-'         {MINUS}
   
+  | "|0>"       {VZERO}
+  | "|1>"       {VONE}
+  | "|+>"       {VPLUS}
+  | "|->"       {VMINUS}
+  
   | '='         {EQUALS}
   | "<>"        {NOTEQUAL}
   

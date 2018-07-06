@@ -33,11 +33,19 @@ type process =
   | Terminate
   | Call of name * expr list
   | WithNew of param list * process
-  | WithQbit of name list * process
+  | WithQbit of qspec list * process
   | WithStep of step * process
   | Cond of expr * process * process
   | Par of process list
 
+and qspec = name * basisv option
+
+and basisv =
+  | VZero
+  | VOne
+  | VPlus
+  | VMinus
+  
 let rec string_of_process = 
   let trailing_sop p =
     let s = string_of_process p in
@@ -54,7 +62,7 @@ let rec string_of_process =
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s)%s"
-                                            (commasep (List.map string_of_name xs))
+                                            (commasep (List.map string_of_qspec xs))
                                             (trailing_sop p)
   | WithStep (s,p)        -> Printf.sprintf "%s.%s"
                                             (string_of_step s)
@@ -64,3 +72,20 @@ let rec string_of_process =
                                             (string_of_expr e)
                                             (string_of_process p1)
                                             (string_of_process p2)
+and string_of_qspec (n, vopt) =
+  Printf.sprintf "%s%s" 
+                 (string_of_name n)
+                 (match vopt with
+                  | None    -> ""
+                  | Some bv -> Printf.sprintf "=%s" (string_of_basisv bv)
+                 )
+
+and string_of_basisv bv =
+  "|" ^
+  (match bv with
+   | VZero  -> "0"
+   | VOne   -> "1"
+   | VPlus  -> "+"
+   | VMinus -> "-"
+  ) ^
+  ">"

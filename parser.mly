@@ -88,6 +88,7 @@
 %token UNIT TERMINATE
 %token COMMA STAR SEMICOLON
 %token TRUE FALSE BIT0 BIT1
+%token VZERO VONE VPLUS VMINUS
 
 /* remember %left %right %nonassoc and increasing priority */
 %left AND OR
@@ -203,7 +204,7 @@ process:
                                               )
                                         }
   | LPAR NEWDEC paramseq RPAR process   {WithNew ($3,$5)}
-  | LPAR QBITDEC names RPAR process     {WithQbit ($3,$5)}
+  | LPAR QBITDEC qspecs RPAR process     {WithQbit ($3,$5)}
   | step DOT process                    {WithStep ($1,$3)}
   | LPAR ubprocess RPAR                 {$2}
   | IF expr THEN ubprocess ELSE ubprocess FI
@@ -216,6 +217,20 @@ processpar:
   | process                             {[$1]}
   | process BAR processpar              {$1::$3}
 
+qspecs:
+  | qspec                               {[$1]}
+  | qspec COMMA qspecs                  {$1::$3}
+
+qspec:
+  | NAME                                {$1, None}
+  | NAME EQUALS vbasis                  {$1, Some $3}
+  
+vbasis:
+  | VZERO                               {VZero}
+  | VONE                                {VOne }
+  | VPLUS                               {VPlus}
+  | VMINUS                              {VMinus}
+  
 step:
   | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}
   | expr BANG ntexprs                   {let es = match $3 with 

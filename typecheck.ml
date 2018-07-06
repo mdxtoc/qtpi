@@ -293,8 +293,8 @@ and typecheck_process cxt p =
                        params
       in
       do_procparams "WithNew" cxt (List.rev rparams) proc
-  | WithQbit (ns,proc) ->
-      let params = List.map (fun n -> n, Some Qbit) ns in
+  | WithQbit (qss,proc) ->
+      let params = List.map (fun (n,_) -> n, Some Qbit) qss in
       do_procparams "WithQbit" cxt params proc
   | WithStep (step,proc) ->
       (match step with

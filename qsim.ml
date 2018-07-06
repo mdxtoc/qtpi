@@ -81,9 +81,100 @@ let rec string_of_prob p =
   | Pprod ps        -> nary ps "*"
   | Psum  ps        -> nary ps "+"    
 
-and string_of_probvec v =
-  let estrings = Array.fold_right (fun p ss -> string_of_prob p::ss) v [] in
-  Printf.sprintf "(%s)" (String.concat " <+> " estrings)
+let vsize = Array.length
+let msize = Array.length
+
+let _for i inc n f = (* n is size, so up to n-1 *)
+  let rec rf i =
+    if i<n then (f i; rf (i+inc)) (* else skip *)
+  in
+  rf i
+  
+let _for_leftfold i inc n f v =
+  let rec ff i v =
+    if i<n then ff (i+inc) (f i v) else v
+  in
+  ff i v
+
+let rec _for_rightfold i inc n f v =
+  let rec ff i v =
+    if i<n then f i (ff (i+inc) v) else v
+  in
+  ff i v
+
+let _for_all i inc n f = 
+  let rec ff i =
+    if i<n then f i && ff (i+inc) else true
+  in
+  ff i 
+  
+let _for_exists i inc n f v = 
+  let rec ff i =
+    if i<n then f i || ff (i+inc) else false
+  in
+  ff i 
+  
+let rec string_of_probvec v =
+  if !Settings.fancyvec then 
+    (let n = vsize v in
+     let rec ln2 n r = if n=1 then r
+                       else ln2 (n lsr 1) (r+1)
+     in
+     let width = ln2 n 0 in
+     let string_of_bin i =
+       let rec sb i k =
+         if k=width then ""
+         else sb (i/2) (k+1) ^ (if i mod 2 = 0 then "0" else "1")
+       in
+       sb i 0
+     in
+     let sign s ss = match Stringutils.first s, ss with
+                     | _  , [] 
+                     | '-', _   -> s::ss
+                     | _        -> ("+" ^ s)::ss 
+     in
+     let string_of_amplitude p = 
+       match p with
+       | P_0                (* can't happen *)
+       | P_1                (* can't happen *)
+       | P_i             
+       | P_h  _ 
+       | Psymb _         
+       | Pprod _         -> string_of_prob p
+       | Pneg  p'        -> "-" ^ (match p' with
+                                   | P_0
+                                   | P_1
+                                   | P_i             
+                                   | P_h   _ 
+                                   | Psymb _   -> string_of_prob p'
+                                   | _         -> "(" ^ string_of_prob p' ^ ")"
+                                  )
+       | Psum  _         -> "(" ^ string_of_prob p ^ ")"
+     in
+     let string_of_basis_idx i =
+       Printf.sprintf "|%s>" (string_of_bin i)
+     in
+     let estrings = _for_leftfold 0 1 n
+                        (fun i ss -> match v.(i) with
+                                     | P_0 -> ss
+                                     | P_1 -> sign (string_of_basis_idx i) ss
+                                     | _   -> sign (Printf.sprintf "%s%s" 
+                                                                    (string_of_amplitude v.(i)) 
+                                                                    (string_of_basis_idx i)
+                                                    )
+                                                    ss
+                        )
+                        []
+     in
+     match estrings with
+     | []  -> "??empty probvec??"
+     | [e] -> e
+     | _   -> Printf.sprintf "(%s)" (String.concat "" (List.rev estrings))
+    )
+  else
+    (let estrings = Array.fold_right (fun p ss -> string_of_prob p::ss) v [] in
+     Printf.sprintf "(%s)" (String.concat " <+> " estrings)
+    )
   
 and string_of_matrix m =
   let strings_of_row r = Array.fold_right (fun p ss -> string_of_prob p::ss) r [] in
@@ -95,9 +186,11 @@ and string_of_matrix m =
   Printf.sprintf "\n{%s}" block
   
 and string_of_qval (qs,v) =
-  Printf.sprintf "[%s]%s"
-                 (string_of_list string_of_qbit ";" qs)
-                 (string_of_probvec v)
+  match qs with
+  | [_] -> string_of_probvec v
+  | _   -> Printf.sprintf "[%s]%s"
+                          (string_of_list string_of_qbit ";" qs)
+                          (string_of_probvec v)
                 
 let qstate = Hashtbl.create ?random:(Some true) 100 (* 100? a guess *)
 
@@ -391,39 +484,6 @@ let m_0 = make_ug [[P_0]] (* another unit for folding *)
 let new_v n = Array.make n P_0
 let new_ug n = Array.make_matrix n n P_0
 
-let vsize = Array.length
-let msize = Array.length
-
-let _for i inc n f = (* n is size, so up to n-1 *)
-  let rec rf i =
-    if i<n then (f i; rf (i+inc)) (* else skip *)
-  in
-  rf i
-  
-let _for_leftfold i inc n f v =
-  let rec ff i v =
-    if i<n then ff (i+inc) (f i v) else v
-  in
-  ff i v
-
-let rec _for_righttfold i inc n f v =
-  let rec ff i v =
-    if i<n then f i (ff (i+inc) v) else v
-  in
-  ff i v
-
-let _for_all i inc n f = 
-  let rec ff i =
-    if i<n then f i && ff (i+inc) else true
-  in
-  ff i 
-  
-let _for_exists i inc n f v = 
-  let rec ff i =
-    if i<n then f i || ff (i+inc) else false
-  in
-  ff i 
-  
 let bigI n = let m = Array.make_matrix n n P_0 in
              _for 0 1 n (fun i -> m.(i).(i) <- P_1);
              m
@@ -465,7 +525,7 @@ let do_mv m v =
           );
   let v' = new_v n in
   _for 0 1 n (fun i -> 
-                v'.(i) <- _for_righttfold 0 1 n (fun j -> sum (prod m.(i).(j) v.(j))) P_0
+                v'.(i) <- _for_rightfold 0 1 n (fun j -> sum (prod m.(i).(j) v.(j))) P_0
              );
   v'
   

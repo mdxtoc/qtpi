@@ -31,7 +31,7 @@ let set_bool bref b = bref:=b
 
 let opts = Arg.align 
              [("-symbq"  , Arg.Bool (set_bool symbq), 
-                    Printf.sprintf " new qbits have symbolic values (default %B)" !symbq);
+                    Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
                    " verbose operation, various arguments, defaults false" ); 
              ]

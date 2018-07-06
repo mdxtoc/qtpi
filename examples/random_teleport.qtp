@@ -4,5 +4,7 @@ Alice (x:qbit, c:^0..3, z:qbit) = z,x>>_CNot . z>>_H . z??(vz) . x??(vx) . c!vz+
 
 Bob(y:qbit, c:^0..3) = c?(n) . y>>_Phi(n) . Use(y) 
 
+(* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)
 System () = 
-  (newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^0..3) (Alice(x,c,z) | Bob(y,c))
+  (newq x, y, z) x??(a) . x>>_H . y??(b) . x,y>>_CNot . 
+  (new c:^0..3) (Alice(x,c,z) | Bob(y,c))

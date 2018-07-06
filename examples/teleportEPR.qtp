@@ -9,7 +9,7 @@ Alice'(s:^qbit,c:^0..3,z:qbit) = s?(x:qbit) . Alice(x,c,z)
 
 Bob'(t:^qbit,c:^0..3) = t?(y:qbit) . Bob(y,c)
 
-Source(s:^qbit,t:^qbit) = (newq x,y) x>>_H . x,y>>_CNot . s!x . t!y . _0 
+Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
 
 System() = 
     (newq z)(new c:^0..3,s:^qbit,t:^qbit) ( Alice'(s,c,z) | Bob'(t,c) | Source(s,t) )

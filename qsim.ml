@@ -685,6 +685,7 @@ let ugstep qs ugv =
                         (string_of_qbit q2)
                         (string_of_qval qv);
         List.iter (fun q -> Hashtbl.replace qstate q qv) qs;
+        record qv;
   in
   match qs, ugv with
   | [q]    , GateH       

@@ -30,7 +30,9 @@ let usage = "Usage: " ^ progname ^ " [options]* filename filename ..."
 let set_bool bref b = bref:=b
 
 let opts = Arg.align 
-             [("-symbq"  , Arg.Bool (set_bool symbq), 
+             [("-fancyvec"  , Arg.Bool (set_bool fancyvec), 
+                    Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
+              ("-symbq"  , Arg.Bool (set_bool symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
                    " verbose operation, various arguments, defaults false" ); 

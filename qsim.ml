@@ -302,6 +302,9 @@ and simplify_sum ps =
                                                     if again then doit r else r
           and doit ps = sp false [] (List.sort scompare ps)
           in
+          if List.exists (function Psum _ -> true | Pneg (Psum _) -> true | _ -> false) ps then
+            raise (Error (Printf.sprintf "simplify_sum (%s)" (string_of_prob (Psum ps))))
+          else
           match doit ps with
           | []  -> P_0
           | [p] -> p

@@ -281,16 +281,16 @@ app:
   | app primary                         {adorn (EApp ($1,$2))}
   
 arith:
-  | ntexpr PLUS ntexpr                      {$1,Plus,$3}
-  | ntexpr MINUS ntexpr                     {$1,Minus,$3}
+  | ntexpr PLUS ntexpr                  {$1,Plus,$3}
+  | ntexpr MINUS ntexpr                 {$1,Minus,$3}
   
 compare:
-  | ntexpr EQUALS ntexpr                    {$1,Eq,$3}
-  | ntexpr NOTEQUAL ntexpr                  {$1,Neq,$3}
+  | ntexpr EQUALS ntexpr                {$1,Eq,$3}
+  | ntexpr NOTEQUAL ntexpr              {$1,Neq,$3}
 
 bool:
-  | ntexpr AND ntexpr                       {$1,And,$3}
-  | ntexpr OR ntexpr                        {$1,Or,$3}
+  | ntexpr AND ntexpr                   {$1,And,$3}
+  | ntexpr OR ntexpr                    {$1,Or,$3}
   
 ugate: 
   | HADAMARD                            {GH}
@@ -306,8 +306,8 @@ exprlist:
   | expr SEMICOLON exprlist             {$1::$3}
 
 names:
-  | name                             {[$1]}
-  | name COMMA names                  {$1::$3}
+  | name                                {[$1]}
+  | name COMMA names                    {$1::$3}
   
 /* entry point for reading types to save brain when defining contexts */
 

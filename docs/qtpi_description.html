@@ -1,0 +1,92 @@
+<h1>qtpi language description</h1>
+<p>Based on CQP (Gay &amp; Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I don't like hiding state-changing operations inside expressions (e.g. unary gates, measurement); some to be closer to the pi calculus; new operators intended to be easy to read.</p>
+<h2>Grammar</h2>
+<p>Processes <em>P</em>, steps <em>S</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, basis vectors <em>V</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
+<ul>
+<li>
+<p>Process <em>P</em></p>
+<p>| <em>S</em> <code>.</code> <em>P</em><br />
+|  <em>P</em> <code>|</code> ... <code>|</code> <em>P</em><br />
+| <code>if</code> <em>E</em> <code>then</code> <em>P</em> <code>else</code> <em>P</em> <code>fi</code><br />
+| <code>(new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
+| <code>(newq</code> <em>par</em> [ <code>=</code> <em>V</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>V</em> ] <code>)</code> <em>P</em><br />
+| <em>N</em> <code>(</code> <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em>  <code>)</code><br />
+| <code>_0</code><br />
+| <code>(</code> <em>P</em> <code>)</code></p>
+<p>The parameters in <code>new</code> must describe channels.<br />
+The parameters in  <code>newq</code> must describe qbits. Initialisation to basis vectors is optional (and then you get (a|0&gt;+b|1&gt;), for unknown a and b).<br />
+'<code>_0</code>' is the null process (termination).</p>
+</li>
+<li>
+<p>Parameter <em>par</em></p>
+<p>| <em>x</em> [ <code>:</code> <em>T</em> ]</p>
+<p>Parameter type specs are optional, always.</p>
+</li>
+<li>
+<p>Step <em>S</em></p>
+<p>| <em>E</em> <code>?</code> <code>(</code> x [ <code>:</code> <em>T</em> ] <code>,</code>  ... <code>,</code> <em>x</em> [ <code>:</code> <em>T</em> ] <code>)</code><br />
+| <em>E</em> <code>!</code> <em>E</em> <code>,</code>  ... <code>,</code> <em>E</em><br />
+| <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
+| <em>E</em> <code>??</code> <em>G</em></p>
+<p>'<code>?</code>' is read, as in the pi calculus: the first <em>E</em> must be a channel; the bindings are bracketed, as in the pi calculus; the types are optional.<br />
+'<code>!</code>' is write, as in the pi calculus: the first <em>E</em> must be a channel; the output tuple can be bracketed if you wish.<br />
+'<code>&gt;&gt;</code>' is 'send through a gate'; the <em>E</em>s must describe single qbits. The arity of the input tuple must match the gate (e.g. _H gets one qbit, _Cnot gets 2). (CQP had <code>*=</code>, which looks like an assignment.)<br />
+'<code>??</code>' is measure; <em>E</em> must describe a single qbit.</p>
+<p>The <code>{</code> <em>E</em> <code>}</code> step of CQP is not included (reasons of taste, mostly).</p>
+</li>
+<li>
+<p>Type <em>T</em></p>
+<p>| <code>int</code><br />
+| <code>bool</code><br />
+| <code>bit</code><br />
+| <code>unit</code><br />
+| <code>qbit</code><br />
+| <code>'</code><em>x</em><br />
+| <em>T</em> <code>list</code><br />
+| <em>T</em> <code>*</code> ... <code>*</code> <em>T</em><br />
+| <code>^</code> <em>T</em><br />
+| <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em><br />
+| <em>T</em> <code>process</code><br />
+| <code>(</code> <em>T</em> <code>)</code></p>
+<p>'<code>*</code>' separates elements of a tuple type.<br />
+Type variables <code>'</code><em>x</em>, function types <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em> and process types <em>T</em> <code>process</code> are used in the <code>given</code> clause (see program description below).<br />
+The syntactic precedence of types is more or less as listed, or so I hope and intend.</p>
+<p>Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them.</p>
+</li>
+<li>
+<p>Expression <em>E</em></p>
+<p>The ususal stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants), variables, arithmetic (not much implemented yet), comparison (only '=' and '!=' implemented so far), boolean operations (only &amp;&amp; and || so far).</p>
+<p>Conditionals are <code>if</code> <em>E</em> <code>then</code> E <code>else</code> E <code>fi</code>.
+Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left associative, so that <em>E</em> <em>E</em> <em>E</em> is (<em>E</em> <em>E</em>) <em>E</em>.</p>
+<p>No process stuff, no steps.</p>
+</li>
+<li>
+<p>Basis vectors <em>V</em></p>
+<p>|0&gt;, |1&gt;, |+&gt; and |-&gt;. Used only when creating a new qbit.</p>
+</li>
+<li>
+<p>Process name <em>N</em></p>
+<p>Starts with an upper-case letter, continues with alphanumeric, prime and underscore.</p>
+</li>
+<li>
+<p>Variable name <em>x</em></p>
+<p>Starts with a lower-case letter, continues with alphanumeric, prime and underscore.</p>
+</li>
+</ul>
+<h2>Program description</h2>
+<p>A program is an optional <code>given</code> list and then a bunch of process definitions. One of the process descriptions must be <code>System</code>, which can have only integer, boolean or no parameters ('unit' type).</p>
+<ul>
+<li>
+<p>Process definition <em>D</em></p>
+<p>| <em>D</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em></p>
+<p>Pragmatically it seems to be a good idea to include typespecs in process definition parameters.</p>
+<p>None of the parameters can be a process type.</p>
+</li>
+<li>
+<p><code>given</code> list</p>
+<p>The word <code>given</code>, followed by a comma-separated list of process and function names, describing things that aren't defined in the program.</p>
+<p>The process parameters allow 'stuck' processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes.</p>
+<p>The function parameters are there because it is necessary to use hd, tl, etc. when manipulating lists, and lists seem essential. I didn't want to build all that stuff in (because where do I stop?) so I imagined I could build an interface. I still imagine, but haven't done it yet.</p>
+<p>You are allowed type variables in the function types. Of <em>course</em> you need them!</p>
+</li>
+</ul>

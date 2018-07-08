@@ -63,7 +63,7 @@ module rec Types : sig
     | VFun of name        (* help! *)
     | VProcess of name list * iprocess
 
-  and chan = {cname: int; stream: (value list) Queue.t; waiters: WaiterHeap.t}
+  and chan = {cname: int; stream: (value list) Queue.t; waiters: WaiterQueue.t}
 
   and runner = name * process * env
 
@@ -74,11 +74,11 @@ module rec Types : sig
   and stuck = name * value list
 end = Types
 
-and OrderedRandomWaiters : Binary_heap.Ordered = struct type t = int*Types.waiter let compare e = (~-) <.> Pervasives.compare e end
-and OrderedRandomRunners : Binary_heap.Ordered = struct type t = int*Types.runner let compare e = (~-) <.> Pervasives.compare e end
+and OrderedWaiters : Priority_queue.Ordered = struct type t = Types.waiter let compare = Pervasives.compare end
+and OrderedRunners : Priority_queue.Ordered = struct type t = Types.runner let compare = Pervasives.compare end
 
-and WaiterHeap : Binary_heap.BH with type elt=int*Types.waiter = Binary_heap.Make(OrderedRandomWaiters)
-and RunnerHeap : Binary_heap.BH with type elt=int*Types.runner = Binary_heap.Make(OrderedRandomRunners)
+and WaiterQueue : Priority_queue.PQ with type elt=Types.waiter = Priority_queue.Make(OrderedWaiters)
+and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.Make(OrderedRunners)
 
 open Types
 
@@ -148,21 +148,18 @@ and string_of_stuck (n, vs) =
                  (string_of_name n)
                  (string_of_list string_of_value "," vs)
 
-and string_of_waiterheap sep wh =
-  String.concat sep @@ 
-  List.map (if !verbose_waiters then (Tupleutils.string_of_pair string_of_int string_of_waiter ", ") 
-            else string_of_waiter <.> snd
-           ) @@ 
-  List.sort Pervasives.compare @@ 
-  WaiterHeap.fold (Listutils.cons) wh []
+and string_of_waiterqueue sep wq = 
+  string_of_list (if !verbose_waiters then (Tupleutils.string_of_pair string_of_int string_of_waiter ", ") 
+				   else string_of_waiter <.> snd
+				  )
+				  sep
+				  (WaiterQueue.queue wq)
   
-and short_string_of_waiterheap sep wh =
-  let ss = WaiterHeap.fold (fun (i,w) ss -> (i,short_string_of_waiter w)::ss) wh [] in
-  String.concat sep @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
+and short_string_of_waiterheap sep wq =
+  string_of_list (short_string_of_waiter <.> snd) sep (WaiterQueue.queue wq)
   
-and string_of_runnerheap sep rh =
-  let ss = RunnerHeap.fold (fun (i,r) ss -> (i,string_of_runner r)::ss) rh [] in
-  String.concat sep @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
+and string_of_runnerqueue sep rq =
+  string_of_list (string_of_runner <.> snd) sep (RunnerQueue.queue rq)
   
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 
@@ -282,16 +279,16 @@ let rec interp sysenv proc =
   let newchan () = 
     let c = !chancount in 
     chancount := !chancount+1; 
-    let chan = {cname=c; stream=Queue.create (); waiters=WaiterHeap.create 10} in (* 10 is a guess *)
+    let chan = {cname=c; stream=Queue.create (); waiters=WaiterQueue.create 10} in (* 10 is a guess *)
     chanpool := chan::!chanpool;
     VChan chan 
   in
-  let runners = RunnerHeap.create (10) in (* 10 is a guess *)
-  let addrunner stuff = RunnerHeap.add runners (Random.bits(),stuff) in
+  let runners = RunnerQueue.create (10) in (* 10 is a guess *)
+  let addrunner runner = RunnerQueue.push runners runner in
   let stucks = Queue.create () in
-  let addstuck stuck = Queue.add stuck stucks in
+  let addstuck stuck = Queue.push stuck stucks in
   let rec step () =
-    if RunnerHeap.is_empty runners then 
+    if RunnerQueue.is_empty runners then 
       Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
                     (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                     (string_of_queue string_of_stuck "\n" stucks)
@@ -299,11 +296,11 @@ let rec interp sysenv proc =
     else
       (if !verbose || !verbose_interpret then
          Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
-                       (string_of_runnerheap ";\n  " runners)
+                       (string_of_runnerqueue ";\n  " runners)
                        (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                        (string_of_queue string_of_stuck "; " stucks)
                        (string_of_qstate ());
-       let _, runner = RunnerHeap.pop_maximum runners in
+       let runner = RunnerQueue.pop runners in
        (match runner with
         | _, Terminate, _       -> ()
         | _, Call (n, es), env  -> 
@@ -336,16 +333,16 @@ let rec interp sysenv proc =
                                   addrunner (pn, proc, env)
                                  )
                                else
-                                 WaiterHeap.add c.waiters (Random.bits (), (pn, ns, proc, env))
+                                 WaiterQueue.push c.waiters (pn, ns, proc, env)
              | Write (e,es) -> let c = chanv env e in
                                let vs = List.map (evale env) es in
-                               if not (WaiterHeap.is_empty c.waiters) then (* there can be no stream *)
-                                 (let _,(n',ns',proc',env') = WaiterHeap.pop_maximum c.waiters in
+                               if not (WaiterQueue.is_empty c.waiters) then (* there can be no stream *)
+                                 (let n',ns',proc',env' = WaiterQueue.pop c.waiters in
                                   addrunner (n', proc', (zip ns' vs @ env'));
                                   addrunner (pn, proc, env)
                                  )
                                else
-                                 (Queue.add vs c.stream;
+                                 (Queue.push vs c.stream;
                                   addrunner (pn, proc, env)
                                  )
              | Measure (e, (n,_))  -> let q = qbitv env e in

@@ -1,3 +1,11 @@
+(*
+    This is Richard Bornat's modified version of Jean-Christophe Filliatre's 
+    binary heap distribution v1.0.0, taken from 
+    
+    https://github.com/backtracking/bheap.git
+    
+    His copyright is stated below.
+*)
 (**************************************************************************)
 (*                                                                        *)
 (*  Copyright (C) Jean-Christophe Filliatre                               *)
@@ -13,8 +21,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* Traditional implementation of a binary heap using an array *)
-
 module type Ordered = sig
   type t
   val compare : t -> t -> int
@@ -22,36 +28,40 @@ end
 
 exception Empty
 
-module type BH = sig
+module type PQ = sig
 
-  (* Type of imperative heaps.
-     (In the following [n] refers to the number of elements in the heap) *)
+  (* A collection of [elt]s, ordered mostly by a random integer selected when
+     the [elt] is added to the queue, smallest integer first. Each time an [elt] is 
+     taken from the queue, the integers of remaining elements are reduced, so their 
+     'lust' to be chosen next increases a bit. So nobody, probably, gets overlooked 
+     for ever.
+   *)
 
   type t
   
-  type elt
+  type elt 
 
-  (* [create c] creates a new heap, with initial capacity of [c] *)
+  (* [create n] creates a new queue, with initial capacity [n] *)
   val create : int -> t
 
-  (* [is_empty h] checks the emptiness of [h] *)
+  (* [is_empty q] checks the emptiness of [q] *)
   val is_empty : t -> bool
 
-  (* [add h x] adds a new element [x] in heap [h]; size of [h] is doubled
+  (* [push q x] adds a new element [x] in queue [q]; size of [q] is doubled
      when maximum capacity is reached; complexity $O(log(n))$ *)
-  val add : t -> elt -> unit
+  val push : t -> elt -> unit
 
-  (* [maximum h] returns the maximum element of [h]; raises [EmptyHeap]
-     when [h] is empty; complexity $O(1)$ *)
-  val maximum : t -> elt
+  (* [first q] returns the first element of [q]; raises [EmptyHeap]
+     when [q] is empty; complexity $O(1)$ *)
+  val first : t -> elt
 
-  (* [remove h] removes the maximum element of [h]; raises [EmptyHeap]
-     when [h] is empty; complexity $O(log(n))$ *)
+  (* [remove q] removes the first element of [q]; raises [EmptyHeap]
+     when [q] is empty; complexity $O(log(n))$ *)
   val remove : t -> unit
 
-  (* [pop_maximum h] removes the maximum element of [h] and returns it;
-     raises [EmptyHeap] when [h] is empty; complexity $O(log(n))$ *)
-  val pop_maximum : t -> elt
+  (* [pop q] removes the first element of [q] and returns it;
+     raises [EmptyHeap] when [q] is empty; complexity $O(log(n))$ *)
+  val pop : t -> elt
 
   (* usual iterators and combinators; elements are presented in
      arbitrary order *)
@@ -59,6 +69,9 @@ module type BH = sig
 
   val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
 
+  (* entries in queue order, not at all efficient *)
+  val queue : t -> (int * elt) list
+
 end
 
-module Make(Ord: Ordered) : BH with type elt = Ord.t
+module Make(Ord: Ordered) : PQ with type elt = Ord.t

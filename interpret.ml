@@ -23,6 +23,7 @@
 
 open Settings
 open Listutils
+open Functionutils
 open Sourcepos
 open Instance
 open Name
@@ -234,6 +235,12 @@ and qbitv env e =
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
 
 and evalug env ug = 
+and pairv env e =
+  match evale env e with
+  | VTuple [e1;e2] -> e1, e2
+  | v              -> mistyped e.pos (string_of_expr e) v "a pair"
+
+and ugv env ug = 
   match ug with
   | GH                  -> GateH
   | GI                  -> GateI
@@ -241,6 +248,23 @@ and evalug env ug =
   | GCnot               -> GateCnot
   | GPhi  e             -> GatePhi(intv env e)
   | GCond (e,ug1,ug2)   -> evalug env (if boolv env e then ug1 else ug2)
+  | GCond (e,ug1,ug2)   -> ugv env (if boolv env e then ug1 else ug2)
+
+(* ******************** built-in functions ********************* *)
+
+let hd_  env = List.hd <.> listv env
+
+let tl_  env = (fun vs -> VList vs) <.> List.tl <.> listv env
+
+let fst_ env = Pervasives.fst <.> pairv env
+
+let snd_ env = Pervasives.snd <.> pairv env
+
+let knowns = [("hd" ,    ("'a list -> 'a"     , hd_));
+             ("tl" ,    ("'a list -> 'a list", tl_));
+             ("fst",    ("'a*'b -> 'a"       , fst_));
+             ("snd",    ("'a*'b -> 'b"       , snd_));
+            ]
 
 let rec interp sysenv proc =
   Qsim.init ();
@@ -318,6 +342,7 @@ let rec interp sysenv proc =
                                       addrunner (pn, proc, (n,v)::env)
              | Ugatestep (es, ug)  -> let qs = List.map (qbitv env) es in
                                       let g = evalug env ug in
+                                      let g = ugv env ug in
                                       ugstep qs g;
                                       addrunner (pn, proc, env)
              | Eval e              -> let _ = unitv env e in
@@ -350,6 +375,10 @@ let interpretdefs lib defs =
   let libassoc = List.fold_right given lib [] in
   let procassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
   let sysenv = procassoc @ libassoc in
+  let givenassoc = List.fold_right given lib [] in
+  let knownassoc = List.map (fun (n,(_,v)) -> n, VFun n) knowns in
+  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
+  let sysenv = defassoc @ givenassoc @ knownassoc in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = [%s]\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"

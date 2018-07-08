@@ -349,11 +349,25 @@ let typecheck_processdef cxt (Processdef (n,params,proc)) =
 let typecheckdefs lib defs =
   (* lib is a list of name:type pairs, and most of the types have typevars. Convert to Univ types. *)
   let generalise (n,t) = 
+  (* make a Univ type out of a function type *)
+  let generalise t = 
     let vs = Type.frees t in
     n, if NameSet.is_empty vs then t else Univ(NameSet.elements vs,t)
+    if NameSet.is_empty vs then t else Univ(NameSet.elements vs,t)
   in
   List.iter (fun (n,t) -> match t with Process _ -> ok_procname n | _ -> ()) lib;
   let cxt = List.map generalise lib in
+  (* lib is a list of name:type pairs; all should be process types with proper process names *)
+  List.iter (fun (n,t) -> match t with 
+  						  | Process _ -> ok_procname n 
+  						  | _ -> raise (TypeCheckError (Printf.sprintf "error in given list: %s is not a process spec"
+																	   (string_of_param (n,Some t))
+													   )
+									   )
+  			) 
+  			lib;
+  let knownassoc = List.map (fun (n,(t,_)) -> n, generalise (Parseutils.parse_typestring t)) Interpret.knowns in
+  let cxt = lib @ knownassoc in
   let header_type cxt (Processdef (n,ps,_) as def) =
     ok_procname n;
     let process_param = function

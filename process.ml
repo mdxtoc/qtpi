@@ -87,7 +87,7 @@ and string_of_qspec (n, vopt) =
                  )
 
 and string_of_letspec (p,e) =
-  Printf.sprintf "(let %s = %s)"
+  Printf.sprintf "%s=%s"
   				 (string_of_param p)
   				 (string_of_expr e)
   				 

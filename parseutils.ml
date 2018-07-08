@@ -25,11 +25,10 @@ open Sourcepos
 
 exception Error of string
 
-let parse_special entry default string =
+let parse_string entry default string =
   let lexbuf = Lexing.from_string string in
   try
-    Settings.temp_setting Settings.parse_typevars true 
-                          (fun () -> entry Lexer.make_token lexbuf)
+    entry Lexer.make_token lexbuf
   with 
   | Parsing.Parse_error ->
          (match default with 
@@ -53,6 +52,8 @@ let parse_special entry default string =
               default
           | _            -> raise exn
          )
+
+let parse_typestring s = parse_string Parser.readtype None s
 
 let parse_program filename =
   let in_channel = open_in filename in

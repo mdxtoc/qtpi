@@ -74,8 +74,8 @@ module rec Types : sig
   and stuck = name * value list
 end = Types
 
-and OrderedRandomWaiters : Binary_heap.Ordered = struct type t = int*Types.waiter let compare = Pervasives.compare end
-and OrderedRandomRunners : Binary_heap.Ordered = struct type t = int*Types.runner let compare = Pervasives.compare end
+and OrderedRandomWaiters : Binary_heap.Ordered = struct type t = int*Types.waiter let compare e = (~-) <.> Pervasives.compare e end
+and OrderedRandomRunners : Binary_heap.Ordered = struct type t = int*Types.runner let compare e = (~-) <.> Pervasives.compare e end
 
 and WaiterHeap : Binary_heap.BH with type elt=int*Types.waiter = Binary_heap.Make(OrderedRandomWaiters)
 and RunnerHeap : Binary_heap.BH with type elt=int*Types.runner = Binary_heap.Make(OrderedRandomRunners)
@@ -117,7 +117,13 @@ and string_of_env env =
   string_of_assoc string_of_name string_of_value "->" "; " env
 
 and short_string_of_env env =
-  string_of_assoc string_of_name short_string_of_value "->" "; " env
+  string_of_assoc string_of_name short_string_of_value "->" "; " 
+    (List.filter (function _, VProcess _
+                  |        _, VFun     _ -> false
+                  | _                    -> true
+                  )
+                  env
+    )
 
 and string_of_runner (n, proc, env) =
   Printf.sprintf "%s = (%s) [%s]" 
@@ -143,16 +149,20 @@ and string_of_stuck (n, vs) =
                  (string_of_list string_of_value "," vs)
 
 and string_of_waiterheap sep wh =
-  let ss = WaiterHeap.fold (fun (i,w) ss -> (i,string_of_waiter w)::ss) wh [] in
-  String.concat sep @@ List.rev @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
+  String.concat sep @@ 
+  List.map (if !verbose_waiters then (Tupleutils.string_of_pair string_of_int string_of_waiter ", ") 
+            else string_of_waiter <.> snd
+           ) @@ 
+  List.sort Pervasives.compare @@ 
+  WaiterHeap.fold (Listutils.cons) wh []
   
 and short_string_of_waiterheap sep wh =
   let ss = WaiterHeap.fold (fun (i,w) ss -> (i,short_string_of_waiter w)::ss) wh [] in
-  String.concat sep @@ List.rev @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
+  String.concat sep @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
   
 and string_of_runnerheap sep rh =
   let ss = RunnerHeap.fold (fun (i,r) ss -> (i,string_of_runner r)::ss) rh [] in
-  String.concat sep @@ List.rev @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
+  String.concat sep @@ (List.map snd) @@ (List.sort Pervasives.compare) @@ ss
   
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 

@@ -38,16 +38,18 @@ let verbose_qsim = ref false
 let verbose_qcalc = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
+let verbose_waiters = ref false
 
 let symbq = ref true
 
 let fancyvec = ref true
 
 let verboseopts = [("all"              , verbose                  );
-                   ("qcalc"            , verbose_qcalc            );
                    ("interpret"        , verbose_interpret        );
+                   ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
                    ("simplify"         , verbose_simplify         );
                    ("typecheck"        , verbose_typecheck        );
+                   ("waiters"          , verbose_waiters          );
                   ] 
 let setverbose s = (List.assoc s verboseopts) := true

@@ -276,8 +276,10 @@ and prod p1 p2 =
   let r = match p1, p2 with
           | Pneg p1         , _                 -> neg (prod p1 p2)
           | _               , Pneg p2           -> neg (prod p1 p2)
-          | _               , Psum p2s          -> simplify_sum (List.map (prod p1) p2s)
-          | Psum p1s        , _                 -> simplify_sum (List.map (fun p1 -> prod p1 p2) p1s)
+          | _               , Psum p2s          -> let ps = List.map (prod p1) p2s in
+          										   simplify_sum (sflatten ps)
+          | Psum p1s        , _                 -> let ps = List.map (fun p1 -> prod p1 p2) p1s in
+          										   simplify_sum (sflatten ps)
           | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
           | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
           | Pprod p1s       , _                 -> simplify_prod (p1s @ [p2])
@@ -318,6 +320,19 @@ and sum  p1 p2 =
   in
   if !verbose_simplify then
     Printf.printf "sum (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+  r
+
+and sflatten ps = (* flatten a list of sums *)
+  let rec sf p ps = 
+    match p with
+	| Psum ps' -> ps' @ ps
+	| _        -> p :: ps
+  in
+  let r = List.fold_right sf ps [] in
+  if !verbose_simplify then
+    Printf.printf "sflatten %s -> %s\n" 
+    			  (bracketed_string_of_list string_of_prob ps) 
+    			  (bracketed_string_of_list string_of_prob r);
   r
 
 and simplify_sum ps = 

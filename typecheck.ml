@@ -296,6 +296,11 @@ and typecheck_process cxt p =
   | WithQbit (qss,proc) ->
       let params = List.map (fun (n,_) -> n, Some Qbit) qss in
       do_procparams "WithQbit" cxt params proc
+  | WithLet ((p,e),proc) -> 
+      let (n,topt) = p in
+      let t = match topt with Some t -> t | _ -> new_TypeVar() in
+      let cxt = assigntype_expr cxt t e in
+      do_procparams "WithLet" cxt [p] proc
   | WithStep (step,proc) ->
       (match step with
        | Read (chan, params) ->
@@ -347,16 +352,11 @@ let typecheck_processdef cxt (Processdef (n,params,proc)) =
   cxt
   
 let typecheckdefs lib defs =
-  (* lib is a list of name:type pairs, and most of the types have typevars. Convert to Univ types. *)
-  let generalise (n,t) = 
   (* make a Univ type out of a function type *)
   let generalise t = 
     let vs = Type.frees t in
-    n, if NameSet.is_empty vs then t else Univ(NameSet.elements vs,t)
     if NameSet.is_empty vs then t else Univ(NameSet.elements vs,t)
   in
-  List.iter (fun (n,t) -> match t with Process _ -> ok_procname n | _ -> ()) lib;
-  let cxt = List.map generalise lib in
   (* lib is a list of name:type pairs; all should be process types with proper process names *)
   List.iter (fun (n,t) -> match t with 
   						  | Process _ -> ok_procname n 

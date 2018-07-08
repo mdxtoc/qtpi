@@ -234,7 +234,6 @@ and qbitv env e =
   | VQbit q -> q
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
 
-and evalug env ug = 
 and pairv env e =
   match evale env e with
   | VTuple [e1;e2] -> e1, e2
@@ -247,7 +246,6 @@ and ugv env ug =
   | GX                  -> GateX
   | GCnot               -> GateCnot
   | GPhi  e             -> GatePhi(intv env e)
-  | GCond (e,ug1,ug2)   -> evalug env (if boolv env e then ug1 else ug2)
   | GCond (e,ug1,ug2)   -> ugv env (if boolv env e then ug1 else ug2)
 
 (* ******************** built-in functions ********************* *)
@@ -315,6 +313,9 @@ let rec interp sysenv proc =
         | pn, WithQbit (ns, proc), env ->
             let ps = List.map (fun (n,vopt) -> (n, newqbit n vopt)) ns in
             addrunner (pn, proc, (ps @ env))
+        | pn, WithLet (((n,_),e), proc), env ->
+            let env = (n, evale env e) :: env in
+            addrunner (pn, proc, env)
         | pn, WithStep (step, proc), env ->
             (match step with
              | Read (e, ps) -> let c = chanv env e in
@@ -341,7 +342,6 @@ let rec interp sysenv proc =
                                       let v = VInt (qmeasure q) in
                                       addrunner (pn, proc, (n,v)::env)
              | Ugatestep (es, ug)  -> let qs = List.map (qbitv env) es in
-                                      let g = evalug env ug in
                                       let g = ugv env ug in
                                       ugstep qs g;
                                       addrunner (pn, proc, env)
@@ -365,16 +365,12 @@ let interpretdefs lib defs =
   let given (n,t) assoc =
     match t with 
     | Process ts -> (n, VProcess ((List.map (fun t -> new_unknown_name()) ts), IGiven))::assoc
-    | Fun _      -> (n, VFun n)::assoc
     | t          -> raise (Error(dummy_spos, Printf.sprintf "** cannot interpret with given %s:%s" 
                                                             (string_of_name n)
                                                             (string_of_type t)
                                 )
                           )
   in
-  let libassoc = List.fold_right given lib [] in
-  let procassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
-  let sysenv = procassoc @ libassoc in
   let givenassoc = List.fold_right given lib [] in
   let knownassoc = List.map (fun (n,(_,v)) -> n, VFun n) knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in

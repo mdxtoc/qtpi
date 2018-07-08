@@ -103,8 +103,8 @@ rule make_token = parse
   | "_Phi"      {PHI}
   | "_PHI"      {PHI}
   | "new"       {NEWDEC}
-  (* do we need dispose? *)
   | "newq"      {QBITDEC}
+  | "let"		{LETDEC}
   
   | '?'         {QUERY}
   | '!'         {BANG}

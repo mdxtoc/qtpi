@@ -79,7 +79,7 @@
 %token IF THEN ELSE FI
 %token INTTYPE BOOLTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT
-%token HADAMARD PHI CNOT I X NEWDEC QBITDEC 
+%token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC
 %token QUERY BANG MEASURE THROUGH 
 %token PLUSPLUS PLUS MINUS
 %token EQUALS NOTEQUAL
@@ -200,7 +200,8 @@ process:
                                               )
                                         }
   | LPAR NEWDEC paramseq RPAR process   {WithNew ($3,$5)}
-  | LPAR QBITDEC qspecs RPAR process     {WithQbit ($3,$5)}
+  | LPAR QBITDEC qspecs RPAR process    {WithQbit ($3,$5)}
+  | LPAR LETDEC letspec RPAR process    {WithLet ($3,$5)}
   | step DOT process                    {WithStep ($1,$3)}
   | LPAR ubprocess RPAR                 {$2}
   | IF expr THEN ubprocess ELSE ubprocess FI
@@ -226,6 +227,10 @@ vbasis:
   | VONE                                {VOne }
   | VPLUS                               {VPlus}
   | VMINUS                              {VMinus}
+  
+letspec:
+  | name EQUALS expr                    {($1, None   ), $3}
+  | name COLON typespec EQUALS expr     {($1, Some $3), $5}
   
 step:
   | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}

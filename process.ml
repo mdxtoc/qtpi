@@ -34,11 +34,14 @@ type process =
   | Call of name * expr list
   | WithNew of param list * process
   | WithQbit of qspec list * process
+  | WithLet of letspec * process
   | WithStep of step * process
   | Cond of expr * process * process
   | Par of process list
 
 and qspec = name * basisv option
+
+and letspec = param * expr
 
 and basisv =
   | VZero
@@ -64,6 +67,9 @@ let rec string_of_process =
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s)%s"
                                             (commasep (List.map string_of_qspec xs))
                                             (trailing_sop p)
+  | WithLet (x,p)        -> Printf.sprintf "(let %s)%s"
+                                            (string_of_letspec x)
+                                            (trailing_sop p)
   | WithStep (s,p)        -> Printf.sprintf "%s.%s"
                                             (string_of_step s)
                                             (trailing_sop p)
@@ -80,6 +86,11 @@ and string_of_qspec (n, vopt) =
                   | Some bv -> Printf.sprintf "=%s" (string_of_basisv bv)
                  )
 
+and string_of_letspec (p,e) =
+  Printf.sprintf "(let %s = %s)"
+  				 (string_of_param p)
+  				 (string_of_expr e)
+  				 
 and string_of_basisv bv =
   "|" ^
   (match bv with

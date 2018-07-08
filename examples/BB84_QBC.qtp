@@ -1,8 +1,4 @@
-given hd        : 'a list -> 'a,
-      tl        : 'a list -> 'a list,
-      fst       : 'a*'b -> 'a,
-      snd       : 'a*'b -> 'b,
-      Honest    : unit process,
+given Honest    : unit process,
       Liar      : unit process,
       BobWin    : unit process,
       BobLose   : unit process
@@ -52,6 +48,6 @@ BobVerify (vs:(bit*bit) list, basis:bit, as:bit list) =
        
 Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
 
-System(n:int) =
-    (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
-        (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q)Random(q,r))
+System() = (let n=10)
+		   (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
+		   (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q)Random(q,r))

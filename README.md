@@ -8,3 +8,7 @@ I haven't got around to ownership yet, because I realised that the kind of probl
 
 There is a language description in the docs directory, and there are examples in the examples directory. More to come.
 
+## Acknowledgements
+
+Qtpi's internal priority queues are based on Jean-Christophe Filliatre's implementation of binary heaps, from [his github repo](https://github.com/backtracking/bheap.git). 
+

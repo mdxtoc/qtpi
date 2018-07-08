@@ -26,6 +26,8 @@ exception Zip
 let zip xs ys = try List.combine xs ys with Invalid_argument _ -> raise Zip
 let unzip = List.split
 
+(* why don't we have (::)? *)
+let cons x xs = x::xs
 let null xs = match xs with [] -> true | _ -> false
 
 let (<@>) xys x = List.assoc x xys

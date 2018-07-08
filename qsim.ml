@@ -336,11 +336,11 @@ and sflatten ps = (* flatten a list of sums *)
   r
 
 and simplify_sum ps = 
-  let r = let rec scompare p1 p2 =
+  let r = let rec scompare p1 p2 = (* ignore negation *)
             match p1, p2 with
-            | Pneg p1  , _         -> let r = scompare p1 p2 in if r=0 then 1 else 0
+            | Pneg p1  , _         -> scompare p1 p2
             | _        , Pneg p2   -> scompare p1 p2
-            | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s
+            (* | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s *)
             | _                    -> Pervasives.compare p1 p2
           in
           let rec double p1 p2 = (* looking for h(k)*X+h(k)*X. We know p1=p2 *)
@@ -718,8 +718,8 @@ let qmeasure q =
     _for_leftfold 0 1 (vsize v) (fun i p -> if i land bit<>0 then 
                                       sum (prod v.(i) v.(i)) p 
                                     else p
-                        ) 
-                        P_0 
+								) 
+								P_0 
   in
   if !verbose_qsim then 
     Printf.printf "qmeasure %s; %s|->%s; prob |1> = %s;"
@@ -762,13 +762,23 @@ let qmeasure q =
                              _for 0 1 (vsize v) (fun i -> v.(i) <- r2 v.(i))
    | Pprod [p1;p2] when p1=p2 
                         -> _for 0 1 (vsize v) (fun i -> v.(i) <- div v.(i) p1)
-   | _                  -> if !verbose_qsim then 
-                             Printf.printf " oh dear!\n"; 
-                           raise (Error (Printf.sprintf "normalise %s modulus %s" 
-                                                        (string_of_qval (qs,v)) 
-                                                        (string_of_prob modulus)
-                                        )
-                                 )
+   (* at this point it _could_ be necessary to guess roots of squares, like sqrt (h(2)+ab) = h+ab. 
+    * Or maybe a better solution is required ...
+    *)
+   | _                  -> 
+       (* is there just one possibility? If so, set it to P_1. *)
+       let nzs = List.map (fun p -> if p<>P_0 then 1 else 0) (Array.to_list v) in
+       if List.fold_left (+) 0 nzs = 1 then
+         _for 0 1 (vsize v) (fun i -> if v.(i)<>P_0 then v.(i)<-P_1)
+       else
+		 (if !verbose_qsim then
+			Printf.printf " oh dear!\n"; 
+		  raise (Error (Printf.sprintf "normalise %s modulus %s" 
+									   (string_of_qval (qs,v)) 
+									   (string_of_prob modulus)
+					   )
+				)
+		 ) 
   );
   let qv = qs, v in
   if !verbose_qsim then 

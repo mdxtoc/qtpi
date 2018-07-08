@@ -50,4 +50,4 @@ Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
 
 System() = (let n=10)
 		   (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
-		   (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q)Random(q,r))
+		   (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q = |0>) Random(q,r))

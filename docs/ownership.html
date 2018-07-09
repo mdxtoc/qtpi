@@ -1,0 +1,50 @@
+<h1>Static treatment of ownership of qbits</h1>
+<h2>The dream</h2>
+<p>Suppose <em>A</em> sends a qbit on a channel <em>c</em></p>
+<pre><code>A(c:^qbit) = (newq q) c!q . .. more A ..
+</code></pre>
+<p>and <em>B</em> receives it on the same channel</p>
+<pre><code>B(c:^qbit) = c?(q'). .. more B ..
+</code></pre>
+<p>Suppose that we identify different named processes as happening on different machines in different places. Then surely in <em>more A</em>, <em>A</em> cannot do anything with <em>q</em>, like measure it, gate it or whatever. <em>B</em> in <em>more B</em> clearly can play with <em>q'</em> exclusively: it <strong>owns</strong> it.</p>
+<p>So it seems that it might be possible to use scoping to deal with ownership: in <em>more A</em>, <em>q</em> could be out of scope, whilst in <em>more B</em>, <em>q'</em> is in scope. Bingo?</p>
+<h2>Problems</h2>
+<ol>
+<li>
+<p>How about splitting into two processes?</p>
+<pre><code> A() = (newq q) (A'(q) | A''(q))
+
+ A'(q1:qbit) = ...
+
+ A''(q2:qbit) = ..
+</code></pre>
+<p><em>A'</em> and <em>A''</em> can't both exclusively inherit the same qbit.</p>
+</li>
+<li>
+<p>How about going on as another process?</p>
+<pre><code> A() = (newq q) A'(q,q)
+
+ A'(q1:qbit, q2:qbit) = ...
+</code></pre>
+<p><em>A'</em> doesn't own two separate qbits.</p>
+</li>
+<li>
+<p>How about sending the same qbit twice?</p>
+<pre><code> A(c:^qbit*qbit) = (newq q) c!q,q . ...
+ 
+ B(c:^qbit*qbit) = c?(q1,q2). ...
+</code></pre>
+<p><em>B</em> only owns one qbit, not two.</p>
+</li>
+<li>
+<p>How about a <em>let</em> binding?</p>
+<pre><code> A() = (newq q) (let q'=q) ...
+</code></pre>
+<p><em>A</em> only creates one qbit to own.</p>
+</li>
+</ol>
+<h2>Resources</h2>
+<p>Clearly a qbit is a resource. It's indivisible and can't be duplicated. So the kind of casual duplication of tupling <em>q,q</em> or listing <em>q::q::qs</em> or any of the four problems above has to be outlawed.</p>
+<p>If we required that tuple elements didn't overlap in terms of resource, and that qbit names bind unique qbits, we might be out of the woods. Qbit lists, and lists of any type involving a qbit, probably have to be outlawed.</p>
+<p>Then we can do the scope thing.</p>
+<p>That's my plan anyway.</p>

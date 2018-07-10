@@ -43,10 +43,10 @@ exception TypeCheckError of string
    because resourcing needs a map of all typevars, obvs.
  *)
 type typecxt         = _type NameMap.t
-let (<@>) cxt n      = NameMap.find n cxt 		(* is this evil? Over-riding Listutils.(<@>)!! *)
-let (<@+>) cxt (n,t) = NameMap.add n t cxt 		(* also evil? *)
-let (<@->) cxt n     = NameMap.remove n cxt 	(* also evil? *)
-let (<@?>) cxt n     = NameMap.mem n cxt		(* you know, I no longer think it's evil *)
+let (<@>) cxt n      = NameMap.find n cxt       (* is this evil? Over-riding Listutils.(<@>)!! *)
+let (<@+>) cxt (n,t) = NameMap.add n t cxt      (* also evil? *)
+let (<@->) cxt n     = NameMap.remove n cxt     (* also evil? *)
+let (<@?>) cxt n     = NameMap.mem n cxt        (* you know, I no longer think it's evil *)
 
 let string_of_typecxt = NameMap.to_string string_of_type
 
@@ -72,6 +72,32 @@ and evaltype cxt t =
   | Fun (t1,t2)     -> Fun (evaltype cxt t1, evaltype cxt t2)
   | Process ts      -> Process (List.map (evaltype cxt) ts)
 
+let  rewrite_param cxt (n,rt) =
+  match !rt with
+  | Some (TypeVar n) -> rt := eval cxt n (* unused params will be typed None *)
+  | _                -> ()
+  
+let rewrite_params cxt = List.iter (rewrite_param cxt)
+
+let rewrite_step cxt = function
+  | Read      (e,params)    -> rewrite_params cxt params
+  | Write     (e,es)        -> ()
+  | Measure   (e,param)     -> rewrite_param cxt param
+  | Ugatestep (es, ug)      -> ()
+
+let rec rewrite_process cxt = function
+  | Terminate               -> ()
+  | Call      (n,es)        -> ()
+  | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process cxt p
+  | WithQbit  (qspec, p)    -> rewrite_process cxt p
+  | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_process cxt p
+  | WithStep (step, p)      -> rewrite_step cxt step; rewrite_process cxt p
+  | Cond     (e, p1, p2)    -> rewrite_process cxt p1; rewrite_process cxt p2
+  | Par      ps             -> List.iter (rewrite_process cxt) ps
+
+let rewrite_def cxt (Processdef (n, params, proc)) =
+  rewrite_params cxt params; rewrite_process cxt proc
+  
 (* useful in error messages *)
 let pickdiff cxt t t1 t2 = 
   let t = evaltype cxt t in
@@ -357,13 +383,13 @@ let typecheckdefs lib defs =
   in
   (* lib is a list of name:type pairs; all should be process types with proper process names *)
   List.iter (fun (n,t) -> match t with 
-  						  | Process _ -> ok_procname n 
-  						  | _ -> raise (TypeCheckError (Printf.sprintf "error in given list: %s is not a process spec"
-																	   (string_of_param (n,ref (Some t)))
-													   )
-									   )
-  			) 
-  			lib;
+                          | Process _ -> ok_procname n 
+                          | _ -> raise (TypeCheckError (Printf.sprintf "error in given list: %s is not a process spec"
+                                                                       (string_of_param (n,ref (Some t)))
+                                                       )
+                                       )
+            ) 
+            lib;
   let knownassoc = List.map (fun (n,(t,_)) -> n, generalise (Parseutils.parse_typestring t)) Interpret.knowns in
   let cxt = List.fold_left (fun cxt binding -> cxt <@+> binding) NameMap.empty (lib @ knownassoc) in
   let header_type cxt (Processdef (n,ps,_) as def) =
@@ -372,15 +398,15 @@ let typecheckdefs lib defs =
     match !rt with
     | None   -> TypeVar (new_unknown_name())
     | Some t -> if (match t with Univ _ -> true | _ -> false) ||
-				   not (NameSet.is_empty (Type.frees t)) 
-				then raise (TypeCheckError (Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
-														   (string_of_param param)
-										   )
-						   )
-				;
-				(match t with Process _ -> ok_procname n | _ -> ())
-				;
-				t
+                   not (NameSet.is_empty (Type.frees t)) 
+                then raise (TypeCheckError (Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
+                                                           (string_of_param param)
+                                           )
+                           )
+                ;
+                (match t with Process _ -> ok_procname n | _ -> ())
+                ;
+                t
     in
     let process_params = List.map process_param in
     if cxt<@?>n 
@@ -393,7 +419,8 @@ let typecheckdefs lib defs =
   in
   let cxt = List.fold_left header_type cxt defs in
   let cxt = List.fold_left typecheck_processdef cxt defs in
+  List.iter (rewrite_def cxt) defs;
   if !verbose || !verbose_typecheck then 
     Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
-    			  (string_of_typecxt cxt)
-    			  (string_of_list string_of_processdef "\n" defs);
+                  (string_of_typecxt cxt)
+                  (string_of_list string_of_processdef "\n\n" defs);

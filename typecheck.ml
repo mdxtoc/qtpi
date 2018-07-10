@@ -39,10 +39,16 @@ open Step
 exception TypeUnifyError of _type * _type
 exception TypeCheckError of string
 
-type typecxt         = (string * _type) list                  (* use assoc or <@> *)
+(* converting to Map rather than assoc list for type contexts, 
+   because resourcing needs a map of all typevars, obvs.
+ *)
+type typecxt         = _type NameMap.t
+let (<@>) cxt n      = NameMap.find n cxt 		(* is this evil? Over-riding Listutils.(<@>)!! *)
+let (<@+>) cxt (n,t) = NameMap.add n t cxt 		(* also evil? *)
+let (<@->) cxt n     = NameMap.remove n cxt 	(* also evil? *)
+let (<@?>) cxt n     = NameMap.mem n cxt		(* you know, I no longer think it's evil *)
 
-let string_of_typecxt = 
-  string_of_assoc (fun n -> "\n\t" ^ string_of_name n) string_of_type" : " ";"
+let string_of_typecxt = NameMap.to_string string_of_type
 
 let new_TypeVar () = TypeVar (new_unknown_name ())
 
@@ -57,7 +63,7 @@ and evaltype cxt t =
   | Unit
   | Qbit            -> t
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
-  | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> List.remove_assoc (string_of_name n) cxt) cxt ns in
+  | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
                        Univ (ns,evaltype cxt t')
   | Range _         -> t
   | List t          -> List (evaltype cxt t)
@@ -78,9 +84,9 @@ let rec unifytype cxt t1 t2 =
   let t2 = evaltype cxt t2 in
   let exn = TypeUnifyError (t1,t2) in 
   match t1, t2 with
-  | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt else (n1,t2)::cxt
-  | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then (n1,t2)::cxt else raise exn
-  | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then (n2,t1)::cxt else raise exn
+  | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt else cxt <@+> (n1,t2)
+  | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then cxt <@+> (n1,t2) else raise exn
+  | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then cxt <@+> (n2,t1) else raise exn
   | Tuple t1s       , Tuple t2s             
   | Process t1s     , Process t2s       -> unifylists exn cxt t1s t2s 
   | Channel t1      , Channel t2        
@@ -116,12 +122,9 @@ and canunifytype n cxt = function
   | Univ (ns,t)     -> List.mem n ns || canunifytype n cxt t
   
 (* when you think you have a complete type context, simplify it with evalcxt. 
-   Throws away TypeVars 
+   Once threw away TypeVars: now it just shortens lookups. 
  *)
-let evalcxt cxt = 
-  let evalpair (n,_) = (n, _The (eval cxt n)) in
-  let ec = List.map evalpair cxt in
-  List.filter (fun (n,_) -> n.[0]<>'?') ec
+let evalcxt cxt = NameMap.map (evaltype cxt) cxt
 
 let string_of_evalcxt = string_of_typecxt <.> evalcxt
 
@@ -252,7 +255,7 @@ let strip_procparams s cxt params =
 
 let rec do_procparams s cxt params proc =
   let process_param (n,rt) = n, fix_paramtype rt in
-  let cxt = (List.map process_param params) @ cxt in
+  let cxt = List.fold_left (fun cxt param -> cxt <@+> process_param param) cxt params in
   let cxt = typecheck_process cxt proc in
   strip_procparams s cxt params
 
@@ -365,7 +368,7 @@ let typecheckdefs lib defs =
   			) 
   			lib;
   let knownassoc = List.map (fun (n,(t,_)) -> n, generalise (Parseutils.parse_typestring t)) Interpret.knowns in
-  let cxt = lib @ knownassoc in
+  let cxt = List.fold_left (fun cxt binding -> cxt <@+> binding) NameMap.empty (lib @ knownassoc) in
   let header_type cxt (Processdef (n,ps,_) as def) =
     ok_procname n;
     let process_param ((n,rt) as param) = 
@@ -389,8 +392,11 @@ let typecheckdefs lib defs =
                                                (string_of_name n)
                                )
                )
-    else (n, Process (process_params ps))::cxt
+    else cxt <@+> (n, Process (process_params ps))
   in
   let cxt = List.fold_left header_type cxt defs in
   let cxt = List.fold_left typecheck_processdef cxt defs in
-  if !verbose || !verbose_typecheck then print_endline ("typechecked");
+  if !verbose || !verbose_typecheck then 
+    Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
+    			  (string_of_typecxt cxt)
+    			  (string_of_list string_of_processdef "\n" defs);

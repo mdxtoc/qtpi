@@ -36,6 +36,8 @@ let memname = NameSet.mem
 let subtractname = NameSet.remove
 let subtractnames = revargs (List.fold_left (revargs subtractname)) 
 
+module NameMap = MyMap.Make (OrderedName)
+
 let new_unknown_name = (* hide the reference *)
   (let undecidedcount = ref 0 in
    let new_unknown_name () = 

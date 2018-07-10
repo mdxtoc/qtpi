@@ -33,7 +33,7 @@ module type S = sig
   val to_assoc  : 'a t -> (key * 'a) list
   val of_assoc  : (key * 'a) list -> 'a  t
   val to_string : ('a -> string) -> 'a t -> string
-  val map       : ((key * 'a) -> 'b) -> ('b list -> 'c) -> 'a t -> 'c
+  val mymap     : ((key * 'a) -> 'b) -> ('b list -> 'c) -> 'a t -> 'c
   val mymerge   : ('a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
   val memofun   : ('b -> key) -> ('b -> 'a) -> 'b -> 'a
   val vmemofun  : bool -> string -> ('b -> string) -> ('a -> string) -> 
@@ -53,7 +53,7 @@ module Make (Ord : OrderedType) = struct
   let to_string string_of_target map =
     Printf.sprintf "{%s}" (Listutils.string_of_assoc Ord.to_string string_of_target "->" ";" (bindings map))
     
-  let map f output =
+  let mymap f output =
     output <.> List.map f <.> bindings
 
   let mymerge union m1 m2 =

@@ -137,8 +137,8 @@ paramseq:
   | param COMMA paramseq                {$1::$3}
   
 param:
-  | name COLON typespec                 {$1,Some $3}
-  | name                                {$1,None}
+  | name COLON typespec                 {$1,ref (Some $3)}
+  | name                                {$1,ref None}
 
 name:
   NAME                                  {$1}
@@ -229,8 +229,8 @@ vbasis:
   | VMINUS                              {VMinus}
   
 letspec:
-  | name EQUALS expr                    {($1, None   ), $3}
-  | name COLON typespec EQUALS expr     {($1, Some $3), $5}
+  | name EQUALS expr                    {($1, ref None     ), $3}
+  | name COLON typespec EQUALS expr     {($1, ref (Some $3)), $5}
   
 step:
   | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}

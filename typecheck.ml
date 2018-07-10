@@ -251,14 +251,21 @@ let strip_procparams s cxt params =
   cxt
 
 let rec do_procparams s cxt params proc =
-  let process_param = function
-    | n, None   -> n, new_TypeVar()
-    | n, Some t -> n, t
-  in
+  let process_param (n,rt) = n, fix_paramtype rt in
   let cxt = (List.map process_param params) @ cxt in
   let cxt = typecheck_process cxt proc in
   strip_procparams s cxt params
 
+and fix_paramtype rt =
+  match !rt with
+  | Some t -> t
+  | None   -> let t = new_TypeVar() in rt:= Some t; t
+  
+and unify_paramtype cxt rt t =
+  match !rt with
+  | Some t' ->               unifytype cxt t t'
+  | None    -> rt := Some t; cxt
+  
 and typecheck_process cxt p =
   match p with
   | Terminate     -> cxt
@@ -282,23 +289,20 @@ and typecheck_process cxt p =
       List.fold_left (fun cxt (e,t) -> assigntype_expr cxt t e) cxt ets
   | WithNew (params, proc) ->
       (* all the params have to be channels *)
-      let cxt, rparams = 
-        List.fold_left (fun (cxt, rps) (n, opt) -> 
-                          let ct = Channel (new_TypeVar ()) in
-                          match opt with 
-                          | Some t -> unifytype cxt t ct, ((n, opt)::rps)
-                          | None   -> cxt, ((n, Some ct)::rps)           
+      let cxt = 
+        List.fold_left (fun cxt (n, rt) -> 
+                          unify_paramtype cxt rt (Channel (new_TypeVar ())) 
                        )
-                       (cxt, [])
+                       cxt
                        params
       in
-      do_procparams "WithNew" cxt (List.rev rparams) proc
+      do_procparams "WithNew" cxt params proc
   | WithQbit (qss,proc) ->
-      let params = List.map (fun (n,_) -> n, Some Qbit) qss in
+      let params = List.map (fun (n,_) -> n, ref (Some Qbit)) qss in
       do_procparams "WithQbit" cxt params proc
   | WithLet ((p,e),proc) -> 
-      let (n,topt) = p in
-      let t = match topt with Some t -> t | _ -> new_TypeVar() in
+      let (n,rt) = p in
+      let t = fix_paramtype rt in
       let cxt = assigntype_expr cxt t e in
       do_procparams "WithLet" cxt [p] proc
   | WithStep (step,proc) ->
@@ -307,12 +311,10 @@ and typecheck_process cxt p =
            let chants = List.map (fun _ -> new_TypeVar()) params in 
            let chant = Type.delist chants in
            let cxt = assigntype_expr cxt (Channel chant) chan in
-           let stitch s (cxt, params) = 
-             match s with
-             | t', (n, None  ) -> cxt               , (n, Some t')::params
-             | t', (n, Some t) -> unifytype cxt t t', (n, Some t')::params
+           let stitch (t', (n,rt)) cxt = 
+             unify_paramtype cxt rt t'
            in
-           let cxt, params = List.fold_right stitch (zip chants params) (cxt, []) in
+           let cxt = List.fold_right stitch (zip chants params) cxt in
            do_procparams "Read" cxt params proc 
        | Write (chan, es) ->
            let chants = List.map (fun _ -> new_TypeVar()) es in 
@@ -320,13 +322,9 @@ and typecheck_process cxt p =
            let cxt = assigntype_expr cxt (Channel chant) chan in
            let cxt = List.fold_left (fun cxt (t,v) -> assigntype_expr cxt t v) cxt (zip chants es) in
            typecheck_process cxt proc
-       | Measure (e, param) ->
-           let cxt, param = 
-             match param with 
-             | n, None   -> cxt, (n, Some Bit)
-             | n, Some t -> unifytype cxt t Bit, param
-           in
+       | Measure (e, ((n,rt) as param)) ->
            let cxt = assigntype_expr cxt Qbit e in
+           let cxt = unify_paramtype cxt rt Bit in
            do_procparams "Measure" cxt [param] proc
        | Ugatestep (es, ugate) ->
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt Qbit e) cxt es in
@@ -361,7 +359,7 @@ let typecheckdefs lib defs =
   List.iter (fun (n,t) -> match t with 
   						  | Process _ -> ok_procname n 
   						  | _ -> raise (TypeCheckError (Printf.sprintf "error in given list: %s is not a process spec"
-																	   (string_of_param (n,Some t))
+																	   (string_of_param (n,ref (Some t)))
 													   )
 									   )
   			) 
@@ -370,18 +368,19 @@ let typecheckdefs lib defs =
   let cxt = lib @ knownassoc in
   let header_type cxt (Processdef (n,ps,_) as def) =
     ok_procname n;
-    let process_param = function
-    | _, None   -> TypeVar (new_unknown_name())
-    | n, Some t -> if (match t with Univ _ -> true | _ -> false) ||
-                      not (NameSet.is_empty (Type.frees t)) 
-                   then raise (TypeCheckError (Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
-                                                              (string_of_param (n,Some t))
-                                              )
-                              )
-                   ;
-                   (match t with Process _ -> ok_procname n | _ -> ())
-                   ;
-                   t
+    let process_param ((n,rt) as param) = 
+    match !rt with
+    | None   -> TypeVar (new_unknown_name())
+    | Some t -> if (match t with Univ _ -> true | _ -> false) ||
+				   not (NameSet.is_empty (Type.frees t)) 
+				then raise (TypeCheckError (Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
+														   (string_of_param param)
+										   )
+						   )
+				;
+				(match t with Process _ -> ok_procname n | _ -> ())
+				;
+				t
     in
     let process_params = List.map process_param in
     if cxt<@?>n 

@@ -23,11 +23,13 @@
 
 open Settings
 open Listutils
+open Functionutils
 open Name
 open Type
 open Processdef
 open Typecheck
 open Interpret
+open Param
 
 exception Error of string
 
@@ -45,7 +47,7 @@ let _ = match !Usage.files with
                 if !verbose then
                   ((match lib with
                     | [] -> ()
-                    | _  -> let string_of_nt (n,t) = Param.string_of_param (n,Some t) in
+                    | _  -> let string_of_nt = string_of_param <.> param_of_binding in
                             Printf.printf "given %s\n\n" (string_of_list string_of_nt ";" lib)
                    );
                    print_endline (string_of_list string_of_processdef "\n\n" defs)

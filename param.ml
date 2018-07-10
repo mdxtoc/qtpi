@@ -25,14 +25,21 @@ open Listutils
 open Name
 open Type
 
-type param = name * _type option
+(* parameter types get rewritten in typechecking, because we need fully typed
+ * processes for resourcing
+ *)
 
-let string_of_param = function
-  | (n,Some t) -> Printf.sprintf "%s:%s" (string_of_name n) (string_of_type t)  
-  | (n,None  ) -> string_of_name n
+type param = name * _type option ref 
+
+let string_of_param (n,rt) =
+  match !rt with
+  | Some t -> Printf.sprintf "%s:%s" (string_of_name n) (string_of_type t)  
+  | None   -> string_of_name n
   
 let string_of_params = string_of_list string_of_param ", " 
 
 let strip_param ((n,t):param) = n
 
 let strip_params = List.map strip_param
+
+let param_of_binding (n,t) = n, ref (Some t)

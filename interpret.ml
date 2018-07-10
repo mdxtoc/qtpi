@@ -63,24 +63,36 @@ module rec Types : sig
     | VFun of name        (* help! *)
     | VProcess of name list * iprocess
 
-  and chan = {cname: int; stream: (value list) Queue.t; waiters: WaiterQueue.t}
+  and chan = {cname: int; stream: (value list) Queue.t; wwaiters: WWaiterQueue.t; rwaiters: RWaiterQueue.t}
 
   and runner = name * process * env
 
-  and waiter = name * name list * process * env
+  and rwaiter = name * name list * process * env
+  
+  and wwaiter = name * value list * process * env
 
   and env = (name * value) list
 
   and stuck = name * value list
 end = Types
 
-and OrderedWaiters : Priority_queue.Ordered = struct type t = Types.waiter let compare = Pervasives.compare end
+and OrderedRWaiters : Priority_queue.Ordered = struct type t = Types.rwaiter let compare = Pervasives.compare end
+and OrderedWWaiters : Priority_queue.Ordered = struct type t = Types.wwaiter let compare = Pervasives.compare end
 and OrderedRunners : Priority_queue.Ordered = struct type t = Types.runner let compare = Pervasives.compare end
 
-and WaiterQueue : Priority_queue.PQ with type elt=Types.waiter = Priority_queue.Make(OrderedWaiters)
+and RWaiterQueue : Priority_queue.PQ with type elt=Types.rwaiter = Priority_queue.Make(OrderedRWaiters)
+and WWaiterQueue : Priority_queue.PQ with type elt=Types.wwaiter = Priority_queue.Make(OrderedWWaiters)
 and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.Make(OrderedRunners)
 
 open Types
+
+let string_of_pqueue string_of sep es = 
+  string_of_list (if !verbose_queues then (Tupleutils.string_of_pair string_of_int string_of ", ") 
+				   else string_of <.> snd
+				  )
+				  sep
+				  es
+;;
 
 let rec string_of_value = function
   | VUnit           -> "()"
@@ -89,7 +101,7 @@ let rec string_of_value = function
   | VQbit q         -> "Qbit " ^ string_of_qbit q
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
-  | VList vs        -> "[" ^ string_of_list string_of_value ";" vs ^ "]"
+  | VList vs        -> bracketed_string_of_list string_of_value vs
   | VFun n          -> string_of_name n (* help! *)
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
@@ -104,13 +116,14 @@ and short_string_of_value = function
                                       (string_of_list string_of_name "," ns)
   | v               -> string_of_value v
   
-and string_of_chan {cname=i; stream=vs; waiters=ws} =
-    Printf.sprintf "%d [%s] [%s]"
+and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
+    Printf.sprintf "%d [%s] r:{%s} w:{%s}"
                    i
                    (string_of_queue (bracketed_string_of_list string_of_value) "; " vs)
-                   (short_string_of_waiterheap "; " ws)
+                   (string_of_pqueue short_string_of_rwaiter "; " (RWaiterQueue.queue rq))
+                   (string_of_pqueue short_string_of_wwaiter "; " (WWaiterQueue.queue wq))
 
-and short_string_of_chan {cname=i; stream=vs; waiters=ws} =
+and short_string_of_chan {cname=i} =
     string_of_int i
     
 and string_of_env env =
@@ -131,35 +144,37 @@ and string_of_runner (n, proc, env) =
                  (string_of_process proc)
                  (short_string_of_env env)
                  
-and string_of_waiter (n, vars, proc, env) = 
+and string_of_rwaiter (n, vars, proc, env) = 
   Printf.sprintf "%s = (%s)%s [%s]" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
                  (string_of_process proc)
                  (short_string_of_env env)
                  
-and short_string_of_waiter (n, vars, proc, env) = (* infinite loop if we print the environment *)
+and short_string_of_rwaiter (n, vars, proc, env) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
+                 
+and string_of_wwaiter (n, vals, proc, env) = 
+  Printf.sprintf "%s = (%s)%s [%s]" 
+                 (string_of_name n)
+                 (string_of_list string_of_value ";" vals)
+                 (string_of_process proc)
+                 (short_string_of_env env)
+                 
+and short_string_of_wwaiter (n, vals, proc, env) = (* infinite loop if we print the environment *)
+  Printf.sprintf "%s(%s)" 
+                 (string_of_name n)
+                 (string_of_list string_of_value ";" vals)
                  
 and string_of_stuck (n, vs) =
   Printf.sprintf "%s(%s)._"
                  (string_of_name n)
                  (string_of_list string_of_value "," vs)
 
-and string_of_waiterqueue sep wq = 
-  string_of_list (if !verbose_waiters then (Tupleutils.string_of_pair string_of_int string_of_waiter ", ") 
-				   else string_of_waiter <.> snd
-				  )
-				  sep
-				  (WaiterQueue.queue wq)
-  
-and short_string_of_waiterheap sep wq =
-  string_of_list (short_string_of_waiter <.> snd) sep (WaiterQueue.queue wq)
-  
 and string_of_runnerqueue sep rq =
-  string_of_list (string_of_runner <.> snd) sep (RunnerQueue.queue rq)
+  string_of_pqueue string_of_runner sep (RunnerQueue.queue rq)
   
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 
@@ -206,7 +221,7 @@ let rec evale env e =
                                       | Implies   -> (not v1) || v2
                                       | Iff       -> v1 = v2
                                    )
-  | EAppend (es, e)         -> VList (listv env es @ [evale env e])
+  | EAppend (es, es')       -> VList (listv env es @ listv env es')
   | EBitCombine (e1, e2)    -> let v1 = intv env e1 in
                                let v2 = intv env e2 in
                                VInt (v1*2+v2)
@@ -279,7 +294,11 @@ let rec interp sysenv proc =
   let newchan () = 
     let c = !chancount in 
     chancount := !chancount+1; 
-    let chan = {cname=c; stream=Queue.create (); waiters=WaiterQueue.create 10} in (* 10 is a guess *)
+    let chan = {cname=c; stream=Queue.create (); 
+    					 rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
+    					 wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
+    		   } 
+    in
     chanpool := chan::!chanpool;
     VChan chan 
   in
@@ -327,24 +346,35 @@ let rec interp sysenv proc =
             (match step with
              | Read (e, ps) -> let c = chanv env e in
                                let ns, _ = unzip ps in
-                               if not (Queue.is_empty c.stream) then (* there cannot be waiters ... *)
+                               if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
                                   let env = zip ns vs @ env in
                                   addrunner (pn, proc, env)
                                  )
                                else
-                                 WaiterQueue.push c.waiters (pn, ns, proc, env)
+                               if not (WWaiterQueue.is_empty c.wwaiters) then
+                                 (let pn',vs',proc',env' = WWaiterQueue.pop c.wwaiters in
+                                  addrunner (pn', proc', env');
+                                  addrunner (pn, proc, (zip ns vs' @ env))
+                                 )
+							   else
+                                 RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
              | Write (e,es) -> let c = chanv env e in
                                let vs = List.map (evale env) es in
-                               if not (WaiterQueue.is_empty c.waiters) then (* there can be no stream *)
-                                 (let n',ns',proc',env' = WaiterQueue.pop c.waiters in
-                                  addrunner (n', proc', (zip ns' vs @ env'));
+                               if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
+                                 (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
+                                  addrunner (pn', proc', (zip ns' vs @ env'));
                                   addrunner (pn, proc, env)
                                  )
                                else
+                               if !Settings.chanbuf_limit = -1 || 				(* infinite buffers *)
+                                  !Settings.chanbuf_limit>Queue.length c.stream	(* buffer not full *)
+                               then
                                  (Queue.push vs c.stream;
                                   addrunner (pn, proc, env)
                                  )
+                               else
+                                 WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
              | Measure (e, (n,_))  -> let q = qbitv env e in
                                       let v = VInt (qmeasure q) in
                                       addrunner (pn, proc, (n,v)::env)

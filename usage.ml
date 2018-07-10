@@ -27,12 +27,14 @@ let progname = Sys.argv.(0)
 let files = ref []
 let usage = "Usage: " ^ progname ^ " [options]* filename filename ..."
 
-let set_bool bref b = bref:=b
-
+let set_arg aref v = aref:=v
+;;
 let opts = Arg.align 
-             [("-fancyvec"  , Arg.Bool (set_bool fancyvec), 
+             [("-chanbuf_limit"  , Arg.Int (set_arg chanbuf_limit), 
+                    Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
+              ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
-              ("-symbq"  , Arg.Bool (set_bool symbq), 
+              ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
                    " verbose operation, various arguments, defaults false" ); 

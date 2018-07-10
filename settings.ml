@@ -30,15 +30,15 @@ let temp_setting vref v f =
     result
   with exn -> vref:=oldv; raise exn
   
-let parse_typevars = ref false
+let chanbuf_limit = ref 1			(* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
 
 let verbose = ref false
 let verbose_interpret = ref false
 let verbose_qsim = ref false
 let verbose_qcalc = ref false
+let verbose_queues = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
-let verbose_waiters = ref false
 
 let symbq = ref true
 
@@ -48,8 +48,8 @@ let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
                    ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
+                   ("queues"           , verbose_queues          );
                    ("simplify"         , verbose_simplify         );
                    ("typecheck"        , verbose_typecheck        );
-                   ("waiters"          , verbose_waiters          );
                   ] 
 let setverbose s = (List.assoc s verboseopts) := true

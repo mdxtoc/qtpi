@@ -382,8 +382,6 @@ let rec interp sysenv proc =
                                       let g = ugv env ug in
                                       ugstep qs g;
                                       addrunner (pn, proc, env)
-             | Eval e              -> let _ = unitv env e in
-                                      addrunner (pn, proc, env)
             )
         | pn, Cond (e, p1, p2), env ->
             addrunner (pn, (if boolv env e then p1 else p2), env)

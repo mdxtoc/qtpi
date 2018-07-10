@@ -336,9 +336,6 @@ and typecheck_process cxt p =
              raise (TypeCheckError ("arity mismatch in " ^ string_of_step step))
            ;
            typecheck_process cxt proc
-       | Eval (e) -> (* probably obsolete *)
-           let cxt = assigntype_expr cxt Unit e in
-           typecheck_process cxt proc
       )
   | Cond (e,p1,p2) ->
       let cxt = assigntype_expr cxt Bool e in

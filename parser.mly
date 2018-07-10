@@ -242,7 +242,6 @@ step:
                                         }
   | expr MEASURE LPAR param RPAR        {Measure ($1,$4)}
   | ntexprs THROUGH ugate               {Ugatestep ($1,$3)}
-  /* | LBRACE expr RBRACE                  {Eval $2} */
 
 args:
   |                                     {[]}

@@ -34,7 +34,6 @@ type step =
   | Write of expr * expr list
   | Measure of expr * param
   | Ugatestep of expr list * ugate
-  | Eval of expr
   
 let string_of_step =
   function
@@ -51,4 +50,3 @@ let string_of_step =
   | Ugatestep (es,u)    -> Printf.sprintf "%s>>%s"
                                           (commasep (List.map string_of_expr es))
                                           (string_of_ugate u)
-  | Eval e              -> Printf.sprintf "{%s}" (string_of_expr e)

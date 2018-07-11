@@ -23,13 +23,14 @@ Processes *P*, steps *S*, expressions *E*, types *T*, process names *N*, variabl
   
 * Parameter *par*
 
-  | *x* [ ``:`` *T* ]
+  | *x*  
+  | *x* ``:`` *T* 
   
   Parameter type specs are optional, always.
   
 * Step *S*  
 
-  | *E* ``?`` ``(`` x [ ``:`` *T* ] ``,``  ... ``,`` *x* [ ``:`` *T* ] ``)``    
+  | *E* ``?`` ``(`` *par* ``,``  ... ``,`` *par* ``)``    
   | *E* ``!`` *E* ``,``  ... ``,`` *E*   
   | *E*  ``,``  ... ``,`` *E* ``>>`` *G*   
   | *E* ``??`` *G*    
@@ -57,11 +58,11 @@ Processes *P*, steps *S*, expressions *E*, types *T*, process names *N*, variabl
   | ``(`` *T* ``)``  
 
   '``*``' separates elements of a tuple type.   
-  Type variables ``'``*x*, function types *T* ``->`` ... ``->`` *T* and process types *T* ``process`` are used in the ``given`` clause (see program description below).  
+  Type variables ``'``*x* and function types *T* ``->`` ... ``->`` *T* are currently for internal use.
+  Process types *T* ``process`` are used in the ``given`` clause (see program description below).  
   The syntactic precedence of types is more or less as listed, or so I hope and intend. 
 
-  
-  Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them.
+  Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition.
 
 * Expression *E*
 
@@ -74,7 +75,13 @@ Processes *P*, steps *S*, expressions *E*, types *T*, process names *N*, variabl
   
 * Basis vectors *V*
 
-  |0>, |1>, |+> and |->. Used only when creating a new qbit.  
+  | ``|0>``  
+  | ``|1>``  
+  | ``|+>``  
+  | ``|->``  
+  | ``if`` *E* ``then`` *V* ``else`` *V* ``fi``
+  
+  Used only when creating a new qbit.  
 
 * Process name *N*
 
@@ -92,17 +99,20 @@ A program is an optional ``given`` list and then a bunch of process definitions.
 
   | *D* ``(``  *par*  ``,``  ... ``,`` *par* ``)`` = *P*
   
-  Pragmatically it seems to be a good idea to include typespecs in process definition parameters.
+  Types are optional, but it seems to be pragmatic to include them in process definition parameters.
   
   None of the parameters can be a process type.
   
 * ``given`` list
 
-	The word ``given``, followed by a comma-separated list of process and function names, describing things that aren't defined in the program.
+	The word ``given``, followed by a comma-separated list of process names, describing things that aren't defined in the program.
 	
-	The process parameters allow 'stuck' processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes.
+	The process parameters allow undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from the final diagnostic print-out of the state.
 	
-	The function parameters are there because it is necessary to use hd, tl, etc. when manipulating lists, and lists seem essential. I didn't want to build all that stuff in (because where do I stop?) so I imagined I could build an interface. I still imagine, but haven't done it yet.
+* Interface functions
+
+	It seems necessary to include some interface functions to deal with lists and tuples. Currently I pre-define "hd", "tl", "fst" and "snd" which have their usual definitions and types as in ML, OCaml and no doubt Miranda and Haskell.
 	
-	You are allowed type variables in the function types. Of _course_ you need them!
+	"@" (append) is already an operator in the language. I haven't yet included "::" (cons), though I should.
+	
 	

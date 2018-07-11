@@ -19,12 +19,13 @@ The parameters in  <code>newq</code> must describe qbits. Initialisation to basi
 </li>
 <li>
 <p>Parameter <em>par</em></p>
-<p>| <em>x</em> [ <code>:</code> <em>T</em> ]</p>
+<p>| <em>x</em><br />
+| <em>x</em> <code>:</code> <em>T</em></p>
 <p>Parameter type specs are optional, always.</p>
 </li>
 <li>
 <p>Step <em>S</em></p>
-<p>| <em>E</em> <code>?</code> <code>(</code> x [ <code>:</code> <em>T</em> ] <code>,</code>  ... <code>,</code> <em>x</em> [ <code>:</code> <em>T</em> ] <code>)</code><br />
+<p>| <em>E</em> <code>?</code> <code>(</code> <em>par</em> <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code><br />
 | <em>E</em> <code>!</code> <em>E</em> <code>,</code>  ... <code>,</code> <em>E</em><br />
 | <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
 | <em>E</em> <code>??</code> <em>G</em></p>
@@ -49,9 +50,10 @@ The parameters in  <code>newq</code> must describe qbits. Initialisation to basi
 | <em>T</em> <code>process</code><br />
 | <code>(</code> <em>T</em> <code>)</code></p>
 <p>'<code>*</code>' separates elements of a tuple type.<br />
-Type variables <code>'</code><em>x</em>, function types <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em> and process types <em>T</em> <code>process</code> are used in the <code>given</code> clause (see program description below).<br />
+Type variables <code>'</code><em>x</em> and function types <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em> are currently for internal use.
+Process types <em>T</em> <code>process</code> are used in the <code>given</code> clause (see program description below).<br />
 The syntactic precedence of types is more or less as listed, or so I hope and intend.</p>
-<p>Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them.</p>
+<p>Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition.</p>
 </li>
 <li>
 <p>Expression <em>E</em></p>
@@ -62,7 +64,12 @@ Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left as
 </li>
 <li>
 <p>Basis vectors <em>V</em></p>
-<p>|0&gt;, |1&gt;, |+&gt; and |-&gt;. Used only when creating a new qbit.</p>
+<p>| <code>|0&gt;</code><br />
+| <code>|1&gt;</code><br />
+| <code>|+&gt;</code><br />
+| <code>|-&gt;</code><br />
+| <code>if</code> <em>E</em> <code>then</code> <em>V</em> <code>else</code> <em>V</em> <code>fi</code></p>
+<p>Used only when creating a new qbit.</p>
 </li>
 <li>
 <p>Process name <em>N</em></p>
@@ -79,14 +86,17 @@ Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left as
 <li>
 <p>Process definition <em>D</em></p>
 <p>| <em>D</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em></p>
-<p>Pragmatically it seems to be a good idea to include typespecs in process definition parameters.</p>
+<p>Types are optional, but it seems to be pragmatic to include them in process definition parameters.</p>
 <p>None of the parameters can be a process type.</p>
 </li>
 <li>
 <p><code>given</code> list</p>
-<p>The word <code>given</code>, followed by a comma-separated list of process and function names, describing things that aren't defined in the program.</p>
-<p>The process parameters allow 'stuck' processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes.</p>
-<p>The function parameters are there because it is necessary to use hd, tl, etc. when manipulating lists, and lists seem essential. I didn't want to build all that stuff in (because where do I stop?) so I imagined I could build an interface. I still imagine, but haven't done it yet.</p>
-<p>You are allowed type variables in the function types. Of <em>course</em> you need them!</p>
+<p>The word <code>given</code>, followed by a comma-separated list of process names, describing things that aren't defined in the program.</p>
+<p>The process parameters allow undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from the final diagnostic print-out of the state.</p>
+</li>
+<li>
+<p>Interface functions</p>
+<p>It seems necessary to include some interface functions to deal with lists and tuples. Currently I pre-define &quot;hd&quot;, &quot;tl&quot;, &quot;fst&quot; and &quot;snd&quot; which have their usual definitions and types as in ML, OCaml and no doubt Miranda and Haskell.</p>
+<p>&quot;@&quot; (append) is already an operator in the language. I haven't yet included &quot;::&quot; (cons), though I should.</p>
 </li>
 </ul>

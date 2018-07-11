@@ -223,7 +223,7 @@ let v_minus = make_v [P_h 1 ; Pneg (P_h 1)]
 
 let newqbit = (* hide the reference *)
   (let qbitcount = ref 0 in
-   let newqbit n vopt = 
+   let newqbit pn n vopt = 
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
      let vec = match vopt with
@@ -243,7 +243,8 @@ let newqbit = (* hide the reference *)
      let qv = [q],vec in
      Hashtbl.add qstate q qv;
      if !verbose_qsim then
-       Printf.printf "newqbit %s (%s) -> %s; now %s|->%s\n"
+       Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
+                     (Name.string_of_name pn)
                      (Name.string_of_name n)
                      (string_of_option Process.string_of_basisv vopt)
                      (string_of_qbit q)
@@ -626,8 +627,9 @@ let rec record ((qs, vq) as qv) =
                | Some (vq,v') -> record ([q], vq); record (qs', v')
                | None         -> List.iter doit qs
 
-let ugstep qs ugv = 
-  let id_string () = Printf.sprintf (if List.length qs =1 then "ugstep %s >> %s" else "ugstep [%s] >> %s")
+let ugstep pn qs ugv = 
+  let id_string () = Printf.sprintf (if List.length qs = 1 then "%s ugstep %s >> %s" else "%s ugstep [%s] >> %s")
+                                    (Name.string_of_name pn)
                                     (string_of_list string_of_qbit ";" qs)
                                     (string_of_ugv ugv)
   in
@@ -711,7 +713,7 @@ let ugstep qs ugv =
                                         )
                                  )
 
-let qmeasure q = 
+let qmeasure pn  q = 
   let qs, v = qval q in
   let bit = ibit q qs in
   let prob = 
@@ -722,7 +724,8 @@ let qmeasure q =
 								P_0 
   in
   if !verbose_qsim then 
-    Printf.printf "qmeasure %s; %s|->%s; prob |1> = %s;"
+    Printf.printf "%s qmeasure %s; %s|->%s; prob |1> = %s;"
+                  (Name.string_of_name pn)
                   (string_of_qbit q)
                   (string_of_qbit q)
                   (string_of_qval (qval q))

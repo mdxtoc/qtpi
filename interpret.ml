@@ -117,9 +117,13 @@ and short_string_of_value = function
   | v               -> string_of_value v
   
 and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
-    Printf.sprintf "%d [%s] r:{%s} w:{%s}"
+    let string_of_qelement = function
+      | [v] -> string_of_value v
+      | vs  -> "(" ^ string_of_list string_of_value "," vs ^ ")"
+    in
+    Printf.sprintf "%d vs:{%s} rs:{%s} ws:{%s}"
                    i
-                   (string_of_queue (bracketed_string_of_list string_of_value) "; " vs)
+                   (string_of_queue string_of_qelement "; " vs)
                    (string_of_pqueue short_string_of_rwaiter "; " (RWaiterQueue.queue rq))
                    (string_of_pqueue short_string_of_wwaiter "; " (WWaiterQueue.queue wq))
 
@@ -294,7 +298,7 @@ let knowns = [("hd" ,    ("'a list -> 'a"     , hd_));
 
 let rec interp sysenv proc =
   Qsim.init ();
-  let newqbit n vopt = VQbit (Qsim.newqbit n vopt) in
+  let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
   let chanpool = ref [] in
   let newchan () = 
@@ -352,7 +356,7 @@ let rec interp sysenv proc =
             | None      -> None
             | Some bve  -> Some (fv bve)
             in
-            let ps = List.map (fun (n,vopt) -> (n, newqbit n (bv_eval vopt))) ns in
+            let ps = List.map (fun (n,vopt) -> (n, newqbit pn n (bv_eval vopt))) ns in
             addrunner (pn, proc, (ps @ env))
         | pn, WithLet (((n,_),e), proc), env ->
             let env = (n, evale env e) :: env in
@@ -391,11 +395,11 @@ let rec interp sysenv proc =
                                else
                                  WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
              | Measure (e, (n,_))  -> let q = qbitv env e in
-                                      let v = VInt (qmeasure q) in
+                                      let v = VInt (qmeasure pn q) in
                                       addrunner (pn, proc, (n,v)::env)
              | Ugatestep (es, ug)  -> let qs = List.map (qbitv env) es in
                                       let g = ugv env ug in
-                                      ugstep qs g;
+                                      ugstep pn qs g;
                                       addrunner (pn, proc, env)
             )
         | pn, Cond (e, p1, p2), env ->

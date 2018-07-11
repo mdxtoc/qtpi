@@ -219,8 +219,8 @@ qspecs:
   | qspec COMMA qspecs                  {$1::$3}
 
 qspec:
-  | NAME                                {$1, None}
-  | NAME EQUALS vbasis                  {$1, Some $3}
+  | param                               {$1, None}
+  | param EQUALS vbasis                 {$1, Some $3}
   
 vbasis:
   | VZERO                               {BVe BVzero }

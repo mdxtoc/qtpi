@@ -39,7 +39,7 @@ type process =
   | Cond of expr * process * process
   | Par of process list
 
-and qspec = name * basisv_e option
+and qspec = param * basisv_e option
 
 and letspec = param * expr
 
@@ -82,9 +82,9 @@ let rec string_of_process =
                                             (string_of_expr e)
                                             (string_of_process p1)
                                             (string_of_process p2)
-and string_of_qspec (n, vopt) =
+and string_of_qspec (p, vopt) =
   Printf.sprintf "%s%s" 
-                 (string_of_name n)
+                 (string_of_param p)
                  (match vopt with
                   | None    -> ""
                   | Some bv -> Printf.sprintf "=%s" (string_of_basisv_e bv)

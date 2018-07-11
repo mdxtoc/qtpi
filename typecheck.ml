@@ -89,7 +89,7 @@ let rec rewrite_process cxt = function
   | Terminate               -> ()
   | Call      (n,es)        -> ()
   | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process cxt p
-  | WithQbit  (qspec, p)    -> rewrite_process cxt p
+  | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process cxt p
   | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_process cxt p
   | WithStep (step, p)      -> rewrite_step cxt step; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_process cxt p1; rewrite_process cxt p2
@@ -334,7 +334,14 @@ and typecheck_process cxt p =
       in
       do_procparams "WithNew" cxt params proc
   | WithQbit (qss,proc) ->
-      let params = List.map (fun (n,_) -> n, ref (Some Qbit)) qss in
+      let typecheck_qspec cxt ((n,rt), bvopt) =
+        let cxt = unify_paramtype cxt rt Qbit in
+        match bvopt with
+        | Some bv -> typecheck_basisv cxt bv
+        | None    -> cxt
+      in
+      let cxt = List.fold_left typecheck_qspec cxt qss in
+      let params = List.map fst qss in
       do_procparams "WithQbit" cxt params proc
   | WithLet ((p,e),proc) -> 
       let (n,rt) = p in

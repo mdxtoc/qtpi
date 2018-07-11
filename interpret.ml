@@ -346,7 +346,7 @@ let rec interp sysenv proc =
         | pn, WithNew (ps, proc), env ->
             let ps = List.map (fun (n, _) -> (n, newchan ())) ps in
             addrunner (pn, proc, (ps @ env))
-        | pn, WithQbit (ns, proc), env ->
+        | pn, WithQbit (ps, proc), env ->
             let rec fv bv =
               match bv with
               | BVe bv                  -> bv              
@@ -356,7 +356,7 @@ let rec interp sysenv proc =
             | None      -> None
             | Some bve  -> Some (fv bve)
             in
-            let ps = List.map (fun (n,vopt) -> (n, newqbit pn n (bv_eval vopt))) ns in
+            let ps = List.map (fun ((n,_),vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
             addrunner (pn, proc, (ps @ env))
         | pn, WithLet (((n,_),e), proc), env ->
             let env = (n, evale env e) :: env in

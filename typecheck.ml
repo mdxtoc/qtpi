@@ -74,8 +74,8 @@ and evaltype cxt t =
 
 let  rewrite_param cxt (n,rt) =
   match !rt with
-  | Some (TypeVar n) -> rt := eval cxt n (* unused params will be typed None *)
-  | _                -> ()
+  | Some t -> rt := Some (evaltype cxt t)
+  | _      -> ()
   
 let rewrite_params cxt = List.iter (rewrite_param cxt)
 
@@ -95,7 +95,7 @@ let rec rewrite_process cxt = function
   | Cond     (e, p1, p2)    -> rewrite_process cxt p1; rewrite_process cxt p2
   | Par      ps             -> List.iter (rewrite_process cxt) ps
 
-let rewrite_def cxt (Processdef (n, params, proc)) =
+let rewrite_processdef cxt (Processdef (n, params, proc)) =
   rewrite_params cxt params; rewrite_process cxt proc
   
 (* useful in error messages *)
@@ -287,15 +287,19 @@ let strip_procparams s cxt params =
   cxt
 
 let rec do_procparams s cxt params proc =
+  if !verbose_typecheck then
+    Printf.printf "do_procparams %s" (string_of_list string_of_param "," params);
   let process_param (n,rt) = n, fix_paramtype rt in
   let cxt = List.fold_left (fun cxt param -> cxt <@+> process_param param) cxt params in
+  if !verbose_typecheck then
+    Printf.printf " -> %s\n" (string_of_list string_of_param "," params);
   let cxt = typecheck_process cxt proc in
   strip_procparams s cxt params
 
 and fix_paramtype rt =
   match !rt with
   | Some t -> t
-  | None   -> let t = new_TypeVar() in rt:= Some t; t
+  | None   -> let t = new_TypeVar() in rt := Some t; t
   
 and unify_paramtype cxt rt t =
   match !rt with
@@ -383,10 +387,25 @@ and typecheck_process cxt p =
       typecheck_process cxt p2
   | Par (ps) -> List.fold_left typecheck_process cxt ps
 
-let typecheck_processdef cxt (Processdef (n,params,proc)) =
+let typecheck_processdef cxt (Processdef (n,params,proc) as def) =
+  let env_types = match cxt<@>n with
+                  | Process ts -> ts
+                  | _          -> raise (Error (Printf.sprintf "%s not a process in env %s"
+                                                               (string_of_name n)
+                                                               (string_of_typecxt cxt)
+                                               )
+                                        )
+  in
   let cxt = do_procparams "processdef" cxt params proc in
   let cxt = evalcxt cxt in
-  (* Printf.printf "after %s cxt = %s\n" (string_of_name n) (string_of_typecxt cxt); *)
+  let tps = zip env_types params in
+  let cxt = List.fold_left (fun cxt (t,(n,rt)) -> unifytype cxt t (_The !rt)) cxt tps in
+  if !verbose_typecheck then
+    (rewrite_processdef cxt def;
+     Printf.printf "after typecheck_processdef, def = %s\n\ncxt = %s\n\n" 
+                   (string_of_processdef def) 
+                   (string_of_typecxt cxt)
+    );
   cxt
   
 let typecheckdefs lib defs =
@@ -433,7 +452,7 @@ let typecheckdefs lib defs =
   in
   let cxt = List.fold_left header_type cxt defs in
   let cxt = List.fold_left typecheck_processdef cxt defs in
-  List.iter (rewrite_def cxt) defs;
+  List.iter (rewrite_processdef cxt) defs;
   if !verbose || !verbose_typecheck then 
     Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
                   (string_of_typecxt cxt)

@@ -16,7 +16,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License in file LICENSE
-    along with Qtpi; if not, try http://www.gnu.org/licenses/gpl.html.
+    along with Qtpi in the file LICENSE; if not, try http://www.gnu.org/licenses/gpl.html.
 *)
  
 let (<.>) f g a = f (g a)

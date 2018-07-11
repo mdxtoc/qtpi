@@ -2,9 +2,9 @@ given Honest: unit process,
       Liar: unit process
       
 Alice(cq:^qbit, cc:^bit*bit, r:^bit) =
-    (newq qx,qw)
+    (newq qx=|0>,qw=|0>)
     qx >> _H.
-    qw,qx >> _CNot.
+    qx,qw >> _CNot.
     cq!qx.
     r?(basis).
     qw >> if basis=0b1 then _H else _I fi.

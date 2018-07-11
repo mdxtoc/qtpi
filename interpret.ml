@@ -60,7 +60,7 @@ module rec Types : sig
     | VChan of chan
     | VTuple of value list
     | VList of value list
-    | VFun of name        (* help! *)
+    | VFun of string * (env -> expr -> value)        (* string (of expr) for debugging ... *)
     | VProcess of name list * iprocess
 
   and chan = {cname: int; stream: (value list) Queue.t; wwaiters: WWaiterQueue.t; rwaiters: RWaiterQueue.t}
@@ -88,10 +88,10 @@ open Types
 
 let string_of_pqueue string_of sep es = 
   string_of_list (if !verbose_queues then (Tupleutils.string_of_pair string_of_int string_of ", ") 
-				   else string_of <.> snd
-				  )
-				  sep
-				  es
+                   else string_of <.> snd
+                  )
+                  sep
+                  es
 ;;
 
 let rec string_of_value = function
@@ -102,7 +102,7 @@ let rec string_of_value = function
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
   | VList vs        -> bracketed_string_of_list string_of_value vs
-  | VFun n          -> string_of_name n (* help! *)
+  | VFun (s,f)      -> Printf.sprintf "VFun(%s)" s
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
                                       (string_of_iprocess p)
@@ -198,7 +198,8 @@ let rec evale env e =
   | ETuple es           -> VTuple (List.map (evale env) es)
   | EList es            -> VList (List.map (evale env) es)
   | ECond (c,e1,e2)     -> evale env (if boolv env c then e1 else e2)
-  | EApp (f,a)          -> raise (Error (e.pos, "** Cannot (yet) deal with " ^ string_of_expr e))
+  | EApp (f,a)          -> let fv = funv env f in
+                           fv env a
   | EArith (e1,op,e2)   -> let v1 = intv env e1 in
                            let v2 = intv env e2 in
                            VInt (match op with
@@ -261,6 +262,11 @@ and pairv env e =
   | VTuple [e1;e2] -> e1, e2
   | v              -> mistyped e.pos (string_of_expr e) v "a pair"
 
+and funv env e = 
+  match evale env e with
+  | VFun (s,f) -> f
+  | v          -> mistyped e.pos (string_of_expr e) v "a function"
+
 and ugv env ug = 
   match ug with
   | GH                  -> GateH
@@ -295,9 +301,9 @@ let rec interp sysenv proc =
     let c = !chancount in 
     chancount := !chancount+1; 
     let chan = {cname=c; stream=Queue.create (); 
-    					 rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
-    					 wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
-    		   } 
+                         rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
+                         wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
+               } 
     in
     chanpool := chan::!chanpool;
     VChan chan 
@@ -337,7 +343,16 @@ let rec interp sysenv proc =
             let ps = List.map (fun (n, _) -> (n, newchan ())) ps in
             addrunner (pn, proc, (ps @ env))
         | pn, WithQbit (ns, proc), env ->
-            let ps = List.map (fun (n,vopt) -> (n, newqbit n vopt)) ns in
+            let rec fv bv =
+              match bv with
+              | BVe bv                  -> bv              
+              | BVcond (e, bv1, bv2)    -> fv (if boolv env e then bv1 else bv2)
+            in
+            let bv_eval = function
+            | None      -> None
+            | Some bve  -> Some (fv bve)
+            in
+            let ps = List.map (fun (n,vopt) -> (n, newqbit n (bv_eval vopt))) ns in
             addrunner (pn, proc, (ps @ env))
         | pn, WithLet (((n,_),e), proc), env ->
             let env = (n, evale env e) :: env in
@@ -357,7 +372,7 @@ let rec interp sysenv proc =
                                   addrunner (pn', proc', env');
                                   addrunner (pn, proc, (zip ns vs' @ env))
                                  )
-							   else
+                               else
                                  RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
              | Write (e,es) -> let c = chanv env e in
                                let vs = List.map (evale env) es in
@@ -367,8 +382,8 @@ let rec interp sysenv proc =
                                   addrunner (pn, proc, env)
                                  )
                                else
-                               if !Settings.chanbuf_limit = -1 || 				(* infinite buffers *)
-                                  !Settings.chanbuf_limit>Queue.length c.stream	(* buffer not full *)
+                               if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                                  !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
                                then
                                  (Queue.push vs c.stream;
                                   addrunner (pn, proc, env)
@@ -407,7 +422,7 @@ let interpretdefs lib defs =
                           )
   in
   let givenassoc = List.fold_right given lib [] in
-  let knownassoc = List.map (fun (n,(_,v)) -> n, VFun n) knowns in
+  let knownassoc = List.map (fun (n,(_,v)) -> n, VFun (n, v)) knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
   let sysenv = defassoc @ givenassoc @ knownassoc in
   if !verbose || !verbose_interpret then

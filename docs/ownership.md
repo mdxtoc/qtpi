@@ -1,4 +1,4 @@
-# Static treatment of ownership of qbits
+# Static treatment of ownership of qbits -- resourcing
 
 ## The dream
 
@@ -10,9 +10,9 @@ and *B* receives it on the same channel
 
     B(c:^qbit) = c?(q'). .. more B ..
     
-Suppose that we identify different named processes as happening on different machines in different places. Then surely in *more A*, *A* cannot do anything with *q*, like measure it, gate it or whatever. *B* in *more B* clearly can play with *q'* exclusively: it **owns** it.
+Suppose that we identify different named processes as happening on different machines in different places. Then surely in *more A*, after it has sent the qbit elsewhere, *A* cannot do anything with *q*, like measure it, gate it or whatever. *B* in *more B*, after it has received the qbit, clearly can play with *q'* exclusively: it **owns** it.
 
-So it seems that it might be possible to use scoping to deal with ownership: in *more A*, *q* could be out of scope, whilst in *more B*, *q'* is in scope. Bingo?
+So it seems that it might be possible to use scoping to deal with ownership: in *more A*, *q* could be out of scope, whilst in *more B*, *q'* is in scope. Bingo? You'd think so. Actually it's __resourcing__, not scoping.
 
 ## Problems
 
@@ -49,13 +49,19 @@ So it seems that it might be possible to use scoping to deal with ownership: in 
         
     *A* only creates one qbit to own.
     
-## Resources
+5. How about a conditional send?
+    
+        A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
+    
+    Which qbit does *A* own?
+    
+## Resourcing
 
-Clearly a qbit is a resource. It's indivisible and can't be duplicated. So the kind of casual duplication of tupling *q,q* or listing *q::q::qs* or any of the four problems above has to be outlawed.
+Clearly a qbit is a resource. It's indivisible and can't be duplicated. So the kind of casual duplication of tupling *q,q* or listing *q::q::qs* or any of the first four problems above have to be outlawed.
 
-If we required that tuple elements didn't overlap in terms of resource, and that qbit names bind unique qbits, we might be out of the woods. Qbit lists, and lists of any type involving a qbit, probably have to be outlawed.
+If we start with names which identify unique indivisible resources, make sure we don't duplicate them in tuples of values or processes or conflate them with conditionals, and show that tuple elements don't overlap, then we might be out of the woods. 
 
-Then we can do the scope thing.
+Then we can calculate the resources allocated when a process starts, added to when it receives, depleted when it sends, and we can make sure that resources are used properly. Clearly not a scoping issue, as perhaps we thought originally.
 
 That's my plan anyway.
   

@@ -227,18 +227,18 @@ let newqbit = (* hide the reference *)
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
      let vec = match vopt with
-               | Some Process.VZero  -> Array.copy v_0
-               | Some Process.VOne   -> Array.copy v_1
-               | Some Process.VPlus  -> Array.copy v_plus
-               | Some Process.VMinus -> Array.copy v_minus
-               | None                -> if !Settings.symbq then
-                                          Array.init 2 (fun i -> Psymb (i=1, q)) 
-                                        else (* random basis, random fixed value *)
-                                          Array.copy (if Random.bool () then 
-                                                        (if Random.bool () then v_0 else v_1)
-                                                      else 
-                                                        (if Random.bool () then v_plus else v_minus)
-                                                     )
+               | Some Process.BVzero  -> Array.copy v_0
+               | Some Process.BVone   -> Array.copy v_1
+               | Some Process.BVplus  -> Array.copy v_plus
+               | Some Process.BVminus -> Array.copy v_minus
+               | None                 -> if !Settings.symbq then
+										   Array.init 2 (fun i -> Psymb (i=1, q)) 
+										 else (* random basis, random fixed value *)
+										   Array.copy (if Random.bool () then 
+														 (if Random.bool () then v_0 else v_1)
+													   else 
+														 (if Random.bool () then v_plus else v_minus)
+													  )
      in
      let qv = [q],vec in
      Hashtbl.add qstate q qv;

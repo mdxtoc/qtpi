@@ -264,14 +264,21 @@ let rec typecheck_ugate cxt ugate = (* arity, cxt *)
   match ugate with
   | GH
   | GI
-  | GX          -> 1, cxt
-  | GCnot       -> 2, cxt 
-  | GPhi (e)    -> 1, assigntype_expr cxt (Range (0,3)) e
+  | GX                    -> 1, cxt
+  | GCnot                 -> 2, cxt 
+  | GPhi (e)              -> 1, assigntype_expr cxt (Range (0,3)) e
   | GCond (e, ug1, ug2)   -> let cxt = assigntype_expr cxt Bool e in
                              let a1, cxt = typecheck_ugate cxt ug1 in
                              let a2, cxt = typecheck_ugate cxt ug2 in
                              if a1=a2 then a1,cxt
                              else raise (TypeCheckError ("arity mismatch in " ^ string_of_ugate ugate))
+
+let rec typecheck_basisv cxt bv =
+  match bv with
+  | BVe _                   -> cxt
+  | BVcond (e,bve1,bve2)    -> let cxt = assigntype_expr cxt Bool e in
+                                let cxt = typecheck_basisv cxt bve1 in
+                                typecheck_basisv cxt bve2
 
 let strip_procparams s cxt params = 
   (* Printf.printf "before strip_procparams %s (%s)\n%s\n" s (string_of_params params) (string_of_typecxt cxt); *)

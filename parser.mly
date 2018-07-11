@@ -223,10 +223,11 @@ qspec:
   | NAME EQUALS vbasis                  {$1, Some $3}
   
 vbasis:
-  | VZERO                               {VZero}
-  | VONE                                {VOne }
-  | VPLUS                               {VPlus}
-  | VMINUS                              {VMinus}
+  | VZERO                               {BVe BVzero }
+  | VONE                                {BVe BVone  }
+  | VPLUS                               {BVe BVplus }
+  | VMINUS                              {BVe BVminus}
+  | IF expr THEN vbasis ELSE vbasis FI  {BVcond ($2,$4,$6)}
   
 letspec:
   | name EQUALS expr                    {($1, ref None     ), $3}

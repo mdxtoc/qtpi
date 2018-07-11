@@ -39,15 +39,19 @@ type process =
   | Cond of expr * process * process
   | Par of process list
 
-and qspec = name * basisv option
+and qspec = name * basisv_e option
 
 and letspec = param * expr
 
 and basisv =
-  | VZero
-  | VOne
-  | VPlus
-  | VMinus
+  | BVzero
+  | BVone
+  | BVplus
+  | BVminus
+
+and basisv_e =
+  | BVe of basisv
+  | BVcond of expr * basisv_e * basisv_e
   
 let rec string_of_process = 
   let trailing_sop p =
@@ -83,7 +87,7 @@ and string_of_qspec (n, vopt) =
                  (string_of_name n)
                  (match vopt with
                   | None    -> ""
-                  | Some bv -> Printf.sprintf "=%s" (string_of_basisv bv)
+                  | Some bv -> Printf.sprintf "=%s" (string_of_basisv_e bv)
                  )
 
 and string_of_letspec (p,e) =
@@ -92,11 +96,17 @@ and string_of_letspec (p,e) =
   				 (string_of_expr e)
   				 
 and string_of_basisv bv =
-  "|" ^
-  (match bv with
-   | VZero  -> "0"
-   | VOne   -> "1"
-   | VPlus  -> "+"
-   | VMinus -> "-"
-  ) ^
-  ">"
+  match bv with
+  | BVzero				-> "|0>"
+  | BVone				-> "|1>"
+  | BVplus				-> "|+>"
+  | BVminus				-> "|->"
+  
+and string_of_basisv_e bve = 
+  match bve with
+  | BVe bv					-> string_of_basisv bv
+  | BVcond (e,bve1,bve2)	-> Printf.sprintf "if %s then %s else %s fi"
+  										  	  (string_of_expr e)
+  										  	  (string_of_basisv_e bve1)
+  										  	  (string_of_basisv_e bve2)
+  

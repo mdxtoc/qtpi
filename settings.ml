@@ -44,6 +44,8 @@ let symbq = ref true
 
 let fancyvec = ref true
 
+let interpret = ref true
+
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
                    ("qcalc"            , verbose_qcalc            );

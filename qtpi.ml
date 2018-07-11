@@ -53,7 +53,8 @@ let _ = match !Usage.files with
                    print_endline (string_of_list string_of_processdef "\n\n" defs)
                   );
                 try typecheckdefs lib defs;
-                    interpretdefs lib defs
+                    if !Settings.interpret then
+                      interpretdefs lib defs
                 with exn -> Printf.printf "\n\n** unexpected exception %s **\n"
                                           (Printexc.to_string exn)
                 

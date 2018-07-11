@@ -2,11 +2,13 @@ given Honest: unit process,
       Liar: unit process
       
 Alice(cq:^qbit, cc:^(bit*bit), r:^bit) =
-    (newq qx)
     r?(value).
-    qx >> if value=0b1 then _Phi(1) else _I fi.
     r?(basis).
-    qx >> if basis=0b1 then _H else _I fi.
+    (newq qx = if value=0b0 then
+                 if basis=0b0 then |0> else |+> fi 
+               else 
+                 if basis=0b0 then |1> else |-> fi
+               fi)
     cq!qx.
     cc!(value,basis).
     _0

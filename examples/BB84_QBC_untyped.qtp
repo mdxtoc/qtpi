@@ -1,0 +1,53 @@
+given Honest    : unit process,
+      Liar      : unit process,
+      BobWin    : unit process,
+      BobLose   : unit process
+
+Alice(n, r, qB, bB, vB) = AliceChoose(n,r,[],qB,bB,vB)
+
+AliceChoose(n, r, vs, qB, bB, vB) =
+    if n=0 then r?(basis).AliceSend(vs,vs,basis,qB,bB,vB)
+    else r?(v).AliceChoose(n-1,r,vs@[v],qB,bB,vB)
+    fi
+
+AliceSend(vs, ovs, basis, qB, bB, vB) =
+    if vs=[] then AliceReport(basis,ovs,bB,vB)
+    else (newq q)
+         q >> if hd(vs)=0b1 then _Phi(1) else _I fi.
+         q >> if basis=0b1 then _H else _I fi.
+         qB!q.
+         AliceSend(tl(vs),ovs,basis,qB,bB,vB)
+    fi
+
+AliceReport(basis,vs, bB, vB) = 
+    bB?(guess).vB!basis,vs.if guess=basis then BobWin() else BobLose() fi 
+
+Bob(n, r, qA, bA, vA) = BobReceive(n,[],r,qA,bA,vA)
+
+BobReceive(n, vs, r, qA, bA, vA) =
+    if n = 0 then r?(guess). 
+                  bA!guess. 
+                  vA?(basis, as). 
+                  BobVerify (vs,basis,as) 
+    else 
+                  qA?(q:qbit).
+                  r?(basis).
+                  q >> if basis=0b1 then _H else _I fi.
+                  q ?? (value).
+                  BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
+    fi
+
+BobVerify (vs, basis, as) = 
+  if vs=[] && as=[] then Honest()
+  else if vs=[] || as=[] then Liar()
+       else if basis=fst(hd(vs)) && hd(as)<>snd(hd(vs)) then Liar()
+            else BobVerify(tl(vs),basis,tl(as))
+            fi
+       fi
+  fi
+       
+Random(q:qbit, r) = q>>_H . q??(v) . r!v . Random(q,r)
+
+System() = (let n=10)
+		   (new r,qc,bc,vc)
+		   (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q = |0>) Random(q,r))

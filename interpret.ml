@@ -283,18 +283,29 @@ and ugv env ug =
 (* ******************** built-in functions ********************* *)
 
 let hd_  env = List.hd <.> listv env
+(* there aren't any at present: hd, tl, fst and snd are all done
+   by let bindings. But I'm leaving the interface alone in case
+   there are resourcing-safe functions that we could use.
+   
+   And I've left the original in as a comment, just in case.
+ *)
 
-let tl_  env = (fun vs -> VList vs) <.> List.tl <.> listv env
+(*  let hd_  env = List.hd <.> listv env
 
-let fst_ env = Pervasives.fst <.> pairv env
+    let tl_  env = (fun vs -> VList vs) <.> List.tl <.> listv env
 
-let snd_ env = Pervasives.snd <.> pairv env
+    let fst_ env = Pervasives.fst <.> pairv env
 
-let knowns = [("hd" ,    ("'a list -> 'a"     , hd_));
-             ("tl" ,    ("'a list -> 'a list", tl_));
-             ("fst",    ("'a*'b -> 'a"       , fst_));
-             ("snd",    ("'a*'b -> 'b"       , snd_));
-            ]
+    let snd_ env = Pervasives.snd <.> pairv env
+
+    let knowns = [("hd" ,    ("'a list -> 'a"     , hd_));
+                  ("tl" ,    ("'a list -> 'a list", tl_));
+                  ("fst",    ("'a*'b -> 'a"       , fst_));
+                  ("snd",    ("'a*'b -> 'b"       , snd_));
+                 ]
+ *)
+ 
+let knowns = []
 
 let rec interp sysenv proc =
   Qsim.init ();

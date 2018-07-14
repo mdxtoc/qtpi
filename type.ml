@@ -136,7 +136,7 @@ let rec rename assoc t =
   | TypeVar (n) -> TypeVar (assoc<@>n) 
   | Univ (ns,t) -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
   | List    t   -> List (rename assoc t)   
-  | Channel t  -> Channel (rename assoc t)
+  | Channel t   -> Channel (rename assoc t)
   | Process ts  -> Process (List.map (rename assoc) ts)
   | Tuple ts    -> Tuple (List.map (rename assoc) ts)
   | Fun (t1,t2) -> Fun (rename assoc t1, rename assoc t2)

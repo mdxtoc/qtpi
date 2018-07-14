@@ -189,7 +189,7 @@ let mistyped pos thing v shouldbe =
         )
 
 let rec evale env e =
-  match e.inst with
+  match e.inst.enode with
   | EUnit               -> VUnit
   | EVar n              -> (try env<@>n 
                             with Invalid_argument _ -> 
@@ -213,11 +213,20 @@ let rec evale env e =
                                  | Div     -> v1/v2
                                  | Mod     -> v1 mod v2
                                 )
-  | ECompare (e1,op,e2) -> (match op with
-                            | Eq  -> VBool (evale env e1 = evale env e2)
-                            | Neq -> VBool (evale env e1 <> evale env e2)
-                            | _   -> raise (Error (e.pos, "** Cannot (yet) deal with " ^ string_of_expr e))
-                           ) 
+  | ECompare (e1,op,e2) -> VBool (match op with
+                                  | Eq  -> evale env e1 = evale env e2
+                                  | Neq -> evale env e1 <> evale env e2
+                                  | _   -> let v1 = intv env e1 in
+                                           let v2 = intv env e2 in
+                                           (match op with
+                                            | Lt    -> v1<v2
+                                            | Leq   -> v1<=v2
+                                            | Eq    -> v1=v2  (* can't happen *)
+                                            | Neq   -> v1<>v2 (* can't happen *)
+                                            | Geq   -> v1>=v2
+                                            | Gt    -> v1>v2
+                                           )
+                                 ) 
   | EBoolArith (e1,op,e2) -> let v1 = boolv env e1 in
                              let v2 = boolv env e2 in
                              VBool (match op with
@@ -282,7 +291,6 @@ and ugv env ug =
 
 (* ******************** built-in functions ********************* *)
 
-let hd_  env = List.hd <.> listv env
 (* there aren't any at present: hd, tl, fst and snd are all done
    by let bindings. But I'm leaving the interface alone in case
    there are resourcing-safe functions that we could use.
@@ -424,7 +432,7 @@ let rec interp sysenv proc =
   addrunner ("System", proc, sysenv);
   step()
 
-let interpretdefs lib defs =
+let interpret lib defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let given (n,t) assoc =

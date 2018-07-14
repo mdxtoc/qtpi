@@ -25,10 +25,13 @@ open Stringutils
 open Name
 open Sourcepos
 open Instance
+open Type
 
 exception Error of string
 
-type expr = enode instance
+type expr = einst instance
+
+and einst = {etype: _type option ref; enode: enode}
 
 and enode = 
   | EUnit
@@ -55,14 +58,20 @@ and arithop =
   | Mod
   
 and compareop =
+  | Lt
+  | Leq
   | Eq
   | Neq
-
+  | Geq
+  | Gt
+  
 and boolop =
   | And
   | Or
   | Implies
   | Iff
+  
+let ewrap opt enode = {etype=ref opt; enode=enode}
   
 type prioritydir = Left | Right | Assoc | NonAssoc
 
@@ -104,7 +113,7 @@ let mustbracket_right (supassoc, supprio) (rassoc,rprio) =
 let mustbracket_nonassoc (_,supprio) (_,subprio) = subprio <= supprio
 
 let rec exprprio e = 
-  match e.inst with 
+  match e.inst.enode with 
   | EUnit                   
   | EVar        _   
   | EInt        _
@@ -124,7 +133,7 @@ let rec exprprio e =
 let is_primary e = exprprio e = primaryprio
 
 let rec string_of_primary e =
-  match e.inst with
+  match e.inst.enode with
   | EUnit           -> "unit"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
@@ -156,7 +165,7 @@ and bracket_right fprio rprio = if mustbracket_right fprio rprio then bracketed_
 and bracket_nonassoc supprio e = if mustbracket_nonassoc supprio (exprprio e) then bracketed_string_of_expr e
                                                                  else string_of_expr e                                                
 and string_of_expr e = 
-  match e.inst with 
+  match e.inst.enode with 
   | EUnit                           
   | EVar        _
   | EBit        _
@@ -181,8 +190,12 @@ and string_of_arithop = function
   | Mod     -> "%"
   
 and string_of_compareop = function
-  | Eq   -> "="
-  | Neq  -> "!="
+  | Lt  -> "<"
+  | Leq -> "<="
+  | Eq  -> "="
+  | Neq -> "<>"
+  | Geq -> ">="
+  | Gt  -> ">"
 
 and string_of_boolop = function
   | And     -> "&&"

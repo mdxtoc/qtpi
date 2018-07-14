@@ -41,7 +41,7 @@
   
   let bad s = raise (Program.ParseError(get_sourcepos(),s))
 
-  let adorn inst = Instance.adorn (get_sourcepos()) inst
+  let eadorn inst = Instance.adorn (get_sourcepos()) (ewrap None inst)
   
 (*let tripletadorn pre lab tof = Com.tripletadorn (get_sourcepos()) pre lab tof
   
@@ -193,7 +193,7 @@ typevars:
   
 process:
   | TERMINATE                           {Terminate}
-  | name primary                        {Call ($1,match $2.inst with 
+  | name primary                        {Call ($1,match $2.inst.enode with 
                                                   | EUnit     -> []
                                                   | ETuple es -> es
                                                   | _         -> [$2]
@@ -236,8 +236,8 @@ letspec:
 step:
   | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}
   | expr BANG ntexprs                   {let es = match $3 with 
-                                                  | [{inst=ETuple es}] -> es
-                                                  | es                 -> es
+                                                  | [{inst={enode=ETuple es}}] -> es
+                                                  | es                         -> es
                                          in
                                          Write ($1,es)
                                         }
@@ -249,23 +249,23 @@ args:
   | ntexprs                             {$1}
 
 primary:
-  | LPAR RPAR                           {adorn EUnit}
-  | name                                {adorn (EVar $1)}
-  | BIT0                                {adorn (EBit false)}
-  | BIT1                                {adorn (EBit true)}
-  | INT                                 {adorn (EInt (int_of_string $1))}
-  | TRUE                                {adorn (EBool (true))}
-  | FALSE                               {adorn (EBool (false))}
-  | LSQPAR exprlist RSQPAR              {adorn (EList $2)}
+  | LPAR RPAR                           {eadorn EUnit}
+  | name                                {eadorn (EVar $1)}
+  | BIT0                                {eadorn (EBit false)}
+  | BIT1                                {eadorn (EBit true)}
+  | INT                                 {eadorn (EInt (int_of_string $1))}
+  | TRUE                                {eadorn (EBool (true))}
+  | FALSE                               {eadorn (EBool (false))}
+  | LSQPAR exprlist RSQPAR              {eadorn (EList $2)}
   | LPAR ntexprs RPAR                   {match $2 with
                                          | [e] -> e
-                                         | es  -> adorn (ETuple es)
+                                         | es  -> eadorn (ETuple es)
                                         }
-  | IF expr THEN expr ELSE expr FI      {adorn( ECond ($2,$4,$6))}
+  | IF expr THEN expr ELSE expr FI      {eadorn( ECond ($2,$4,$6))}
   
 expr:
   | ntexpr                              {$1}
-  | ntexpr COMMA ntexprs                {adorn (ETuple ($1::$3))}
+  | ntexpr COMMA ntexprs                {eadorn (ETuple ($1::$3))}
 
 ntexprs:
   | ntexpr                              {[$1]}
@@ -274,16 +274,16 @@ ntexprs:
 ntexpr:  /* a non-tuple expression */
   | primary                             {$1} 
   | app                                 {$1}
-  | MINUS primary                       {adorn (EMinus ($2))}
-  | ntexpr PLUSPLUS ntexpr              {adorn (EBitCombine ($1,$3))}
-  | ntexpr APPEND primary               {adorn (EAppend ($1,$3))}
-  | arith                               {let e1,op,e2 = $1 in adorn (EArith (e1,op,e2))}
-  | compare                             {let e1,op,e2 = $1 in adorn (ECompare (e1,op,e2))}
-  | bool                                {let e1,op,e2 = $1 in adorn (EBoolArith (e1,op,e2))}
+  | MINUS primary                       {eadorn (EMinus ($2))}
+  | ntexpr PLUSPLUS ntexpr              {eadorn (EBitCombine ($1,$3))}
+  | ntexpr APPEND primary               {eadorn (EAppend ($1,$3))}
+  | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
+  | compare                             {let e1,op,e2 = $1 in eadorn (ECompare (e1,op,e2))}
+  | bool                                {let e1,op,e2 = $1 in eadorn (EBoolArith (e1,op,e2))}
 
 app:
-  | primary primary                     {adorn (EApp ($1,$2))}
-  | app primary                         {adorn (EApp ($1,$2))}
+  | primary primary                     {eadorn (EApp ($1,$2))}
+  | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
   | ntexpr PLUS ntexpr                  {$1,Plus,$3}

@@ -16,7 +16,6 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Qtpi; if not, write to the Free Software
     along with Qtpi in the file LICENSE; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     (or look at http://www.gnu.org).
@@ -29,6 +28,7 @@ open Name
 open Type
 open Processdef
 open Typecheck
+open Resource
 open Interpret
 open Param
 
@@ -53,9 +53,10 @@ let _ = match !Usage.files with
                    );
                    print_endline (string_of_list string_of_processdef "\n\n" defs)
                   );
-                try typecheckdefs lib defs;
+                try let cxt = typecheck lib defs in
+                    resourcecheck cxt lib defs;
                     if !Settings.interpret then
-                      interpretdefs lib defs
+                      interpret lib defs
                 with exn -> Printf.printf "\n\n** unexpected exception %s **\n"
                                           (Printexc.to_string exn)
                 

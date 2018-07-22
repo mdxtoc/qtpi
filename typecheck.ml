@@ -452,7 +452,7 @@ let typecheck lib defs =
                                            )
                 ) 
                 lib;
-      let knownassoc = List.map (fun (n,(t,_)) -> n, generalise (Parseutils.parse_typestring t)) Interpret.knowns in
+      let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
       let cxt = List.fold_left (fun cxt binding -> cxt <@+> binding) NameMap.empty (lib @ knownassoc) in
       let header_type cxt (Processdef (n,ps,_) as def) =
         ok_procname n;

@@ -60,7 +60,7 @@ module rec Types : sig
     | VChan of chan
     | VTuple of value list
     | VList of value list
-    | VFun of string * (env -> expr -> value)        (* string (of expr) for debugging ... *)
+    | VFun of (value -> value)        
     | VProcess of name list * iprocess
 
   and chan = {cname: int; stream: (value list) Queue.t; wwaiters: WWaiterQueue.t; rwaiters: RWaiterQueue.t}
@@ -85,7 +85,6 @@ and WWaiterQueue : Priority_queue.PQ with type elt=Types.wwaiter = Priority_queu
 and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.Make(OrderedRunners)
 
 open Types
-
 let string_of_pqueue string_of sep es = 
   string_of_list (if !verbose_queues then (Tupleutils.string_of_pair string_of_int string_of ", ") 
                    else string_of <.> snd
@@ -102,7 +101,7 @@ let rec string_of_value = function
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
   | VList vs        -> bracketed_string_of_list string_of_value vs
-  | VFun (s,f)      -> Printf.sprintf "VFun(%s)" s
+  | VFun f          -> "(..->..)"
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
                                       (string_of_iprocess p)
@@ -180,6 +179,26 @@ and string_of_stuck (n, vs) =
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep (RunnerQueue.queue rq)
   
+let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
+
+let unitv = function VUnit          -> ()     | v -> miseval "unitv"  v
+let intv  = function VInt  i        -> i      | v -> miseval "intv"   v
+let boolv = function VBool  b       -> b      | v -> miseval "boolv"  v
+let listv = function VList  vs      -> vs     | v -> miseval "listv"  v
+let chanv = function VChan  c       -> c      | v -> miseval "chanv"  v
+let qbitv = function VQbit  q       -> q      | v -> miseval "qbitv"  v
+let pairv = function VTuple [e1;e2] -> e1, e2 | v -> miseval "pairv"  v
+let funv  = function VFun   f       -> f      | v -> miseval "pairv"  v
+
+let vunit ()  = VUnit
+let vint  i   = VInt   i
+let vbool b   = VBool  b
+let vlist vs  = VList  vs
+let vchan c   = VChan  c
+let vqbit q   = VQbit  q
+let vpair a b = VTuple [a;b]
+let vfun  f   = VFun   f
+
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 
                                     thing 
@@ -198,14 +217,14 @@ let rec evale env e =
   | EInt i              -> VInt i
   | EBool b             -> VBool b
   | EBit b              -> VInt (if b then 1 else 0)
-  | EMinus e            -> VInt (- (intv env e))
+  | EMinus e            -> VInt (- (intev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)
   | EList es            -> VList (List.map (evale env) es)
-  | ECond (c,e1,e2)     -> evale env (if boolv env c then e1 else e2)
-  | EApp (f,a)          -> let fv = funv env f in
-                           fv env a
-  | EArith (e1,op,e2)   -> let v1 = intv env e1 in
-                           let v2 = intv env e2 in
+  | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
+  | EApp (f,a)          -> let fv = funev env f in
+                           fv (evale env a)
+  | EArith (e1,op,e2)   -> let v1 = intev env e1 in
+                           let v2 = intev env e2 in
                            VInt (match op with
                                  | Plus    -> v1+v2    
                                  | Minus   -> v1-v2
@@ -216,8 +235,8 @@ let rec evale env e =
   | ECompare (e1,op,e2) -> VBool (match op with
                                   | Eq  -> evale env e1 = evale env e2
                                   | Neq -> evale env e1 <> evale env e2
-                                  | _   -> let v1 = intv env e1 in
-                                           let v2 = intv env e2 in
+                                  | _   -> let v1 = intev env e1 in
+                                           let v2 = intev env e2 in
                                            (match op with
                                             | Lt    -> v1<v2
                                             | Leq   -> v1<=v2
@@ -227,93 +246,67 @@ let rec evale env e =
                                             | Gt    -> v1>v2
                                            )
                                  ) 
-  | EBoolArith (e1,op,e2) -> let v1 = boolv env e1 in
-                             let v2 = boolv env e2 in
+  | EBoolArith (e1,op,e2) -> let v1 = boolev env e1 in
+                             let v2 = boolev env e2 in
                              VBool (match op with
                                       | And       -> v1 && v2
                                       | Or        -> v1 || v2
                                       | Implies   -> (not v1) || v2
                                       | Iff       -> v1 = v2
                                    )
-  | EAppend (es, es')       -> VList (listv env es @ listv env es')
-  | EBitCombine (e1, e2)    -> let v1 = intv env e1 in
-                               let v2 = intv env e2 in
+  | EAppend (es, es')       -> VList (listev env es @ listev env es')
+  | EBitCombine (e1, e2)    -> let v1 = intev env e1 in
+                               let v2 = intev env e2 in
                                VInt (v1*2+v2)
                  
-and unitv env e =
+and unitev env e =
   match evale env e with
   | VUnit -> ()
   | v     -> mistyped e.pos (string_of_expr e) v "unit" 
 
-and intv env e =
+and intev env e =
   match evale env e with
   | VInt i -> i
   | v      -> mistyped e.pos (string_of_expr e) v "an integer" 
 
-and boolv env e = 
+and boolev env e = 
   match evale env e with
   | VBool b -> b
   | v       -> mistyped e.pos (string_of_expr e) v "a bool"
 
-and listv env e = 
+and listev env e = 
   match evale env e with
   | VList vs -> vs
   | v        -> mistyped e.pos (string_of_expr e) v "a list"
 
-and chanv env e = 
+and chanev env e = 
   match evale env e with
   | VChan c -> c
   | v       -> mistyped e.pos (string_of_expr e) v "a channel"
 
-and qbitv env e = 
+and qbitev env e = 
   match evale env e with
   | VQbit q -> q
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
 
-and pairv env e =
+and pairev env e =
   match evale env e with
   | VTuple [e1;e2] -> e1, e2
   | v              -> mistyped e.pos (string_of_expr e) v "a pair"
 
-and funv env e = 
+and funev env e = 
   match evale env e with
-  | VFun (s,f) -> f
-  | v          -> mistyped e.pos (string_of_expr e) v "a function"
+  | VFun f -> f
+  | v      -> mistyped e.pos (string_of_expr e) v "a function"
 
-and ugv env ug = 
+and ugev env ug = 
   match ug with
   | GH                  -> GateH
   | GI                  -> GateI
   | GX                  -> GateX
   | GCnot               -> GateCnot
-  | GPhi  e             -> GatePhi(intv env e)
-  | GCond (e,ug1,ug2)   -> ugv env (if boolv env e then ug1 else ug2)
-
-(* ******************** built-in functions ********************* *)
-
-(* there aren't any at present: hd, tl, fst and snd are all done
-   by let bindings. But I'm leaving the interface alone in case
-   there are resourcing-safe functions that we could use.
-   
-   And I've left the original in as a comment, just in case.
- *)
-
-(*  let hd_  env = List.hd <.> listv env
-
-    let tl_  env = (fun vs -> VList vs) <.> List.tl <.> listv env
-
-    let fst_ env = Pervasives.fst <.> pairv env
-
-    let snd_ env = Pervasives.snd <.> pairv env
-
-    let knowns = [("hd" ,    ("'a list -> 'a"     , hd_));
-                  ("tl" ,    ("'a list -> 'a list", tl_));
-                  ("fst",    ("'a*'b -> 'a"       , fst_));
-                  ("snd",    ("'a*'b -> 'b"       , snd_));
-                 ]
- *)
- 
-let knowns = []
+  | GPhi  e             -> GatePhi(intev env e)
+  | GCond (e,ug1,ug2)   -> ugev env (if boolev env e then ug1 else ug2)
 
 let rec interp sysenv proc =
   Qsim.init ();
@@ -369,7 +362,7 @@ let rec interp sysenv proc =
             let rec fv bv =
               match bv with
               | BVe bv                  -> bv              
-              | BVcond (e, bv1, bv2)    -> fv (if boolv env e then bv1 else bv2)
+              | BVcond (e, bv1, bv2)    -> fv (if boolev env e then bv1 else bv2)
             in
             let bv_eval = function
             | None      -> None
@@ -382,7 +375,7 @@ let rec interp sysenv proc =
             addrunner (pn, proc, env)
         | pn, WithStep (step, proc), env ->
             (match step with
-             | Read (e, ps) -> let c = chanv env e in
+             | Read (e, ps) -> let c = chanev env e in
                                let ns, _ = unzip ps in
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
@@ -397,7 +390,7 @@ let rec interp sysenv proc =
                                  )
                                else
                                  RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
-             | Write (e,es) -> let c = chanv env e in
+             | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
                                if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
                                  (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
@@ -413,16 +406,16 @@ let rec interp sysenv proc =
                                  )
                                else
                                  WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
-             | Measure (e, (n,_))  -> let q = qbitv env e in
+             | Measure (e, (n,_))  -> let q = qbitev env e in
                                       let v = VInt (qmeasure pn q) in
                                       addrunner (pn, proc, (n,v)::env)
-             | Ugatestep (es, ug)  -> let qs = List.map (qbitv env) es in
-                                      let g = ugv env ug in
+             | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
+                                      let g = ugev env ug in
                                       ugstep pn qs g;
                                       addrunner (pn, proc, env)
             )
         | pn, Cond (e, p1, p2), env ->
-            addrunner (pn, (if boolv env e then p1 else p2), env)
+            addrunner (pn, (if boolev env e then p1 else p2), env)
         | pn, Par ps, env ->
             List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
        );
@@ -431,6 +424,10 @@ let rec interp sysenv proc =
   in
   addrunner ("System", proc, sysenv);
   step()
+
+let knowns = (ref [] : (name * string * value) list ref)
+
+let know dec = knowns := dec :: !knowns
 
 let interpret lib defs =
   Random.self_init(); (* for all kinds of random things *)
@@ -445,7 +442,7 @@ let interpret lib defs =
                           )
   in
   let givenassoc = List.fold_right given lib [] in
-  let knownassoc = List.map (fun (n,(_,v)) -> n, VFun (n, v)) knowns in
+  let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
   let sysenv = defassoc @ givenassoc @ knownassoc in
   if !verbose || !verbose_interpret then

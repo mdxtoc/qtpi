@@ -31,6 +31,7 @@ open Typecheck
 open Resource
 open Interpret
 open Param
+open Library (* until we have dynamic loading *)
 
 exception Error of string
 

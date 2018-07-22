@@ -11,11 +11,6 @@ P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
 Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>_H . toP!x . fromP?(z) . z>>_H . _0 
 
-System() = (let bv = read_int ())
-           (newq x = if   bv=0 then |0> 
-                     elif bv=1 then |1> 
-                     elif bv=2 then |+>
-                               else |->
-                     fi) 
+System() = (newq x) 
            (new s:^qbit, r:^qbit) 
-           (P(s,r) | Q(x,s,r))
+           (P(s, r) | Q(x,s,r))

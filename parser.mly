@@ -76,7 +76,7 @@
 %token EOP 
 %token GIVEN
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR COLON EQUALS
-%token IF THEN ELSE FI
+%token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT
 %token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC
@@ -204,8 +204,12 @@ process:
   | LPAR LETDEC letspec RPAR process    {WithLet ($3,$5)}
   | step DOT process                    {WithStep ($1,$3)}
   | LPAR ubprocess RPAR                 {$2}
-  | IF expr THEN ubprocess ELSE ubprocess FI
-                                        {Cond ($2,$4,$6)}
+  | IF ubif FI                          {$2}
+
+ubif: 
+  | expr THEN ubprocess ELSE ubprocess  {Cond ($1, $3, $5)}
+  | expr THEN ubprocess ELIF ubif       {Cond ($1, $3, $5)}
+  
 ubprocess:
   | processpar                          {Par $1} /* only case in which a process can be unbracketed */
   | process                             {$1}
@@ -227,7 +231,11 @@ vbasis:
   | VONE                                {BVe BVone  }
   | VPLUS                               {BVe BVplus }
   | VMINUS                              {BVe BVminus}
-  | IF expr THEN vbasis ELSE vbasis FI  {BVcond ($2,$4,$6)}
+  | IF vbif FI                          {$2}
+
+vbif:
+  | expr THEN vbasis ELSE vbasis        {BVcond ($1,$3,$5)}
+  | expr THEN vbasis ELIF vbif          {BVcond ($1,$3,$5)}
   
 letspec:
   | name EQUALS expr                    {($1, ref None     ), $3}
@@ -261,7 +269,11 @@ primary:
                                          | [e] -> e
                                          | es  -> eadorn (ETuple es)
                                         }
-  | IF expr THEN expr ELSE expr FI      {eadorn( ECond ($2,$4,$6))}
+  | IF eif FI                           {eadorn($2.inst.enode)}
+  
+eif:
+  | expr THEN expr ELSE expr            {eadorn (ECond ($1,$3,$5))}
+  | expr THEN expr ELIF eif             {eadorn (ECond ($1,$3,$5))}
   
 expr:
   | ntexpr                              {$1}
@@ -303,8 +315,11 @@ ugate:
   | I                                   {GI}
   | X                                   {GX}
   | PHI LPAR expr RPAR                  {GPhi ($3)}
-  | IF expr THEN ugate ELSE ugate FI    {GCond ($2,$4,$6)}
+  | IF ugif FI                          {$2}    
 
+ugif:
+  | expr THEN ugate ELSE ugate          {GCond ($1,$3,$5)}
+  | expr THEN ugate ELSE ugif           {GCond ($1,$3,$5)}
 exprlist:
   |                                     {[]}
   | expr                                {[$1]}

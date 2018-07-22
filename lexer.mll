@@ -81,6 +81,7 @@ rule make_token = parse
   | "if"        {IF}
   | "then"      {THEN}
   | "else"      {ELSE}
+  | "elif"      {ELIF}
   | "fi"        {FI}
     
   | "int"       {INTTYPE}

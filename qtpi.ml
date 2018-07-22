@@ -36,7 +36,7 @@ open Library (* until we have dynamic loading *)
 exception Error of string
 
 let parsefile opts usage filename =
-  print_endline filename;
+  print_endline filename; flush stdout;
   try Parseutils.parse_program filename
   with 
   | Parseutils.Error s -> raise (Error s)
@@ -54,7 +54,7 @@ let _ = match !Usage.files with
                    );
                    print_endline (string_of_list string_of_processdef "\n\n" defs)
                   );
-                try let cxt = typecheck lib defs in
+                try let lib, cxt = typecheck lib defs in
                     resourcecheck cxt lib defs;
                     if !Settings.interpret then
                       interpret lib defs

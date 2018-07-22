@@ -486,7 +486,7 @@ let typecheck lib defs =
         Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
                       (string_of_typecxt cxt)
                       (string_of_list string_of_processdef "\n\n" defs);
-      cxt
+      (List.map (fun (n,t) -> n, evaltype cxt t) lib), cxt
   with Undeclared (pos, n) -> raise (Error (Printf.sprintf "%s: undeclared %s"
                                                            (string_of_sourcepos pos)
                                                            (string_of_name n)

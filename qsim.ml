@@ -141,13 +141,13 @@ let rec string_of_probvec v =
        | P_h  _ 
        | Psymb _         
        | Pprod _         -> string_of_prob p
-       | Pneg  p'        -> "-" ^ (match p' with
-                                   | P_0
-                                   | P_1
+       | Pneg  p'        -> (match p' with
+                                   | P_0	   -> "(-0? really?)"
+                                   | P_1	   -> "-"
                                    | P_i             
                                    | P_h   _ 
-                                   | Psymb _   -> string_of_prob p'
-                                   | _         -> "(" ^ string_of_prob p' ^ ")"
+                                   | Psymb _   -> "-" ^ string_of_prob p'
+                                   | _         -> "-(" ^ string_of_prob p' ^ ")"
                                   )
        | Psum  _         -> "(" ^ string_of_prob p ^ ")"
      in

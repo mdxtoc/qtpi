@@ -134,7 +134,7 @@ let is_primary e = exprprio e = primaryprio
 
 let rec string_of_primary e =
   match e.inst.enode with
-  | EUnit           -> "unit"
+  | EUnit           -> "()"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EInt i          -> string_of_int i

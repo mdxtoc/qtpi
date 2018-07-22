@@ -29,9 +29,13 @@ open Interpret
 (* This stuff is intended to be replaced by dynamically-loaded stuff,
    as soon as I can get round to understanding the mechanism.
  *)
-let _ = Interpret.know ("hd" ,    "'a list -> 'a"      , vfun (List.hd <.> listv))
-let _ = Interpret.know ("tl" ,    "'a list -> 'a list" , vfun (vlist <.> List.tl <.> listv))
-let _ = Interpret.know ("fst",    "'a*'b -> 'a"        , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd",    "'a*'b -> 'b"        , vfun (Pervasives.snd <.> pairv))
- 
+let _ = Interpret.know ("hd"      , "'a list -> 'a"      , vfun (List.hd <.> listv))
+let _ = Interpret.know ("tl"      , "'a list -> 'a list" , vfun (vlist <.> List.tl <.> listv))
+let _ = Interpret.know ("fst"     , "'a*'b -> 'a"        , vfun (Pervasives.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'a*'b -> 'b"        , vfun (Pervasives.snd <.> pairv))
+
+let read_int () = flush stdout; print_string "\n?\n"; (* a bug in BBEdit shell script, so an extra \n *)
+                  Pervasives.read_int ()
+  
+let _ = Interpret.know ("read_int", "unit -> int"        , vfun (vint <.> read_int <.> unitv))
 

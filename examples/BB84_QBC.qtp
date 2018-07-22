@@ -51,6 +51,6 @@ BobVerify (vs:(bit*bit) list, basis:bit, as:bit list) =
        
 Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
 
-System() = (let n=1000)
+System() = (let n = read_int ())
            (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
            (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q = |0>) Random(q,r))

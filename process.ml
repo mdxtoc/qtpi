@@ -82,6 +82,27 @@ let rec string_of_process =
                                             (string_of_expr e)
                                             (string_of_process p1)
                                             (string_of_process p2)
+
+and short_string_of_process = 
+  function
+  | Terminate             -> "_0"
+  | Call (p,es)           -> Printf.sprintf "%s(%s)"
+                                            (string_of_name p)
+                                            (string_of_list string_of_expr "," es)
+  | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
+                                            (commasep (List.map string_of_param params))
+  | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
+                                            (commasep (List.map string_of_qspec xs))
+  | WithLet (x,p)        -> Printf.sprintf "(let %s) ..."
+                                            (string_of_letspec x)
+  | WithStep (s,p)        -> Printf.sprintf "%s. ..."
+                                            (string_of_step s)
+  | Par (ps)              -> Printf.sprintf "%s" (String.concat "|" (List.map short_string_of_process ps))
+  | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
+                                            (string_of_expr e)
+                                            (short_string_of_process p1)
+                                            (short_string_of_process p2)
+
 and string_of_qspec (p, vopt) =
   Printf.sprintf "%s%s" 
                  (string_of_param p)

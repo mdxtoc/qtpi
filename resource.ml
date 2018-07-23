@@ -153,10 +153,12 @@ let check_type pn classic t =
   in
   ct classic NameSet.empty t
 
-let rck_given (pn, t) = check_type pn false t
+(* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
 
-let rck_def (Processdef(pn, params, proc)) =
-  let check_param p =
+let ctfa_given (pn, t) = check_type pn false t
+
+let ctfa_def (Processdef(pn, params, proc)) =
+  let ctfa_param p =
     let bad_param s = raise (Error (Printf.sprintf "resourcecheck in %s, parameter %s: %s"
                                                    (string_of_name pn)
                                                    (string_of_param p)
@@ -169,55 +171,59 @@ let rck_def (Processdef(pn, params, proc)) =
     | Some t -> check_type pn false t
     | _      -> bad_param "Disaster (typechecked type expected)"
   in
-  let rec check_proc proc =
+  
+  let rec ctfa_proc proc =
     match proc with
     | Terminate                 -> ()
-    | Call     (pn', es)        -> List.iter check_expr es
-    | WithNew  (params, proc)   -> List.iter check_param params; check_proc proc
-    | WithQbit (qspecs, proc)   -> List.iter (fun (param,_) -> check_param param) qspecs;
-                                   check_proc proc
+    | Call     (pn', es)        -> List.iter ctfa_expr es
+    | WithNew  (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
+    | WithQbit (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
+                                   ctfa_proc proc
     | WithLet  (letspec, proc)  -> let param, e = letspec in
-                                   check_param param; 
-                                   check_expr e;
-                                   check_proc proc
-    | WithStep (step, proc)     -> check_step step; check_proc proc
-    | Cond     (ce,p1,p2)       -> check_expr ce; List.iter check_proc [p1;p2]
-    | Par      procs            -> List.iter check_proc procs
-  and check_step step =
+                                   ctfa_param param; 
+                                   ctfa_expr e;
+                                   ctfa_proc proc
+    | WithStep (step, proc)     -> ctfa_step step; ctfa_proc proc
+    | Cond     (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
+    | Par      procs            -> List.iter ctfa_proc procs
+  
+  and ctfa_step step =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
     match step with
-    | Read      (ce,params) -> check_expr ce; List.iter check_param params
-    | Write     (ce,es)     -> List.iter check_expr (ce::es)
-    | Measure   (qe,param)  -> check_expr qe; check_param param
-    | Ugatestep (qes, ug)   -> List.iter check_expr qes
-  and check_expr e =
+    | Read      (ce,params) -> ctfa_expr ce; List.iter ctfa_param params
+    | Write     (ce,es)     -> List.iter ctfa_expr (ce::es)
+    | Measure   (qe,param)  -> ctfa_expr qe; ctfa_param param
+    | Ugatestep (qes, ug)   -> List.iter ctfa_expr qes
+  
+  and ctfa_expr e =
     match e.inst.enode with
     | EUnit
     | EVar       _
     | EInt       _
     | EBool      _
     | EBit       _          -> ()   (* constants *)
-    | EMinus     e          -> check_expr e
+    | EMinus     e          -> ctfa_expr e
     | ETuple     es
-    | EList      es         -> List.iter check_expr es
-    | ECond      (ce,e1,e2) -> List.iter check_expr [ce;e1;e2]
+    | EList      es         -> List.iter ctfa_expr es
+    | ECond      (ce,e1,e2) -> List.iter ctfa_expr [ce;e1;e2]
     | EApp       (ef,ea)    -> List.iter (check_type pn true) [type_of_expr ef; type_of_expr ea];
-                               check_expr ef; check_expr ea
+                               ctfa_expr ef; ctfa_expr ea
     | EArith     (e1,_,e2)
     | ECompare   (e1,_,e2)
-    | EBoolArith (e1,_,e2)   -> List.iter check_expr [e1;e2]
+    | EBoolArith (e1,_,e2)   -> List.iter ctfa_expr [e1;e2]
     | EAppend     (e1,e2)
-    | EBitCombine (e1,e2)   -> List.iter check_expr [e1;e2]
+    | EBitCombine (e1,e2)   -> List.iter ctfa_expr [e1;e2]
     
   in
-  List.iter check_param params;
-  check_proc proc
+  List.iter ctfa_param params;
+  ctfa_proc proc
   
 let resourcecheck cxt lib defs = 
   (* the typecxt comes from typecheck. lib is from given. defs have been rewritten to mark exprs
      with their types.
      
-     Let's police parameters: channels take either a single qbit or a classical value.
+     Let's police parameters: channels take either a single qbit or a classical value. Functions and
+     applications must have nothing to do with qbits.
    *)
-  List.iter rck_given lib;
-  List.iter rck_def defs
+  List.iter ctfa_given lib;
+  List.iter ctfa_def defs

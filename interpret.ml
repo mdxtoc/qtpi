@@ -356,7 +356,7 @@ let rec interp sysenv proc =
             )
          
         | pn, WithNew (ps, proc), env ->
-            let ps = List.map (fun (n, _) -> (n, newchan ())) ps in
+            let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
             addrunner (pn, proc, (ps @ env))
         | pn, WithQbit (ps, proc), env ->
             let rec fv bv =
@@ -368,15 +368,15 @@ let rec interp sysenv proc =
             | None      -> None
             | Some bve  -> Some (fv bve)
             in
-            let ps = List.map (fun ((n,_),vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
+            let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
             addrunner (pn, proc, (ps @ env))
-        | pn, WithLet (((n,_),e), proc), env ->
+        | pn, WithLet (({inst=n,_},e), proc), env ->
             let env = (n, evale env e) :: env in
             addrunner (pn, proc, env)
         | pn, WithStep (step, proc), env ->
             (match step with
              | Read (e, ps) -> let c = chanev env e in
-                               let ns, _ = unzip ps in
+                               let ns = strip_params ps in
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
                                   let env = zip ns vs @ env in
@@ -406,7 +406,7 @@ let rec interp sysenv proc =
                                  )
                                else
                                  WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
-             | Measure (e, (n,_))  -> let q = qbitev env e in
+             | Measure (e, {inst=n,_})  -> let q = qbitev env e in
                                       let v = VInt (qmeasure pn q) in
                                       addrunner (pn, proc, (n,v)::env)
              | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
@@ -433,9 +433,9 @@ let interpret lib defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let given (n,t) assoc =
-    match t with 
+    match t.inst with 
     | Process ts -> (n, VProcess ((List.map (fun t -> new_unknown_name()) ts), IGiven))::assoc
-    | t          -> raise (Error(dummy_spos, Printf.sprintf "** cannot interpret with given %s:%s" 
+    | _          -> raise (Error(dummy_spos, Printf.sprintf "** cannot interpret with given %s:%s" 
                                                             (string_of_name n)
                                                             (string_of_type t)
                                 )

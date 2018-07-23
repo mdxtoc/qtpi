@@ -24,6 +24,7 @@
 open Settings
 open Listutils
 open Functionutils
+open Tupleutils
 open Name
 open Type
 open Processdef
@@ -49,7 +50,7 @@ let _ = match !Usage.files with
                 if !verbose then
                   ((match lib with
                     | [] -> ()
-                    | _  -> let string_of_nt = string_of_param <.> param_of_binding in
+                    | _  -> let string_of_nt = string_of_pair string_of_name string_of_type ":" in
                             Printf.printf "given %s\n\n" (string_of_list string_of_nt ";" lib)
                    );
                    print_endline (string_of_list string_of_processdef "\n\n" defs)

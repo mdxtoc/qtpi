@@ -117,7 +117,7 @@ let ctfa_type pn classic t =
                         )
   in
   let rec ct classic vars t =
-    match t with
+    match t.inst with
     | Qbit            -> if classic then badtype "should be classical, includes qbit" else ()
     | Int
     | Bool
@@ -129,7 +129,7 @@ let ctfa_type pn classic t =
     | List    t       -> ct classic vars t
     | Tuple   ts    
     | Process ts      -> List.iter (ct classic vars) ts
-    | Channel t       -> (match t with
+    | Channel t       -> (match t.inst with
                           | Qbit      -> () (* always ok, even in classical channels *)
                           | _         -> try ct true vars t
                                          with _ -> badtype "should be a channel of qbit or a classical channel"
@@ -149,7 +149,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                    )
                             )
     in
-    let n, tor = p in
+    let n, tor = p.inst in
     match !tor with
     | Some t -> ctfa_type pn false t
     | _      -> bad_param "Disaster (typechecked type expected)"
@@ -237,7 +237,7 @@ let resource_of_type pn t =
                         )
   in
   let rec rt t =
-    match t with
+    match t.inst with
     | Int
     | Bool
     | Bit 
@@ -280,7 +280,7 @@ let rec resources_of_expr env e =
   | EBitCombine (e1,e2)
   | EAppend     (e1,e2)   -> do_list [e1;e2]
   
-let rparams pn params = List.map (fun (n,toptr) -> n, resource_of_type pn ( _The (!toptr))) params
+let rparams pn params = List.map (fun {inst=n,toptr} -> n, resource_of_type pn ( _The (!toptr))) params
 
 exception OverLap of string
 
@@ -311,18 +311,19 @@ let rck_proc pn env proc =
                                         disju ers
                                     with OverLap s -> badproc s
                                    )
-      | WithNew (params, proc)  -> (* all channels, no resource *)
-                                   let env = List.fold_left (fun env (n,_) -> NameMap.add n RNull env) env params in
+      | WithNew (params, proc)  -> (* all channels, no new resource *)
+                                   let env = List.fold_left (fun env ({inst=n,_}) -> NameMap.add n RNull env) env params in
                                    rp env proc
       | WithQbit (qspecs, proc) -> (* all new qbits *)
                                    let env = 
-                                     List.fold_left (fun env ((n,_),_) -> NameMap.add n (RQbit (newqid(),true)) env) 
+                                     List.fold_left (fun env (({inst=n,_}),_) -> NameMap.add n (RQbit (newqid(),true)) env) 
                                                     env 
                                                     qspecs 
                                    in
                                    rp env proc
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
-                                   let (n,_),e = letspec in
+                                   let param,e = letspec in
+                                   let n,_ = param.inst in
                                    let er = resources_of_expr env e in
                                    let res = match ResourceSet.elements er with
                                              | []    -> RNull
@@ -341,7 +342,7 @@ let rck_proc pn env proc =
                                                                 ResourceSet.union (rp env proc) used
                                                             with OverLap s -> badproc s
                                                            )
-                                    | Measure (qe, (n,_))   -> let used = resources_of_expr env qe in
+                                    | Measure (qe, ({inst=n,_}))   -> let used = resources_of_expr env qe in
                                                                ResourceSet.union used (rp (env <@+> (n,RNull)) proc)
                                     | Ugatestep (qes, ug)   -> (try let qers = List.map (resources_of_expr env) qes in
                                                                     let used = disju qers in
@@ -366,7 +367,7 @@ let rck_proc pn env proc =
   in
   rp env proc
   
-let rck_def (Processdef(pn, params, proc)) = 
+let rck_def env (Processdef(pn, params, proc)) = 
   let rparams = rparams pn params in
   if !verbose_resource then
     Printf.printf "\ndef %s params %s resource %s\n" 
@@ -374,7 +375,7 @@ let rck_def (Processdef(pn, params, proc)) =
                   (bracketed_string_of_list string_of_param params)
                   (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
   (* here we go with the symbolic execution *)
-  let _ = rck_proc pn (NameMap.of_assoc rparams) proc in
+  let _ = rck_proc pn (List.fold_left (<@+>) env rparams) proc in
   ()
 
 (* *************** main function: trigger the phases *************************** *)
@@ -387,4 +388,6 @@ let resourcecheck cxt lib defs =
    *)
   List.iter ctfa_given lib;
   List.iter ctfa_def defs;
-  List.iter rck_def defs
+  let knownassoc = List.map (fun (n,t,_) -> n, resource_of_type n (Parseutils.parse_typestring t)) !Interpret.knowns in
+  let env = NameMap.of_assoc knownassoc in
+  List.iter (rck_def env) defs

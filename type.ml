@@ -25,8 +25,11 @@ open Settings
 open Name
 open Stringutils
 open Listutils
+open Instance
 
-type _type = 
+type _type = tnode instance
+
+and tnode =
   | Int
   | Bool
   | Bit 
@@ -49,7 +52,7 @@ let listprio = 4
 let primaryprio = 10
 
 let typeprio t = 
-  match t with  
+  match t.inst with  
   | Int 
   | Bool
   | Bit           
@@ -64,17 +67,20 @@ let typeprio t =
   | Fun     _       -> funprio
   | Process _       -> processprio
   
-let delist = function
-  | []  -> Unit
+let delist pos = function
+  | []  -> {pos=pos; inst=Unit}
   | [t] -> t
-  | ts  -> Tuple ts
+  | ts  -> {pos=pos; inst=Tuple ts}
 
-let relist = function
+let relist t =
+  match t.inst with
   | Unit     -> [] 
   | Tuple ts -> ts
-  | t        -> [t]
+  | _        -> [t]
 
-let rec string_of_type t = match t with
+let rec string_of_type t = string_of_tnode t.inst
+
+and string_of_tnode = function
   | Int             -> "int"
   | Bit             -> "bit"
   | Bool            -> "bool"
@@ -110,7 +116,8 @@ and possbracket' ifeq supprio subprio substring =
 
 let rec frees t = _frees NameSet.empty t
 
-and _frees s = function
+and _frees s t = 
+  match t.inst with
   | Int
   | Bool
   | Bit 
@@ -126,23 +133,28 @@ and _frees s = function
   | Fun (t1,t2) -> _frees (_frees s t1) t2
 
 let rec rename assoc t = 
-  match t with
+  let replace tnode = {pos=t.pos; inst=tnode} in
+  match t.inst with
   | Int
   | Bool
   | Bit 
   | Unit
   | Qbit        
   | Range _     -> t
-  | TypeVar (n) -> TypeVar (assoc<@>n) 
+  | TypeVar n   -> replace (TypeVar (assoc<@>n)) 
   | Univ (ns,t) -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
-  | List    t   -> List (rename assoc t)   
-  | Channel t   -> Channel (rename assoc t)
-  | Process ts  -> Process (List.map (rename assoc) ts)
-  | Tuple ts    -> Tuple (List.map (rename assoc) ts)
-  | Fun (t1,t2) -> Fun (rename assoc t1, rename assoc t2)
+  | List    t   -> replace (List (rename assoc t))   
+  | Channel t   -> replace (Channel (rename assoc t))
+  | Process ts  -> replace (Process (List.map (rename assoc) ts))
+  | Tuple ts    -> replace (Tuple (List.map (rename assoc) ts))
+  | Fun (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
+
+let generalise t = 
+  let vs = frees t in
+  if NameSet.is_empty vs then t else (adorn t.pos (Univ(NameSet.elements vs,t)))
 
 let instantiate t =
-  match t with
+  match t.inst with
   | Univ (ns, t) -> let newns = List.map (fun _ -> new_unknown_name ()) ns in
                     (try rename (zip ns newns) t
                      with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))

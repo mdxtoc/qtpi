@@ -21,6 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
+open Instance
 open Listutils
 open Name
 open Type
@@ -29,17 +30,20 @@ open Type
  * processes for resourcing
  *)
 
-type param = name * _type option ref 
+type param = (name * _type option ref) instance 
 
-let string_of_param (n,rt) =
+let string_of_param p =
+  let n,rt = p.inst in
   match !rt with
   | Some t -> Printf.sprintf "%s:%s" (string_of_name n) (string_of_type t)  
   | None   -> string_of_name n
   
 let string_of_params = string_of_list string_of_param ", " 
 
-let strip_param ((n,t):param) = n
+let strip_param p =
+  let n, _ = p.inst in
+  n
 
-let strip_params = List.map strip_param
+let strip_params ps = List.map strip_param ps
 
-let param_of_binding (n,t) = n, ref (Some t)
+let param_of_binding pos (n,t) = adorn pos (n, ref (Some t))

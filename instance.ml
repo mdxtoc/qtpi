@@ -26,3 +26,7 @@ open Sourcepos
 type 'a instance = {pos: sourcepos; inst: 'a}
 
 let adorn pos inst = {pos=pos; inst=inst}
+
+let adorn_x x = adorn x.pos
+
+let strip_pos {pos=pos; inst=inst} = inst

@@ -41,6 +41,8 @@
   
   let bad s = raise (Program.ParseError(get_sourcepos(),s))
 
+  let adorn inst = Instance.adorn (get_sourcepos()) inst
+  
   let eadorn inst = Instance.adorn (get_sourcepos()) (ewrap None inst)
   
 (*let tripletadorn pre lab tof = Com.tripletadorn (get_sourcepos()) pre lab tof
@@ -137,47 +139,45 @@ paramseq:
   | param COMMA paramseq                {$1::$3}
   
 param:
-  | name COLON typespec                 {$1,ref (Some $3)}
-  | name                                {$1,ref None}
+  | name COLON typespec                 {adorn ($1,ref (Some $3))}
+  | name                                {adorn ($1,ref None)}
 
 name:
   NAME                                  {$1}
   
 typespec:
   | func_typespec                       {$1}
-  | typespec PROCESS                    {Process (Type.relist $1)
-                                        }
+  | typespec PROCESS                    {adorn (Process (Type.relist $1))}
 
 func_typespec:
   | chan_typespec                       {$1}
   | chan_typespec TYPEARROW func_typespec    
-                                        {Fun ($1,$3)}
+                                        {adorn (Fun ($1,$3))}
   
 chan_typespec:
   | tuple_typespec                      {$1}
-  | CHANTYPE tuple_typespec             {Channel $2}
+  | CHANTYPE tuple_typespec             {adorn (Channel $2)}
   
 tuple_typespec:
   | simple_typespec                     {$1}
   | simple_typespec STAR simple_typespecs
-                                        {Tuple ($1::$3)}        
+                                        {adorn (Tuple ($1::$3))}        
     
 simple_typespec:
-  | INTTYPE                             {Int}
-  | BOOLTYPE                            {Bool}
-  | BITTYPE                             {Bit}
-  | UNITTYPE                            {Unit}
-  | LPAR RPAR                           {Unit}
-  | QBITTYPE                            {Qbit}
-  | typevar                             {TypeVar ($1)}
+  | INTTYPE                             {adorn Int}
+  | BOOLTYPE                            {adorn Bool}
+  | BITTYPE                             {adorn Bit}
+  | UNITTYPE                            {adorn Unit}
+  | QBITTYPE                            {adorn Qbit}
+  | typevar                             {adorn (TypeVar ($1))}
   | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
-                                         if low<=high then Range (low,high)
+                                         if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } 
   | LPAR typespec RPAR                  {$2}
-  | FORALL typevars DOT typespec        {Univ ($2,$4)}
-  | simple_typespec LISTTYPE            {List ($1)}
+  | FORALL typevars DOT typespec        {adorn (Univ ($2,$4))}
+  | simple_typespec LISTTYPE            {adorn (List ($1))}
   
 simple_typespecs:
   | simple_typespec                     {[$1]}
@@ -238,8 +238,8 @@ vbif:
   | expr THEN vbasis ELIF vbif          {BVcond ($1,$3,$5)}
   
 letspec:
-  | name EQUALS expr                    {($1, ref None     ), $3}
-  | name COLON typespec EQUALS expr     {($1, ref (Some $3)), $5}
+  | name EQUALS expr                    {adorn ($1, ref None     ), $3}
+  | name COLON typespec EQUALS expr     {adorn ($1, ref (Some $3)), $5}
   
 step:
   | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}

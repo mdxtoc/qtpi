@@ -308,6 +308,19 @@ let rec typecheck_basisv cxt bv =
                                 let cxt = typecheck_basisv cxt bve1 in
                                 typecheck_basisv cxt bve2
 
+let check_distinct sf params =
+  let check set (n,_) =
+    if NameSet.mem n set then 
+      raise (TypeCheckError (Printf.sprintf "non-distinct parameters (%s) in %s"
+                                            (string_of_list string_of_param "," params)
+                                            (sf ())
+                            )
+            )
+    else NameSet.add n set
+  in
+  let _ = List.fold_left check NameSet.empty params in
+  ()
+
 let strip_procparams s cxt params = 
   (* Printf.printf "before strip_procparams %s (%s)\n%s\n" s (string_of_params params) (string_of_typecxt cxt); *)
   let cxt = List.fold_left (fun cxt (n,_) -> cxt<@->n) cxt params in
@@ -364,6 +377,7 @@ and typecheck_process cxt p =
                        cxt
                        params
       in
+      check_distinct (fun () -> short_string_of_process proc) params;
       do_procparams "WithNew" cxt params proc
   | WithQbit (qss,proc) ->
       let typecheck_qspec cxt ((n,rt), bvopt) =
@@ -374,6 +388,7 @@ and typecheck_process cxt p =
       in
       let cxt = List.fold_left typecheck_qspec cxt qss in
       let params = List.map fst qss in
+      check_distinct (fun () -> short_string_of_process proc) params;
       do_procparams "WithQbit" cxt params proc
   | WithLet ((p,e),proc) -> 
       let (n,rt) = p in
@@ -390,6 +405,7 @@ and typecheck_process cxt p =
              unify_paramtype cxt rt t'
            in
            let cxt = List.fold_right stitch (zip chants params) cxt in
+           check_distinct (fun () -> short_string_of_process proc) params;
            do_procparams "Read" cxt params proc 
        | Write (chan, es) ->
            let chants = List.map (fun _ -> new_TypeVar()) es in 
@@ -415,15 +431,16 @@ and typecheck_process cxt p =
       typecheck_process cxt p2
   | Par (ps) -> List.fold_left typecheck_process cxt ps
 
-let typecheck_processdef cxt (Processdef (n,params,proc) as def) =
-  let env_types = match cxt<@>n with
+let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
+  let env_types = match cxt<@>pn with
                   | Process ts -> ts
                   | _          -> raise (Error (Printf.sprintf "%s not a process in env %s"
-                                                               (string_of_name n)
+                                                               (string_of_name pn)
                                                                (string_of_typecxt cxt)
                                                )
                                         )
   in
+  check_distinct (fun () -> Printf.sprintf "process def %s" (string_of_name pn)) params;
   let cxt = do_procparams "processdef" cxt params proc in
   let cxt = evalcxt cxt in
   let tps = zip env_types params in

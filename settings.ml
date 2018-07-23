@@ -37,6 +37,7 @@ let verbose_interpret = ref false
 let verbose_qsim = ref false
 let verbose_qcalc = ref false
 let verbose_queues = ref false
+let verbose_resource = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
 
@@ -50,7 +51,8 @@ let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
                    ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
-                   ("queues"           , verbose_queues          );
+                   ("queues"           , verbose_queues           );
+                   ("resource"         , verbose_resource         );
                    ("simplify"         , verbose_simplify         );
                    ("typecheck"        , verbose_typecheck        );
                   ] 

@@ -20,15 +20,16 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     (or look at http://www.gnu.org).
 *)
+open Instance
 open Name
 open Type
 open Process
 open Param
 
-type processdef = Processdef of name * param list * process
+type processdef = Processdef of name instance * param list * process
 
-let string_of_processdef (Processdef (x,params,proc)) =
+let string_of_processdef (Processdef (pn,params,proc)) =
     Printf.sprintf "%s(%s) = %s"
-        (string_of_name x)
+        (string_of_name pn.inst)
         (String.concat "," (List.map string_of_param params))
         (string_of_process proc)

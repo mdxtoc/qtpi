@@ -300,7 +300,7 @@ and funev env e =
   | v      -> mistyped e.pos (string_of_expr e) v "a function"
 
 and ugev env ug = 
-  match ug with
+  match ug.inst with
   | GH                  -> GateH
   | GI                  -> GateI
   | GX                  -> GateX
@@ -342,23 +342,24 @@ let rec interp sysenv proc =
                        (string_of_queue string_of_stuck "; " stucks)
                        (string_of_qstate ());
        let runner = RunnerQueue.pop runners in
-       (match runner with
-        | _, Terminate, _       -> ()
-        | _, Call (n, es), env  -> 
+       let pn, rproc, env = runner in
+       (match rproc.inst with
+        | Terminate         -> ()
+        | Call (n, es)      -> 
             (let vs = List.map (evale env) es in
-             try (match env<@>n with
+             try (match env<@>n.inst with
                   | VProcess (ns, IDef proc) -> let env = zip ns vs @ sysenv in
-                                                addrunner (n, proc, env)
-                  | VProcess (ns, IGiven)    -> addstuck (n, vs)
-                  | v                        -> mistyped dummy_spos (string_of_name n) v "a process"
+                                                addrunner (n.inst, proc, env)
+                  | VProcess (ns, IGiven)    -> addstuck (n.inst, vs)
+                  | v                        -> mistyped dummy_spos (string_of_name n.inst) v "a process"
                  )  
-             with Invalid_argument _ -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n))
+             with Invalid_argument _ -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
             )
          
-        | pn, WithNew (ps, proc), env ->
+        | WithNew (ps, proc) ->
             let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
             addrunner (pn, proc, (ps @ env))
-        | pn, WithQbit (ps, proc), env ->
+        | WithQbit (ps, proc) ->
             let rec fv bv =
               match bv with
               | BVe bv                  -> bv              
@@ -370,11 +371,11 @@ let rec interp sysenv proc =
             in
             let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
             addrunner (pn, proc, (ps @ env))
-        | pn, WithLet (({inst=n,_},e), proc), env ->
+        | WithLet (({inst=n,_},e), proc) ->
             let env = (n, evale env e) :: env in
             addrunner (pn, proc, env)
-        | pn, WithStep (step, proc), env ->
-            (match step with
+        | WithStep (step, proc) ->
+            (match step.inst with
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
@@ -414,9 +415,9 @@ let rec interp sysenv proc =
                                       ugstep pn qs g;
                                       addrunner (pn, proc, env)
             )
-        | pn, Cond (e, p1, p2), env ->
+        |Cond (e, p1, p2)   ->
             addrunner (pn, (if boolev env e then p1 else p2), env)
-        | pn, Par ps, env ->
+        | Par ps            ->
             List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
        );
        step ()
@@ -434,16 +435,16 @@ let interpret lib defs =
   (* make an assoc list of process defs and functions *)
   let given (n,t) assoc =
     match t.inst with 
-    | Process ts -> (n, VProcess ((List.map (fun t -> new_unknown_name()) ts), IGiven))::assoc
+    | Process ts -> (n.inst, VProcess ((List.map (fun t -> new_unknown_name()) ts), IGiven))::assoc
     | _          -> raise (Error(dummy_spos, Printf.sprintf "** cannot interpret with given %s:%s" 
-                                                            (string_of_name n)
+                                                            (string_of_name n.inst)
                                                             (string_of_type t)
                                 )
                           )
   in
   let givenassoc = List.fold_right given lib [] in
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n, VProcess (strip_params params, IDef p))) defs in
+  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, IDef p))) defs in
   let sysenv = defassoc @ givenassoc @ knownassoc in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = [%s]\n\n" (string_of_env sysenv);

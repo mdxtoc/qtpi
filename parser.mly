@@ -107,7 +107,7 @@
 %token FORALL PROCESS
 %start readtype
 
-%type  <(Name.name * Type._type) list * Processdef.processdef list> program
+%type  <(Name.name Instance.instance * Type._type) list * Processdef.processdef list> program
 %type  <Type._type> readtype
 
 %%
@@ -118,18 +118,20 @@ library:
   |                                     {[]}
 
 typednames:
-  | name COLON typespec                 {[$1,$3]}
+  | name COLON typespec                 {[adorn $1,$3]}
   | name COLON typespec COMMA typednames 
-                                        {($1,$3)::$5}
+                                        {(adorn $1,$3)::$5}
                                         
 processdefs:
   | processdef                          {[$1]}
   | processdef processdefs              {$1::$2}
 
 processdef:
-  name LPAR params RPAR EQUALS ubprocess  
+  procname LPAR params RPAR EQUALS ubprocess  
                                         {Processdef($1,$3,$6)}
 
+procname:
+  | name                                {adorn $1}
 params:
   |                                     {[]}
   | paramseq                            {$1}
@@ -192,26 +194,27 @@ typevars:
   | typevar COMMA typevars              {$1::$3}
   
 process:
-  | TERMINATE                           {Terminate}
-  | name primary                        {Call ($1,match $2.inst.enode with 
-                                                  | EUnit     -> []
-                                                  | ETuple es -> es
-                                                  | _         -> [$2]
-                                              )
+  | TERMINATE                           {adorn Terminate}
+  | procname primary                    {adorn (Call ($1,match $2.inst.enode with 
+                                                         | EUnit     -> []
+                                                         | ETuple es -> es
+                                                         | _         -> [$2]
+                                                     )
+                                               )
                                         }
-  | LPAR NEWDEC paramseq RPAR process   {WithNew ($3,$5)}
-  | LPAR QBITDEC qspecs RPAR process    {WithQbit ($3,$5)}
-  | LPAR LETDEC letspec RPAR process    {WithLet ($3,$5)}
-  | step DOT process                    {WithStep ($1,$3)}
+  | LPAR NEWDEC paramseq RPAR process   {adorn (WithNew ($3,$5))}
+  | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
+  | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
+  | step DOT process                    {adorn (WithStep ($1,$3))}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
 
 ubif: 
-  | expr THEN ubprocess ELSE ubprocess  {Cond ($1, $3, $5)}
-  | expr THEN ubprocess ELIF ubif       {Cond ($1, $3, $5)}
+  | expr THEN ubprocess ELSE ubprocess  {adorn (Cond ($1, $3, $5))}
+  | expr THEN ubprocess ELIF ubif       {adorn (Cond ($1, $3, $5))}
   
 ubprocess:
-  | processpar                          {Par $1} /* only case in which a process can be unbracketed */
+  | processpar                          {adorn (Par $1)} /* only case in which a process can be unbracketed */
   | process                             {$1}
   
 processpar:
@@ -242,15 +245,15 @@ letspec:
   | name COLON typespec EQUALS expr     {adorn ($1, ref (Some $3)), $5}
   
 step:
-  | expr QUERY LPAR paramseq RPAR       {Read ($1,$4)}
+  | expr QUERY LPAR paramseq RPAR       {adorn (Read ($1,$4))}
   | expr BANG ntexprs                   {let es = match $3 with 
                                                   | [{inst={enode=ETuple es}}] -> es
                                                   | es                         -> es
                                          in
-                                         Write ($1,es)
+                                         adorn (Write ($1,es))
                                         }
-  | expr MEASURE LPAR param RPAR        {Measure ($1,$4)}
-  | ntexprs THROUGH ugate               {Ugatestep ($1,$3)}
+  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,$4))}
+  | ntexprs THROUGH ugate               {adorn (Ugatestep ($1,$3))}
 
 args:
   |                                     {[]}
@@ -310,16 +313,17 @@ bool:
   | ntexpr OR ntexpr                    {$1,Or,$3}
   
 ugate: 
-  | HADAMARD                            {GH}
-  | CNOT                                {GCnot}
-  | I                                   {GI}
-  | X                                   {GX}
-  | PHI LPAR expr RPAR                  {GPhi ($3)}
+  | HADAMARD                            {adorn GH}
+  | CNOT                                {adorn GCnot}
+  | I                                   {adorn GI}
+  | X                                   {adorn GX}
+  | PHI LPAR expr RPAR                  {adorn (GPhi ($3))}
   | IF ugif FI                          {$2}    
 
 ugif:
-  | expr THEN ugate ELSE ugate          {GCond ($1,$3,$5)}
-  | expr THEN ugate ELSE ugif           {GCond ($1,$3,$5)}
+  | expr THEN ugate ELSE ugate          {adorn (GCond ($1,$3,$5))}
+  | expr THEN ugate ELSE ugif           {adorn (GCond ($1,$3,$5))}
+
 exprlist:
   |                                     {[]}
   | expr                                {[$1]}

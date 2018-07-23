@@ -55,7 +55,7 @@ open Step
 open Typecheck
 open Settings
 
-exception Error of string
+exception ResourceError of sourcepos * string
 
 let (<@>)  env n     = NameMap.find n env       (* is this evil? Over-riding Listutils.(<@>)!! *)
 let (<@+>) env (n,t) = NameMap.add n t env      (* also evil? *)
@@ -108,13 +108,13 @@ let type_of_expr e =
 
 (* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
 
-let ctfa_type pn classic t = 
-  let badtype s = raise (Error (Printf.sprintf "resourcecheck in %s, type %s: %s"
-                                               (string_of_name pn)
-                                               (string_of_type t)
-                                               s
-                               )
-                        )
+let ctfa_type classic t = 
+  let badtype s = raise (ResourceError (t.pos,
+                                        Printf.sprintf "type %s: %s"
+                                                       (string_of_type t)
+                                                       s
+                                       )
+                         )
   in
   let rec ct classic vars t =
     match t.inst with
@@ -138,25 +138,24 @@ let ctfa_type pn classic t =
   in
   ct classic NameSet.empty t
 
-let ctfa_given (pn, t) = ctfa_type pn false t
+let ctfa_given (pn, t) = ctfa_type false t
 
 let ctfa_def (Processdef(pn, params, proc)) =
   let ctfa_param p =
-    let bad_param s = raise (Error (Printf.sprintf "resourcecheck in %s, parameter %s: %s"
-                                                   (string_of_name pn)
-                                                   (string_of_param p)
-                                                   s
-                                   )
-                            )
+    let bad_param s = raise (ResourceError (p.pos, Printf.sprintf "parameter %s: %s"
+                                                                  (string_of_param p)
+                                                                  s
+                                           )
+                                    )
     in
     let n, tor = p.inst in
     match !tor with
-    | Some t -> ctfa_type pn false t
+    | Some t -> ctfa_type false t
     | _      -> bad_param "Disaster (typechecked type expected)"
   in
   
   let rec ctfa_proc proc =
-    match proc with
+    match proc.inst with
     | Terminate                 -> ()
     | Call     (pn', es)        -> List.iter ctfa_expr es
     | WithNew  (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
@@ -172,7 +171,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
   
   and ctfa_step step =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
-    match step with
+    match step.inst with
     | Read      (ce,params) -> ctfa_expr ce; List.iter ctfa_param params
     | Write     (ce,es)     -> List.iter ctfa_expr (ce::es)
     | Measure   (qe,param)  -> ctfa_expr qe; ctfa_param param
@@ -189,11 +188,11 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | ETuple     es
     | EList      es         -> List.iter ctfa_expr es
     | ECond      (ce,e1,e2) -> List.iter ctfa_expr [ce;e1;e2]
-    | EApp       (ef,ea)    -> List.iter (ctfa_type pn true) [type_of_expr ef; type_of_expr ea];
+    | EApp       (ef,ea)    -> List.iter (ctfa_type true) [type_of_expr ef; type_of_expr ea];
                                ctfa_expr ef; ctfa_expr ea
     | EArith     (e1,_,e2)
     | ECompare   (e1,_,e2)
-    | EBoolArith (e1,_,e2)   -> List.iter ctfa_expr [e1;e2]
+    | EBoolArith (e1,_,e2)  -> List.iter ctfa_expr [e1;e2]
     | EAppend     (e1,e2)
     | EBitCombine (e1,e2)   -> List.iter ctfa_expr [e1;e2]
     
@@ -228,12 +227,12 @@ let newqid =
    newqid
   )
   
-let resource_of_type pn t =
-  let badtype s = raise (Error (Printf.sprintf "resourcecheck in %s, type %s: %s"
-                                               (string_of_name pn)
-                                               (string_of_type t)
-                                               s
-                               )
+let resource_of_type t =
+  let badtype s = raise (ResourceError (t.pos,
+                                        Printf.sprintf "type %s: %s"
+                                                       (string_of_type t)
+                                                       s
+                                       )
                         )
   in
   let rec rt t =
@@ -280,7 +279,7 @@ let rec resources_of_expr env e =
   | EBitCombine (e1,e2)
   | EAppend     (e1,e2)   -> do_list [e1;e2]
   
-let rparams pn params = List.map (fun {inst=n,toptr} -> n, resource_of_type pn ( _The (!toptr))) params
+let rparams params = List.map (fun {inst=n,toptr} -> n, resource_of_type ( _The (!toptr))) params
 
 exception OverLap of string
 
@@ -290,13 +289,13 @@ let disju ers =
                    else ResourceSet.union set er in
   List.fold_left dju ResourceSet.empty ers
 
-let rck_proc pn env proc = 
+let rck_proc env proc = 
   let badproc s =
-    raise (Error (Printf.sprintf "resourcecheck in %s, checking %s: %s"
-                                               (string_of_name pn)
-                                               (short_string_of_process proc)
-                                               s
-                 )
+    raise (ResourceError (proc.pos,
+                          Printf.sprintf "checking %s: %s"
+                                         (short_string_of_process proc)
+                                         s
+                         )
           )
   in
   let rec rp env proc =
@@ -304,7 +303,7 @@ let rck_proc pn env proc =
       Printf.printf "rp (%s) %s\n" (NameMap.to_string string_of_resource env)
                                    (short_string_of_process proc);
     let r =
-      (match proc with
+      (match proc.inst with
       | Terminate               -> ResourceSet.empty
       | Call (n, es)            -> (* disjoint resources in the arguments *)
                                    (try let ers = List.map (resources_of_expr env) es in
@@ -331,9 +330,9 @@ let rck_proc pn env proc =
                                              | _     -> badproc (Printf.sprintf "let binding ambiguously uses resources %s" (ResourceSet.to_string er))
                                    in
                                    ResourceSet.union (rp (NameMap.add n res env) proc) er
-      | WithStep (step,proc)    -> (match step with 
+      | WithStep (step,proc)    -> (match step.inst with 
                                     | Read (ce,params)  -> let used = resources_of_expr env ce in
-                                                           let extras = rparams pn params in
+                                                           let extras = rparams params in
                                                            let env = List.fold_left (<@+>) env extras in
                                                            ResourceSet.union (rp env proc) used
                                     | Write (ce,es)     -> (try let used = resources_of_expr env ce in
@@ -368,14 +367,14 @@ let rck_proc pn env proc =
   rp env proc
   
 let rck_def env (Processdef(pn, params, proc)) = 
-  let rparams = rparams pn params in
+  let rparams = rparams params in
   if !verbose_resource then
     Printf.printf "\ndef %s params %s resource %s\n" 
-                  (string_of_name pn)
+                  (string_of_name pn.inst)
                   (bracketed_string_of_list string_of_param params)
                   (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
   (* here we go with the symbolic execution *)
-  let _ = rck_proc pn (List.fold_left (<@+>) env rparams) proc in
+  let _ = rck_proc (List.fold_left (<@+>) env rparams) proc in
   ()
 
 (* *************** main function: trigger the phases *************************** *)
@@ -388,6 +387,6 @@ let resourcecheck cxt lib defs =
    *)
   List.iter ctfa_given lib;
   List.iter ctfa_def defs;
-  let knownassoc = List.map (fun (n,t,_) -> n, resource_of_type n (Parseutils.parse_typestring t)) !Interpret.knowns in
+  let knownassoc = List.map (fun (n,t,_) -> n, resource_of_type (Parseutils.parse_typestring t)) !Interpret.knowns in
   let env = NameMap.of_assoc knownassoc in
   List.iter (rck_def env) defs

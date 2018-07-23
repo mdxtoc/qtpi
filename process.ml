@@ -23,15 +23,18 @@
 
 open Stringutils
 open Listutils
+open Instance
 open Name
 open Type
 open Expr
 open Step
 open Param
 
-type process = 
+type process = procnode instance
+
+and procnode =
   | Terminate
-  | Call of name * expr list
+  | Call of name instance * expr list
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
@@ -53,17 +56,17 @@ and basisv_e =
   | BVe of basisv
   | BVcond of expr * basisv_e * basisv_e
   
-let rec string_of_process = 
+let rec string_of_process proc = 
   let trailing_sop p =
     let s = string_of_process p in
-    match p with
+    match p.inst with
     | Par _ -> Printf.sprintf "(%s)" s
     | _     -> s
   in
-  function
+  match proc.inst with
   | Terminate             -> "_0"
   | Call (p,es)           -> Printf.sprintf "%s(%s)"
-                                            (string_of_name p)
+                                            (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
@@ -83,11 +86,11 @@ let rec string_of_process =
                                             (string_of_process p1)
                                             (string_of_process p2)
 
-and short_string_of_process = 
-  function
+and short_string_of_process proc = 
+  match proc.inst with
   | Terminate             -> "_0"
   | Call (p,es)           -> Printf.sprintf "%s(%s)"
-                                            (string_of_name p)
+                                            (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
                                             (commasep (List.map string_of_param params))

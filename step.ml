@@ -23,20 +23,23 @@
 
 open Settings
 open Stringutils
+open Instance
 open Name
 open Expr
 open Type
 open Param
 open Ugate
 
-type step = 
+type step = stumble instance
+
+and stumble =
   | Read of expr * param list
   | Write of expr * expr list
   | Measure of expr * param
   | Ugatestep of expr list * ugate
   
-let string_of_step =
-  function
+let string_of_step step =
+  match step.inst with
   | Read (e,params)     -> Printf.sprintf "%s?(%s)"
                                           (string_of_expr e)
                                           (commasep (List.map string_of_param params))

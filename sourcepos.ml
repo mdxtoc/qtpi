@@ -43,26 +43,34 @@ let string_of_sourcepos (startpos,endpos) =
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
 
+let startsbefore pos1 pos2 = startline pos1 < startline pos2 || 
+                             (startline pos1 = startline pos2 && startchar pos1 < startchar pos2)
 
-(*
-   let startsbefore pos1 pos2 = startline pos1 < startline pos2 || 
-                                (startline pos1 = startline pos2 && startchar pos1 < startchar pos2)
+let endsbefore pos1 pos2 = endline pos1 < endline pos2 || 
+                           (endline pos1 = endline pos2 && endchar pos1 < endchar pos2)
 
-   let endsbefore pos1 pos2 = endline pos1 < endline pos2 || 
-                              (endline pos1 = endline pos2 && endchar pos1 < endchar pos2)
+let compare pos1 pos2 =
+  if pos1=pos2 then 0 else
+  if startsbefore pos1 pos2 then (-1) else 1
 
-   let compare pos1 pos2 =
-     if pos1=pos2 then 0 else
-     if startsbefore pos1 pos2 then (-1) else 1
+let spos_of_spos2 pos1 pos2 =
+  if pos1=dummy_spos then pos2 else
+  if pos2=dummy_spos then pos1 else
+    let fst = if startsbefore pos1 pos2 then pos1 else pos2 in
+    let snd = if endsbefore pos1 pos2 then pos2 else pos1 in
+    match fst, snd with
+    | (startpos,_), (_,endpos) -> (startpos, endpos)
+
+
+let enclosingspos_of_sposs sps = 
+  let rec enclosing spos = function
+    | []      -> spos
+    | sp::sps -> enclosing (spos_of_spos2 spos sp) sps
+  in
+  enclosing dummy_spos sps
   
-   let spos_of_sposspos pos1 pos2 =
-     if pos1=dummy_spos then pos2 else
-     if pos2=dummy_spos then pos1 else
-       let fst = if startsbefore pos1 pos2 then pos1 else pos2 in
-       let snd = if endsbefore pos1 pos2 then pos2 else pos1 in
-       match fst, snd with
-       | (startpos,_), (_,endpos) -> (startpos, endpos)
-
+(*
+  
    let firstspos_of_sposs xs =
      let rec first spos = function
        | []    -> spos
@@ -70,13 +78,6 @@ let string_of_sourcepos (startpos,endpos) =
      in 
      first dummy_spos xs
 
-   let enclosingspos_of_sposs xs = 
-     let rec enclosing spos = function
-       | []    -> spos
-       | x::xs -> enclosing (spos_of_sposspos spos x) xs
-     in
-     enclosing dummy_spos xs
-  
    let enclosedby posinside posoutside =
      not (startsbefore posinside posoutside) && not (endsbefore posoutside posinside)
   

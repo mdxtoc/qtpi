@@ -22,6 +22,7 @@
 *)
 
 open Instance
+open Sourcepos
 open Listutils
 open Name
 open Type

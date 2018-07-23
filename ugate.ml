@@ -21,9 +21,12 @@
     (or look at http://www.gnu.org).
 *)
 
+open Instance
 open Expr
 
-type ugate =
+type ugate = ugnode instance
+
+and ugnode =
   | GH
   | GI
   | GX
@@ -31,7 +34,8 @@ type ugate =
   | GPhi of expr
   | GCond of expr * ugate * ugate
 
-let rec string_of_ugate = function
+let rec string_of_ugate ug = 
+  match ug.inst with
   | GH              -> "_H"  
   | GI              -> "_I"
   | GX              -> "_X"

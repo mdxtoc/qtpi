@@ -37,7 +37,7 @@ open Process
 open Step
 
 exception TypeUnifyError of _type * _type
-exception TypeCheckError of string
+exception TypeCheckError of sourcepos * string
 exception Undeclared of sourcepos * name
 
 (* converting to Map rather than assoc list for type contexts, 
@@ -108,13 +108,15 @@ let rewrite_param cxt {inst=n,rt} =
   
 let rewrite_params cxt = List.iter (rewrite_param cxt)
 
-let rewrite_step cxt = function
+let rewrite_step cxt step = 
+  match step.inst with
   | Read      (e,params)    -> rewrite_expr cxt e; rewrite_params cxt params
   | Write     (e,es)        -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) es
   | Measure   (e,param)     -> rewrite_expr cxt e; rewrite_param cxt param
   | Ugatestep (es, ug)      -> List.iter (rewrite_expr cxt) es
 
-let rec rewrite_process cxt = function
+let rec rewrite_process cxt proc = 
+  match proc.inst with
   | Terminate               -> ()
   | Call      (n,es)        -> List.iter (rewrite_expr cxt) es
   | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process cxt p
@@ -190,8 +192,12 @@ let rec assign_name_type pos cxt t n =
       let t' = Type.instantiate t' in
       (try unifytype cxt t t' 
        with TypeUnifyError(t1,t2) -> 
-         raise (TypeCheckError (n ^ " seems to be type " ^ string_of_type (evaltype cxt t2) ^ 
-                                " but in context has to be type " ^ string_of_type (evaltype cxt t1)))
+         raise (TypeCheckError (pos,
+                                Printf.sprintf "%s seems to be type %s, but in context has to be type %s"
+                                               (string_of_name n)
+                                               (string_of_type (evaltype cxt t2))
+                                               (string_of_type (evaltype cxt t1)))
+                               )
       )
   | None    -> raise (Undeclared (pos, n))
 
@@ -203,9 +209,13 @@ and assigntype_expr cxt t e =
        let cxt = unifytype cxt t tout in
        try assigntype_expr cxt tin e 
        with TypeUnifyError (t1,t2) -> 
-         raise (TypeCheckError(string_of_expr e ^ 
-                    " should be " ^ string_of_type (evaltype cxt tin) ^ 
-                    " but is actually " ^ string_of_type (pickdiff cxt tin t1 t2)))
+         raise (TypeCheckError(e.pos,
+                               Printf.sprintf "%s should be %s but is actually %s"
+                                              (string_of_expr e)
+                                              (string_of_type (evaltype cxt tin))
+                                              (string_of_type (pickdiff cxt tin t1 t2))
+                              )
+                )
      in
      let binary cxt tout tin1 tin2 f1 f2 =
        let cxt = unary cxt tout tin1 f1 in
@@ -275,25 +285,20 @@ and assigntype_expr cxt t e =
                                                  unifytype cxt t (adorn e Int)
                                )
 with 
-  | TypeUnifyError (t1,t2)  -> raise (TypeCheckError (Printf.sprintf "%s appears to be type %s, but in context should be %s"
+  | TypeUnifyError (t1,t2)  -> raise (TypeCheckError (e.pos,
+                                                      Printf.sprintf "%s appears to be type %s, but in context should be %s"
                                                                      (string_of_expr e) 
                                                                      (string_of_type (evaltype cxt t2))
                                                                      (string_of_type (evaltype cxt t1))
                                                      )
                                      )
-  | TypeCheckError s        -> raise (TypeCheckError (Printf.sprintf "%s (in context %s at %s)"
-                                                                     s 
-                                                                     (string_of_expr e)
-                                                                     (string_of_sourcepos e.pos)
-                                                     )
-                                     )
   
 let ok_procname n = 
-  let c = Stringutils.first n in
-  if not ('A' <= c && c <= 'Z') then raise (TypeCheckError ("process name " ^ string_of_name n ^ " should start with upper case"))
+  let c = Stringutils.first n.inst in
+  if not ('A' <= c && c <= 'Z') then raise (TypeCheckError (n.pos, "process name " ^ string_of_name n.inst ^ " should start with upper case"))
 
 let rec typecheck_ugate cxt ugate = (* arity, cxt *)
-  match ugate with
+  match ugate.inst with
   | GH
   | GI
   | GX                    -> 1, cxt
@@ -303,7 +308,7 @@ let rec typecheck_ugate cxt ugate = (* arity, cxt *)
                              let a1, cxt = typecheck_ugate cxt ug1 in
                              let a2, cxt = typecheck_ugate cxt ug2 in
                              if a1=a2 then a1,cxt
-                             else raise (TypeCheckError ("arity mismatch in " ^ string_of_ugate ugate))
+                             else raise (TypeCheckError (ugate.pos, "arity mismatch in " ^ string_of_ugate ugate))
 
 let rec typecheck_basisv cxt bv =
   match bv with
@@ -312,12 +317,12 @@ let rec typecheck_basisv cxt bv =
                                 let cxt = typecheck_basisv cxt bve1 in
                                 typecheck_basisv cxt bve2
 
-let check_distinct sf params =
+let check_distinct params =
   let check set {inst=n,_} =
     if NameSet.mem n set then 
-      raise (TypeCheckError (Printf.sprintf "non-distinct parameters (%s) in %s"
+      raise (TypeCheckError (pos_of_list params, 
+                             Printf.sprintf "non-distinct parameters (%s)"
                                             (string_of_list string_of_param "," params)
-                                            (sf ())
                             )
             )
     else NameSet.add n set
@@ -352,21 +357,22 @@ and unify_paramtype cxt rt t =
   | None    -> rt := Some t; cxt
   
 and typecheck_process cxt p =
-  match p with
+  match p.inst with
   | Terminate     -> cxt
   | Call (n,args) -> 
       ok_procname n;
       let ts = 
-        (try let t = evaltype cxt (cxt<@>n) in
+        (try let t = evaltype cxt (cxt<@>n.inst) in
              match t.inst with
              | Process ts -> ts
-             | _          -> raise (TypeCheckError (string_of_name n ^ " used as process name, but declared as " ^ string_of_type t))
-         with _ -> raise (TypeCheckError ("undefined process " ^ string_of_name n))
+             | _          -> raise (TypeCheckError (n.pos, string_of_name n.inst ^ " used as process name, but declared as " ^ string_of_type t))
+         with _ -> raise (TypeCheckError (n.pos, "undefined process " ^ string_of_name n.inst))
         )
       in
       let ets = try zip args ts
                 with Zip -> 
-                       raise (TypeCheckError (Printf.sprintf "%s: should have %d arguments"
+                       raise (TypeCheckError (p.pos,
+                                              Printf.sprintf "%s: should have %d arguments"
                                                              (string_of_process p)
                                                              (List.length ts)
                                              )
@@ -382,7 +388,7 @@ and typecheck_process cxt p =
                        cxt
                        params
       in
-      check_distinct (fun () -> short_string_of_process proc) params;
+      check_distinct params;
       do_procparams "WithNew" cxt params proc
   | WithQbit (qss,proc) ->
       let typecheck_qspec cxt ({pos=pos; inst=n,rt}, bvopt) =
@@ -393,7 +399,7 @@ and typecheck_process cxt p =
       in
       let cxt = List.fold_left typecheck_qspec cxt qss in
       let params = List.map fst qss in
-      check_distinct (fun () -> short_string_of_process proc) params;
+      check_distinct params;
       do_procparams "WithQbit" cxt params proc
   | WithLet ((p,e),proc) -> 
       let (n,rt) = p.inst in
@@ -401,7 +407,7 @@ and typecheck_process cxt p =
       let cxt = assigntype_expr cxt t e in
       do_procparams "WithLet" cxt [p] proc
   | WithStep (step,proc) ->
-      (match step with
+      (match step.inst with
        | Read (chan, params) ->
            let chants = List.map (fun param -> adorn param.pos (new_TypeVar())) params in 
            let chant = Type.delist chan.pos chants in
@@ -410,7 +416,7 @@ and typecheck_process cxt p =
              unify_paramtype cxt rt t'
            in
            let cxt = List.fold_right stitch (zip chants params) cxt in
-           check_distinct (fun () -> short_string_of_process proc) params;
+           check_distinct params;
            do_procparams "Read" cxt params proc 
        | Write (chan, es) ->
            let chants = List.map (fun e -> adorn e.pos (new_TypeVar())) es in 
@@ -427,7 +433,7 @@ and typecheck_process cxt p =
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt (adorn e.pos Qbit) e) cxt es in
            let arity, cxt = typecheck_ugate cxt ugate in
            if List.length es <> arity then 
-             raise (TypeCheckError ("arity mismatch in " ^ string_of_step step))
+             raise (TypeCheckError (step.pos, "arity mismatch in " ^ string_of_step step))
            ;
            typecheck_process cxt proc
       )
@@ -438,15 +444,15 @@ and typecheck_process cxt p =
   | Par (ps) -> List.fold_left typecheck_process cxt ps
 
 let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
-  let env_types = match (cxt<@>pn).inst with
+  let env_types = match (cxt<@>pn.inst).inst with
                   | Process ts -> ts
                   | _          -> raise (Error (Printf.sprintf "%s not a process in env %s"
-                                                               (string_of_name pn)
+                                                               (string_of_name pn.inst)
                                                                (string_of_typecxt cxt)
                                                )
                                         )
   in
-  check_distinct (fun () -> Printf.sprintf "process def %s" (string_of_name pn)) params;
+  check_distinct params;
   let cxt = do_procparams "processdef" cxt params proc in
   let cxt = evalcxt cxt in
   let tps = zip env_types params in
@@ -463,13 +469,15 @@ let make_cxt lib defs =
       (* lib is a list of name:type pairs; all should be process types with proper process names *)
       List.iter (fun (n,t) -> match t.inst with 
                               | Process _ -> ok_procname n 
-                              | _         -> raise (TypeCheckError (Printf.sprintf "error in given list: %s: %s is not a process spec"
-                                                                           (string_of_name n)
+                              | _         -> raise (TypeCheckError (t.pos,
+                                                                    Printf.sprintf "error in given list: %s: %s is not a process spec"
+                                                                           (string_of_name n.inst)
                                                                            (string_of_type t)
                                                            )
                                            )
                 ) 
                 lib;
+      let lib = List.map (fun (n,t) -> n.inst, t) lib in
       let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
       List.fold_left (fun cxt binding -> cxt <@+> binding) NameMap.empty (lib @ knownassoc)
       
@@ -484,23 +492,25 @@ let typecheck lib defs =
           | None   -> (adorn param.pos (new_TypeVar ()))
           | Some t -> if (match t.inst with Univ _ -> true | _ -> false) ||
                          not (NameSet.is_empty (Type.frees t)) 
-                      then raise (TypeCheckError (Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
+                      then raise (TypeCheckError (t.pos,
+                                                  Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
                                                                  (string_of_param param)
                                                  )
                                  )
                       ;
-                      (match t.inst with Process _ -> ok_procname n | _ -> ())
+                      (match t.inst with Process _ -> ok_procname {pos=param.pos; inst=n} | _ -> ())
                       ;
                       t
         in
         let process_params = List.map process_param in
-        if cxt<@?>pn 
-        then raise (TypeCheckError (Printf.sprintf "Error in %s: previous definition of %s" 
+        if cxt<@?>pn.inst 
+        then raise (TypeCheckError (pn.pos,
+                                    Printf.sprintf "Error in %s: previous definition of %s" 
                                                    (string_of_processdef def)
-                                                   (string_of_name pn)
+                                                   (string_of_name pn.inst)
                                    )
                    )
-        else cxt <@+> (pn, (adorn dummy_spos (Process (process_params ps))))
+        else cxt <@+> (pn.inst, (adorn pn.pos (Process (process_params ps))))
       in
       let cxt = List.fold_left header_type cxt defs in
       let cxt = List.fold_left typecheck_processdef cxt defs in

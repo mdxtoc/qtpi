@@ -34,8 +34,7 @@ let _ = Interpret.know ("tl"      , "'a list -> 'a list" , vfun (vlist <.> List.
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"        , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"        , vfun (Pervasives.snd <.> pairv))
 
-let read_int () = flush stdout; print_string "\n?\n"; (* a bug in BBEdit shell script, so an extra \n *)
-                  Pervasives.read_int ()
+let read_int () = flush stdout; print_string "\n? "; Pervasives.read_int ()
   
 let _ = Interpret.know ("read_int", "unit -> int"        , vfun (vint <.> read_int <.> unitv))
 

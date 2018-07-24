@@ -85,6 +85,7 @@ let type_of_expr e =
                     )
 
 (* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
+(* ******************************* also check that we don't compare qbits ******************************** *)
 
 let ctfa_type classic t = 
   let badtype s = raise (ResourceError (t.pos,
@@ -165,7 +166,13 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | EMinus     e          -> ctfa_expr e
     | ETuple     es
     | EList      es         -> List.iter ctfa_expr es
-    | ECond      (ce,e1,e2) -> List.iter ctfa_expr [ce;e1;e2]
+    | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1 ) then
+                                raise (ResourceError (e.pos,
+                                                      "comparison of qbits, or values containing qbits, not allowed"
+                                                     )
+                                      )
+                               else ();
+                               List.iter ctfa_expr [ce;e1;e2]
     | EApp       (ef,ea)    -> List.iter (ctfa_type true) [type_of_expr ef; type_of_expr ea];
                                ctfa_expr ef; ctfa_expr ea
     | EArith     (e1,_,e2)

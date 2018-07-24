@@ -100,10 +100,11 @@ let (<@?>) env n     = NameMap.mem n env        (* you know, I no longer think i
 let type_of_expr e =
   match !(e.inst.etype) with
   | Some t -> t
-  | None   -> raise (Error (Printf.sprintf "** Disaster %s: typecheck didn't mark %s"
-                                           (string_of_sourcepos e.pos)
-                                           (string_of_expr e)
-                           )
+  | None   -> raise (ResourceError (e.pos,
+                                    Printf.sprintf "** Disaster %s: typecheck didn't mark %s"
+                                                   (string_of_sourcepos e.pos)
+                                                   (string_of_expr e)
+                                   )
                     )
 
 (* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)

@@ -40,34 +40,32 @@ exception Error of string
 
 let parsefile opts usage filename =
   print_endline filename; flush stdout;
-  try Parseutils.parse_program filename
-  with 
-  | Parseutils.Error s -> raise (Error s)
-  | exn                -> raise exn
+  Parseutils.parse_program filename
 
 let _ = match !Usage.files with 
         | [] -> print_string ("\nno file specified") 
-        | fs -> let stuff = List.map (parsefile Usage.opts Usage.usage) (List.rev fs) in
-                let lib, defs = List.fold_left (fun (lib,defs) (lib',defs') -> lib@lib',defs@defs') ([],[]) stuff in
-                if !verbose then
-                  ((match lib with
-                    | [] -> ()
-                    | _  -> let string_of_nt (n,t) = string_of_pair string_of_name string_of_type ":" (n.inst, t) in
-                            Printf.printf "given %s\n\n" (string_of_list string_of_nt ";" lib)
-                   );
-                   print_endline (string_of_list string_of_processdef "\n\n" defs)
-                  );
-                try let lib, cxt = typecheck lib defs in
+        | fs -> try let stuff = List.map (parsefile Usage.opts Usage.usage) (List.rev fs) in
+                    let lib, defs = List.fold_left (fun (lib,defs) (lib',defs') -> lib@lib',defs@defs') ([],[]) stuff in
+                    if !verbose then
+                      ((match lib with
+                        | [] -> ()
+                        | _  -> let string_of_nt (n,t) = string_of_pair string_of_name string_of_type ":" (n.inst, t) in
+                                Printf.printf "given %s\n\n" (string_of_list string_of_nt ";" lib)
+                       );
+                       print_endline (string_of_list string_of_processdef "\n\n" defs)
+                      );
+                    let lib, cxt = typecheck lib defs in
                     resourcecheck cxt lib defs;
                     if !Settings.interpret then
                       interpret lib defs
                 with 
-                | ResourceError (pos, s) -> Printf.printf "\n\n** resource error at %s: %s\n"
+                | ResourceError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | TypeCheckError (pos, s) -> Printf.printf "\n\n** type error at %s: %s\n"
+                | TypeCheckError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
+                | Parseutils.Error s     -> print_endline s
                 | exn                    -> Printf.printf "\n\n** unexpected exception %s **\n"
                                                           (Printexc.to_string exn)
                 

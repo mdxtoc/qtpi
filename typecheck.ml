@@ -95,10 +95,10 @@ let rec rewrite_expr cxt e =
        | ECompare    (e1,_,e2)   
        | EBoolArith  (e1,_,e2)  -> List.iter (rewrite_expr cxt) [e1;e2]
       )
-  | None   -> raise (Error (Printf.sprintf "%s: typecheck didn't mark %s"
-                                           (string_of_sourcepos e.pos)
-                                           (string_of_expr e)
-                           )
+  | None   -> raise (TypeCheckError (e.pos,
+                                     Printf.sprintf "** Disaster: typecheck didn't mark %s"
+                                                    (string_of_expr e)
+                                    )
                     )
 
 let rewrite_param cxt {inst=n,rt} =
@@ -446,10 +446,10 @@ and typecheck_process cxt p =
 let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
   let env_types = match (cxt<@>pn.inst).inst with
                   | Process ts -> ts
-                  | _          -> raise (Error (Printf.sprintf "%s not a process in env %s"
-                                                               (string_of_name pn.inst)
-                                                               (string_of_typecxt cxt)
-                                               )
+                  | _          -> raise (TypeCheckError (pn.pos,
+                                                         Printf.sprintf "%s not a process name"
+                                                                        (string_of_name pn.inst)
+                                                        )
                                         )
   in
   check_distinct params;
@@ -520,8 +520,8 @@ let typecheck lib defs =
                       (string_of_typecxt cxt)
                       (string_of_list string_of_processdef "\n\n" defs);
       (List.map (fun (n,t) -> n, evaltype cxt t) lib), cxt
-  with Undeclared (pos, n) -> raise (Error (Printf.sprintf "%s: undeclared %s"
-                                                           (string_of_sourcepos pos)
-                                                           (string_of_name n)
-                                           )
+  with Undeclared (pos, n) -> raise (TypeCheckError (pos,
+                                                     Printf.sprintf "undeclared %s"
+                                                                    (string_of_name n)
+                                                    )
                                     )

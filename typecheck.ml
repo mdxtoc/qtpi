@@ -412,7 +412,7 @@ and typecheck_process cxt p =
            let chants = List.map (fun param -> adorn param.pos (new_TypeVar())) params in 
            let chant = Type.delist chan.pos chants in
            let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
-           let stitch (t', ({inst=n,rt})) cxt = 
+           let stitch (t', {inst=n,rt}) cxt = 
              unify_paramtype cxt rt t'
            in
            let cxt = List.fold_right stitch (zip chants params) cxt in
@@ -456,7 +456,7 @@ let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
   let cxt = do_procparams "processdef" cxt params proc in
   let cxt = evalcxt cxt in
   let tps = zip env_types params in
-  let cxt = List.fold_left (fun cxt (t,({inst=n,rt})) -> unifytype cxt t (_The !rt)) cxt tps in
+  let cxt = List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytype cxt t (_The !rt)) cxt tps in
   if !verbose_typecheck then
     (rewrite_processdef cxt def;
      Printf.printf "after typecheck_processdef, def = %s\n\ncxt = %s\n\n" 

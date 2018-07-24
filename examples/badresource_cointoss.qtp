@@ -1,0 +1,21 @@
+(* given a random qbit (a|0>+b|1>), this may terminate with
+   either a|0>+b|1> or a|0>-b|1>. Interesting, eh? Only 
+   'really' works if the initial qbit is |0> or |+> 
+   -- i.e. an unfair coin.
+ *)
+given Win: unit process, Lose: unit process
+
+P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
+                            | fromQ?(y) . y>>_X . toQ!y . _0
+                     
+Q(x: qbit, toP:^qbit, fromP:^qbit) = 
+  x>>_H . toP!x . fromP?(z) . x>>_H . _0 
+
+System() = (let bv = read_int ())
+           (newq x = if   bv=0 then |0> 
+                     elif bv=1 then |1> 
+                     elif bv=2 then |+>
+                               else |->
+                     fi) 
+           (new s:^qbit, r:^qbit) 
+           (P(s,r) | Q(x,s,r))

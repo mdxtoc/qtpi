@@ -57,45 +57,22 @@ open Settings
 
 exception ResourceError of sourcepos * string
 
-let (<@>)  env n     = NameMap.find n env       (* is this evil? Over-riding Listutils.(<@>)!! *)
-let (<@+>) env (n,t) = NameMap.add n t env      (* also evil? *)
-let (<@->) env n     = NameMap.remove n env     (* also evil? *)
-let (<@?>) env n     = NameMap.mem n env        (* you know, I no longer think it's evil *)
-
-(*
-    type resource = Res of name list (* in application order, which may not be efficient, but this is a static check *) 
-
-    let rec string_of_resource = function
-      | Res []        -> "can't happen"
-      | Res [n]       -> string_of_name n
-      | Res [n1;n2]   -> string_of_name n1 ^ " " ^ string_of_name n2
-      | Res (n :: ns) -> Printf.sprintf "%s (%s)" (string_of_name n) (string_of_resource (Res ns))
-
-    let rec is_resource_type t =
-      let bad () =
-      raise (Error (Printf.sprintf "** Disaster: is_resource_type (%s)"
-                                   (string_of_type t)
-                   )
-            )
-      in
-      match t with
-      | Qbit            -> true            
-      | Int 
-      | Bool
-      | Bit           
-      | Unit          
-      | TypeVar _       (* hmm -- should only happen if never used *)
-      | Range   _       -> false
-      | Univ (ns, t)    -> is_resource_type t 
-      | List    t       
-      | Channel t       -> is_resource_type t
-      | Tuple   ts      -> List.exists is_resource_type ts
-      | Fun     (t1,t2) -> if is_resource_type t1 || is_resource_type t2 then bad () else false
-                         
-      | Process _       -> bad ()
-  
-  
-*)
+let rec is_resource_type t =
+  match t.inst with
+  | Qbit            -> true            
+  | Int 
+  | Bool
+  | Bit           
+  | Unit          
+  | TypeVar _          (* can happen in Univ ... *)
+  | Range   _       -> false
+  | Univ (ns, t)    -> is_resource_type t 
+  | List    t       -> is_resource_type t 
+  | Channel t       -> false
+  | Tuple   ts      -> List.exists is_resource_type ts
+  | Fun     (t1,t2) -> is_resource_type t1 || is_resource_type t2
+                     
+  | Process _       -> false
 
 let type_of_expr e =
   match !(e.inst.etype) with

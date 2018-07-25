@@ -30,11 +30,14 @@ open Instance
 type _type = tnode instance
 
 and tnode =
+  | Unit
   | Int
   | Bool
+  | Char
+  | String
   | Bit 
-  | Unit
   | Qbit
+  | Basisv
   | TypeVar of name (* unknown name starts with '?', which doesn't appear in parseable names *)
   | Univ of name list * _type
   | Range of int * int
@@ -55,9 +58,12 @@ let typeprio t =
   match t.inst with  
   | Int 
   | Bool
+  | Char
+  | String
   | Bit           
   | Unit          
-  | Qbit            
+  | Qbit
+  | Basisv
   | TypeVar _ 
   | Univ    _        
   | Range   _       -> primaryprio
@@ -83,9 +89,12 @@ let rec string_of_type t = string_of_tnode t.inst
 and string_of_tnode = function
   | Int             -> "int"
   | Bit             -> "bit"
+  | Char            -> "char"
+  | String          -> "string"
   | Bool            -> "bool"
   | Unit            -> "unit"
   | Qbit            -> "qbit"
+  | Basisv          -> "basisv"
   | TypeVar  n     -> string_of_typevar n
   | Univ    (ns,ut) -> let nstrings = List.map string_of_typevar ns in
                        Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
@@ -120,9 +129,12 @@ and _frees s t =
   match t.inst with
   | Int
   | Bool
+  | Char
+  | String
   | Bit 
   | Unit
-  | Qbit        
+  | Qbit  
+  | Basisv
   | Range _     -> s
   | TypeVar (n) -> NameSet.add n s 
   | Univ (ns,t) -> let vs = frees t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
@@ -137,9 +149,12 @@ let rec rename assoc t =
   match t.inst with
   | Int
   | Bool
+  | Char
+  | String
   | Bit 
   | Unit
-  | Qbit        
+  | Qbit 
+  | Basisv
   | Range _     -> t
   | TypeVar n   -> replace (TypeVar (assoc<@>n)) 
   | Univ (ns,t) -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))

@@ -56,6 +56,9 @@ module rec Types : sig
     | VUnit
     | VInt of int
     | VBool of bool
+    | VChar of char
+    | VBasisv of basisv
+    | VString of string
     | VQbit of qbit
     | VChan of chan
     | VTuple of value list
@@ -97,6 +100,9 @@ let rec string_of_value = function
   | VUnit           -> "()"
   | VInt i          -> string_of_int i
   | VBool b         -> string_of_bool b
+  | VBasisv bv      -> string_of_basisv bv
+  | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
+  | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | VQbit q         -> "Qbit " ^ string_of_qbit q
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
@@ -181,23 +187,28 @@ and string_of_runnerqueue sep rq =
   
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
-let unitv = function VUnit          -> ()     | v -> miseval "unitv"  v
-let intv  = function VInt  i        -> i      | v -> miseval "intv"   v
-let boolv = function VBool  b       -> b      | v -> miseval "boolv"  v
-let listv = function VList  vs      -> vs     | v -> miseval "listv"  v
-let chanv = function VChan  c       -> c      | v -> miseval "chanv"  v
-let qbitv = function VQbit  q       -> q      | v -> miseval "qbitv"  v
-let pairv = function VTuple [e1;e2] -> e1, e2 | v -> miseval "pairv"  v
-let funv  = function VFun   f       -> f      | v -> miseval "pairv"  v
+let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
+let intv    = function VInt    i       -> i      | v -> miseval "intv"     v
+let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
+let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
+let stringv = function VString s       -> s      | v -> miseval "stringv"  v
+let basisvv = function VBasisv bv      -> bv     | v -> miseval "basisvv"  v
+let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
+let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
+let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
+let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
+let funv    = function VFun    f       -> f      | v -> miseval "pairv"    v
 
-let vunit ()  = VUnit
-let vint  i   = VInt   i
-let vbool b   = VBool  b
-let vlist vs  = VList  vs
-let vchan c   = VChan  c
-let vqbit q   = VQbit  q
-let vpair a b = VTuple [a;b]
-let vfun  f   = VFun   f
+let vunit   ()  = VUnit
+let vint    i   = VInt    i
+let vbool   b   = VBool   b
+let vchar   c   = VChar   c
+let vstring s   = VString s
+let vlist   vs  = VList   vs
+let vchan   c   = VChan   c
+let vqbit   q   = VQbit   q
+let vpair   a b = VTuple  [a;b]
+let vfun    f   = VFun    f
 
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 
@@ -216,7 +227,10 @@ let rec evale env e =
                            )
   | EInt i              -> VInt i
   | EBool b             -> VBool b
+  | EChar c             -> VChar c
+  | EString s           -> VString s
   | EBit b              -> VInt (if b then 1 else 0)
+  | EBasisv bv          -> VBasisv bv
   | EMinus e            -> VInt (- (intev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)
   | EList es            -> VList (List.map (evale env) es)
@@ -360,14 +374,9 @@ let rec interp sysenv proc =
             let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
             addrunner (pn, proc, (ps @ env))
         | WithQbit (ps, proc) ->
-            let rec fv bv =
-              match bv with
-              | BVe bv                  -> bv              
-              | BVcond (e, bv1, bv2)    -> fv (if boolev env e then bv1 else bv2)
-            in
             let bv_eval = function
             | None      -> None
-            | Some bve  -> Some (fv bve)
+            | Some bve  -> Some (basisvv (evale env bve))
             in
             let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
             addrunner (pn, proc, (ps @ env))

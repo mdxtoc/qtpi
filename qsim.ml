@@ -227,18 +227,19 @@ let newqbit = (* hide the reference *)
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
      let vec = match vopt with
-               | Some Process.BVzero  -> Array.copy v_0
-               | Some Process.BVone   -> Array.copy v_1
-               | Some Process.BVplus  -> Array.copy v_plus
-               | Some Process.BVminus -> Array.copy v_minus
-               | None                 -> if !Settings.symbq then
-										   Array.init 2 (fun i -> Psymb (i=1, q)) 
-										 else (* random basis, random fixed value *)
-										   Array.copy (if Random.bool () then 
-														 (if Random.bool () then v_0 else v_1)
-													   else 
-														 (if Random.bool () then v_plus else v_minus)
-													  )
+               | Some Expr.BVzero  -> Array.copy v_0
+               | Some Expr.BVone   -> Array.copy v_1
+               | Some Expr.BVplus  -> Array.copy v_plus
+               | Some Expr.BVminus -> Array.copy v_minus
+			   | None              -> if !Settings.symbq then
+										Array.init 2 (fun i -> Psymb (i=1, q)) 
+									  else (* random basis, random fixed value *)
+										Array.copy (match Random.bool (), Random.bool ()  with
+													| false, false -> v_0 
+													| false, true  -> v_1
+													| true , false -> v_plus 
+													| true , true  -> v_minus
+												   )
      in
      let qv = [q],vec in
      Hashtbl.add qstate q qv;
@@ -246,7 +247,7 @@ let newqbit = (* hide the reference *)
        Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
                      (Name.string_of_name pn)
                      (Name.string_of_name n)
-                     (string_of_option Process.string_of_basisv vopt)
+                     (string_of_option Expr.string_of_basisv vopt)
                      (string_of_qbit q)
                      (string_of_qbit q)
                      (string_of_qval qv);

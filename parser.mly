@@ -74,12 +74,14 @@
 
 %token <string> INT
 %token <string> NAME 
+%token <string> STRING 
+%token <char> CHAR 
 
 %token EOP 
 %token GIVEN
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token INTTYPE BOOLTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
+%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT
 %token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC
 %token QUERY BANG MEASURE THROUGH 
@@ -168,6 +170,8 @@ tuple_typespec:
 simple_typespec:
   | INTTYPE                             {adorn Int}
   | BOOLTYPE                            {adorn Bool}
+  | CHARTYPE                            {adorn Char}
+  | STRINGTYPE                          {adorn String}
   | BITTYPE                             {adorn Bit}
   | UNITTYPE                            {adorn Unit}
   | QBITTYPE                            {adorn Qbit}
@@ -227,18 +231,7 @@ qspecs:
 
 qspec:
   | param                               {$1, None}
-  | param EQUALS vbasis                 {$1, Some $3}
-  
-vbasis:
-  | VZERO                               {BVe BVzero }
-  | VONE                                {BVe BVone  }
-  | VPLUS                               {BVe BVplus }
-  | VMINUS                              {BVe BVminus}
-  | IF vbif FI                          {$2}
-
-vbif:
-  | expr THEN vbasis ELSE vbasis        {BVcond ($1,$3,$5)}
-  | expr THEN vbasis ELIF vbif          {BVcond ($1,$3,$5)}
+  | param EQUALS ntexpr                 {$1, Some $3}
   
 letspec:
   | name EQUALS expr                    {adorn ($1, ref None     ), $3}
@@ -267,6 +260,12 @@ primary:
   | INT                                 {eadorn (EInt (int_of_string $1))}
   | TRUE                                {eadorn (EBool (true))}
   | FALSE                               {eadorn (EBool (false))}
+  | CHAR                                {eadorn (EChar $1)}
+  | STRING                              {eadorn (EString $1)}
+  | VZERO                               {eadorn (EBasisv BVzero) }
+  | VONE                                {eadorn (EBasisv BVone )  }
+  | VPLUS                               {eadorn (EBasisv BVplus) }
+  | VMINUS                              {eadorn (EBasisv BVminus) }
   | LSQPAR exprlist RSQPAR              {eadorn (EList $2)}
   | LPAR ntexprs RPAR                   {match $2 with
                                          | [e] -> e

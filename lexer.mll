@@ -40,6 +40,14 @@
   let get_loc lexbuf =
   	(Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
 
+  let backslashed = function
+	| 'n' -> '\n'
+	| 'r' -> '\r'
+	| 'b' -> '\r'
+	| 't' -> '\t'
+	| c   -> c
+
+  let stringbuffer = Buffer.create 256
 }
 
 let BLANK = [' ' '\t']
@@ -91,6 +99,8 @@ rule make_token = parse
   | "qbit"      {QBITTYPE}
   | "^"         {CHANTYPE}
   | "list"      {LISTTYPE}
+  | "char"		{CHARTYPE}
+  | "string"	{STRINGTYPE}
   
   | '.'         {DOT}
   | ".."        {DOTDOT}
@@ -146,6 +156,20 @@ rule make_token = parse
   | "'"         {PRIME}
   
   | "given"     {GIVEN}
+  
+  | "'" [^ '\\' '\'' 'n' '\r' '\t' ] "'"
+      			{ CHAR(Lexing.lexeme_char lexbuf 1) }
+  | "'\\" ['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] "'"
+      			{ CHAR(backslashed (Lexing.lexeme_char lexbuf 2)) }
+  | "'\\" _
+				{ let l = Lexing.lexeme lexbuf in
+				  let esc = String.sub l 1 (String.length l - 1) in
+				  raise (LexError(get_loc lexbuf, ("illegal escape \\" ^ esc)))
+				}
+
+  | '"'			{ Buffer.clear stringbuffer;
+       			  STRING (string (get_loc lexbuf) lexbuf)
+     			}
 
   | number      {INT (Lexing.lexeme lexbuf)}
   | name        {NAME (Lexing.lexeme lexbuf)}    (* should be interned *)
@@ -166,9 +190,16 @@ and bracomment spos = parse
   	|	eof			{ raise (LexError (spos, "unmatched comment-bracket '(*'")) }
   	| 	_           { bracomment spos lexbuf }
       
+and string spos = parse
+	| '"' 										{ Buffer.contents stringbuffer }
+	| '\\' ['\\' '\'' '"' 'n' 't' 'b' 'r' ' ']	{ let c = backslashed (Lexing.lexeme_char lexbuf 1) in
+												  Buffer.add_char stringbuffer c; string spos lexbuf 
+												}
+	| eof 										{ raise (LexError (spos, "unterminated string")) }
+	| _ as char 								{ Buffer.add_char stringbuffer char; string spos lexbuf }
+ 
 {
-
-let build_prog_from_string s =
-  Parser.program make_token (Lexing.from_string s)
+  let build_prog_from_string s =
+	Parser.program make_token (Lexing.from_string s)
 
 }

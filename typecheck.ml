@@ -59,10 +59,13 @@ let rec eval cxt n =
 and evaltype cxt t = 
   let adorn tnode = {pos=t.pos; inst=tnode} in
   match t.inst with
+  | Unit
   | Int
   | Bool
+  | Char
+  | String
   | Bit 
-  | Unit
+  | Basisv
   | Qbit            -> t
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
@@ -83,7 +86,10 @@ let rec rewrite_expr cxt e =
        | EVar        _
        | EInt        _
        | EBool       _
-       | EBit        _          -> ()
+       | EChar       _
+       | EString     _
+       | EBit        _          
+       | EBasisv     _          -> ()
        | EMinus      e          -> rewrite_expr cxt e
        | ETuple      es
        | EList       es         -> List.iter (rewrite_expr cxt) es
@@ -164,9 +170,12 @@ and canunifytype n cxt t =
   match t.inst with
   | Int
   | Bool
+  | Char
+  | String
   | Bit 
   | Unit
-  | Qbit            
+  | Qbit 
+  | Basisv
   | Range _         -> true
   | TypeVar n'      -> (match eval cxt n' with
                         | None    -> n<>n'
@@ -236,6 +245,8 @@ and assigntype_expr cxt t e =
                                 | t                -> unifytype cxt (adorn e t) (adorn e Int)
                                )
      | EBool _              -> unifytype cxt t (adorn e Bool)
+     | EChar _              -> unifytype cxt t (adorn e Char)
+     | EString _            -> unifytype cxt t (adorn e String)
      | EBit b               -> (match (evaltype cxt t).inst with 
                                 | Int              -> cxt
                                 | Range (j,k) as t -> let i = if b then 1 else 0 in
@@ -243,6 +254,7 @@ and assigntype_expr cxt t e =
                                                       else unifytype cxt (adorn e t) (adorn e Bit)
                                 | t                -> unifytype cxt (adorn e t) (adorn e Bit)
                                )
+     | EBasisv _            -> unifytype cxt t (adorn e Basisv)
      | EVar n               -> assign_name_type e.pos cxt t n
      | EApp (e1,e2)         -> let atype = adorn e2 (new_TypeVar()) in
                                let ftype = adorn e1 (Fun (atype, t)) in
@@ -310,13 +322,6 @@ let rec typecheck_ugate cxt ugate = (* arity, cxt *)
                              if a1=a2 then a1,cxt
                              else raise (TypeCheckError (ugate.pos, "arity mismatch in " ^ string_of_ugate ugate))
 
-let rec typecheck_basisv cxt bv =
-  match bv with
-  | BVe _                   -> cxt
-  | BVcond (e,bve1,bve2)    -> let cxt = assigntype_expr cxt (adorn e.pos Bool) e in
-                                let cxt = typecheck_basisv cxt bve1 in
-                                typecheck_basisv cxt bve2
-
 let check_distinct params =
   let check set {inst=n,_} =
     if NameSet.mem n set then 
@@ -357,6 +362,8 @@ and unify_paramtype cxt rt t =
   | None    -> rt := Some t; cxt
   
 and typecheck_process cxt p =
+  if !verbose_typecheck then
+    Printf.printf "typecheck_process ... %s\n" (short_string_of_process p);
   match p.inst with
   | Terminate     -> cxt
   | Call (n,args) -> 
@@ -394,8 +401,8 @@ and typecheck_process cxt p =
       let typecheck_qspec cxt ({pos=pos; inst=n,rt}, bvopt) =
         let cxt = unify_paramtype cxt rt (adorn pos Qbit) in
         match bvopt with
-        | Some bv -> typecheck_basisv cxt bv
-        | None    -> cxt
+        | Some bve -> assigntype_expr cxt (adorn bve.pos Basisv) bve
+        | None     -> cxt
       in
       let cxt = List.fold_left typecheck_qspec cxt qss in
       let params = List.map fst qss in

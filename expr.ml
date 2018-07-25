@@ -38,7 +38,10 @@ and enode =
   | EVar of name
   | EInt of int
   | EBool of bool
+  | EChar of char
+  | EString of string
   | EBit of bool        (* 1=true *)
+  | EBasisv of basisv
   | EMinus of expr
   | ETuple of expr list
   | EList of expr list
@@ -49,6 +52,12 @@ and enode =
   | EBoolArith of expr * boolop * expr
   | EAppend of expr * expr
   | EBitCombine of expr * expr
+
+and basisv =
+  | BVzero
+  | BVone
+  | BVplus
+  | BVminus
 
 and arithop =
   | Plus
@@ -118,7 +127,10 @@ let rec exprprio e =
   | EVar        _   
   | EInt        _
   | EBool       _
-  | EBit        _   
+  | EChar       _
+  | EString     _
+  | EBit        _ 
+  | EBasisv     _
   | EList       _
   | ECond       _           -> primaryprio
   | EMinus      _           -> unaryprio
@@ -137,8 +149,11 @@ let rec string_of_primary e =
   | EUnit           -> "()"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
+  | EBasisv bv      -> string_of_basisv bv
   | EInt i          -> string_of_int i
   | EBool b         -> if b then "true" else "false"
+  | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
+  | EString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | EList es        -> Printf.sprintf "[%s]"
                                       (commasep (List.map string_of_expr es))
   | ECond (c,e1,e2) -> Printf.sprintf "if %s then %s else %s fi"
@@ -169,8 +184,11 @@ and string_of_expr e =
   | EUnit                           
   | EVar        _
   | EBit        _
+  | EBasisv     _
   | EInt        _
   | EBool       _
+  | EChar       _
+  | EString     _ 
   | EList       _
   | ECond       _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 (if exprprio e2 = primaryprio then " " else "") appprio
@@ -203,4 +221,11 @@ and string_of_boolop = function
   | Implies -> "=>"
   | Iff     -> "<=>"
 
+and string_of_basisv bv =
+  match bv with
+  | BVzero				-> "|0>"
+  | BVone				-> "|1>"
+  | BVplus				-> "|+>"
+  | BVminus				-> "|->"
+  
   

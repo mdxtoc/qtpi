@@ -42,20 +42,10 @@ and procnode =
   | Cond of expr * process * process
   | Par of process list
 
-and qspec = param * basisv_e option
+and qspec = param * expr option
 
 and letspec = param * expr
 
-and basisv =
-  | BVzero
-  | BVone
-  | BVplus
-  | BVminus
-
-and basisv_e =
-  | BVe of basisv
-  | BVcond of expr * basisv_e * basisv_e
-  
 let rec string_of_process proc = 
   let trailing_sop p =
     let s = string_of_process p in
@@ -71,8 +61,8 @@ let rec string_of_process proc =
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
-  | WithQbit (xs,p)       -> Printf.sprintf "(newq %s)%s"
-                                            (commasep (List.map string_of_qspec xs))
+  | WithQbit (qs,p)       -> Printf.sprintf "(newq %s)%s"
+                                            (commasep (List.map string_of_qspec qs))
                                             (trailing_sop p)
   | WithLet (x,p)        -> Printf.sprintf "(let %s)%s"
                                             (string_of_letspec x)
@@ -106,12 +96,12 @@ and short_string_of_process proc =
                                             (short_string_of_process p1)
                                             (short_string_of_process p2)
 
-and string_of_qspec (p, vopt) =
+and string_of_qspec (p, eopt) =
   Printf.sprintf "%s%s" 
                  (string_of_param p)
-                 (match vopt with
-                  | None    -> ""
-                  | Some bv -> Printf.sprintf "=%s" (string_of_basisv_e bv)
+                 (match eopt with
+                  | None      -> ""
+                  | Some bve  -> Printf.sprintf "=%s" (string_of_expr bve)
                  )
 
 and string_of_letspec (p,e) =
@@ -119,18 +109,4 @@ and string_of_letspec (p,e) =
   				 (string_of_param p)
   				 (string_of_expr e)
   				 
-and string_of_basisv bv =
-  match bv with
-  | BVzero				-> "|0>"
-  | BVone				-> "|1>"
-  | BVplus				-> "|+>"
-  | BVminus				-> "|->"
-  
-and string_of_basisv_e bve = 
-  match bve with
-  | BVe bv					-> string_of_basisv bv
-  | BVcond (e,bve1,bve2)	-> Printf.sprintf "if %s then %s else %s fi"
-  										  	  (string_of_expr e)
-  										  	  (string_of_basisv_e bve1)
-  										  	  (string_of_basisv_e bve2)
   

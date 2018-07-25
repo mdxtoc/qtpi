@@ -28,6 +28,7 @@ open Array
 open Listutils
 open Functionutils
 open Optionutils
+open Tupleutils
 
 exception Error of string
 
@@ -197,15 +198,9 @@ let qstate = Hashtbl.create ?random:(Some true) 100 (* 100? a guess *)
 let init () = Hashtbl.reset qstate
 
 let string_of_qstate () = 
-  let qqvs = Hashtbl.fold (fun q qv ss -> (Printf.sprintf "%s -> %s"
-                                                          (string_of_qbit q)
-                                                          (string_of_qval qv)
-                                          ) :: ss
-                          )
-                          qstate
-                          []
+  let qqvs = Hashtbl.fold (fun q qv ss -> (q,qv) :: ss) qstate []
   in
-  Printf.sprintf "{%s}" (String.concat "; " (List.sort compare qqvs))
+  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort compare qqvs))
 
 let qval q = try Hashtbl.find qstate q
              with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"

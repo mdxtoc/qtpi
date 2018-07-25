@@ -66,6 +66,7 @@ let _ = match !Usage.files with
                                                           (string_of_sourcepos pos)
                                                           s
                 | Parseutils.Error s     -> print_endline s
+                | Library.Abandon s      -> Printf.printf "\n\n** execution abandoned -- %s\n" s
                 | exn                    -> Printf.printf "\n\n** unexpected exception %s **\n"
                                                           (Printexc.to_string exn)
                 

@@ -34,8 +34,8 @@
    Provided, of course, we police the use of qbits that are sent away down channels.
    
    To begin, channels take either a single qbit or a classical value. Seems to make
-   practical sense. And functions have nothing to do with qbits, either in their types
-   or in their application.
+   practical sense. And function applications must not deliver a qbit, or a value containing
+   a qbit.
    
    Good luck to us all.
  *)
@@ -120,7 +120,7 @@ let ctfa_type classic t =
                           | _         -> try ct true vars t
                                          with _ -> badtype "should be a channel of qbit or a classical channel"
                          )
-    | Fun     (t1,t2) -> ct true vars t1; ct true vars t2
+    | Fun  _          -> () (* function types are classical, always *)
   in
   ct classic NameSet.empty t
 
@@ -176,15 +176,20 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | EMinus     e          -> ctfa_expr e
     | ETuple     es
     | EList      es         -> List.iter ctfa_expr es
-    | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1 ) then
+    | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
                                                      )
                                       )
                                else ();
                                List.iter ctfa_expr [ce;e1;e2]
-    | EApp       (ef,ea)    -> List.iter (ctfa_type true) [type_of_expr ef; type_of_expr ea];
-                               ctfa_expr ef; ctfa_expr ea
+    | EApp       (ea,er)    -> if is_resource_type (type_of_expr e) then
+                                raise (ResourceError (e.pos,
+                                                      "a function application may not deliver a qbit, or a value containing a qbit"
+                                                     )
+                                      )
+                               else ();
+                               List.iter ctfa_expr [ea; er]
     | EArith     (e1,_,e2)
     | ECompare   (e1,_,e2)
     | EBoolArith (e1,_,e2)  -> List.iter ctfa_expr [e1;e2]
@@ -281,7 +286,6 @@ type use =
   | Uarith
   | Ucompare
   | Ubool
-  | Ufunc
   
 let rec resources_of_resource r =
   match r with
@@ -332,7 +336,6 @@ let resources_of_expr state env e =
                                                                                      | Uarith   -> "arithmetic"
                                                                                      | Ucompare -> "comparison"
                                                                                      | Ubool    -> "boolean arithmetic"
-                                                                                     | Ufunc    -> "functional argument"
                                                                                     )
                                                                                     (string_of_name n)
                                                                     )
@@ -357,18 +360,10 @@ let resources_of_expr state env e =
                                let used = ResourceSet.union used0 (ResourceSet.union used1 used2) in
                                if r1=r2 && ResourceSet.equal used1 used2 then r1, used 
                                else RMaybe (r1,r2), used
-    | EApp        (e1,e2)   -> let r1, used1 = re Ufunc e1 in
-                               let r2, used2 = re Ufunc e2 in
-                               if r1=RNull && r2=RNull then RNull, ResourceSet.union used1 used2
-                               else
-                                 raise (ResourceError (e.pos,
-                                                       Printf.sprintf "** disaster: resources_of_expr %s gives %s, %s"
-                                                                      (string_of_expr e)
-                                                                      (string_of_resource r1)
-                                                                      (string_of_resource r2)
-                                                      )
-                                       )
-                               
+    | EApp        (e1,e2)   -> let _, used1 = re use e1 in
+                               let _, used2 = re use e2 in
+                               (* EApps don't return resources: we checked *)
+                               RNull, ResourceSet.union used1 used2
     | EBitCombine (e1,e2)   -> let _, used = do_list Uarith   [e1;e2] in RNull, used
     | EAppend     (e1,e2)   -> let r1, used1 = re use e1 in
                                let r2, used2 = re use e2 in

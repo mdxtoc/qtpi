@@ -1,7 +1,6 @@
 (* this has a channel which carries both a qbit and
    a channel: no longer allowed.
  *)
-given Win: unit process, Lose: unit process
 
 P(s:^qbit*(^qbit)) =   s?(y,t) . t!y . _0
                      | s?(y,t) . y>>_Phi(1) . t!y . _0

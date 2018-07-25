@@ -48,6 +48,6 @@ BobVerify (vs, basis, as) =
        
 Random(q:qbit, r) = q>>_H . q??(v) . r!v . Random(q,r)
 
-System() = (let n = read_int ())
+System() = (let n = read_int "number of qbits")
 		   (new r,qc,bc,vc)
 		   (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q = |0>) Random(q,r))

@@ -25,35 +25,30 @@ open Sourcepos
 
 exception Error of string
 
-let parse_string entry default string =
+let parse_string entry string =
   let lexbuf = Lexing.from_string string in
   try
     entry Lexer.make_token lexbuf
   with 
   | Parsing.Parse_error ->
-         (match default with 
-          | Some default -> 
-              let curr = lexbuf.Lexing.lex_curr_p in
-              Printf.printf "\n**Parse error at character %d (just before \"%s\") \
-                             when parsing string \"%s\""
-                            (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
-                            (Lexing.lexeme lexbuf)
-                            string;
-              default
-          | _            -> raise Parsing.Parse_error
+         (let curr = lexbuf.Lexing.lex_curr_p in
+          raise (Error (Printf.sprintf "**Parse error at character %d (just before \"%s\") \
+                                        when parsing string \"%s\""
+                                       (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
+                                       (Lexing.lexeme lexbuf)
+                                       string
+                       )
+                )
          )
   | exn -> 
-         (match default with
-          | Some default -> 
-              Printf.printf "\n**Unexpected exception %s \
-                             when parsing string \"%s\""
-                            (Printexc.to_string exn)
-                            string;
-              default
-          | _            -> raise exn
-         )
+        raise (Error (Printf.sprintf "**Unexpected exception %s \
+                                      when parsing string \"%s\""
+                                     (Printexc.to_string exn)
+                                     string
+                     )
+              )
 
-let parse_typestring s = parse_string Parser.readtype None s
+let parse_typestring s = parse_string Parser.readtype s
 
 let parse_program filename =
   let in_channel = open_in filename in

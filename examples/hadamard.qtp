@@ -1,2 +1,12 @@
 
-System () = (newq q) q>>_H . q>>_H . _0
+System () = (newq q) (let init=qstate q) 
+			q>>_H . 
+			q>>_H . (let final=qstate q)
+			(let _ = print_strings ["initially q=";
+								    init;
+								    "; finally q=";
+								    final;
+								    "\n"
+								   ]
+			)
+			_0

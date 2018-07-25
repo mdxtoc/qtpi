@@ -16,7 +16,7 @@ System() = (let bv = read_string "basis (0,1,+,-)")
                      elif bv="1" then |1> 
                      elif bv="+" then |+>
                      elif bv="-" then |->
-                                 else abandon "bad basis"
+                     else abandon "bad basis"
                      fi) 
            (new s:^qbit, r:^qbit) 
            (P(s,r) | Q(x,s,r))

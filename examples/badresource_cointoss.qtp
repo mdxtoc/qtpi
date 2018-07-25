@@ -11,11 +11,12 @@ P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
 Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>_H . toP!x . fromP?(z) . x>>_H . _0 
 
-System() = (let bv = read_int ())
-           (newq x = if   bv=0 then |0> 
-                     elif bv=1 then |1> 
-                     elif bv=2 then |+>
-                               else |->
+System() = (let bv = read_string "basis (0,1,+,-)")
+           (newq x = if   bv="0" then |0> 
+                     elif bv="1" then |1> 
+                     elif bv="+" then |+>
+                     elif bv="-" then |->
+                                 else abandon "bad basis"
                      fi) 
            (new s:^qbit, r:^qbit) 
            (P(s,r) | Q(x,s,r))

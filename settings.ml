@@ -30,7 +30,7 @@ let temp_setting vref v f =
     result
   with exn -> vref:=oldv; raise exn
   
-let chanbuf_limit = ref 1			(* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
+let chanbuf_limit = ref 0			(* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
 
 let verbose = ref false
 let verbose_interpret = ref false
@@ -46,6 +46,8 @@ let symbq = ref true
 let fancyvec = ref true
 
 let interpret = ref true
+
+let show_final = ref false
 
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );

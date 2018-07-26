@@ -45,10 +45,10 @@ exception Abandon of string
 let abandon s = raise (Abandon s)
 let _ = Interpret.know ("abandon", "string -> 'a", vfun (abandon <.> stringv))
 
-let qstate q =  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) 
+let qbit_state q =  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) 
                                         (Qsim.string_of_qval (Qsim.qval q)) 
                                         
-let _ = Interpret.know ("qstate", "qbit -> string"        , vfun (vstring <.> qstate <.> qbitv))
+let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
 
 let print_strings ss = List.iter Pervasives.print_string ss; flush stdout
 let _ = Interpret.know ("print_string", "string -> unit"        , vfun (vunit <.> Pervasives.print_string <.> stringv))

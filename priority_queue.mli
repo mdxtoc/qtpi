@@ -63,6 +63,9 @@ module type PQ = sig
      raises [EmptyHeap] when [q] is empty; complexity $O(log(n))$ *)
   val pop : t -> elt
 
+  (* [excite q] reduces the random integer on each element of the queue. $O(n)$ *)
+  val excite : t -> unit
+
   (* usual iterators and combinators; elements are presented in
      arbitrary order *)
   val iter : (elt -> unit) -> t -> unit

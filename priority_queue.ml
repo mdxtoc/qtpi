@@ -65,6 +65,9 @@ module type PQ = sig
   (* [pop q] removes the first element of [q] and returns it;
      raises [EmptyHeap] when [q] is empty; complexity $O(log(n))$ *)
   val pop : t -> elt
+  
+  (* [excite q] reduces the random integer on each element of the queue. $O(n)$ *)
+  val excite : t -> unit
 
   (* usual iterators and combinators; elements are presented in
      arbitrary order *)
@@ -177,7 +180,6 @@ module Make(X : Ordered) = struct
 
   let pop q = let m = first q in 
     remove q; 
-    excite q;
     m
 
   let iter f q =
@@ -205,7 +207,7 @@ module Make(X : Ordered) = struct
        Array.blit d 0 a 0 n;
        let r = Array.to_list a in
        (* sort 'smallest' first *)
-       List.sort (fun e1 e2 -> - compare e1 e2) r
+       List.sort compare r
       ) 
       
 end

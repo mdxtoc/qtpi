@@ -356,6 +356,7 @@ let rec interp sysenv proc =
                        (string_of_queue string_of_stuck "; " stucks)
                        (string_of_qstate ());
        let runner = RunnerQueue.pop runners in
+       RunnerQueue.excite runners;
        let pn, rproc, env = runner in
        (match rproc.inst with
         | Terminate         -> ()
@@ -395,6 +396,7 @@ let rec interp sysenv proc =
                                else
                                if not (WWaiterQueue.is_empty c.wwaiters) then
                                  (let pn',vs',proc',env' = WWaiterQueue.pop c.wwaiters in
+                                  WWaiterQueue.excite c.wwaiters;
                                   addrunner (pn', proc', env');
                                   addrunner (pn, proc, (zip ns vs' @ env))
                                  )
@@ -404,6 +406,7 @@ let rec interp sysenv proc =
                                let vs = List.map (evale env) es in
                                if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
                                  (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
+                                  RWaiterQueue.excite c.rwaiters;
                                   addrunner (pn', proc', (zip ns' vs @ env'));
                                   addrunner (pn, proc, env)
                                  )

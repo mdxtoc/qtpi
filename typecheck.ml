@@ -114,12 +114,15 @@ let rewrite_param cxt {inst=n,rt} =
   
 let rewrite_params cxt = List.iter (rewrite_param cxt)
 
-let rewrite_step cxt step = 
-  match step.inst with
-  | Read      (e,params)    -> rewrite_expr cxt e; rewrite_params cxt params
-  | Write     (e,es)        -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) es
+let rewrite_qstep cxt qstep = 
+  match qstep.inst with
   | Measure   (e,param)     -> rewrite_expr cxt e; rewrite_param cxt param
   | Ugatestep (es, ug)      -> List.iter (rewrite_expr cxt) es
+
+let rewrite_iostep cxt iostep = 
+  match iostep.inst with
+  | Read      (e,params)    -> rewrite_expr cxt e; rewrite_params cxt params
+  | Write     (e,es)        -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) es
 
 let rec rewrite_process cxt proc = 
   match proc.inst with
@@ -128,8 +131,12 @@ let rec rewrite_process cxt proc =
   | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process cxt p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process cxt p
   | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_expr cxt e; rewrite_process cxt p
-  | WithStep (step, p)      -> rewrite_step cxt step; rewrite_process cxt p
+  | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process cxt p1; rewrite_process cxt p2
+  | GSum     gs             -> let rewrite_g (iostep, proc) =
+                                 rewrite_iostep cxt iostep; rewrite_process cxt proc
+                               in
+                               List.iter (rewrite_g) gs
   | Par      ps             -> List.iter (rewrite_process cxt) ps
 
 let rewrite_processdef cxt (Processdef (n, params, proc)) =
@@ -413,24 +420,8 @@ and typecheck_process cxt p =
       let t = fix_paramtype p.pos rt in
       let cxt = assigntype_expr cxt t e in
       do_procparams "WithLet" cxt [p] proc
-  | WithStep (step,proc) ->
-      (match step.inst with
-       | Read (chan, params) ->
-           let chants = List.map (fun param -> adorn param.pos (new_TypeVar())) params in 
-           let chant = Type.delist chan.pos chants in
-           let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
-           let stitch (t', {inst=n,rt}) cxt = 
-             unify_paramtype cxt rt t'
-           in
-           let cxt = List.fold_right stitch (zip chants params) cxt in
-           check_distinct params;
-           do_procparams "Read" cxt params proc 
-       | Write (chan, es) ->
-           let chants = List.map (fun e -> adorn e.pos (new_TypeVar())) es in 
-           let chant = Type.delist chan.pos chants in
-           let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
-           let cxt = List.fold_left (fun cxt (t,v) -> assigntype_expr cxt t v) cxt (zip chants es) in
-           typecheck_process cxt proc
+  | WithQstep (qstep,proc) ->
+      (match qstep.inst with
        | Measure (e, param) ->
            let n,rt = param.inst in
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
@@ -440,10 +431,31 @@ and typecheck_process cxt p =
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt (adorn e.pos Qbit) e) cxt es in
            let arity, cxt = typecheck_ugate cxt ugate in
            if List.length es <> arity then 
-             raise (TypeCheckError (step.pos, "arity mismatch in " ^ string_of_step step))
+             raise (TypeCheckError (qstep.pos, "arity mismatch"))
            ;
            typecheck_process cxt proc
       )
+  | GSum gs ->
+      let check_g cxt (iostep,proc) =
+        match iostep.inst with
+         | Read (chan, params) ->
+             let chants = List.map (fun param -> adorn param.pos (new_TypeVar())) params in 
+             let chant = Type.delist chan.pos chants in
+             let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
+             let stitch (t', {inst=n,rt}) cxt = 
+               unify_paramtype cxt rt t'
+             in
+             let cxt = List.fold_right stitch (zip chants params) cxt in
+             check_distinct params;
+             do_procparams "Read" cxt params proc 
+         | Write (chan, es) ->
+             let chants = List.map (fun e -> adorn e.pos (new_TypeVar())) es in 
+             let chant = Type.delist chan.pos chants in
+             let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
+             let cxt = List.fold_left (fun cxt (t,v) -> assigntype_expr cxt t v) cxt (zip chants es) in
+             typecheck_process cxt proc
+      in
+      List.fold_left check_g cxt gs
   | Cond (e,p1,p2) ->
       let cxt = assigntype_expr cxt (adorn e.pos Bool) e in
       let cxt = typecheck_process cxt p1 in

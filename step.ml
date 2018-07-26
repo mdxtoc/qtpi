@@ -30,22 +30,28 @@ open Type
 open Param
 open Ugate
 
-type step = stumble instance
+type iostep = iostumble instance
 
-and stumble =
+and iostumble =
   | Read of expr * param list
   | Write of expr * expr list
+  
+type qstep = qstumble instance
+
+and qstumble =
   | Measure of expr * param
   | Ugatestep of expr list * ugate
   
-let string_of_step step =
-  match step.inst with
+let string_of_iostep iostep =
+  match iostep.inst with
   | Read (e,params)     -> Printf.sprintf "%s?(%s)"
                                           (string_of_expr e)
                                           (commasep (List.map string_of_param params))
   | Write (e,es)        -> Printf.sprintf "%s!%s"
                                           (string_of_expr e)
                                           (commasep (List.map string_of_expr es))
+let string_of_qstep qstep =
+  match qstep.inst with
   | Measure (e,p)       -> Printf.sprintf "%s?%c(%s)"
                                           (string_of_expr e)
                                           '?'

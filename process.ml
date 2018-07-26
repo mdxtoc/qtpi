@@ -23,6 +23,7 @@
 
 open Stringutils
 open Listutils
+open Tupleutils
 open Instance
 open Name
 open Type
@@ -38,8 +39,9 @@ and procnode =
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
-  | WithStep of step * process
+  | WithQstep of qstep * process
   | Cond of expr * process * process
+  | GSum of (iostep * process) list
   | Par of process list
 
 and qspec = param * expr option
@@ -50,8 +52,9 @@ let rec string_of_process proc =
   let trailing_sop p =
     let s = string_of_process p in
     match p.inst with
-    | Par _ -> Printf.sprintf "(%s)" s
-    | _     -> s
+    | GSum (_::_::_)
+    | Par  (_::_::_) -> Printf.sprintf "(%s)" s
+    | _              -> s
   in
   match proc.inst with
   | Terminate             -> "_0"
@@ -67,10 +70,11 @@ let rec string_of_process proc =
   | WithLet (x,p)        -> Printf.sprintf "(let %s)%s"
                                             (string_of_letspec x)
                                             (trailing_sop p)
-  | WithStep (s,p)        -> Printf.sprintf "%s.%s"
-                                            (string_of_step s)
+  | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
+                                            (string_of_qstep q)
                                             (trailing_sop p)
-  | Par (ps)              -> Printf.sprintf "%s" (String.concat "|" (List.map string_of_process ps))
+  | GSum gs               -> String.concat "+" (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
+  | Par  ps               -> String.concat "|" (List.map string_of_process ps)
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_expr e)
                                             (string_of_process p1)
@@ -88,9 +92,11 @@ and short_string_of_process proc =
                                             (commasep (List.map string_of_qspec xs))
   | WithLet (x,p)        -> Printf.sprintf "(let %s) ..."
                                             (string_of_letspec x)
-  | WithStep (s,p)        -> Printf.sprintf "%s. ..."
-                                            (string_of_step s)
-  | Par (ps)              -> Printf.sprintf "%s" (String.concat "|" (List.map short_string_of_process ps))
+  | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
+                                            (string_of_qstep q)
+  | GSum gs               -> let sf (g,p) = Printf.sprintf "%s. ..." (string_of_iostep g) in
+                             String.concat "+" (List.map sf gs)
+  | Par  ps               -> String.concat "|" (List.map short_string_of_process ps)
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_expr e)
                                             (short_string_of_process p1)

@@ -344,10 +344,6 @@ let rec interp sysenv proc =
   let addstuck stuck = Queue.push stuck stucks in
   let rec step () =
     if RunnerQueue.is_empty runners then 
-      Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
-                    (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
-                    (string_of_queue string_of_stuck "\n" stucks)
-                    (string_of_qstate ())
     else
       (if !verbose || !verbose_interpret then
          Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
@@ -384,8 +380,18 @@ let rec interp sysenv proc =
         | WithLet (({inst=n,_},e), proc) ->
             let env = (n, evale env e) :: env in
             addrunner (pn, proc, env)
-        | WithStep (step, proc) ->
-            (match step.inst with
+        | WithQstep (qstep, proc) ->
+            (match qstep.inst with
+             | Measure (e, {inst=n,_})  -> let q = qbitev env e in
+                                      let v = VInt (qmeasure pn q) in
+                                      addrunner (pn, proc, (n,v)::env)
+             | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
+                                      let g = ugev env ug in
+                                      ugstep pn qs g;
+                                      addrunner (pn, proc, env)
+            )
+        | GSum [iostep, proc] ->
+            (match iostep.inst with
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
@@ -419,15 +425,9 @@ let rec interp sysenv proc =
                                  )
                                else
                                  WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
-             | Measure (e, {inst=n,_})  -> let q = qbitev env e in
-                                      let v = VInt (qmeasure pn q) in
-                                      addrunner (pn, proc, (n,v)::env)
-             | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
-                                      let g = ugev env ug in
-                                      ugstep pn qs g;
-                                      addrunner (pn, proc, env)
-            )
-        |Cond (e, p1, p2)   ->
+             )
+        | GSum _ ->         raise (Error (proc.pos, "can't handle proper guarded sums yet"))
+        | Cond (e, p1, p2)   ->
             addrunner (pn, (if boolev env e then p1 else p2), env)
         | Par ps            ->
             List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)

@@ -142,26 +142,33 @@ let ctfa_def (Processdef(pn, params, proc)) =
   
   let rec ctfa_proc proc =
     match proc.inst with
-    | Terminate                 -> ()
-    | Call     (pn', es)        -> List.iter ctfa_expr es
-    | WithNew  (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
-    | WithQbit (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
-                                   ctfa_proc proc
-    | WithLet  (letspec, proc)  -> let param, e = letspec in
-                                   ctfa_param param; 
-                                   ctfa_expr e;
-                                   ctfa_proc proc
-    | WithStep (step, proc)     -> ctfa_step step; ctfa_proc proc
-    | Cond     (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
-    | Par      procs            -> List.iter ctfa_proc procs
+    | Terminate                  -> ()
+    | Call      (pn', es)        -> List.iter ctfa_expr es
+    | WithNew   (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
+    | WithQbit  (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
+                                    ctfa_proc proc
+    | WithLet   (letspec, proc)  -> let param, e = letspec in
+                                    ctfa_param param; 
+                                    ctfa_expr e;
+                                    ctfa_proc proc
+    | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
+    | Cond      (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
+    | GSum      gs               -> let ctfa_g (iostep, proc) =
+                                      ctfa_iostep iostep; ctfa_proc proc
+                                    in
+                                    List.iter ctfa_g gs
+    | Par       procs            -> List.iter ctfa_proc procs
   
-  and ctfa_step step =
-    (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
-    match step.inst with
-    | Read      (ce,params) -> ctfa_expr ce; List.iter ctfa_param params
-    | Write     (ce,es)     -> List.iter ctfa_expr (ce::es)
+  and ctfa_qstep qstep =
+    match qstep.inst with
     | Measure   (qe,param)  -> ctfa_expr qe; ctfa_param param
     | Ugatestep (qes, ug)   -> List.iter ctfa_expr qes
+  
+  and ctfa_iostep iostep =
+    (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
+    match iostep.inst with
+    | Read      (ce,params) -> ctfa_expr ce; List.iter ctfa_param params
+    | Write     (ce,es)     -> List.iter ctfa_expr (ce::es)
   
   and ctfa_expr e =
     match e.inst.enode with
@@ -441,31 +448,7 @@ let rck_proc state env proc =
                                    let n,_ = param.inst in
                                    let r, er = resources_of_expr state env e in
                                    ResourceSet.union (rp state (NameMap.add n r env) proc) er
-      | WithStep (step,proc)    -> (match step.inst with 
-                                    | Read (ce,params)  -> let _, used = resources_of_expr state env ce in
-                                                           let state, extras = resource_of_params state params in
-                                                           let env = List.fold_left (<@+>) env extras in
-                                                           ResourceSet.union (rp state env proc) used
-                                    | Write (ce,es)     -> (try let _, used = resources_of_expr state env ce in
-                                                                let rers = List.map (resources_of_expr state env) es in
-                                                                (* if it's a channel of qbit, then it sends away a qbit *)
-                                                                let state = 
-                                                                  match (type_of_expr ce).inst, es, rers with
-                                                                  | Channel {inst=Qbit}, [e], [r,rs] ->
-                                                                      (match r with
-                                                                       | RQbit q   -> State.add q false state
-                                                                       | _         ->
-                                                                          raise (ResourceError (e.pos,
-                                                                                                "ambiguous qbit-sending expression"
-                                                                                               )
-                                                                                )
-                                                                      )
-                                                                  | _                         -> state
-                                                                in
-                                                                let used = ResourceSet.union used (disju (List.map snd rers)) in
-                                                                ResourceSet.union (rp state env proc) used
-                                                            with OverLap s -> badproc s
-                                                           )
+      | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, param)   -> let n,_ = param.inst in
                                                                let _, used = resources_of_expr state env qe in
                                                                ResourceSet.union used (rp state (env <@+> (n,RNull)) proc)
@@ -480,6 +463,34 @@ let rck_proc state env proc =
                                         ResourceSet.union used (disju prs)
                                     with OverLap s -> badproc s
                                    )
+      | GSum gs                 -> let rg (iostep, proc) =
+                                      match iostep.inst with 
+                                      | Read (ce,params)  -> let _, used = resources_of_expr state env ce in
+                                                             let state, extras = resource_of_params state params in
+                                                             let env = List.fold_left (<@+>) env extras in
+                                                             ResourceSet.union (rp state env proc) used
+                                      | Write (ce,es)     -> (try let _, used = resources_of_expr state env ce in
+                                                                  let rers = List.map (resources_of_expr state env) es in
+                                                                  (* if it's a channel of qbit, then it sends away a qbit *)
+                                                                  let state = 
+                                                                    match (type_of_expr ce).inst, es, rers with
+                                                                    | Channel {inst=Qbit}, [e], [r,rs] ->
+                                                                        (match r with
+                                                                         | RQbit q   -> State.add q false state
+                                                                         | _         ->
+                                                                            raise (ResourceError (e.pos,
+                                                                                                  "ambiguous qbit-sending expression"
+                                                                                                 )
+                                                                                  )
+                                                                        )
+                                                                    | _                         -> state
+                                                                  in
+                                                                  let used = ResourceSet.union used (disju (List.map snd rers)) in
+                                                                  ResourceSet.union (rp state env proc) used
+                                                              with OverLap s -> badproc s
+                                                             )
+                                   in
+                                   (try disju (List.map rg gs) with OverLap s -> badproc s)
       | Par ps                  -> (try let prs = List.map (rp state env) ps in
                                         disju prs
                                     with OverLap s -> badproc s

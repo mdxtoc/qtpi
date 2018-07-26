@@ -36,6 +36,8 @@ let opts = Arg.align
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-interpret"  , Arg.Bool (set_arg interpret), 
                     Printf.sprintf " interpret the program (default %B)" !interpret);
+              ("-show_final"  , Arg.Bool (set_arg show_final), 
+                    Printf.sprintf " show final state -- channels, stuck processes, qbit states (default %B)" !show_final);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 

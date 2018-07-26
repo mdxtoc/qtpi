@@ -344,6 +344,12 @@ let rec interp sysenv proc =
   let addstuck stuck = Queue.push stuck stucks in
   let rec step () =
     if RunnerQueue.is_empty runners then 
+      if !verbose_qsim || !show_final then
+        Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
+                      (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
+                      (string_of_queue string_of_stuck "\n" stucks)
+                      (string_of_qstate ())
+      else ()
     else
       (if !verbose || !verbose_interpret then
          Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"

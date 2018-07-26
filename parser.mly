@@ -209,7 +209,8 @@ process:
   | LPAR NEWDEC paramseq RPAR process   {adorn (WithNew ($3,$5))}
   | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
-  | step DOT process                    {adorn (WithStep ($1,$3))}
+  | qstep DOT process                   {adorn (WithQstep ($1,$3))}
+  | iostep DOT process                  {adorn (GSum [$1,$3])}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
 
@@ -237,7 +238,7 @@ letspec:
   | name EQUALS expr                    {adorn ($1, ref None     ), $3}
   | name COLON typespec EQUALS expr     {adorn ($1, ref (Some $3)), $5}
   
-step:
+iostep:
   | expr QUERY LPAR paramseq RPAR       {adorn (Read ($1,$4))}
   | expr BANG ntexprs                   {let es = match $3 with 
                                                   | [{inst={enode=ETuple es}}] -> es
@@ -245,6 +246,8 @@ step:
                                          in
                                          adorn (Write ($1,es))
                                         }
+
+qstep:
   | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,$4))}
   | ntexprs THROUGH ugate               {adorn (Ugatestep ($1,$3))}
 

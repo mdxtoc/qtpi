@@ -1,21 +1,40 @@
 <h1>qtpi language description</h1>
 <p>Based on CQP (Gay &amp; Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I don't like hiding state-changing operations inside expressions (e.g. unary gates, measurement); some to be closer to the pi calculus; new operators intended to be easy to read.</p>
 <h2>Grammar</h2>
-<p>Processes <em>P</em>, steps <em>S</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, basis vectors <em>V</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
+<p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, gate expressions <em>G</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
 <ul>
 <li>
 <p>Process <em>P</em></p>
-<p>| <em>S</em> <code>.</code> <em>P</em><br />
-|  <em>P</em> <code>|</code> ... <code>|</code> <em>P</em><br />
+<p>| <em>Q</em> <code>.</code> <em>P</em><br />
+| <em>IO</em> <code>.</code> <em>P</em> <code>+</code> ... <code>+</code> <em>IO</em> <code>.</code> <em>P</em><br />
+| <em>P</em> <code>|</code> ... <code>|</code> <em>P</em><br />
 | <code>if</code> <em>E</em> <code>then</code> <em>P</em> <code>else</code> <em>P</em> <code>fi</code><br />
 | <code>(new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
-| <code>(newq</code> <em>par</em> [ <code>=</code> <em>V</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>V</em> ] <code>)</code> <em>P</em><br />
+| <code>(newq</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>)</code> <em>P</em><br />
 | <em>N</em> <code>(</code> <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em>  <code>)</code><br />
 | <code>_0</code><br />
 | <code>(</code> <em>P</em> <code>)</code></p>
-<p>The parameters in <code>new</code> must describe channels.<br />
-The parameters in  <code>newq</code> must describe qbits. Initialisation to basis vectors is optional (and then you get (a|0&gt;+b|1&gt;), for unknown a and b).<br />
-'<code>_0</code>' is the null process (termination).</p>
+<p><code>new</code> creates channels.<br />
+<code>newq</code> creates qbits. Initialisation to basis vectors is optional (without it you get (a|0&gt;+b|1&gt;), for unknown a and b).<br />
+'<code>_0</code>' is the null process (termination).<br />
+The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>+</code> ... <code>+</code> <em>IO</em> <code>.</code> <em>P</em> is not yet supported: single input-output steps only at present.<br />
+The <code>{</code> <em>E</em> <code>}</code> step of CQP is not included, mostly because it hid quantum steps. You can execute an arbitrary expression via a 'let' binding, if you wish.</p>
+</li>
+<li>
+<p>Quantum step <em>Q</em></p>
+<p>| <em>E</em> <code>,</code> <em>E</em> <code>,</code> ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
+| <em>E</em> <code>??</code> (<em>par</em>)</p>
+<p>'<code>&gt;&gt;</code>' is 'send through a gate'; each left-hand <em>E</em> must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 2).<br />
+<code>??</code> is measure, in the computational basis |0&gt; and |1&gt;.  The parameter <em>par</em> binds a bit value.<br />
+CQP had <code>*=</code> for measure, which looked like an assignment, so I changed it to <code>??</code>.</p>
+</li>
+<li>
+<p>Input-output step <em>IO</em></p>
+<p>| <em>E</em> <code>?</code> <code>(</code> <em>par</em> <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code><br />
+| <em>E</em> <code>!</code> <em>E</em> <code>,</code>  ... <code>,</code> <em>E</em></p>
+<p>'<code>?</code>' is read, as in the pi calculus: the first <em>E</em> must be a channel; the bindings are bracketed, as in the pi calculus; the types are optional.<br />
+'<code>!</code>' is write, as in the pi calculus: the first <em>E</em> must be a channel; the output tuple can be bracketed if you wish.<br />
+Channels each carry either a qbit or a classical value (not including any qbits).</p>
 </li>
 <li>
 <p>Parameter <em>par</em></p>
@@ -24,24 +43,16 @@ The parameters in  <code>newq</code> must describe qbits. Initialisation to basi
 <p>Parameter type specs are optional, always.</p>
 </li>
 <li>
-<p>Step <em>S</em></p>
-<p>| <em>E</em> <code>?</code> <code>(</code> <em>par</em> <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code><br />
-| <em>E</em> <code>!</code> <em>E</em> <code>,</code>  ... <code>,</code> <em>E</em><br />
-| <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
-| <em>E</em> <code>??</code> <em>G</em></p>
-<p>'<code>?</code>' is read, as in the pi calculus: the first <em>E</em> must be a channel; the bindings are bracketed, as in the pi calculus; the types are optional.<br />
-'<code>!</code>' is write, as in the pi calculus: the first <em>E</em> must be a channel; the output tuple can be bracketed if you wish.<br />
-'<code>&gt;&gt;</code>' is 'send through a gate'; the <em>E</em>s must describe single qbits. The arity of the input tuple must match the gate (e.g. _H gets one qbit, _Cnot gets 2). (CQP had <code>*=</code>, which looks like an assignment.)<br />
-'<code>??</code>' is measure; <em>E</em> must describe a single qbit.</p>
-<p>The <code>{</code> <em>E</em> <code>}</code> step of CQP is not included (reasons of taste, mostly).</p>
-</li>
-<li>
 <p>Type <em>T</em></p>
-<p>| <code>int</code><br />
+<p>| <code>qbit</code><br />
+| <code>unit</code><br />
+| <code>int</code><br />
 | <code>bool</code><br />
 | <code>bit</code><br />
-| <code>unit</code><br />
-| <code>qbit</code><br />
+| <code>Range</code> <em>int</em><code>:</code> <em>int</em><br />
+| <code>string</code><br />
+| <code>char</code><br />
+| <code>basisv</code><br />
 | <code>'</code><em>x</em><br />
 | <em>T</em> <code>list</code><br />
 | <em>T</em> <code>*</code> ... <code>*</code> <em>T</em><br />
@@ -49,27 +60,25 @@ The parameters in  <code>newq</code> must describe qbits. Initialisation to basi
 | <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em><br />
 | <em>T</em> <code>process</code><br />
 | <code>(</code> <em>T</em> <code>)</code></p>
-<p>'<code>*</code>' separates elements of a tuple type.<br />
-Type variables <code>'</code><em>x</em> and function types <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em> are currently for internal use.
+<p><code>basisv</code> is the type of basis vectors (see below).<br />
+'<code>*</code>' separates elements of a tuple type.<br />
+Type variables <code>'</code><em>x</em> and function types <em>T</em> <code>-&gt;</code> ... <code>-&gt;</code> <em>T</em> are currently for internal use.<br />
 Process types <em>T</em> <code>process</code> are used in the <code>given</code> clause (see program description below).<br />
 The syntactic precedence of types is more or less as listed, or so I hope and intend.</p>
-<p>Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition.</p>
+<p>Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition, and in '<code>new</code>' channel declarations.</p>
 </li>
 <li>
 <p>Expression <em>E</em></p>
-<p>The ususal stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants), variables, arithmetic (not much implemented yet), comparison (only '=' and '!=' implemented so far), boolean operations (only &amp;&amp; and || so far).</p>
+<p>The ususal stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants; <code>|0&gt;</code>, <code>|1&gt;</code>, <code>|+&gt;</code> and <code>|-&gt;</code> are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only &amp;&amp; and || so far).</p>
 <p>Conditionals are <code>if</code> <em>E</em> <code>then</code> E <code>else</code> E <code>fi</code>.
-Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left associative, so that <em>E</em> <em>E</em> <em>E</em> is (<em>E</em> <em>E</em>) <em>E</em>.</p>
+Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left associative, so that <em>E</em> <em>E</em> <em>E</em> is (<em>E</em> <em>E</em>) <em>E</em>.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.</p>
 <p>No process stuff, no steps.</p>
 </li>
 <li>
-<p>Basis vectors <em>V</em></p>
-<p>| <code>|0&gt;</code><br />
-| <code>|1&gt;</code><br />
-| <code>|+&gt;</code><br />
-| <code>|-&gt;</code><br />
-| <code>if</code> <em>E</em> <code>then</code> <em>V</em> <code>else</code> <em>V</em> <code>fi</code></p>
-<p>Used only when creating a new qbit.</p>
+<p>Built-in operators*</p>
+<p><code>@</code> (append) was an operator in one of Gay &amp; Nagarajan's examples.<br />
+I haven't yet included <code>::</code> (cons), though I should.<br />
+<code>++</code> combines bits: <em>a</em><code>++</code><em>b</em> is <em>a</em> times 2 plus <em>b</em>. Included because it helps with range typing.</p>
 </li>
 <li>
 <p>Process name <em>N</em></p>
@@ -81,22 +90,37 @@ Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left as
 </li>
 </ul>
 <h2>Program description</h2>
-<p>A program is an optional <code>given</code> list and then a bunch of process definitions. One of the process descriptions must be <code>System</code>, which can have only integer, boolean or no parameters ('unit' type).</p>
+<p>A program is an optional <code>given</code> list and then a bunch of process definitions. One of the process descriptions must be <code>System</code>, which must have no parameters ('unit process' type).</p>
 <ul>
 <li>
 <p>Process definition <em>D</em></p>
 <p>| <em>D</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em></p>
-<p>Types are optional, but it seems to be pragmatic to include them in process definition parameters.</p>
+<p>Types are optional, but it seems to be pragmatic to include them.</p>
 <p>None of the parameters can be a process type.</p>
 </li>
 <li>
 <p><code>given</code> list</p>
-<p>The word <code>given</code>, followed by a comma-separated list of process names, describing things that aren't defined in the program.</p>
-<p>The process parameters allow undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from the final diagnostic print-out of the state.</p>
+<p>| <code>given</code> <em>N</em> <code>:</code> <em>T</em> <code>,</code> <em>N</em> <code>:</code> <em>T</em> <code>,</code> ... <em>N</em> <code>:</code> <em>T</em></p>
+<p>Gives names and types of processes that aren't defined in the program. This allows undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from a print-out of the state.</p>
 </li>
 <li>
 <p>Interface functions</p>
-<p>It seems necessary to include some interface functions to deal with lists and tuples. Currently I pre-define &quot;hd&quot;, &quot;tl&quot;, &quot;fst&quot; and &quot;snd&quot; which have their usual definitions and types as in ML, OCaml and no doubt Miranda and Haskell.</p>
-<p>&quot;@&quot; (append) is already an operator in the language. I haven't yet included &quot;::&quot; (cons), though I should.</p>
+<p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
+<p><strong>BUT</strong>, <strong>but</strong>, <strong>but</strong>. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.</p>
+<p>Here are the functions I currently provide. Easy to expand (see the file library.ml)</p>
+<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em><br />
+<em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em><br />
+<em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em><br />
+<em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></p>
+<p><em>read_int</em>: <em>string</em> -&gt; <em>int</em><br />
+<em>read_string</em>: <em>string</em> -&gt; <em>string</em></p>
+<p><em>abandon</em>: <em>string</em> -&gt; <em>'a</em></p>
+<p><em>qstate</em>: <em>qbit</em> -&gt; <em>string</em></p>
+<p><em>print_string</em>: <em>string</em> -&gt; <em>unit</em><br />
+<em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></p>
+<p><em>hd</em>, <em>tl</em>, <em>fst</em> and <em>snd</em> do what you'd expect (but see above).<br />
+<em>read_int</em> and <em>read_string</em> take a prompt-string argument.</p>
+<p><em>abandon</em> stops the program and doesn't return.  (I.e. raises an exception.)</p>
+<p><em>qstate</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index and a representation of a qbit's state as a probability vector: <em>A</em>^2 probability of measuring 0, <em>B</em>^2 of measuring 1. In <em>A</em> and <em>B</em> the constant <em>h</em> means <em>sqrt</em>(1/2), and <em>h</em>(<em>k</em>) means <em>h</em> to the power <em>k</em>. If two qbits are entangled you will see stuff like <em>q</em><code>:</code>[<em>qs</em>]<code>(</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code> where <em>qs</em> gives the indices of the entangled bits. The standard example would be 0:[0,1](<em>h</em>|00&gt;+<em>h</em>|01&gt;). And so on for larger entanglements.</p>
 </li>
 </ul>

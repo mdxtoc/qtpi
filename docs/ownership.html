@@ -1,10 +1,10 @@
 <h1>Static treatment of ownership of qbits -- resourcing</h1>
 <h2>The first problem</h2>
 <p>Suppose <em>A</em> sends a qbit on a channel <em>c</em></p>
-<pre><code>A(c:^qbit) = (newq q) c!q . .. etc. A ..
+<pre><code>	A(c:^qbit) = (newq q) c!q . .. etc. A ..
 </code></pre>
 <p>and <em>B</em> receives it on the same channel</p>
-<pre><code>B(c:^qbit) = c?(q'). .. etc. B ..
+<pre><code>	B(c:^qbit) = c?(q'). .. etc. B ..
 </code></pre>
 <p>Suppose that we identify different named processes as happening on different machines in different places. Then surely in <em>etc. A</em>, after it has sent the qbit elsewhere, <em>A</em> cannot do anything with <em>q</em>, like measure it, gate it or whatever. <em>B</em> in <em>etc. B</em>, after it has received the qbit, clearly can play with <em>q'</em> exclusively: it <strong>owns</strong> it.</p>
 <p>So it seems that it might be possible to use scoping to deal with ownership: in <em>etc. A</em>, <em>q</em> could be out of scope, whilst in <em>etc. B</em>, <em>q'</em> is in scope. Bingo? You'd think so. Actually it's <strong>resourcing</strong>, not scoping: a dynamic not a static property of a value.</p>
@@ -86,3 +86,5 @@
 <p>Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. (We complain if we get an ambiguous write like <em>c</em>!<em>if</em> <em>a</em>=1 <em>then</em> <em>q</em> <em>else</em> <em>q'</em> <em>fi</em>.) If an expression uses a sent-away qbit then it's a resourcing error.</p>
 <p>And that's it: one pass through a process definition gives us a comprehensive check.</p>
 <p>When process definitions start to use parameterised types like <em>'a list</em>, we shall have to check their instantiations rather than their definitions. But that is for the future.</p>
+<h2>Deficiencies</h2>
+<p>Clearly a static resourcing check like this one has to be overkill, if it is to be sound. A conditional expression is counted as using the resources of both arms; a guarded sum the resources of all its arms. So there will be circumstances in which the algorithm will report failure, but no failure occurs. Ho hum: we do our best.</p>

@@ -4,11 +4,11 @@
 
 Suppose *A* sends a qbit on a channel *c*
 
-	A(c:^qbit) = (newq q) c!q . .. etc. A ..
+		A(c:^qbit) = (newq q) c!q . .. etc. A ..
 	
 and *B* receives it on the same channel
 
-	B(c:^qbit) = c?(q'). .. etc. B ..
+		B(c:^qbit) = c?(q'). .. etc. B ..
 	
 Suppose that we identify different named processes as happening on different machines in different places. Then surely in *etc. A*, after it has sent the qbit elsewhere, *A* cannot do anything with *q*, like measure it, gate it or whatever. *B* in *etc. B*, after it has received the qbit, clearly can play with *q'* exclusively: it **owns** it.
 
@@ -103,4 +103,8 @@ Our symbolic execution keeps track, in a symbolic 'state', of which qbits are se
 And that's it: one pass through a process definition gives us a comprehensive check.
 
 When process definitions start to use parameterised types like *'a list*, we shall have to check their instantiations rather than their definitions. But that is for the future.
+
+## Deficiencies
+
+Clearly a static resourcing check like this one has to be overkill, if it is to be sound. A conditional expression is counted as using the resources of both arms; a guarded sum the resources of all its arms. So there will be circumstances in which the algorithm will report failure, but no failure occurs. Ho hum: we do our best.
   

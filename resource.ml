@@ -490,7 +490,7 @@ let rck_proc state env proc =
                                                               with OverLap s -> badproc s
                                                              )
                                    in
-                                   (try disju (List.map rg gs) with OverLap s -> badproc s)
+                                   List.fold_left ResourceSet.union ResourceSet.empty (List.map rg gs)
       | Par ps                  -> (try let prs = List.map (rp state env) ps in
                                         disju prs
                                     with OverLap s -> badproc s

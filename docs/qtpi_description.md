@@ -136,7 +136,7 @@ A program is an optional ``given`` list and then a bunch of process definitions.
 
 	*abandon*: *string* -> *'a*  
 
-	*qstate*: *qbit* -> *string*  
+	*qbit_state*: *qbit* -> *string*  
 
 	*print_string*: *string* -> *unit*  
 	*print_strings*: *string list* -> *unit*  
@@ -146,7 +146,7 @@ A program is an optional ``given`` list and then a bunch of process definitions.
 	
 	*abandon* stops the program and doesn't return.  (I.e. raises an exception.)  
 	
-	*qstate* gives you a string *q*``:(``*A*``|0>``+*B*``|1>)``, the qbit's index and a representation of a qbit's state as a probability vector: *A*^2 probability of measuring 0, *B*^2 of measuring 1. In *A* and *B* the constant *h* means *sqrt*(1/2), and *h*(*k*) means *h* to the power *k*. If two qbits are entangled you will see stuff like *q*``:``[*qs*]``(``*A*``|00>``+*B*``|01>+``*C*``|10>``+*D*``|11>)`` where *qs* gives the indices of the entangled bits. The standard example would be 0:\[0,1\](*h*|00>+*h*|01>). And so on for larger entanglements.
+	*qbit_state* gives you a string *q*``:(``*A*``|0>``+*B*``|1>)``, the qbit's index and a representation of a qbit's state as a probability vector: *A*^2 probability of measuring 0, *B*^2 of measuring 1. In *A* and *B* the constant *h* means *sqrt*(1/2), and *h*(*k*) means *h* to the power *k*. If two qbits are entangled you will see stuff like *q*``:``[*qs*]``(``*A*``|00>``+*B*``|01>+``*C*``|10>``+*D*``|11>)`` where *qs* gives the indices of the entangled bits. The standard example would be 0:\[0,1\](*h*|00>+*h*|01>). And so on for larger entanglements.
 
 
 

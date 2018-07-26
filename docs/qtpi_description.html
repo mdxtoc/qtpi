@@ -115,12 +115,12 @@ I haven't yet included <code>::</code> (cons), though I should.<br />
 <p><em>read_int</em>: <em>string</em> -&gt; <em>int</em><br />
 <em>read_string</em>: <em>string</em> -&gt; <em>string</em></p>
 <p><em>abandon</em>: <em>string</em> -&gt; <em>'a</em></p>
-<p><em>qstate</em>: <em>qbit</em> -&gt; <em>string</em></p>
+<p><em>qbit_state</em>: <em>qbit</em> -&gt; <em>string</em></p>
 <p><em>print_string</em>: <em>string</em> -&gt; <em>unit</em><br />
 <em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></p>
 <p><em>hd</em>, <em>tl</em>, <em>fst</em> and <em>snd</em> do what you'd expect (but see above).<br />
 <em>read_int</em> and <em>read_string</em> take a prompt-string argument.</p>
 <p><em>abandon</em> stops the program and doesn't return.  (I.e. raises an exception.)</p>
-<p><em>qstate</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index and a representation of a qbit's state as a probability vector: <em>A</em>^2 probability of measuring 0, <em>B</em>^2 of measuring 1. In <em>A</em> and <em>B</em> the constant <em>h</em> means <em>sqrt</em>(1/2), and <em>h</em>(<em>k</em>) means <em>h</em> to the power <em>k</em>. If two qbits are entangled you will see stuff like <em>q</em><code>:</code>[<em>qs</em>]<code>(</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code> where <em>qs</em> gives the indices of the entangled bits. The standard example would be 0:[0,1](<em>h</em>|00&gt;+<em>h</em>|01&gt;). And so on for larger entanglements.</p>
+<p><em>qbit_state</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index and a representation of a qbit's state as a probability vector: <em>A</em>^2 probability of measuring 0, <em>B</em>^2 of measuring 1. In <em>A</em> and <em>B</em> the constant <em>h</em> means <em>sqrt</em>(1/2), and <em>h</em>(<em>k</em>) means <em>h</em> to the power <em>k</em>. If two qbits are entangled you will see stuff like <em>q</em><code>:</code>[<em>qs</em>]<code>(</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code> where <em>qs</em> gives the indices of the entangled bits. The standard example would be 0:[0,1](<em>h</em>|00&gt;+<em>h</em>|01&gt;). And so on for larger entanglements.</p>
 </li>
 </ul>

@@ -20,47 +20,47 @@ But process calculus is so restricted -- e.g. only tail recursion -- that it is 
 
 1. How about splitting into two processes?
 
-		A() = (newq q) (A'(q) | A''(q))
+			A() = (newq q) (A'(q) | A''(q))
 	
-		A'(q1:qbit) = ...
+			A'(q1:qbit) = ...
 	
-		A''(q2:qbit) = ..
+			A''(q2:qbit) = ..
 	
 
 	*A'* and *A''* can't both exclusively inherit the same qbit.
 
 2. How about going on as another process?
 
-		A() = (newq q) A'(q,q)
+			A() = (newq q) A'(q,q)
 	
-		A'(q1:qbit, q2:qbit) = ...
+			A'(q1:qbit, q2:qbit) = ...
 	
 	*A'* doesn't own two separate qbits.
 	
 3. How about sending the same qbit twice?
 
-		A(c:^qbit*qbit) = (newq q) c!q,q . ...
+			A(c:^qbit*qbit) = (newq q) c!q,q . ...
 		
-		B(c:^qbit*qbit) = c?(q1,q2). ...
+			B(c:^qbit*qbit) = c?(q1,q2). ...
 		
 	*B* only owns one qbit, not two.
 	
 4. How about a *let* binding?
 
-		A() = (newq q) (let q'=q) ...
+			A() = (newq q) (let q'=q) ...
 		
 	*A* only creates one qbit to own.
 	
 5. How about a conditional send?
 	
-		A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
+			A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
 	
 	Which qbit does *A* own?
 	
 6. Values containing qbits?
 
-		(newq q) (let n = q,q) ...
-		(newq q) (let qs = [q;q]) ... 
+			(newq q) (let n = q,q) ...
+			(newq q) (let qs = [q;q]) ... 
 		
 	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit.
 	
@@ -70,11 +70,13 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 
   * **No comparison of qbits, or values containing qbits**
 	
+	Qbits aren't things you can compare. But you could compare indices ... 
+	
 	The qbit index is private information for the implementation. In Qtpi it's currently a global integer. So if you ask whether two qbits are the same -- e.g.
   
 			if q1=q2 then ..
 		
-	you are messing with the implementation of the interpreter. Not allowed.
+	you either asking for something impossible (compare the actual bits) or doing something naughty (exploiting the implementation of the language). Not allowed, either way.
 
   * **A channel is either `^qbit` or `^classical`**
     
@@ -82,21 +84,21 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 	
   * **Function applications can't deliver qbits, or values containing qbits**
 	
-	You and I think we know what we mean by *hd* and *tl*, by *fst* and *snd*. But these are library functions: the interpreter doesn't understand them. So though we know from its type that given  *qs: qbit list*, *hd qs* will deliver a qbit, we don't know which one of the list it will give us. And we certainly don't know what *hd (rev qs)* does.
+	You and I know what we mean by *hd* and *tl*, by *fst* and *snd*. But these are library functions: the interpreter doesn't understand them. Even though it knows from type information that given  *qs: qbit list*, *hd qs* will deliver a qbit, it doesn't know which one of the list it will get. And even we don't know much about *hd (rev qs)*.
 	
 	In the (possibly near) future it will be possible to take tuples and lists apart using pattern-matching, which the interpreter does understand.
 
 The first two restrictions make the resourcing algorithm simpler. The third is essential.
 
-## A Resourcing algorithm
+## A Resourcing Algorithm
 
-Qbits in existence when a process starts can be delivered via its arguments. We assume (our invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't take them apart yet (see above) that's not yet a problem.
+Qbits in existence when a process starts can be delivered via its arguments. We assume (our invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't yet take them apart (see above) that's not a problem.
 
-When we read a qbit *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
+When we read a qbit with *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
 
-So we can work out which names name what resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create qbits, which we number. Then we can calculate what resource an expression uses. Therefore we can check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components -- preserving the invariant.
+So we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. So we can calculate what resource an expression uses. Then we can check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components -- preserving the invariant.
 
-Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. If an expression uses a sent-away qbit then it's a resourcing error.
+Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. (We complain if we get an ambiguous write like *c*!*if* *a*=1 *then* *q* *else* *q'* *fi*.) If an expression uses a sent-away qbit then it's a resourcing error.
 
 And that's it: one pass through a process definition gives us a comprehensive check.
 

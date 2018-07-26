@@ -13,46 +13,46 @@
 <ol>
 <li>
 <p>How about splitting into two processes?</p>
-<pre><code> A() = (newq q) (A'(q) | A''(q))
+<pre><code> 	A() = (newq q) (A'(q) | A''(q))
 
- A'(q1:qbit) = ...
+ 	A'(q1:qbit) = ...
 
- A''(q2:qbit) = ..
+ 	A''(q2:qbit) = ..
 </code></pre>
 <p><em>A'</em> and <em>A''</em> can't both exclusively inherit the same qbit.</p>
 </li>
 <li>
 <p>How about going on as another process?</p>
-<pre><code> A() = (newq q) A'(q,q)
+<pre><code> 	A() = (newq q) A'(q,q)
 
- A'(q1:qbit, q2:qbit) = ...
+ 	A'(q1:qbit, q2:qbit) = ...
 </code></pre>
 <p><em>A'</em> doesn't own two separate qbits.</p>
 </li>
 <li>
 <p>How about sending the same qbit twice?</p>
-<pre><code> A(c:^qbit*qbit) = (newq q) c!q,q . ...
+<pre><code> 	A(c:^qbit*qbit) = (newq q) c!q,q . ...
  
- B(c:^qbit*qbit) = c?(q1,q2). ...
+ 	B(c:^qbit*qbit) = c?(q1,q2). ...
 </code></pre>
 <p><em>B</em> only owns one qbit, not two.</p>
 </li>
 <li>
 <p>How about a <em>let</em> binding?</p>
-<pre><code> A() = (newq q) (let q'=q) ...
+<pre><code> 	A() = (newq q) (let q'=q) ...
 </code></pre>
 <p><em>A</em> only creates one qbit to own.</p>
 </li>
 <li>
 <p>How about a conditional send?</p>
-<pre><code> A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
+<pre><code> 	A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
 </code></pre>
 <p>Which qbit does <em>A</em> own?</p>
 </li>
 <li>
 <p>Values containing qbits?</p>
-<pre><code> (newq q) (let n = q,q) ...
- (newq q) (let qs = [q;q]) ... 
+<pre><code> 	(newq q) (let n = q,q) ...
+ 	(newq q) (let qs = [q;q]) ... 
 </code></pre>
 <p>In the first example a single qbit has three names: <em>q</em>, <em>fst n</em> and <em>snd n</em>. In the second we have three names as well: <em>q</em>, <em>hd qs</em> and <em>hd (tl qs)</em>. But in each case only one qbit.</p>
 </li>
@@ -62,10 +62,11 @@
 <ul>
 <li>
 <p><strong>No comparison of qbits, or values containing qbits</strong></p>
+<p>Qbits aren't things you can compare. But you could compare indices ...</p>
 <p>The qbit index is private information for the implementation. In Qtpi it's currently a global integer. So if you ask whether two qbits are the same -- e.g.</p>
 <pre><code>	if q1=q2 then ..
 </code></pre>
-<p>you are messing with the implementation of the interpreter. Not allowed.</p>
+<p>you either asking for something impossible (compare the actual bits) or doing something naughty (exploiting the implementation of the language). Not allowed, either way.</p>
 </li>
 <li>
 <p><strong>A channel is either <code>^qbit</code> or <code>^classical</code></strong></p>
@@ -73,15 +74,15 @@
 </li>
 <li>
 <p><strong>Function applications can't deliver qbits, or values containing qbits</strong></p>
-<p>You and I think we know what we mean by <em>hd</em> and <em>tl</em>, by <em>fst</em> and <em>snd</em>. But these are library functions: the interpreter doesn't understand them. So though we know from its type that given  <em>qs: qbit list</em>, <em>hd qs</em> will deliver a qbit, we don't know which one of the list it will give us. And we certainly don't know what <em>hd (rev qs)</em> does.</p>
+<p>You and I know what we mean by <em>hd</em> and <em>tl</em>, by <em>fst</em> and <em>snd</em>. But these are library functions: the interpreter doesn't understand them. Even though it knows from type information that given  <em>qs: qbit list</em>, <em>hd qs</em> will deliver a qbit, it doesn't know which one of the list it will get. And even we don't know much about <em>hd (rev qs)</em>.</p>
 <p>In the (possibly near) future it will be possible to take tuples and lists apart using pattern-matching, which the interpreter does understand.</p>
 </li>
 </ul>
 <p>The first two restrictions make the resourcing algorithm simpler. The third is essential.</p>
-<h2>A Resourcing algorithm</h2>
-<p>Qbits in existence when a process starts can be delivered via its arguments. We assume (our invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't take them apart yet (see above) that's not yet a problem.</p>
-<p>When we read a qbit <em>c</em>?(<em>q</em>) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.</p>
-<p>So we can work out which names name what resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create qbits, which we number. Then we can calculate what resource an expression uses. Therefore we can check that process Pars (<em>P</em>|<em>P</em>|...|<em>P</em>), process calls <em>N</em>(<em>E</em>,<em>E</em>,...,<em>E</em>) and writes <em>c</em>!<em>E</em>,<em>E</em>,...,<em>E</em> use disjoint resources in their components -- preserving the invariant.</p>
-<p>Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. If an expression uses a sent-away qbit then it's a resourcing error.</p>
+<h2>A Resourcing Algorithm</h2>
+<p>Qbits in existence when a process starts can be delivered via its arguments. We assume (our invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't yet take them apart (see above) that's not a problem.</p>
+<p>When we read a qbit with <em>c</em>?(<em>q</em>) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.</p>
+<p>So we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. So we can calculate what resource an expression uses. Then we can check that process Pars (<em>P</em>|<em>P</em>|...|<em>P</em>), process calls <em>N</em>(<em>E</em>,<em>E</em>,...,<em>E</em>) and writes <em>c</em>!<em>E</em>,<em>E</em>,...,<em>E</em> use disjoint resources in their components -- preserving the invariant.</p>
+<p>Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. (We complain if we get an ambiguous write like <em>c</em>!<em>if</em> <em>a</em>=1 <em>then</em> <em>q</em> <em>else</em> <em>q'</em> <em>fi</em>.) If an expression uses a sent-away qbit then it's a resourcing error.</p>
 <p>And that's it: one pass through a process definition gives us a comprehensive check.</p>
 <p>When process definitions start to use parameterised types like <em>'a list</em>, we shall have to check their instantiations rather than their definitions. But that is for the future.</p>

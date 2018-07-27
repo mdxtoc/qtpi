@@ -30,7 +30,6 @@
   open Type
   open Name
   open Expr
-  open Ugate
   open Sourcepos
   open Instance
   
@@ -79,7 +78,6 @@
 
 %token EOP 
 %token GIVEN
-%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR COLON EQUALS
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR GPLUS COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
@@ -211,7 +209,6 @@ process:
   | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
   | qstep DOT process                   {adorn (WithQstep ($1,$3))}
-  | iostep DOT process                  {adorn (GSum [$1,$3])}
   | gsum                                {adorn (GSum $1)}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
@@ -254,7 +251,7 @@ iostep:
 
 qstep:
   | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,$4))}
-  | ntexprs THROUGH ugate               {adorn (Ugatestep ($1,$3))}
+  | ntexprs THROUGH expr                {adorn (Ugatestep ($1,$3))}
 
 args:
   |                                     {[]}
@@ -274,6 +271,7 @@ primary:
   | VONE                                {eadorn (EBasisv BVone )  }
   | VPLUS                               {eadorn (EBasisv BVplus) }
   | VMINUS                              {eadorn (EBasisv BVminus) }
+  | ugate                               {eadorn (EGate $1)}
   | LSQPAR exprlist RSQPAR              {eadorn (EList $2)}
   | LPAR ntexprs RPAR                   {match $2 with
                                          | [e] -> e
@@ -325,11 +323,6 @@ ugate:
   | I                                   {adorn GI}
   | X                                   {adorn GX}
   | PHI LPAR expr RPAR                  {adorn (GPhi ($3))}
-  | IF ugif FI                          {$2}    
-
-ugif:
-  | expr THEN ugate ELSE ugate          {adorn (GCond ($1,$3,$5))}
-  | expr THEN ugate ELSE ugif           {adorn (GCond ($1,$3,$5))}
 
 exprlist:
   |                                     {[]}

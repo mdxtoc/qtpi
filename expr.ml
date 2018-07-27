@@ -42,6 +42,7 @@ and enode =
   | EString of string
   | EBit of bool        (* 1=true *)
   | EBasisv of basisv
+  | EGate of ugate
   | EMinus of expr
   | ETuple of expr list
   | EList of expr list
@@ -58,6 +59,17 @@ and basisv =
   | BVone
   | BVplus
   | BVminus
+
+and ugate = ugnode instance
+
+and ugnode =
+  | GH
+  | GI
+  | GX
+  | GY
+  | GZ
+  | GCnot
+  | GPhi of expr
 
 and arithop =
   | Plus
@@ -131,6 +143,7 @@ let rec exprprio e =
   | EString     _
   | EBit        _ 
   | EBasisv     _
+  | EGate       _
   | EList       _
   | ECond       _           -> primaryprio
   | EMinus      _           -> unaryprio
@@ -150,6 +163,7 @@ let rec string_of_primary e =
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBasisv bv      -> string_of_basisv bv
+  | EGate ug        -> string_of_ugate ug
   | EInt i          -> string_of_int i
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
@@ -185,6 +199,7 @@ and string_of_expr e =
   | EVar        _
   | EBit        _
   | EBasisv     _
+  | EGate       _
   | EInt        _
   | EBool       _
   | EChar       _
@@ -228,4 +243,23 @@ and string_of_basisv bv =
   | BVplus				-> "|+>"
   | BVminus				-> "|->"
   
+and string_of_ugate ug = 
+  match ug.inst with
+  | GH              -> "_H"  
+  | GI              -> "_I"
+  | GX              -> "_X"
+  | GY              -> "_Y"
+  | GZ              -> "_Z"
+  | GCnot           -> "_CNot"
+  | GPhi (e)        -> Printf.sprintf "_Phi(%s)" (string_of_expr e)
+
+let arity_of_ugate ug =
+  match ug.inst with
+  | GH
+  | GI
+  | GX
+  | GY
+  | GZ
+  | GPhi _  -> 1
+  | GCnot   -> 2
   

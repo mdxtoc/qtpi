@@ -33,7 +33,6 @@ open Param
 open Step
 open Process
 open Processdef
-open Ugate
 open Qsim
 
 exception Error of sourcepos * string
@@ -58,6 +57,7 @@ module rec Types : sig
     | VBool of bool
     | VChar of char
     | VBasisv of basisv
+    | VGate of Qsim.ugv
     | VString of string
     | VQbit of qbit
     | VChan of chan
@@ -101,6 +101,7 @@ let rec string_of_value = function
   | VInt i          -> string_of_int i
   | VBool b         -> string_of_bool b
   | VBasisv bv      -> string_of_basisv bv
+  | VGate ugv       -> string_of_ugv ugv
   | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
   | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | VQbit q         -> "Qbit " ^ string_of_qbit q
@@ -193,6 +194,7 @@ let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
 let stringv = function VString s       -> s      | v -> miseval "stringv"  v
 let basisvv = function VBasisv bv      -> bv     | v -> miseval "basisvv"  v
+let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
 let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
@@ -204,6 +206,7 @@ let vint    i   = VInt    i
 let vbool   b   = VBool   b
 let vchar   c   = VChar   c
 let vstring s   = VString s
+let vgate   g   = VGate   g
 let vlist   vs  = VList   vs
 let vchan   c   = VChan   c
 let vqbit   q   = VQbit   q
@@ -231,6 +234,7 @@ let rec evale env e =
   | EString s           -> VString s
   | EBit b              -> VInt (if b then 1 else 0)
   | EBasisv bv          -> VBasisv bv
+  | EGate uge           -> VGate (ugev env uge)
   | EMinus e            -> VInt (- (intev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)
   | EList es            -> VList (List.map (evale env) es)
@@ -318,9 +322,10 @@ and ugev env ug =
   | GH                  -> GateH
   | GI                  -> GateI
   | GX                  -> GateX
+  | GY                  -> GateY
+  | GZ                  -> GateZ
   | GCnot               -> GateCnot
   | GPhi  e             -> GatePhi(intev env e)
-  | GCond (e,ug1,ug2)   -> ugev env (if boolev env e then ug1 else ug2)
 
 let rec interp sysenv proc =
   Qsim.init ();
@@ -392,7 +397,7 @@ let rec interp sysenv proc =
                                       let v = VInt (qmeasure pn q) in
                                       addrunner (pn, proc, (n,v)::env)
              | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
-                                      let g = ugev env ug in
+                                      let g = gatev (evale env ug) in
                                       ugstep pn qs g;
                                       addrunner (pn, proc, env)
             )

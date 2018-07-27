@@ -32,7 +32,6 @@ open Expr
 open Instance
 open Processdef
 open Param
-open Ugate
 open Process
 open Step
 
@@ -66,6 +65,7 @@ and evaltype cxt t =
   | String
   | Bit 
   | Basisv
+  | Gate    _       
   | Qbit            -> t
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
@@ -90,6 +90,10 @@ let rec rewrite_expr cxt e =
        | EString     _
        | EBit        _          
        | EBasisv     _          -> ()
+       | EGate       ug         -> (match ug.inst with
+                                    | GH | GI | GX | GY | GZ | GCnot -> ()
+                                    | GPhi e                         -> rewrite_expr cxt e
+                                   )
        | EMinus      e          -> rewrite_expr cxt e
        | ETuple      es
        | EList       es         -> List.iter (rewrite_expr cxt) es
@@ -183,7 +187,8 @@ and canunifytype n cxt t =
   | Unit
   | Qbit 
   | Basisv
-  | Range _         -> true
+  | Gate    _   
+  | Range   _       -> true
   | TypeVar n'      -> (match eval cxt n' with
                         | None    -> n<>n'
                         | Some t' -> canunifytype n cxt t'
@@ -262,20 +267,25 @@ and assigntype_expr cxt t e =
                                 | t                -> unifytype cxt (adorn e t) (adorn e Bit)
                                )
      | EBasisv _            -> unifytype cxt t (adorn e Basisv)
-     | EVar n               -> assign_name_type e.pos cxt t n
-     | EApp (e1,e2)         -> let atype = adorn e2 (new_TypeVar()) in
+     | EGate   ug           -> let cxt = match ug.inst with
+                                         | GH | GI | GX | GY | GZ | GCnot -> cxt
+                                         | GPhi e                         -> assigntype_expr cxt (adorn e (Range (0,3))) e
+                               in
+                               unifytype cxt t (adorn e (Gate(arity_of_ugate ug)))
+     | EVar    n            -> assign_name_type e.pos cxt t n
+     | EApp    (e1,e2)      -> let atype = adorn e2 (new_TypeVar()) in
                                let ftype = adorn e1 (Fun (atype, t)) in
                                let cxt = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
-     | EMinus e             -> unary cxt (adorn e Int) (adorn e Int) e
-     | ETuple es            -> let ts = List.map (fun e -> adorn e (new_TypeVar ())) es in
+     | EMinus  e            -> unary cxt (adorn e Int) (adorn e Int) e
+     | ETuple  es           -> let ts = List.map (fun e -> adorn e (new_TypeVar ())) es in
                                let tes = List.combine ts es in
                                let cxt' = List.fold_left utaf cxt tes in
                                unifytype cxt' t (adorn e (Tuple ts))
-     | EList es             -> let t' = adorn e (new_TypeVar()) in
+     | EList   es           -> let t' = adorn e (new_TypeVar()) in
                                let cxt = List.fold_left (fun cxt -> assigntype_expr cxt t') cxt es in
                                unifytype cxt t (adorn e (List t'))
-     | ECond (c,e1,e2)      -> ternary cxt t (adorn c Bool) t t c e1 e2
+     | ECond  (c,e1,e2)     -> ternary cxt t (adorn c Bool) t t c e1 e2
      | EArith (e1,_,e2)     -> binary cxt (adorn e Int)  (adorn e1 Int)  (adorn e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
@@ -315,19 +325,6 @@ with
 let ok_procname n = 
   let c = Stringutils.first n.inst in
   if not ('A' <= c && c <= 'Z') then raise (TypeCheckError (n.pos, "process name " ^ string_of_name n.inst ^ " should start with upper case"))
-
-let rec typecheck_ugate cxt ugate = (* arity, cxt *)
-  match ugate.inst with
-  | GH
-  | GI
-  | GX                    -> 1, cxt
-  | GCnot                 -> 2, cxt 
-  | GPhi (e)              -> 1, assigntype_expr cxt (adorn e.pos (Range (0,3))) e
-  | GCond (e, ug1, ug2)   -> let cxt = assigntype_expr cxt (adorn e.pos Bool) e in
-                             let a1, cxt = typecheck_ugate cxt ug1 in
-                             let a2, cxt = typecheck_ugate cxt ug2 in
-                             if a1=a2 then a1,cxt
-                             else raise (TypeCheckError (ugate.pos, "arity mismatch in " ^ string_of_ugate ugate))
 
 let check_distinct params =
   let check set {inst=n,_} =
@@ -427,12 +424,10 @@ and typecheck_process cxt p =
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
            let cxt = unify_paramtype cxt rt (adorn param.pos Bit) in
            do_procparams "Measure" cxt [param] proc
-       | Ugatestep (es, ugate) ->
+       | Ugatestep (es, uge) ->
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt (adorn e.pos Qbit) e) cxt es in
-           let arity, cxt = typecheck_ugate cxt ugate in
-           if List.length es <> arity then 
-             raise (TypeCheckError (qstep.pos, "arity mismatch"))
-           ;
+           let arity = List.length es in
+           let cxt = assigntype_expr cxt (adorn uge.pos (Gate(arity))) uge in
            typecheck_process cxt proc
       )
   | GSum gs ->

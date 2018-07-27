@@ -38,6 +38,7 @@ and tnode =
   | Bit 
   | Qbit
   | Basisv
+  | Gate of int     (* arity *)
   | TypeVar of name (* unknown name starts with '?', which doesn't appear in parseable names *)
   | Univ of name list * _type
   | Range of int * int
@@ -64,6 +65,7 @@ let typeprio t =
   | Unit          
   | Qbit
   | Basisv
+  | Gate    _
   | TypeVar _ 
   | Univ    _        
   | Range   _       -> primaryprio
@@ -95,7 +97,8 @@ and string_of_tnode = function
   | Unit            -> "unit"
   | Qbit            -> "qbit"
   | Basisv          -> "basisv"
-  | TypeVar  n     -> string_of_typevar n
+  | Gate     i      -> Printf.sprintf "gate(%d)" i
+  | TypeVar  n      -> string_of_typevar n
   | Univ    (ns,ut) -> let nstrings = List.map string_of_typevar ns in
                        Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
   | Range   (l,h)   -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h)
@@ -135,8 +138,9 @@ and _frees s t =
   | Unit
   | Qbit  
   | Basisv
+  | Gate  _
   | Range _     -> s
-  | TypeVar (n) -> NameSet.add n s 
+  | TypeVar n   -> NameSet.add n s 
   | Univ (ns,t) -> let vs = frees t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
   | Channel t   
   | List    t   -> _frees s t  
@@ -155,6 +159,7 @@ let rec rename assoc t =
   | Unit
   | Qbit 
   | Basisv
+  | Gate  _
   | Range _     -> t
   | TypeVar n   -> replace (TypeVar (assoc<@>n)) 
   | Univ (ns,t) -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))

@@ -28,7 +28,6 @@ open Name
 open Expr
 open Type
 open Param
-open Ugate
 
 type iostep = iostumble instance
 
@@ -40,7 +39,7 @@ type qstep = qstumble instance
 
 and qstumble =
   | Measure of expr * param
-  | Ugatestep of expr list * ugate
+  | Ugatestep of expr list * expr
   
 let string_of_iostep iostep =
   match iostep.inst with
@@ -58,4 +57,4 @@ let string_of_qstep qstep =
                                           (string_of_param p)
   | Ugatestep (es,u)    -> Printf.sprintf "%s>>%s"
                                           (commasep (List.map string_of_expr es))
-                                          (string_of_ugate u)
+                                          (string_of_expr u)

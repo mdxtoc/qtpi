@@ -68,6 +68,7 @@ let rec is_resource_type t =
   | String
   | Bit 
   | Basisv
+  | Gate    _
   | TypeVar _          (* can happen in Univ ... *)
   | Range   _       -> false
   | Univ (ns, t)    -> is_resource_type t 
@@ -109,6 +110,7 @@ let ctfa_type classic t =
     | Bool
     | Bit 
     | Basisv
+    | Gate    _
     | Range   _       -> ()
     | TypeVar n       -> if NameSet.mem n vars then () else badtype "Disaster (typechecker left a type variable)"
     | Univ    (ns, t) -> ct classic (addnames ns vars) t
@@ -180,6 +182,10 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | EString    _
     | EBit       _          
     | EBasisv    _          -> ()   (* constants *)
+    | EGate      ug         -> (match ug.inst with
+                                  | GH | GI | GX | GY | GZ | GCnot -> ()
+                                  | GPhi e                         -> ctfa_expr e
+                               )
     | EMinus     e          -> ctfa_expr e
     | ETuple     es
     | EList      es         -> List.iter ctfa_expr es
@@ -272,6 +278,7 @@ let resource_of_type state t = (* makes new resource: for use in parameter bindi
     | Bit 
     | Unit  
     | Basisv
+    | Gate  _         
     | Range _         -> state, RNull
     | Qbit            -> let state, q = newqid state in state, RQbit q
     | TypeVar _       -> state, RNull  (* checked in ctfa *)
@@ -327,7 +334,12 @@ let resources_of_expr state env e =
     | EChar       _
     | EString     _
     | EBit        _         
-    | EBasisv     _         -> RNull, ResourceSet.empty            
+    | EBasisv     _         -> RNull, ResourceSet.empty
+    | EGate       ug        -> (match ug.inst with
+                                  | GH | GI | GX | GY | GZ | GCnot -> RNull, ResourceSet.empty
+                                  | GPhi e                         -> let _, used = re use e in
+                                                                      RNull, used
+                               )                    
     | EMinus      e         -> re Uarith e
     | EArith      (e1,_,e2) -> let _, used = do_list Uarith   [e1;e2] in RNull, used
     | ECompare    (e1,_,e2) -> let _, used = do_list Ucompare [e1;e2] in RNull, used

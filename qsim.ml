@@ -461,28 +461,28 @@ and div p1 p2 = (* happens in normalise *) (* this needs work for division by su
   
 let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 
-let mI  = make_ug [[P_1    ; P_0        ];
+let m_I  = make_ug [[P_1    ; P_0        ];
                    [P_0    ; P_1        ]] 
-let mX  = make_ug [[P_0    ; P_1        ];
+let m_X  = make_ug [[P_0    ; P_1        ];
                    [P_1    ; P_0        ]] 
-let mY  = make_ug [[P_0    ; P_1        ];
+let m_Y  = make_ug [[P_0    ; P_1        ];
                    [neg P_1; P_0        ]] 
 let mYi = make_ug [[P_0    ; neg P_i    ];
                    [P_i    ; P_0        ]] 
-let mZ =  make_ug [[P_1    ; P_0        ];
+let m_Z =  make_ug [[P_1    ; P_0        ];
                    [P_0    ; neg P_1    ]] 
 
-let mH  = make_ug [[P_h 1  ; P_h 1      ];
+let m_H  = make_ug [[P_h 1  ; P_h 1      ];
                    [P_h 1  ; neg (P_h 1)]]
 
-let mPhi = function
-  | 0 -> mI
-  | 1 -> mX
-  | 2 -> mZ     (* Gay and Nagarajan had mYi *)
-  | 3 -> mY     (* Gay and Nagarajan had mZ *)
+let m_Phi = function
+  | 0 -> m_I
+  | 1 -> m_X
+  | 2 -> m_Z     (* Gay and Nagarajan had mYi *)
+  | 3 -> m_Y     (* Gay and Nagarajan had m_Z *)
   | i -> raise (Error ("** Disaster: _Phi(" ^ string_of_int i ^ ")"))
 
-let mCnot = make_ug [[P_1; P_0; P_0; P_0];
+let m_Cnot = make_ug [[P_1; P_0; P_0; P_0];
                      [P_0; P_1; P_0; P_0];
                      [P_0; P_0; P_0; P_1];
                      [P_0; P_0; P_1; P_0]]
@@ -541,13 +541,15 @@ let do_mv m v =
              );
   v'
   
-let mIH = tensor_m mI mH
-let mHI = tensor_m mH mI
+let m_IH = tensor_m m_I m_H
+let m_HI = tensor_m m_H m_I
 
 type ugv =
   | GateH
   | GateI
   | GateX
+  | GateY
+  | GateZ
   | GateCnot
   | GatePhi of int
 
@@ -555,15 +557,19 @@ let string_of_ugv = function
   | GateH           -> "_H"
   | GateI           -> "_I"
   | GateX           -> "_X"
+  | GateY           -> "_Y"
+  | GateZ           -> "_Z"
   | GateCnot        -> "_Cnot"
   | GatePhi (i)     -> "_Phi(" ^ string_of_int i ^ ")"
 
 let matrix_of_ugv = function
-  | GateH           -> mH
-  | GateI           -> mI
-  | GateX           -> mX
-  | GateCnot        -> mCnot
-  | GatePhi (i)     -> mPhi(i)
+  | GateH           -> m_H
+  | GateI           -> m_I
+  | GateX           -> m_X
+  | GateY           -> m_Y
+  | GateZ           -> m_Z
+  | GateCnot        -> m_Cnot
+  | GatePhi (i)     -> m_Phi(i)
 
   
 let idx q qs = 
@@ -637,8 +643,8 @@ let ugstep pn qs ugv =
                let i = idx q qs in
                let m_op =
                  if i=0 && nqs=1 then m 
-                 else (let pre_m = _for_leftfold 0 1 i (fun _ mIs -> tensor_m mI mIs) m_1 in
-                       let post_m = _for_leftfold (i+1) 1 nqs (fun _ mIs -> tensor_m mI mIs) m_1 in
+                 else (let pre_m = _for_leftfold 0 1 i (fun _ mIs -> tensor_m m_I mIs) m_1 in
+                       let post_m = _for_leftfold (i+1) 1 nqs (fun _ mIs -> tensor_m m_I mIs) m_1 in
                        let m_op = tensor_m (tensor_m pre_m m) post_m in
                        if !verbose_qcalc then
                          Printf.printf "pre_m = %s, m= %s, post_m = %s, m_op = %s\n" 
@@ -669,21 +675,21 @@ let ugstep pn qs ugv =
         let qs = q1s @ q2s in
         let bit1 = ibit q1 qs in
         let bit2 = ibit q2 qs in
-        let mCnot = bigI (vsize v) in
+        let m_Cnot = bigI (vsize v) in
         if !verbose_qcalc then
           Printf.printf "bit1=%d, bit2=%d\n" bit1 bit2;
         Array.iteri (fun i r -> if (i land bit1)<>0 && (i land bit2)=0 then 
                                     (let i' = i lor bit2 in
                                      if !verbose_qcalc then 
                                        Printf.printf "swapping rows %d and %d\n" i i';
-                                     let temp = mCnot.(i) in
-                                     mCnot.(i) <- mCnot.(i');
-                                     mCnot.(i') <- temp
+                                     let temp = m_Cnot.(i) in
+                                     m_Cnot.(i) <- m_Cnot.(i');
+                                     m_Cnot.(i') <- temp
                                     )
-                     ) mCnot;
+                     ) m_Cnot;
         if !verbose_qcalc then
-          Printf.printf "mCnot = %s\n" (string_of_matrix mCnot);
-        let v' = do_mv mCnot v in
+          Printf.printf "m_Cnot = %s\n" (string_of_matrix m_Cnot);
+        let v' = do_mv m_Cnot v in
         let qv = qs, v' in
         if !verbose_qsim then 
           Printf.printf "%s : %s|->%s; %s|->%s; now %s,%s|->%s\n"

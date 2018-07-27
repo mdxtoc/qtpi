@@ -1,41 +1,49 @@
-# Static treatment of ownership of qbits -- resourcing
+# Static treatment of ownership of qbits -- Resource-checking a program
 
-## The first problem
+My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's (he'd noticed that a treatment of qbit ownership was impossible in Microsoft's Q#). A process calculus like CQP seemed like it might provide a solution. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.
+
+The phrase *resource checking* harks back to my background in separation logic (I was there when ...). It was always something I wanted to do with heap programs, though I never knew how to do it accurately enough. (Others, of course, ...)
+
+Qbits are the resource manipulated by quantum-protocol programs. Qtpi checks the correct use of those resources.
+
+## The ownership problem
 
 Suppose *A* sends a qbit on a channel *c*
 
-		A(c:^qbit) = (newq q) c!q . .. etc. A ..
+		A(c:^qbit) = (newq q) c!q. .. etc. A ..
 	
-and *B* receives it on the same channel
+and *B* receives it 
 
-		B(c:^qbit) = c?(q'). .. etc. B ..
+		B(c:^qbit) = c?(q1). .. etc. B ..
 	
-Suppose that we identify different named processes as happening on different machines in different places. Then surely in *etc. A*, after it has sent the qbit elsewhere, *A* cannot do anything with *q*, like measure it, gate it or whatever. *B* in *etc. B*, after it has received the qbit, clearly can play with *q'* exclusively: it **owns** it.
+Suppose that we identify different named processes as happening on different machines in different places. Then surely in '*etc. A*', after it has sent the qbit elsewhere, *A* cannot do anything with *q*, like measure it, gate it or whatever. *B* in '*etc. B*', after it has received the qbit, clearly can play with *q1* exclusively: it **owns** it.
 
-So it seems that it might be possible to use scoping to deal with ownership: in *etc. A*, *q* could be out of scope, whilst in *etc. B*, *q'* is in scope. Bingo? You'd think so. Actually it's __resourcing__, not scoping: a dynamic not a static property of a value.
+So it seems that it might be possible to use scoping to deal with ownership: in '*etc. A*', *q* could be treated as out of scope, whilst in '*etc. B*', *q1* is in scope. Bingo? You'd think so. Actually not: it's **resourcing**, not scoping, a dynamic property of a value, not a not a static property of a name.
 
-But process calculus is so restricted -- e.g. only tail recursion -- that it is possible to run a symbolic execution of all paths through a process definition to check that qbits are handled properly
+But process calculus is so restricted -- e.g. only tail recursion -- that it is possible to run a symbolic execution of all paths through a process definition to check that qbits are handled properly. (There is a potential problem in qtpi since it allows conditional expressions and applications of library functions, but see below.)
 
-## More problems
+## The cloning problem
+
+It is impossible to clone qbits. So a program should be incapable of making a copy of a qbit.
 
 1. How about splitting into two processes?
 
-			A() = (newq q) (A'(q) | A''(q))
+			A() = (newq q) (B(q) | C(q))
 	
-			A'(q1:qbit) = ...
+			B(q1:qbit) = ...
 	
-			A''(q2:qbit) = ..
+			C(q2:qbit) = ..
 	
 
-	*A'* and *A''* can't both exclusively inherit the same qbit.
+	This has to be prohibited: *B* and *C* can't both exclusively inherit the same qbit.
 
 2. How about going on as another process?
 
-			A() = (newq q) A'(q,q)
+			A() = (newq q) B(q,q)
 	
-			A'(q1:qbit, q2:qbit) = ...
+			B(q1:qbit, q2:qbit) = ...
 	
-	*A'* doesn't own two separate qbits.
+	*B* doesn't own two separate qbits.
 	
 3. How about sending the same qbit twice?
 
@@ -51,22 +59,49 @@ But process calculus is so restricted -- e.g. only tail recursion -- that it is 
 		
 	*A* only creates one qbit to own.
 	
-5. How about a conditional send?
+## Accounting problems
+
+If we want to check ownership we have to account for the use of qbits. This throws up some obvious problems.
 	
-			A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi)
+1. A conditional send?
 	
-	Which qbit does *A* own?
+			A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi). ...
 	
-6. Values containing qbits?
+	Which qbit has been sent away, and which does *A* own after the send?
+	
+	(I 'solve' this problem by prohibiting it: see below.)
+	
+2. Values containing qbits?
 
 			(newq q) (let n = q,q) ...
 			(newq q) (let qs = [q;q]) ... 
 		
 	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit.
 	
+	(This problem is easily handled: see below.)
+	
+3. Conditional cloning?
+	
+			a?(x) ... stuff using q1 and q2 ... 
+			+ 
+			b?(y) ... stuff using q2 and q3 ..
+	
+	This program uses *q1*, *q2* and *q3*, and there's no cloning issue because only one of the arms is executed. But then
+	
+			(a?(x) ... stuff using q1 and q2... 
+			 + 
+			 b?(y) ... stuff using q2 and q3 ..
+			) 
+			| 
+			(if condition then ... stuff using q3 ... else ... stuff using q4 ... fi)
+	
+	There *might* be a cloning violation, or there might be good reason that the `b?(y)` arm of the guarded sum never actually executes when *condition* is true.
+	
+	(I don't suppose I can solve this problem. My algorithm will object to this program.)
+	
 ## Restrictions
 
-Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. If we make, for example, a tuple of qbits we are actually making a tuple of qbit *indices*, an index being the way that a process identifies the qbits it manipulates. 
+Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. If a program makes, for example, a tuple of qbits it is actually making a tuple of qbit *indices*, an index being the way that an implementation identifies the qbits it manipulates. 
 
   * **No comparison of qbits, or values containing qbits**
 	
@@ -76,11 +111,11 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
   
 			if q1=q2 then ..
 		
-	you either asking for something impossible (compare the actual bits) or doing something naughty (exploiting the implementation of the language). Not allowed, either way.
+	you either asking for something impossible (compare the actual qbits) or doing something naughty (exploiting the implementation of the language). Not allowed, either way. It just feels wrong.
 
   * **A channel is either `^qbit` or `^classical`**
     
-	Protocol descriptions talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So a channel either carries single qbits, or it carries values which don't include qbits. Easy to check after type assignment (typechecking).
+	Protocol descriptions talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So I require that a channel either carries single qbits, or it carries values which don't include qbits. Easy to check.
 	
   * **Function applications can't deliver qbits, or values containing qbits**
 	
@@ -88,23 +123,38 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 	
 	In the (possibly near) future it will be possible to take tuples and lists apart using pattern-matching, which the interpreter does understand.
 
-The first two restrictions make the resourcing algorithm simpler. The third is essential.
+The first two restrictions make the resource-checking algorithm simpler. The third is essential. I haven't proposed a typing restriction which prevents tuples and lists containing qbits since it appears to be unnecessary and seems to be very restrictive.
 
-## A Resourcing Algorithm
+It might seem reasonable to ban qbit-valued conditional expressions: they decrease the accuracy of resource-checking and can cause spurious cloning errors. But examples like
 
-Qbits in existence when a process starts can be delivered via its arguments. We assume (our invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't yet take them apart (see above) that's not a problem.
+		if a=0 then q1 else q2 fi >> _H
+		
+may prove useful. A ban remains a possibility.
+
+## A Resource-checking Algorithm
+
+Qbits in existence when a process starts can be delivered via its arguments. We assume (a non-cloning invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't yet take them apart (see above) that's not yet a problem.
 
 When we read a qbit with *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
 
-So we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. So we can calculate what resource an expression uses. Then we can check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components -- preserving the invariant.
+Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components, preserving the non-cloning invariant.
 
-Our symbolic execution keeps track, in a symbolic 'state', of which qbits are sent away in writes. (We complain if we get an ambiguous write like *c*!*if* *a*=1 *then* *q* *else* *q'* *fi*.) If an expression uses a sent-away qbit then it's a resourcing error.
+To handle the ownership problem, a symbolic execution -- an abstract interpretation, I'm told -- keeps track, in a numerically-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error. 
 
-And that's it: one pass through a process definition gives us a comprehensive check.
+And that's it: one pass through a process definition gives us a comprehensive check on ownership and cloning.
 
-When process definitions start to use parameterised types like *'a list*, we shall have to check their instantiations rather than their definitions. But that is for the future.
+When process definitions start to use parameterised types like *'a list*, we shall have to check their instantiations rather than their definitions. But that is for the future. It won't be a problem: we only have to make at most one process-check per call of a process.
 
-## Deficiencies
+## Hubris, Nemesis?
 
-Clearly a static resourcing check like this one has to be overkill, if it is to be sound. A conditional expression is counted as using the resources of both arms; a guarded sum the resources of all its arms. So there will be circumstances in which the algorithm will report failure, but no failure occurs. Ho hum: we do our best.
+No free lunch has arrived. A symbolic execution is not a perfect solution. But it appears to be sound -- if it says a program is ok, it is ok -- even though it is evidently incomplete -- there are valid programs to which it will object.
+
+Inaccuracies arise with conditional expressions and guarded sums. Conditional expressions have been noted already: they are assessed as using the resources of both arms, though an execution uses only one arm at a time. They may not be a problem in principle, since every program using a qbit-valued conditional expression could be rewritten to use a conditional process.
+
+There remains a problem. The resources used by a conditional process are assessed as the union of the resources used by each of its arms. The resources used by a guarded sum are assessed as the union of the resources of all its arms. Then a Process par (*P*|*P*|...|*P*) of guarded sums and/or conditional processes may seem cause more cloning objections than an actual execution could actually exploit. But this will be over-caution: incompleteness, not unsoundness.
+
+There may be new problems when I allow pattern-matching and encounter programs that use lists of qbits (which some protocols may need). There will certainly be complications, but I doubt there will be novel incompleteness.
+
+Quantum protocols are perhaps computationally rather simple. I have hope that a simple treatment will be useful, even though it sometimes complains when it shouldn't, provided it is always right when it approves.
+
   

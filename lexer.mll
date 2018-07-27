@@ -79,6 +79,7 @@ rule make_token = parse
   | '['         {LSQPAR}
   | ']'         {RSQPAR}
   | '|'         {BAR}
+  | "<+>"		{GPLUS}
   | ':'         {COLON}
   | '='         {EQUALS}
   | '*'         {STAR}

@@ -80,6 +80,7 @@
 %token EOP 
 %token GIVEN
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR COLON EQUALS
+%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR GPLUS COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT
@@ -211,6 +212,7 @@ process:
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
   | qstep DOT process                   {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
+  | gsum                                {adorn (GSum $1)}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
 
@@ -226,6 +228,9 @@ processpar:
   | process                             {[$1]}
   | process BAR processpar              {$1::$3}
 
+gsum:
+  | iostep DOT process                  {[$1,$3]}
+  | iostep DOT process GPLUS gsum       {($1,$3)::$5}
 qspecs:
   | qspec                               {[$1]}
   | qspec COMMA qspecs                  {$1::$3}

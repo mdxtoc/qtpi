@@ -26,6 +26,15 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * The `{` *E* `}` step of CQP is not included, mostly because it hid quantum steps, which are now exposed.  
   * You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.
   
+* proposed syntax for pattern matching
+
+  | `match` *E* `.` *msum* `hctam`
+  
+  *msum* ::= *pattern* `.` *P* `<+>` ... `<+>` *pattern* `.` *P*
+  
+  * similarly for pattern matching in expressions. Uses dots (periods, full stops) rather than `with` and `->` of OCaml; uses `<+>` as a separator because `|` is taken.  
+  * a closing bracket.
+
 * Quantum step *Q*
   
   | *E* `,` *E* `,` ... `,` *E* `>>` *G*    

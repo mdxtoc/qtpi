@@ -25,6 +25,15 @@
 </ul>
 </li>
 <li>
+<p>proposed syntax for pattern matching</p>
+<p>| <code>match</code> <em>E</em> <code>.</code> <em>msum</em> <code>hctam</code></p>
+<p><em>msum</em> ::= <em>pattern</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>pattern</em> <code>.</code> <em>P</em></p>
+<ul>
+<li>similarly for pattern matching in expressions. Uses dots (periods, full stops) rather than <code>with</code> and <code>-&gt;</code> of OCaml; uses <code>&lt;+&gt;</code> as a separator because <code>|</code> is taken.</li>
+<li>a closing bracket.</li>
+</ul>
+</li>
+<li>
 <p>Quantum step <em>Q</em></p>
 <p>| <em>E</em> <code>,</code> <em>E</em> <code>,</code> ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
 | <em>E</em> <code>??</code> (<em>par</em>)</p>

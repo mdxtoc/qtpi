@@ -1,0 +1,93 @@
+given Honest    : unit process,
+      Liar      : unit process,
+      BobWin    : unit process,
+      BobLose   : unit process
+
+Times(n:int, go:^unit, stop:^unit) = 
+    if n>0 then go!() . Times(n=1,go,stop) else stop!() . _0 fi
+
+Alice(n:int, r:^bit, toBob) = 
+    (new bits:^bit list)
+    (  (new go,stop) 
+       (Times (n,go,stop) | AliceChoose([],r,go,stop,bits))
+     | (new sent) 
+       (AliceSend(bits,r,toBob,sent) | AliceReport(sent))
+    )
+
+AliceChoose(vs, r:^bit, go, stop, bits) =
+    (    go?() . r?(v) . AliceChoose(v::vs,r,go,stop,bits)
+     <+> stop?() . bits!vs . _0
+    )
+
+Iter (vs,go,stop) = 
+  match vs .
+      []    . stop!() . _0
+  <+> v::vs . go!v . Iter (vs,go,stop)
+  hctam
+  
+AliceSendBit(qB,basis,go,stop) =
+      go?(v) .
+      (newq q = match basis,v .
+                    0,0 . |0>
+                <+> 0,1 . |1>
+                <+> 1,0 . |+>
+                <+> 1,1 . |->
+                hctam
+      )
+      qB!q .
+      AliceSendBit(qB,basis,go,stop)
+  <+> stop?() . sent!() . _0
+  
+AliceSend(bits:^bit list*int, r:^bit, toBob, sent) =
+    bits?(n,vs) .
+    r?(basis) .
+    (new qB,fromBob)
+    toBob!n,qB,fromBob .
+    (new sent)
+    (  (new go,stop)(  Iter (vs,go,stop)
+                     | AliceSendBit (qB,basis,go,stop,sent)
+                    )
+     | AliceReport (sent,basis,vs,fromBob)
+    )
+    fi
+
+AliceReport(sent:^unit,basis:bit,vs:bit list,fromBob) = 
+    fromBob?(guess:bit,toBob) .
+    toBob!basis,vs .
+    if guess=basis then BobWin() else BobLose() fi 
+
+Bob(n,r,fromAlice) = 
+  fromAlice?(qB,toAlice) .
+  (new res)(  (new go,stop) (Times(n,go,stop) | BobReceive([],r,qB,go,stop,res))
+            | BobCheck(res,r,toAlice)
+           )
+  
+BobReceive(bvs,qB,go,stop,res) = 
+     go?(). qB?(q) .
+     r?(b) .
+     q >> if b=1 then _H else _I fi .
+     q ?? (v) .
+     BobReceive ((b,v)::bvs,go,stop,res)
+   <+> stop?() . res!(rev bvs) . _0
+     
+BobCheck(res,r,toAlice) =
+  res?(bvs) .
+  r?(guess) .
+  (new reply)
+  toAlice!guess,reply .
+  reply?basis,vs .
+  BobVerify (bvs,basis,vs)
+  
+BobVerify (bvs:(bit*bit) list, basis:bit, svs:bit list) = 
+  match bvs, svs .
+      [],[]               . Honest()
+  <+> (b,v)::bvs, sv::svs . if b=basis && v<>sv then Liar()
+                            else BobVerify (bvs,basis,svs)
+  <+> _                   . Liar()
+  hctam
+       
+Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
+
+System() = (let n = read_int "number of qbits")
+           (new r,c)
+           (Alice(n,r,c) | Bob(n,r,c) | (newq q = |0>) Random(q,r))

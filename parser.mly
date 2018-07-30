@@ -328,7 +328,11 @@ ntexprs:
   | ntexpr                              {[$1]}
   | ntexpr COMMA ntexprs                {$1::$3}
 
-ntexpr:  /* a non-tuple expression */
+ntexpr:  /* a non-tuple expression -- can be a cons */
+  | ntlexpr                             {$1}
+  | ntlexpr CONS ntexpr                 {eadorn (ECons ($1,$3))}
+  
+ntlexpr: /* neither tuple nor cons */
   | primary                             {$1} 
   | app                                 {$1}
   | MINUS primary                       {eadorn (EMinus ($2))}

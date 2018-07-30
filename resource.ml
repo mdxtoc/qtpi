@@ -57,6 +57,7 @@ open Typecheck
 open Settings
 
 exception ResourceError of sourcepos * string
+exception ResourceDisaster of string
 
 let rec is_resource_type t =
   match t.inst with
@@ -175,6 +176,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
   and ctfa_expr e =
     match e.inst.enode with
     | EUnit
+    | ENil
     | EVar       _
     | EInt       _
     | EBool      _
@@ -187,8 +189,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                   | GPhi e                         -> ctfa_expr e
                                )
     | EMinus     e          -> ctfa_expr e
-    | ETuple     es
-    | EList      es         -> List.iter ctfa_expr es
+    | ETuple     es         -> List.iter ctfa_expr es
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
@@ -196,18 +197,25 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                       )
                                else ();
                                List.iter ctfa_expr [ce;e1;e2]
-    | EApp       (ea,er)    -> if is_resource_type (type_of_expr e) then
+    | EApp        (ea,er)   -> if is_resource_type (type_of_expr e) then
                                 raise (ResourceError (e.pos,
                                                       "a function application may not deliver a qbit, or a value containing a qbit"
                                                      )
                                       )
                                else ();
                                List.iter ctfa_expr [ea; er]
-    | EArith     (e1,_,e2)
-    | ECompare   (e1,_,e2)
-    | EBoolArith (e1,_,e2)  -> List.iter ctfa_expr [e1;e2]
-    | EAppend     (e1,e2)
+    | EArith      (e1,_,e2)
+    | ECompare    (e1,_,e2)
+    | EBoolArith  (e1,_,e2) -> List.iter ctfa_expr [e1;e2]
+    | ECons       (e1,e2)    
     | EBitCombine (e1,e2)   -> List.iter ctfa_expr [e1;e2]
+    | EAppend     (e1,e2)   -> if is_resource_type (type_of_expr e) then
+                                raise (ResourceError (e.pos,
+                                                      "list append may not be applied to lists including qbits"
+                                                     )
+                                      )
+                               else ();
+                               List.iter ctfa_expr [e1;e2]
     
   in
   List.iter ctfa_param params;
@@ -219,37 +227,33 @@ type resource =
   | RNull
   | RQbit of int                
   | RTuple of resource list
-  | RList of listres
+  | RList of name                   (* for stuff that hasn't been taken apart *)
+  | RCons of resource * resource    (* using RNull at the end of the list ... *)
   | RMaybe of resource * resource   (* for dealing with conditional expressions, sigh ... *)
   
-and listres =
-  | RLliteral of resource list
-  | RLCons of resource * listres
-  | RLAppend of listres * listres
-  | RLObscure of resource           (* i.e. a list of resources, unstated, may be empty *)
-  | RLNull                          (* no more list *)
-
 let rec string_of_resource r =
   match r with
   | RNull               -> "RNull"
   | RQbit  i            -> Printf.sprintf "RQbit %d" i
   | RTuple rs           -> Printf.sprintf "RTuple (%s)" (string_of_list string_of_resource "*" rs)
-  | RList  lr           -> string_of_listres lr
+  | RList  n            -> Printf.sprintf "RList %s" (string_of_name n)
+  | RCons  (rh,rt)      -> Printf.sprintf "RCons (%s,%s)" (string_of_resource rh) (string_of_resource rt)
   | RMaybe (r1,r2)      -> Printf.sprintf "RMaybe (%s,%s)" (string_of_resource r1) (string_of_resource r2)
-  
-and string_of_listres lr =
-  match lr with
-  | RLliteral rs        -> bracketed_string_of_list string_of_resource rs
-  | RLCons   (r,lr)     -> Printf.sprintf "(%s)::(%s)" (string_of_resource r) (string_of_listres lr)
-  | RLAppend (r1,r2)    -> Printf.sprintf "(%s)@(%s)" (string_of_listres r1) (string_of_listres r2)
-  | RLObscure r         -> Printf.sprintf "[..%s..]" (string_of_resource r)
-  | RLNull              -> "[]"
   
 module OrderedResource = struct type t = resource let compare = Pervasives.compare let to_string = string_of_resource end
 module ResourceSet = MySet.Make(OrderedResource)  
 
 module OrderedInt = struct type t = int let compare=Pervasives.compare let to_string=string_of_int end
 module State = MyMap.Make(OrderedInt) (* to tell if qbits have been sent away *)
+
+let rec lookup renv n =
+  try let r = renv <@> n in
+      match r with
+      | RList l -> (try lookup renv l with _ -> r)
+      | _       -> r
+  with Not_found -> raise (ResourceDisaster ("unbound " ^ n))
+
+let (<@>) = lookup
 
 let newqid =
   (let qid = ref 0 in
@@ -306,16 +310,9 @@ let rec resources_of_resource r =
   | RNull           -> ResourceSet.empty
   | RQbit _         -> ResourceSet.singleton r                
   | RTuple rs       -> resources_of_resourcelist rs
-  | RList lr        -> resources_of_listres lr
+  | RList _         -> ResourceSet.singleton r
+  | RCons  (r1,r2)
   | RMaybe (r1,r2)  -> ResourceSet.union (resources_of_resource r1) (resources_of_resource r2)
-  
-and resources_of_listres lr =
-  match lr with
-  | RLliteral rs        -> resources_of_resourcelist rs
-  | RLCons (r,lr)       -> ResourceSet.union (resources_of_resource r) (resources_of_listres lr)
-  | RLAppend (lr1,lr2)  -> ResourceSet.union (resources_of_listres lr1) (resources_of_listres lr2)
-  | RLObscure r         -> resources_of_resource r
-  | RLNull              -> ResourceSet.empty
   
 and resources_of_resourcelist rs = 
   List.fold_left (revargs ResourceSet.add) ResourceSet.empty rs
@@ -328,7 +325,8 @@ let resources_of_expr state env e =
                                        ([],ResourceSet.empty) 
   and re use e =
     match e.inst.enode with
-    | EUnit               
+    | EUnit 
+    | ENil
     | EInt        _              
     | EBool       _
     | EChar       _
@@ -369,37 +367,26 @@ let resources_of_expr state env e =
                                 | _       -> r, resources_of_resource r
                                )
     | ETuple      es        -> let rs, used = do_list use es in RTuple rs, used
-    | EList       es        -> let rs, used = do_list use es in 
-                               if List.exists (function RNull -> false | _ -> true) rs then
-                                 RList (RLliteral rs), used
-                               else RNull, used
+    | ECons       (hd,tl)   -> let r1, u1 = re use hd in
+                               let r2, u2 = re use tl in
+                               (match r1, r2 with
+                                | RNull, _     -> RNull (* if the hd has no resource, neither can the list *)
+                                | _    , RNull -> r1
+                                | _            -> RCons (r1,r2)
+                               ), 
+                               ResourceSet.union u1 u2
     | ECond       (ce,e1,e2)-> let _ , used0 = re Ubool ce in
                                let r1, used1 = re use e1 in
                                let r2, used2 = re use e2 in
                                let used = ResourceSet.union used0 (ResourceSet.union used1 used2) in
                                if r1=r2 && ResourceSet.equal used1 used2 then r1, used 
                                else RMaybe (r1,r2), used
-    | EApp        (e1,e2)   -> let _, used1 = re use e1 in
+    | EApp        (e1,e2)   
+    | EAppend     (e1,e2)   -> let _, used1 = re use e1 in
                                let _, used2 = re use e2 in
-                               (* EApps don't return resources: we checked *)
+                               (* EAppend and EApp don't return resources: we checked *)
                                RNull, ResourceSet.union used1 used2
     | EBitCombine (e1,e2)   -> let _, used = do_list Uarith   [e1;e2] in RNull, used
-    | EAppend     (e1,e2)   -> let r1, used1 = re use e1 in
-                               let r2, used2 = re use e2 in
-                               (match r1, r2 with
-                                | _        , RNull      -> r1
-                                | RNull    , _          -> r2
-                                | RList lr1, RList lr2  -> RList (RLAppend (lr1,lr2))
-                                | _                     ->
-                                    raise (ResourceError (e.pos,
-                                                          Printf.sprintf "** disaster: %s gives resources %s, %s"
-                                                                         (string_of_expr e)
-                                                                         (string_of_resource r1)
-                                                                         (string_of_resource r2)
-                                                         )
-                                          )
-                               ), 
-                               ResourceSet.union used1 used2
   in
   re Uok e
   

@@ -29,10 +29,15 @@ open Interpret
 (* This stuff is intended to be replaced by dynamically-loaded stuff,
    as soon as I can get round to understanding the mechanism.
  *)
-let _ = Interpret.know ("hd"      , "'a list -> 'a"      , vfun (List.hd <.> listv))
-let _ = Interpret.know ("tl"      , "'a list -> 'a list" , vfun (vlist <.> List.tl <.> listv))
-let _ = Interpret.know ("fst"     , "'a*'b -> 'a"        , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "'a*'b -> 'b"        , vfun (Pervasives.snd <.> pairv))
+
+let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
+
+let _ = Interpret.know ("hd"      , "'a list -> 'a"                , vfun v_hd)
+let _ = Interpret.know ("tl"      , "'a list -> 'a list"           , vfun v_tl)
+let _ = Interpret.know ("rev"     , "'a list -> 'a list"           , vfun v_rev)
+let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list", vfun2 v_append)
+let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                  , vfun (Pervasives.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                  , vfun (Pervasives.snd <.> pairv))
 
 let read_int s = print_string ("\n" ^ s ^"? "); flush stdout; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
@@ -50,9 +55,9 @@ let qbit_state q =  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q)
                                         
 let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
 
-let print_strings ss = List.iter Pervasives.print_string ss; flush stdout
-let _ = Interpret.know ("print_string", "string -> unit"        , vfun (vunit <.> Pervasives.print_string <.> stringv))
-let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (vunit <.> print_strings <.> List.map stringv <.> listv))
+let print_string = Pervasives.print_string <.> stringv
+let _ = Interpret.know ("print_string", "string -> unit"        , vfun (vunit <.> print_string))
+let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter print_string))
 
 
 

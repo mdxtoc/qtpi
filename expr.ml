@@ -22,6 +22,9 @@
 *)
 
 open Stringutils
+open Functionutils
+open Optionutils
+open Listutils
 open Name
 open Sourcepos
 open Instance
@@ -45,7 +48,8 @@ and enode =
   | EGate of ugate
   | EMinus of expr
   | ETuple of expr list
-  | EList of expr list
+  | ECons of expr * expr
+  | ENil
   | ECond of expr * expr * expr
   | EApp of expr * expr
   | EArith of expr * arithop * expr
@@ -93,6 +97,20 @@ and boolop =
   | Iff
   
 let ewrap opt enode = {etype=ref opt; enode=enode}
+
+let eadorn pos = adorn pos <.> ewrap None
+
+let rec is_nilterminated e =
+  match e.inst.enode with
+  | ENil        -> true
+  | ECons (_,e) -> is_nilterminated e
+  | _           -> false
+  
+let rec list_of_expr e =
+  match e.inst.enode with
+  | ENil          -> Some []    
+  | ECons (hd,tl) -> list_of_expr tl &~~ (fun es -> Some (hd::es)) 
+  | _             -> None
   
 type prioritydir = Left | Right | Assoc | NonAssoc
 
@@ -118,6 +136,7 @@ let arithprio = function
   | Times                   -> Assoc   , 210
   | Div | Mod               -> Left    , 210
 
+let consprio                =  Right,    300
 let unaryprio               =  NonAssoc, 400
 let appprio                 =  Left,     500
 let primaryprio             =  NonAssoc, 1000
@@ -136,6 +155,7 @@ let mustbracket_nonassoc (_,supprio) (_,subprio) = subprio <= supprio
 let rec exprprio e = 
   match e.inst.enode with 
   | EUnit                   
+  | ENil
   | EVar        _   
   | EInt        _
   | EBool       _
@@ -144,10 +164,10 @@ let rec exprprio e =
   | EBit        _ 
   | EBasisv     _
   | EGate       _
-  | EList       _
   | ECond       _           -> primaryprio
   | EMinus      _           -> unaryprio
-  | EApp       _            -> appprio
+  | EApp        _           -> appprio
+  | ECons       _           -> if is_nilterminated e then primaryprio else consprio
   | EArith      (_,op,_)    -> arithprio op
   | ECompare    (_,op,_)    -> compprio op
   | EBoolArith  (_,op,_)    -> boolprio op
@@ -158,8 +178,12 @@ let rec exprprio e =
 let is_primary e = exprprio e = primaryprio
 
 let rec string_of_primary e =
+  let bad () =
+    raise (Error ("string_of_primary (" ^ string_of_expr e ^ ")"))
+  in
   match e.inst.enode with
   | EUnit           -> "()"
+  | ENil            -> "[]"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBasisv bv      -> string_of_basisv bv
@@ -168,13 +192,16 @@ let rec string_of_primary e =
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
   | EString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-  | EList es        -> Printf.sprintf "[%s]"
-                                      (commasep (List.map string_of_expr es))
+  | ECons (hd,tl)   -> (* if it ends in nil, print as constant. Otherwise error *)
+                       (match list_of_expr e with
+                        | Some es -> bracketed_string_of_list string_of_expr es
+                        | None    -> bad ()
+                       )
   | ECond (c,e1,e2) -> Printf.sprintf "if %s then %s else %s fi"
                                       (string_of_expr c)
                                       (string_of_expr e1)
                                       (string_of_expr e2)
-  | _                -> raise (Error ("string_of_primary (" ^ string_of_expr e ^ ")"))
+  | _                -> bad ()
   
 and bracketed_string_of_expr e = Printf.sprintf "(%s)" (string_of_expr e)
 
@@ -195,7 +222,8 @@ and bracket_nonassoc supprio e = if mustbracket_nonassoc supprio (exprprio e) th
                                                                  else string_of_expr e                                                
 and string_of_expr e = 
   match e.inst.enode with 
-  | EUnit                           
+  | EUnit       
+  | ENil
   | EVar        _
   | EBit        _
   | EBasisv     _
@@ -204,10 +232,11 @@ and string_of_expr e =
   | EBool       _
   | EChar       _
   | EString     _ 
-  | EList       _
   | ECond       _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 (if exprprio e2 = primaryprio then " " else "") appprio
   | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
+  | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
+                                       else string_of_binary_expr hd tl "::" consprio
   | ETuple es                       -> commasep (List.map (bracket_nonassoc tupleprio) es)
   | EArith      (left, op, right)   -> string_of_binary_expr left right (string_of_arithop   op) (arithprio op)
   | ECompare    (left, op, right)   -> string_of_binary_expr left right (string_of_compareop op) (compprio op)
@@ -262,4 +291,15 @@ let arity_of_ugate ug =
   | GZ
   | GPhi _  -> 1
   | GCnot   -> 2
+
+let delist pos = function
+  | []  -> eadorn pos EUnit
+  | [e] -> e
+  | es  -> eadorn pos (ETuple es)
+  
+let relist e = 
+  match e.inst.enode with
+  | EUnit     -> []
+  | ETuple es -> es
+  | _         -> [e]
   

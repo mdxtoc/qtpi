@@ -83,6 +83,7 @@ let rec rewrite_expr cxt e =
       (e.inst.etype := Some (evaltype cxt t);
        match e.inst.enode with
        | EUnit
+       | ENil
        | EVar        _
        | EInt        _
        | EBool       _
@@ -95,9 +96,9 @@ let rec rewrite_expr cxt e =
                                     | GPhi e                         -> rewrite_expr cxt e
                                    )
        | EMinus      e          -> rewrite_expr cxt e
-       | ETuple      es
-       | EList       es         -> List.iter (rewrite_expr cxt) es
+       | ETuple      es         -> List.iter (rewrite_expr cxt) es
        | ECond       (e1,e2,e3) -> List.iter (rewrite_expr cxt) [e1;e2;e3]
+       | ECons       (e1,e2)
        | EApp        (e1,e2)     
        | EAppend     (e1,e2)
        | EBitCombine (e1,e2)    -> List.iter (rewrite_expr cxt) [e1;e2]
@@ -249,6 +250,7 @@ and assigntype_expr cxt t e =
      let adorn = Instance.adorn_x in
      match e.inst.enode with
      | EUnit                -> unifytype cxt t (adorn e Unit)
+     | ENil                 -> unifytype cxt t (adorn e (List (adorn e (new_TypeVar()))))
      | EInt i               -> (match (evaltype cxt t).inst with 
                                 | Bit              -> if i=0||i=1 then cxt
                                                       else unifytype cxt t (adorn e Int)
@@ -282,9 +284,11 @@ and assigntype_expr cxt t e =
                                let tes = List.combine ts es in
                                let cxt' = List.fold_left utaf cxt tes in
                                unifytype cxt' t (adorn e (Tuple ts))
-     | EList   es           -> let t' = adorn e (new_TypeVar()) in
-                               let cxt = List.fold_left (fun cxt -> assigntype_expr cxt t') cxt es in
-                               unifytype cxt t (adorn e (List t'))
+     | ECons   (hd,tl)      -> let t' = adorn e (new_TypeVar()) in
+                               let cxt = assigntype_expr cxt t' hd in
+                               let t'' = (adorn e (List t')) in
+                               let cxt = assigntype_expr cxt t'' tl in
+                               unifytype cxt t t''
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn c Bool) t t c e1 e2
      | EArith (e1,_,e2)     -> binary cxt (adorn e Int)  (adorn e1 Int)  (adorn e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
@@ -532,7 +536,10 @@ let typecheck lib defs =
       if !verbose || !verbose_typecheck then 
         Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
                       (string_of_typecxt cxt)
-                      (string_of_list string_of_processdef "\n\n" defs);
+                      (string_of_list string_of_processdef "\n\n" defs)
+      else
+      if !typereport then 
+        Printf.printf "fully typed program =\n%s\n\n" (string_of_list string_of_processdef "\n\n" defs);
       (List.map (fun (n,t) -> n, evaltype cxt t) lib), cxt
   with Undeclared (pos, n) -> raise (TypeCheckError (pos,
                                                      Printf.sprintf "undeclared %s"

@@ -81,12 +81,12 @@
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR GPLUS COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
-%token DOT DOTDOT
-%token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC
+%token DOT DOTDOT UNDERSCORE
+%token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC MATCH HCTAM
 %token QUERY BANG MEASURE THROUGH 
 %token PLUSPLUS PLUS MINUS
 %token EQUALS NOTEQUAL
-%token APPEND
+%token APPEND CONS
 %token AND OR
 %token UNIT TERMINATE
 %token COMMA STAR SEMICOLON
@@ -94,6 +94,7 @@
 %token VZERO VONE VPLUS VMINUS
 
 /* remember %left %right %nonassoc and increasing priority */
+%right CONS
 %left AND OR
 %nonassoc EQUALS NOTEQ
 %left PLUS MINUS
@@ -133,6 +134,7 @@ processdef:
 
 procname:
   | name                                {adorn $1}
+
 params:
   |                                     {[]}
   | paramseq                            {$1}
@@ -209,10 +211,18 @@ process:
   | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
   | qstep DOT process                   {adorn (WithQstep ($1,$3))}
+  /* | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))} */
   | gsum                                {adorn (GSum $1)}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
 
+/* procmatches:
+  | procmatch                           {[$1]}
+  | procmatch GPLUS procmatches         {$1::$3}
+  
+procmatch:
+  | pattern DOT process                 {$1,$3} */
+  
 ubif: 
   | expr THEN ubprocess ELSE ubprocess  {adorn (Cond ($1, $3, $5))}
   | expr THEN ubprocess ELIF ubif       {adorn (Cond ($1, $3, $5))}
@@ -257,6 +267,36 @@ args:
   |                                     {[]}
   | ntexprs                             {$1}
 
+/* pattern:
+  | UNDERSCORE                          {eadorn (EVar "")}
+  | name                                {eadorn (EVar $1)}
+  | BIT0                                {eadorn (EBit false)}
+  | BIT1                                {eadorn (EBit true)}
+  | INT                                 {eadorn (EInt (int_of_string $1))}
+  | TRUE                                {eadorn (EBool (true))}
+  | FALSE                               {eadorn (EBool (false))}
+  | CHAR                                {eadorn (EChar $1)}
+  | STRING                              {eadorn (EString $1)}
+  | VZERO                               {eadorn (EBasisv BVzero) }
+  | VONE                                {eadorn (EBasisv BVone )  }
+  | VPLUS                               {eadorn (EBasisv BVplus) }
+  | VMINUS                              {eadorn (EBasisv BVminus) }
+  | ugate                               {eadorn (EGate $1)}
+  | LSQPAR patternlist RSQPAR           {$2}
+  | pattern CONS pattern                {eadorn (ECons ($1,$3))}
+  | LPAR RPAR                           {eadorn EUnit}
+  | patterns                            {eadorn (Expr.delist (get_sourcepos()) $1)}
+  | LPAR pattern RPAR                   {$2}
+  
+patternlist:
+  |                                     {eadorn ENil}
+  | pattern                             {eadorn (ECons ($1, eadorn ENil))}
+  | pattern SEMICOLON patternlist       {eadorn (ECons ($1,$3))}
+  
+patterns:
+  | pattern                             {[$1]}
+  | pattern COMMA patternlist           {$1::$3} */
+  
 primary:
   | LPAR RPAR                           {eadorn EUnit}
   | name                                {eadorn (EVar $1)}
@@ -272,11 +312,8 @@ primary:
   | VPLUS                               {eadorn (EBasisv BVplus) }
   | VMINUS                              {eadorn (EBasisv BVminus) }
   | ugate                               {eadorn (EGate $1)}
-  | LSQPAR exprlist RSQPAR              {eadorn (EList $2)}
-  | LPAR ntexprs RPAR                   {match $2 with
-                                         | [e] -> e
-                                         | es  -> eadorn (ETuple es)
-                                        }
+  | LSQPAR exprlist RSQPAR              {$2}
+  | LPAR ntexprs RPAR                   {Expr.delist (get_sourcepos()) $2}
   | IF eif FI                           {eadorn($2.inst.enode)}
   
 eif:
@@ -325,9 +362,9 @@ ugate:
   | PHI LPAR expr RPAR                  {adorn (GPhi ($3))}
 
 exprlist:
-  |                                     {[]}
-  | expr                                {[$1]}
-  | expr SEMICOLON exprlist             {$1::$3}
+  |                                     {eadorn ENil}
+  | expr                                {eadorn (ECons ($1, eadorn ENil))}
+  | expr SEMICOLON exprlist             {eadorn (ECons ($1, $3))}
 
 names:
   | name                                {[$1]}

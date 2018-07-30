@@ -1,6 +1,3 @@
-given Honest: unit process,
-      Liar: unit process
-      
 Alice(cq:^qbit, cc:^bit*bit, r:^bit) =
     (newq qx=|0>,qw=|0>)
     qx >> _H.
@@ -17,7 +14,8 @@ Bob(cq:^qbit, cc:^bit*bit) =
     cc?(value,basis).
     qx >> if basis=0b1 then _H else _I fi.
     qx??(measure).
-    if measure = value then Honest() else Liar() fi
+    (let n = print_string if measure = value then "honest\n" else "liar!!\n" fi)
+    _0
     
 Random(q:qbit, r:^bit) =
     q >> _H.

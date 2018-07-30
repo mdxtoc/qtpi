@@ -1,8 +1,8 @@
 
-System () = (newq q) (let init=qstate q) 
+System () = (newq q) (let init=qbit_state q) 
 			q>>_H . 
-			q>>_H . (let final=qstate q)
-			(let _ = print_strings ["initially q=";
+			q>>_H . (let final=qbit_state q)
+			(let n = print_strings ["initially q=";
 								    init;
 								    "; finally q=";
 								    final;

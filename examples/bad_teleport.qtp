@@ -1,10 +1,13 @@
 (* doesn't work, because it doesn't get qbits in the right entangled state *)
 
-given Use: qbit process
+Alice (x:qbit, c:^0..3, z:qbit) = 
+    (let n = print_strings ["initially Alice's z is "; qbit_state z; "\n"])
+    z,x>>_CNot . z>>_H . z??(vz) . x??(vx) . c!vz++vx . _0 
 
-Alice (x:qbit, c:^0..3, z:qbit) = z,x>>_CNot . z>>_H . z??(vz) . x??(vx) . c!vz++vx . _0 
-
-Bob(y:qbit, c:^0..3) = c?(n) . y>>_Phi(n) . Use(y) 
+Bob(y:qbit, c:^0..3) = 
+    c?(n) . y>>_Phi(n) . 
+    (let n = print_strings ["finally Bob's y is "; qbit_state y; "\n"])
+    _0 
 
 (* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)
 System () = 

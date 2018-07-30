@@ -27,25 +27,25 @@
   exception LexError of Sourcepos.sourcepos * string
     
   let inc_linenum lexbuf =
-  	let curr = lexbuf.Lexing.lex_curr_p in
-  	lexbuf.Lexing.lex_curr_p <- 
-  		{ lexbuf.Lexing.lex_curr_p with Lexing.pos_lnum = curr.Lexing.pos_lnum+1;
-  										Lexing.pos_bol = curr.Lexing.pos_cnum
-  		}
+    let curr = lexbuf.Lexing.lex_curr_p in
+    lexbuf.Lexing.lex_curr_p <- 
+        { lexbuf.Lexing.lex_curr_p with Lexing.pos_lnum = curr.Lexing.pos_lnum+1;
+                                        Lexing.pos_bol = curr.Lexing.pos_cnum
+        }
   
   let get_linenum lexbuf = 
-  	let curr = lexbuf.Lexing.lex_curr_p in
-  	curr.Lexing.pos_lnum
-  	
+    let curr = lexbuf.Lexing.lex_curr_p in
+    curr.Lexing.pos_lnum
+    
   let get_loc lexbuf =
-  	(Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
+    (Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
 
   let backslashed = function
-	| 'n' -> '\n'
-	| 'r' -> '\r'
-	| 'b' -> '\r'
-	| 't' -> '\t'
-	| c   -> c
+    | 'n' -> '\n'
+    | 'r' -> '\r'
+    | 'b' -> '\r'
+    | 't' -> '\t'
+    | c   -> c
 
   let stringbuffer = Buffer.create 256
 }
@@ -60,7 +60,7 @@ let ALPHANUM = ALPHA | NUM | '_'
 
 let number = NUM+
 
-let name   = ('_' | ALPHA) (ALPHA | NUM | '_' | '\'')*
+let name   = ALPHA (ALPHA | NUM | '_' | '\'')*
 
 let eol = '\n'
 
@@ -68,7 +68,7 @@ rule make_token = parse
 
   | BLANK       { make_token lexbuf} (* Skip blanks and tabs *)
   | NEWLINE     { inc_linenum lexbuf; make_token lexbuf}
-  | "(*"   		{ bracomment (get_loc lexbuf) lexbuf; make_token lexbuf }
+  | "(*"        { bracomment (get_loc lexbuf) lexbuf; make_token lexbuf }
 
   | eof         {EOP}   (* Give up on end of file *)
 
@@ -79,7 +79,7 @@ rule make_token = parse
   | '['         {LSQPAR}
   | ']'         {RSQPAR}
   | '|'         {BAR}
-  | "<+>"		{GPLUS}
+  | "<+>"       {GPLUS}
   | ':'         {COLON}
   | '='         {EQUALS}
   | '*'         {STAR}
@@ -100,8 +100,8 @@ rule make_token = parse
   | "qbit"      {QBITTYPE}
   | "^"         {CHANTYPE}
   | "list"      {LISTTYPE}
-  | "char"		{CHARTYPE}
-  | "string"	{STRINGTYPE}
+  | "char"      {CHARTYPE}
+  | "string"    {STRINGTYPE}
   
   | '.'         {DOT}
   | ".."        {DOTDOT}
@@ -116,7 +116,9 @@ rule make_token = parse
   | "_PHI"      {PHI}
   | "new"       {NEWDEC}
   | "newq"      {QBITDEC}
-  | "let"		{LETDEC}
+  | "let"       {LETDEC}
+  | "match"     {MATCH}
+  | "hctam"     {HCTAM}
   
   | '?'         {QUERY}
   | '!'         {BANG}
@@ -142,8 +144,9 @@ rule make_token = parse
   | "||"        {OR}
 
   | '@'         {APPEND}
+  | "::"        {CONS}
       
-(* | '_'        {UNDERSCORE} *)
+  | '_'         {UNDERSCORE}
   
   | "_0"        {TERMINATE}
   
@@ -159,18 +162,18 @@ rule make_token = parse
   | "given"     {GIVEN}
   
   | "'" [^ '\\' '\'' 'n' '\r' '\t' ] "'"
-      			{ CHAR(Lexing.lexeme_char lexbuf 1) }
+                { CHAR(Lexing.lexeme_char lexbuf 1) }
   | "'\\" ['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] "'"
-      			{ CHAR(backslashed (Lexing.lexeme_char lexbuf 2)) }
+                { CHAR(backslashed (Lexing.lexeme_char lexbuf 2)) }
   | "'\\" _
-				{ let l = Lexing.lexeme lexbuf in
-				  let esc = String.sub l 1 (String.length l - 1) in
-				  raise (LexError(get_loc lexbuf, ("illegal escape \\" ^ esc)))
-				}
+                { let l = Lexing.lexeme lexbuf in
+                  let esc = String.sub l 1 (String.length l - 1) in
+                  raise (LexError(get_loc lexbuf, ("illegal escape \\" ^ esc)))
+                }
 
-  | '"'			{ Buffer.clear stringbuffer;
-       			  STRING (string (get_loc lexbuf) lexbuf)
-     			}
+  | '"'         { Buffer.clear stringbuffer;
+                  STRING (string (get_loc lexbuf) lexbuf)
+                }
 
   | number      {INT (Lexing.lexeme lexbuf)}
   | name        {NAME (Lexing.lexeme lexbuf)}    (* should be interned *)
@@ -183,24 +186,24 @@ rule make_token = parse
                 }
 
 and bracomment spos = parse
-	|	"(*"        { bracomment (get_loc lexbuf) lexbuf; 
-					  bracomment spos lexbuf
-					}
-  	| 	"*)"        { () }
-  	| 	'\n'        { inc_linenum lexbuf; bracomment spos lexbuf }
-  	|	eof			{ raise (LexError (spos, "unmatched comment-bracket '(*'")) }
-  	| 	_           { bracomment spos lexbuf }
+    |   "(*"        { bracomment (get_loc lexbuf) lexbuf; 
+                      bracomment spos lexbuf
+                    }
+    |   "*)"        { () }
+    |   '\n'        { inc_linenum lexbuf; bracomment spos lexbuf }
+    |   eof         { raise (LexError (spos, "unmatched comment-bracket '(*'")) }
+    |   _           { bracomment spos lexbuf }
       
 and string spos = parse
-	| '"' 										{ Buffer.contents stringbuffer }
-	| '\\' ['\\' '\'' '"' 'n' 't' 'b' 'r' ' ']	{ let c = backslashed (Lexing.lexeme_char lexbuf 1) in
-												  Buffer.add_char stringbuffer c; string spos lexbuf 
-												}
-	| eof 										{ raise (LexError (spos, "unterminated string")) }
-	| _ as char 								{ Buffer.add_char stringbuffer char; string spos lexbuf }
+    | '"'                                       { Buffer.contents stringbuffer }
+    | '\\' ['\\' '\'' '"' 'n' 't' 'b' 'r' ' ']  { let c = backslashed (Lexing.lexeme_char lexbuf 1) in
+                                                  Buffer.add_char stringbuffer c; string spos lexbuf 
+                                                }
+    | eof                                       { raise (LexError (spos, "unterminated string")) }
+    | _ as char                                 { Buffer.add_char stringbuffer char; string spos lexbuf }
  
 {
   let build_prog_from_string s =
-	Parser.program make_token (Lexing.from_string s)
+    Parser.program make_token (Lexing.from_string s)
 
 }

@@ -49,6 +49,8 @@ let interpret = ref true
 
 let show_final = ref false
 
+let typereport = ref false
+
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
                    ("qcalc"            , verbose_qcalc            );
@@ -58,4 +60,5 @@ let verboseopts = [("all"              , verbose                  );
                    ("simplify"         , verbose_simplify         );
                    ("typecheck"        , verbose_typecheck        );
                   ] 
+
 let setverbose s = (List.assoc s verboseopts) := true

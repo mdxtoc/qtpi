@@ -36,12 +36,14 @@ let opts = Arg.align
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-interpret"  , Arg.Bool (set_arg interpret), 
                     Printf.sprintf " interpret the program (default %B)" !interpret);
-              ("-show_final"  , Arg.Bool (set_arg show_final), 
-                    Printf.sprintf " show final state -- channels, stuck processes, qbit states (default %B)" !show_final);
+              ("-show_final"  , Arg.Set show_final, 
+                    " show final state -- channels, stuck processes, qbit states");
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
+              ("-typereport"  , Arg.Set typereport, 
+					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
-                   " verbose operation, various arguments, defaults false" ); 
+					" verbose operation, various arguments, defaults false" ); 
              ]
 
 let _ = Arg.parse opts (fun s -> files := s :: !files) usage

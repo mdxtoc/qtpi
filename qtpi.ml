@@ -35,6 +35,7 @@ open Resource
 open Interpret
 open Param
 open Library (* until we have dynamic loading *)
+open Pervasives (* to hide the library, I hope *)
 
 exception Error of string
 

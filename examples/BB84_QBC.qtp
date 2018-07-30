@@ -1,13 +1,28 @@
 
-Alice(n:int, r:^bit, qB:^qbit, bB:^bit, vB:^bit*bit list) = AliceChoose(n,r,[],qB,bB,vB)
+Alice(n:int, r:^bit, toBob) = 
+  r?(basis) .
+  (new chosen) (  AliceChoose (n,[],r,chosen)
+                | chosen?(vs) . AliceSend (basis, vs, toBob)
+               )
 
-AliceChoose(n:int, r:^bit, vs:bit list, qB:^qbit, bB:^bit, vB:^(bit*bit list)) =
-    if n=0 then r?(basis:bit).AliceSend(vs,vs,basis,qB,bB,vB)
-    else r?(v:bit).AliceChoose(n-1,r,vs@[v],qB,bB,vB)
+(* choose n bits *)
+AliceChoose(n:int, vs:bit list, r, chosen) =
+    if n=0 then chosen!vs . _0
+    else r?(v) . AliceChoose(n-1,v::vs,r,chosen)
     fi
 
-AliceSend(vs:bit list, ovs:bit list, basis:bit, qB:^qbit, bB:^bit, vB:^(bit*bit list)) =
-    if vs=[] then AliceReport(basis,ovs,bB,vB)
+AliceSend(basis, vs:bit list, toBob) =
+    (new qB,bB,vB)
+    toBob!qB,bB,vB .
+    (new done) (  AliceSendBits (vs,basis,qB,done)
+                | done?(s) . bB?(guess:bit) . vB!basis,vs .
+                  (let n = print_string if guess=basis then "Bob wins\n" else "Alice wins\n" fi)
+                  _0
+               )
+
+(* send bits encoded in basis down channel qB *)
+AliceSendBits (vs,basis,qB,done) =   
+    if vs=[] then done!() . _0
     else (newq q = if hd(vs)=0b0 then
                      if basis=0b0 then |0> else |+> fi 
                    else 
@@ -15,41 +30,41 @@ AliceSend(vs:bit list, ovs:bit list, basis:bit, qB:^qbit, bB:^bit, vB:^(bit*bit 
                    fi
          )
          qB!q.
-         AliceSend(tl(vs),ovs,basis,qB,bB,vB)
+         AliceSendBits(tl(vs),basis,qB,done)
     fi
 
-AliceReport(basis:bit,vs:bit list, bB:^bit, vB:^(bit*bit list)) = 
-    bB?(guess:bit) . vB!basis,vs .
-    (let n = print_string if guess=basis then "Bob wins\n" else "Alice wins\n" fi)
-    _0
+Bob(n:int, r:^bit, fromAlice) = 
+    fromAlice?(qA,bA,vA) .
+    (new done) (  BobReceive(n,[],qA,r,done)
+                | done?(bvs) . r?(guess) .
+                  bA!guess . vA?(basis:bit, vs:bit list) .
+                  BobVerify (basis,vs,bvs)
+               )
 
-Bob(n:int, r:^bit, qA:^qbit, bA:^bit, vA:^(bit*bit list)) = BobReceive(n,[],r,qA,bA,vA)
-
-BobReceive(n:int, vs:(bit*bit) list, r:^bit, qA:^qbit, bA:^bit, vA:^(bit*bit list)) =
-    if n = 0 then r?(guess:bit). 
-                  bA!guess. 
-                  vA?(basis:bit, as:bit list). 
-                  BobVerify (vs,basis,as) 
-    else 
-                  qA?(q:qbit).
-                  r?(basis:bit).
-                  q >> if basis=0b1 then _H else _I fi.
-                  q ?? (value).
-                  BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
+(* receive qbits down qA, measure them, record the results *)
+BobReceive(n,bvs,qA,r,done) =
+    if n=0 then done!rev bvs . _0
+    else qA?(q).
+         r?(basis).
+         q >> if basis=0b1 then _H else _I fi.
+         q ?? (value).
+         BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 
-BobVerify (vs:(bit*bit) list, basis:bit, as:bit list) = 
-  if vs=[] && as=[] then (let n = print_string "Alice was honest\n") _0
-  else if vs=[] || as=[] then (let n = print_string "Alice lied\n") _0
-       else if basis=fst(hd(vs)) && hd(as)<>snd(hd(vs)) 
+(* verify Alice's story. This needs pattern matching to be readable *)
+BobVerify (basis, vs, bvs) = 
+  if vs=[] && bvs=[] then (let n = print_string "Alice was honest\n") _0
+  else if vs=[] || bvs=[] then (let n = print_string "Alice lied\n") _0
+       else if basis=fst(hd(bvs)) && hd(vs)<>snd(hd(bvs)) 
             then (let n = print_string "Alice lied\n") _0
-            else BobVerify(tl(vs),basis,tl(as))
+            else BobVerify(basis,tl(vs),tl(bvs))
             fi
        fi
   fi
        
+(* a source of random bits. A bit of a joke, but relatively harmless *)
 Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
 
 System() = (let n = read_int "number of qbits")
-           (new r:^bit,qc:^qbit,bc:^bit,vc:^(bit*bit list))
-           (Alice(n,r,qc,bc,vc) | Bob(n,r,qc,bc,vc) | (newq q = |0>) Random(q,r))
+           (new r,c)
+           (Alice(n,r,c) | Bob(n,r,c) | (newq q = |0>) Random(q,r))

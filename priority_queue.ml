@@ -207,7 +207,7 @@ module Make(X : Ordered) = struct
        Array.blit d 0 a 0 n;
        let r = Array.to_list a in
        (* sort 'smallest' first *)
-       List.sort compare r
+       List.sort (fun a b -> ~- (compare a b)) r
       ) 
       
 end

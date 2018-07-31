@@ -53,14 +53,29 @@ BobReceive(n,bvs,qA,r,done) =
 
 (* verify Alice's story. This needs pattern matching to be readable *)
 BobVerify (basis, vs, bvs) = 
-  if vs=[] && bvs=[] then (let n = print_string "Alice was honest\n") _0
-  else if vs=[] || bvs=[] then (let n = print_string "Alice lied\n") _0
-       else if basis=fst(hd(bvs)) && hd(vs)<>snd(hd(bvs)) 
-            then (let n = print_string "Alice lied\n") _0
-            else BobVerify(basis,tl(vs),tl(bvs))
-            fi
-       fi
-  fi
+  match vs,bvs .
+      []   , []           . Honest ()
+  <+> []   , _            . Liar ()
+  <+> _    , []           . Liar ()
+  <+> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
+                              then Liar ()
+                              else BobVerify(basis,tl(vs),tl(bvs))
+                            fi
+  hctam
+  
+Liar   () = (let n = print_string "Alice lied\n") _0
+Honest () = (let n = print_string "Alice was honest\n") _0
+
+(* BobVerify (basis, vs, bvs) = 
+     if vs=[] && bvs=[] then (let n = print_string "Alice was honest\n") _0
+     else if vs=[] || bvs=[] then (let n = print_string "Alice lied\n") _0
+          else if basis=fst(hd(bvs)) && hd(vs)<>snd(hd(bvs)) 
+               then (let n = print_string "Alice lied\n") _0
+               else BobVerify(basis,tl(vs),tl(bvs))
+               fi
+          fi
+     fi
+ *)
        
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)

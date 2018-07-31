@@ -63,9 +63,15 @@ let _ = match !Usage.files with
                 | ResourceError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
+                | ResourceDisaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
+                                                          (string_of_sourcepos pos)
+                                                          s
                 | TypeCheckError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
+                | TypeUnifyError (t1, t2) -> Printf.printf "\n\n** cannot unify %s with %s\n"
+                                                           (string_of_type t1)
+                                                           (string_of_type t2)
                 | Parseutils.Error s     -> print_endline s
                 | Library.Abandon s      -> Printf.printf "\n\n** execution abandoned -- %s\n" s
                 | exn                    -> Printf.printf "\n\n** unexpected exception %s **\n"

@@ -21,8 +21,6 @@
     (or look at http://www.gnu.org).
 *)
 
-(* this is not (yet) a quantum simulator *)
-
 open Settings
 open Array
 open Listutils

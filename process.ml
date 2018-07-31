@@ -29,6 +29,7 @@ open Name
 open Type
 open Expr
 open Step
+open Pattern
 open Param
 
 type process = procnode instance
@@ -41,6 +42,7 @@ and procnode =
   | WithLet of letspec * process
   | WithQstep of qstep * process
   | Cond of expr * process * process
+  | PMatch of expr * (pattern * process) list
   | GSum of (iostep * process) list
   | Par of process list
 
@@ -49,13 +51,6 @@ and qspec = param * expr option
 and letspec = param * expr
 
 let rec string_of_process proc = 
-  let trailing_sop p =
-    let s = string_of_process p in
-    match p.inst with
-    | GSum (_::_::_)
-    | Par  (_::_::_) -> Printf.sprintf "(%s)" s
-    | _              -> s
-  in
   match proc.inst with
   | Terminate             -> "_0"
   | Call (p,es)           -> Printf.sprintf "%s(%s)"
@@ -79,6 +74,16 @@ let rec string_of_process proc =
                                             (string_of_expr e)
                                             (string_of_process p1)
                                             (string_of_process p2)
+  | PMatch (e,pms)        -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list string_of_procmatch "<+>" pms)
+
+and trailing_sop p =
+  let s = string_of_process p in
+  match p.inst with
+  | GSum   [_]
+  | Par    [_] -> s
+  | GSum   _
+  | Par    _   -> "(" ^ s ^ ")"
+  | _          -> s        
 
 and short_string_of_process proc = 
   match proc.inst with
@@ -101,6 +106,7 @@ and short_string_of_process proc =
                                             (string_of_expr e)
                                             (short_string_of_process p1)
                                             (short_string_of_process p2)
+  | PMatch (e,pms)        -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list short_string_of_procmatch "<+>" pms)
 
 and string_of_qspec (p, eopt) =
   Printf.sprintf "%s%s" 
@@ -115,4 +121,7 @@ and string_of_letspec (p,e) =
   				 (string_of_param p)
   				 (string_of_expr e)
   				 
+and string_of_procmatch (pat,proc) =
+  Printf.sprintf "%s.%s" (string_of_pattern pat) (trailing_sop proc)
   
+and short_string_of_procmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_pattern pat)

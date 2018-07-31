@@ -28,6 +28,7 @@ open Sourcepos
 open Instance
 open Name
 open Expr
+open Pattern
 open Type
 open Param
 open Step
@@ -36,6 +37,7 @@ open Processdef
 open Qsim
 
 exception Error of sourcepos * string
+exception Disaster of sourcepos * string
 
 type iprocess = IGiven | IDef of process
 
@@ -75,7 +77,7 @@ module rec Types : sig
   
   and wwaiter = name * value list * process * env
 
-  and env = (name * value) list
+  and env = value NameMap.t
 
   and stuck = name * value list
 end = Types
@@ -148,25 +150,26 @@ and short_string_of_chan {cname=i} =
     string_of_int i
     
 and string_of_env env =
-  string_of_assoc string_of_name string_of_value "->" "; " env
+  NameMap.to_string string_of_value env
 
 and short_string_of_env env =
-  string_of_assoc string_of_name short_string_of_value "->" "; " 
-    (List.filter (function _, VProcess _
-                  |        _, VFun     _ -> false
-                  | _                    -> true
-                  )
-                  env
-    )
-
+  NameMap.to_string short_string_of_value 
+      (NameMap.filter (fun a -> function 
+                                | VFun     _ 
+                                | VProcess _ -> false
+                                | _          -> true
+                      )
+                      env 
+      )
+      
 and string_of_runner (n, proc, env) =
-  Printf.sprintf "%s = (%s) [%s]" 
+  Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
                  (string_of_process proc)
                  (short_string_of_env env)
                  
 and string_of_rwaiter (n, vars, proc, env) = 
-  Printf.sprintf "%s = (%s)%s [%s]" 
+  Printf.sprintf "%s = (%s)%s %s" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
                  (string_of_process proc)
@@ -178,7 +181,7 @@ and short_string_of_rwaiter (n, vars, proc, env) = (* infinite loop if we print 
                  (string_of_list string_of_name ";" vars)
                  
 and string_of_wwaiter (n, vals, proc, env) = 
-  Printf.sprintf "%s = (%s)%s [%s]" 
+  Printf.sprintf "%s = (%s)%s %s" 
                  (string_of_name n)
                  (string_of_list string_of_value ";" vals)
                  (string_of_process proc)
@@ -197,6 +200,17 @@ and string_of_stuck (n, vs) =
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep (RunnerQueue.queue rq)
   
+let (<@>)  env n     = try NameMap.find   n env 
+                       with Not_found -> raise (Disaster (dummy_spos, 
+                                                          Printf.sprintf "looking up %s in %s"
+                                                                         (string_of_name n)
+                                                                         (short_string_of_env env)
+                                                         )
+                                               )       
+let (<@+>) env (n,t) = NameMap.add    n t env      
+let (<@->) env n     = NameMap.remove n env     
+let (<@?>) env n     = NameMap.mem    n env        
+
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
 (* listv and vlist are possible but too expensive *)
@@ -252,12 +266,12 @@ let v_rev v =
   r VNil v
   
 let v_append vs vs' =
-  let rec app rs = function
-    | VCons (hd,tl)   -> app (VCons (hd,rs)) tl
+  let rec stitch rs = function
+    | VCons (hd,tl)   -> stitch (VCons (hd,rs)) tl
     | VNil            -> rs
     | v               -> miseval "v_append" v
   in
-  app vs' (v_rev vs)
+  stitch vs' (v_rev vs)
   
 let rec v_iter f = function
   | VCons (hd,tl)   -> ignore (f hd); v_iter f tl
@@ -275,6 +289,67 @@ let v_map f vs =
 
 (* ******************** the interpreter proper ************************* *)
 
+(* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
+   Modified a bit, obvs, but really the thing.
+ *)
+
+let matcher pos env pairs value =
+  let sop p = "(" ^ string_of_pattern p ^ ")" in
+  if !verbose || !verbose_interpret then
+    Printf.printf "matcher %s %s %s\n\n" (short_string_of_env env)
+                                         (bracketed_string_of_list (sop <.> fst) pairs)
+                                         (string_of_value value);
+  let rec fail pairs =
+    match pairs with
+    | []               -> None
+    | (pat,rhs)::pairs -> _match env pat value [] rhs pairs
+  and succeed env work rhs pairs =
+    match work with
+    | []                         -> if !verbose || !verbose_interpret then
+                                      Printf.printf "matcher succeeds %s\n\n" (short_string_of_env env);
+                                    Some (env,rhs)
+    | ([]      , []      )::work -> succeed env work rhs pairs
+    | (p1::pats, v1::vals)::work -> _match env p1 v1 ((pats,vals)::work) rhs pairs
+    | (ps      , vs      )::_    -> raise (Disaster (pos,
+                                                     Printf.sprintf "matcher succeed pats %s values %s"
+                                                                    (bracketed_string_of_list sop ps)
+                                                                    (bracketed_string_of_list string_of_value vs)
+                                                    )
+                                          )
+  and _match env pat v work rhs pairs =
+    if !verbose_interpret then
+      Printf.printf "_match %s %s %s ...\n\n" (short_string_of_env env)
+                                              (sop pat)
+                                              (string_of_value v);
+    let yes env = succeed env work rhs pairs in
+    let no () = fail pairs in
+    let maybe v v' = if v=v' then yes env else no () in
+    match pat.inst.pnode, v with
+    | PatAny            , _                 
+    | PatUnit           , VUnit             
+    | PatNil            , VNil              -> yes env
+    | PatName   n       , _                 -> yes (env<@+>(n,v))
+    | PatInt    i       , VInt    i'        -> maybe i i'
+    | PatBool   b       , VBool   b'        -> maybe b b'
+    | PatChar   c       , VChar   c'        -> maybe c c'
+    | PatString s       , VString s'        -> maybe s s'
+    | PatBasisv v       , VBasisv v'        -> maybe v v'
+    | PatGate   pg      , VGate   vg        -> (match pg.inst, vg with
+                                                | PatH    , GateH 
+                                                | PatI    , GateI
+                                                | PatX    , GateX
+                                                | PatY    , GateY
+                                                | PatZ    , GateZ
+                                                | PatCnot , GateCnot  -> yes env
+                                                | PatPhi p, GatePhi i -> succeed env (([p],[VInt i])::work) rhs pairs
+                                                | _                   -> no ()
+                                               )
+    | PatCons   (ph,pt) , VCons   (vh,vt)   -> succeed env (([ph;pt],[vh;vt])::work) rhs pairs
+    | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
+    | _                                     -> no () (* can happen: PNil vs VCons, PCons vs VNil *)
+  in
+  fail pairs
+  
 let rec evale env e =
   match e.inst.enode with
   | EUnit               -> VUnit
@@ -421,32 +496,31 @@ let rec interp sysenv proc =
         | Call (n, es)      -> 
             (let vs = List.map (evale env) es in
              try (match env<@>n.inst with
-                  | VProcess (ns, IDef proc) -> let env = zip ns vs @ sysenv in
+                  | VProcess (ns, IDef proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
                                                 addrunner (n.inst, proc, env)
                   | VProcess (ns, IGiven)    -> addstuck (n.inst, vs)
                   | v                        -> mistyped dummy_spos (string_of_name n.inst) v "a process"
                  )  
-             with Invalid_argument _ -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
+             with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
             )
-         
         | WithNew (ps, proc) ->
             let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
-            addrunner (pn, proc, (ps @ env))
+            addrunner (pn, proc, (List.fold_left (<@+>) env ps))
         | WithQbit (ps, proc) ->
             let bv_eval = function
             | None      -> None
             | Some bve  -> Some (basisvv (evale env bve))
             in
             let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
-            addrunner (pn, proc, (ps @ env))
+            addrunner (pn, proc, (List.fold_left (<@+>) env ps))
         | WithLet (({inst=n,_},e), proc) ->
-            let env = (n, evale env e) :: env in
+            let env = env <@+> (n, evale env e) in
             addrunner (pn, proc, env)
         | WithQstep (qstep, proc) ->
             (match qstep.inst with
              | Measure (e, {inst=n,_})  -> let q = qbitev env e in
                                       let v = VInt (qmeasure pn q) in
-                                      addrunner (pn, proc, (n,v)::env)
+                                      addrunner (pn, proc, env <@+> (n,v))
              | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
                                       let g = gatev (evale env ug) in
                                       ugstep pn qs g;
@@ -458,7 +532,7 @@ let rec interp sysenv proc =
                                let ns = strip_params ps in
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
-                                  let env = zip ns vs @ env in
+                                  let env = List.fold_left (<@+>) env (zip ns vs) in
                                   addrunner (pn, proc, env)
                                  )
                                else
@@ -466,7 +540,7 @@ let rec interp sysenv proc =
                                  (let pn',vs',proc',env' = WWaiterQueue.pop c.wwaiters in
                                   WWaiterQueue.excite c.wwaiters;
                                   addrunner (pn', proc', env');
-                                  addrunner (pn, proc, (zip ns vs' @ env))
+                                  addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
                                  )
                                else
                                  RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
@@ -475,7 +549,7 @@ let rec interp sysenv proc =
                                if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
                                  (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
                                   RWaiterQueue.excite c.rwaiters;
-                                  addrunner (pn', proc', (zip ns' vs @ env'));
+                                  addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
                                   addrunner (pn, proc, env)
                                  )
                                else
@@ -488,9 +562,14 @@ let rec interp sysenv proc =
                                else
                                  WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
              )
-        | GSum _ ->         raise (Error (proc.pos, "can't handle proper guarded sums yet"))
-        | Cond (e, p1, p2)   ->
+        | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))
+        | Cond (e, p1, p2)  ->
             addrunner (pn, (if boolev env e then p1 else p2), env)
+        | PMatch (e,pms)    -> let v = evale env e in
+                               (match matcher rproc.pos env pms v with
+                                | Some (env, proc) -> addrunner (pn, proc, env)
+                                | None             -> raise (Error (rproc.pos, "match failed"))
+                               )  
         | Par ps            ->
             List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
        );
@@ -519,9 +598,9 @@ let interpret lib defs =
   let givenassoc = List.fold_right given lib [] in
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, IDef p))) defs in
-  let sysenv = defassoc @ givenassoc @ knownassoc in
+  let sysenv = List.fold_left (<@+>) NameMap.empty (defassoc @ givenassoc @ knownassoc) in
   if !verbose || !verbose_interpret then
-    Printf.printf "sysenv = [%s]\n\n" (string_of_env sysenv);
+    Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 

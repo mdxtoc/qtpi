@@ -34,6 +34,7 @@ open Processdef
 open Param
 open Process
 open Step
+open Pattern
 
 exception TypeUnifyError of _type * _type
 exception TypeCheckError of sourcepos * string
@@ -112,6 +113,31 @@ let rec rewrite_expr cxt e =
                                     )
                     )
 
+and rewrite_pat cxt p =
+  match !(p.inst.ptype) with
+  | Some t -> 
+      (p.inst.ptype := Some (evaltype cxt t);
+       match p.inst.pnode with
+       | PatAny
+       | PatName    _
+       | PatUnit
+       | PatNil
+       | PatInt     _
+       | PatBool    _
+       | PatChar    _
+       | PatString  _
+       | PatBasisv  _
+       | PatGate    _       -> ()
+       | PatCons    (ph,pt) -> List.iter (rewrite_pat cxt) [ph;pt]
+       | PatTuple   ps      -> List.iter (rewrite_pat cxt) ps
+       
+      )
+  | None   -> raise (TypeCheckError (p.pos,
+                                     Printf.sprintf "** Disaster: typecheck didn't mark %s"
+                                                    (string_of_pattern p)
+                                    )
+                    )
+
 let rewrite_param cxt {inst=n,rt} =
   match !rt with
   | Some t -> rt := Some (evaltype cxt t)
@@ -138,6 +164,8 @@ let rec rewrite_process cxt proc =
   | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_expr cxt e; rewrite_process cxt p
   | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process cxt p1; rewrite_process cxt p2
+  | PMatch    (e,pms)       -> rewrite_expr cxt e; 
+                               List.iter (fun (pat,proc) -> rewrite_pat cxt pat; rewrite_process cxt proc) pms
   | GSum     gs             -> let rewrite_g (iostep, proc) =
                                  rewrite_iostep cxt iostep; rewrite_process cxt proc
                                in
@@ -333,7 +361,7 @@ let ok_procname n =
 let check_distinct params =
   let check set {inst=n,_} =
     if NameSet.mem n set then 
-      raise (TypeCheckError (pos_of_list params, 
+      raise (TypeCheckError (pos_of_instances params, 
                              Printf.sprintf "non-distinct parameters (%s)"
                                             (string_of_list string_of_param "," params)
                             )
@@ -459,8 +487,53 @@ and typecheck_process cxt p =
       let cxt = assigntype_expr cxt (adorn e.pos Bool) e in
       let cxt = typecheck_process cxt p1 in
       typecheck_process cxt p2
-  | Par (ps) -> List.fold_left typecheck_process cxt ps
+  | PMatch (e,pms)  -> let et = adorn e.pos (new_TypeVar ()) in
+                       let cxt = assigntype_expr cxt et e in
+                       typecheck_pats typecheck_process cxt et pms
+  | Par (ps)        -> List.fold_left typecheck_process cxt ps
 
+and typecheck_pats tc cxt t pxs =
+   List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
+   
+and assigntype_pat contn cxt t p =
+  p.inst.ptype := Some t;
+  try match p.inst.pnode with
+      | PatAny          -> contn cxt
+      | PatName n       -> let cxt = contn (cxt<@+>(n,t)) in cxt<@->n
+      | PatUnit         -> contn (unifytype cxt t (adorn p.pos Unit))
+      | PatNil          -> let vt = adorn p.pos (new_TypeVar()) in
+                           let lt = adorn p.pos (List vt) in
+                           contn (unifytype cxt t lt)
+      | PatInt _        -> contn (unifytype cxt t (adorn p.pos Int))
+      | PatBool _       -> contn (unifytype cxt t (adorn p.pos Bool))
+      | PatChar _       -> contn (unifytype cxt t (adorn p.pos Char))
+      | PatString _     -> contn (unifytype cxt t (adorn p.pos String))
+      | PatBasisv _     -> contn (unifytype cxt t (adorn p.pos Basisv))
+      | PatGate pg      -> (match pg.inst with
+                            | PatH | PatI | PatX | PatY | PatZ -> contn (unifytype cxt t (adorn p.pos (Gate (1))))
+                            | PatCnot                          -> contn (unifytype cxt t (adorn p.pos (Gate (2))))
+                            | PatPhi p                         -> let pt = adorn p.pos Int in
+                                                                  let cxt = unifytype cxt t (adorn p.pos (Gate(1))) in
+                                                                  assigntype_pat contn cxt pt p
+                           ) 
+      | PatCons (ph,pt) -> let vt = adorn ph.pos (new_TypeVar()) in
+                           let lt = adorn p.pos (List vt) in
+                           let cf cxt = 
+                             assigntype_pat contn cxt t pt
+                           in
+                           let cxt = unifytype cxt t lt in
+                           assigntype_pat cf cxt vt ph
+      | PatTuple ps     -> let rec tc cxt = function
+                             | p::ps -> assigntype_pat ((revargs tc) ps) cxt (adorn p.pos (new_TypeVar())) p
+                             | []    -> contn cxt
+                           in
+                           tc cxt ps
+  with TypeUnifyError _ -> raise (TypeCheckError (p.pos,
+                                                  Printf.sprintf "cannot assign type %s to pattern %s"
+                                                                 (string_of_type (evaltype cxt t))
+                                                                 (string_of_pattern p)
+                                                 )
+                                 )
 let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
   let env_types = match (cxt<@>pn.inst).inst with
                   | Process ts -> ts

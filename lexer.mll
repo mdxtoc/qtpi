@@ -109,9 +109,12 @@ rule make_token = parse
   | "_H"        {HADAMARD}
   | "_I"        {I}
   | "_X"        {X}
+  | "_Y"        {Y}
+  | "_Z"        {Z}
   | "_Cnot"     {CNOT}
   | "_CNot"     {CNOT}
   | "_CNOT"     {CNOT}
+  | "_phi"      {PHI}
   | "_Phi"      {PHI}
   | "_PHI"      {PHI}
   | "new"       {NEWDEC}

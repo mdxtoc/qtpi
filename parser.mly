@@ -30,6 +30,7 @@
   open Type
   open Name
   open Expr
+  open Pattern
   open Sourcepos
   open Instance
   
@@ -44,19 +45,8 @@
   
   let eadorn inst = Instance.adorn (get_sourcepos()) (ewrap None inst)
   
-(*let tripletadorn pre lab tof = Com.tripletadorn (get_sourcepos()) pre lab tof
-  
-  let simplecomadorn ipre c = Com.simplecomadorn (get_sourcepos()) ipre c
-  
-  let structcomadorn c = Com.structcomadorn (get_sourcepos()) c
-  
-  let intfadorn   i = Intfdesc.intfadorn (get_sourcepos()) i
-  
-  let stitchadorn o n spo a = Stitch.stitchadorn (get_sourcepos()) o n spo a
-  
-  let knotadorn k = Knot.knotadorn (get_sourcepos()) k  
- *)
- 
+  let padorn inst = Instance.adorn (get_sourcepos()) (pwrap None inst)
+     
 (*  
   let warn s = report (Warning (get_sourcepos(), s))
   
@@ -82,7 +72,7 @@
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
-%token HADAMARD PHI CNOT I X NEWDEC QBITDEC LETDEC MATCH HCTAM
+%token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH HCTAM
 %token QUERY BANG MEASURE THROUGH 
 %token PLUSPLUS PLUS MINUS
 %token EQUALS NOTEQUAL
@@ -211,17 +201,17 @@ process:
   | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
   | qstep DOT process                   {adorn (WithQstep ($1,$3))}
-  /* | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))} */
+  | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))}
   | gsum                                {adorn (GSum $1)}
   | LPAR ubprocess RPAR                 {$2}
   | IF ubif FI                          {$2}
 
-/* procmatches:
+procmatches:
   | procmatch                           {[$1]}
   | procmatch GPLUS procmatches         {$1::$3}
   
 procmatch:
-  | pattern DOT process                 {$1,$3} */
+  | pattern DOT process                 {$1,$3}
   
 ubif: 
   | expr THEN ubprocess ELSE ubprocess  {adorn (Cond ($1, $3, $5))}
@@ -267,36 +257,55 @@ args:
   |                                     {[]}
   | ntexprs                             {$1}
 
-/* pattern:
-  | UNDERSCORE                          {eadorn (EVar "")}
-  | name                                {eadorn (EVar $1)}
-  | BIT0                                {eadorn (EBit false)}
-  | BIT1                                {eadorn (EBit true)}
-  | INT                                 {eadorn (EInt (int_of_string $1))}
-  | TRUE                                {eadorn (EBool (true))}
-  | FALSE                               {eadorn (EBool (false))}
-  | CHAR                                {eadorn (EChar $1)}
-  | STRING                              {eadorn (EString $1)}
-  | VZERO                               {eadorn (EBasisv BVzero) }
-  | VONE                                {eadorn (EBasisv BVone )  }
-  | VPLUS                               {eadorn (EBasisv BVplus) }
-  | VMINUS                              {eadorn (EBasisv BVminus) }
-  | ugate                               {eadorn (EGate $1)}
+pattern:
+  | conspattern                         {$1}
+  | conspattern COMMA conspatterns      {padorn (Pattern.delist ($1::$3))}
+  
+conspatterns:
+  | conspattern                         {[$1]}
+  | conspattern COMMA conspatterns      {$1::$3}
+  
+conspattern:
+  | simplepattern                       {$1}
+  | simplepattern CONS conspattern      {padorn (PatCons ($1,$3))}
+  
+simplepattern:
+  | UNDERSCORE                          {padorn PatAny}
+  | name                                {padorn (PatName $1)}
+  | BIT0                                {padorn (PatInt 0)}
+  | BIT1                                {padorn (PatInt 1)}
+  | INT                                 {padorn (PatInt (int_of_string $1))}
+  | TRUE                                {padorn (PatBool (true))}
+  | FALSE                               {padorn (PatBool (false))}
+  | CHAR                                {padorn (PatChar $1)}
+  | STRING                              {padorn (PatString $1)}
+  | basisv                              {padorn (PatBasisv $1) }
+  | HADAMARD                            {padorn (PatGate (adorn PatH))}
+  | CNOT                                {padorn (PatGate (adorn PatCnot))}
+  | I                                   {padorn (PatGate (adorn PatI))}
+  | X                                   {padorn (PatGate (adorn PatX))}
+  | Y                                   {padorn (PatGate (adorn PatY))}
+  | Z                                   {padorn (PatGate (adorn PatZ))}
+  | PHI LPAR pattern RPAR               {padorn (PatGate (adorn (PatPhi ($3))))}
   | LSQPAR patternlist RSQPAR           {$2}
-  | pattern CONS pattern                {eadorn (ECons ($1,$3))}
-  | LPAR RPAR                           {eadorn EUnit}
-  | patterns                            {eadorn (Expr.delist (get_sourcepos()) $1)}
+  | LPAR RPAR                           {padorn PatUnit}
   | LPAR pattern RPAR                   {$2}
   
 patternlist:
-  |                                     {eadorn ENil}
-  | pattern                             {eadorn (ECons ($1, eadorn ENil))}
-  | pattern SEMICOLON patternlist       {eadorn (ECons ($1,$3))}
+  |                                     {padorn PatNil}
+  | pattern                             {padorn (PatCons ($1, padorn PatNil))}
+  | pattern SEMICOLON patternlist       {padorn (PatCons ($1,$3))}
   
 patterns:
   | pattern                             {[$1]}
-  | pattern COMMA patternlist           {$1::$3} */
+  | pattern COMMA patterns              {$1::$3}
   
+basisv:
+  | VZERO                               {BVzero }
+  | VONE                                {BVone  }
+  | VPLUS                               {BVplus }
+  | VMINUS                              {BVminus}
+
 primary:
   | LPAR RPAR                           {eadorn EUnit}
   | name                                {eadorn (EVar $1)}
@@ -307,13 +316,10 @@ primary:
   | FALSE                               {eadorn (EBool (false))}
   | CHAR                                {eadorn (EChar $1)}
   | STRING                              {eadorn (EString $1)}
-  | VZERO                               {eadorn (EBasisv BVzero) }
-  | VONE                                {eadorn (EBasisv BVone )  }
-  | VPLUS                               {eadorn (EBasisv BVplus) }
-  | VMINUS                              {eadorn (EBasisv BVminus) }
+  | basisv                              {eadorn (EBasisv $1) }
   | ugate                               {eadorn (EGate $1)}
   | LSQPAR exprlist RSQPAR              {$2}
-  | LPAR ntexprs RPAR                   {Expr.delist (get_sourcepos()) $2}
+  | LPAR ntexprs RPAR                   {eadorn (Expr.delist $2)}
   | IF eif FI                           {eadorn($2.inst.enode)}
   
 eif:
@@ -363,6 +369,8 @@ ugate:
   | CNOT                                {adorn GCnot}
   | I                                   {adorn GI}
   | X                                   {adorn GX}
+  | Y                                   {adorn GY}
+  | Z                                   {adorn GZ}
   | PHI LPAR expr RPAR                  {adorn (GPhi ($3))}
 
 exprlist:

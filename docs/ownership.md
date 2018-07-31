@@ -107,7 +107,7 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 	
 	Qbits aren't things you can compare. But you could compare indices ... 
 	
-	The qbit index is private information for the implementation. In Qtpi it's currently a global integer. So if you ask whether two qbits are the same -- e.g.
+	A qbit's index is private information for the implementation. In Qtpi it's currently a global integer. So if you ask whether two qbits are the same -- e.g.
   
 			if q1=q2 then ..
 		
@@ -121,19 +121,27 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 	
 	You and I know what we mean by *hd* and *tl*, by *fst* and *snd*. But these are library functions: the interpreter doesn't understand them. Even though it knows from type information that given  *qs: qbit list*, *hd qs* will deliver a qbit, it doesn't know which one of the list it will get. And even we don't know much about *hd (rev qs)*.
 	
-	In the (possibly near) future it will be possible to take tuples and lists apart using pattern-matching, which the interpreter does understand.
+	Pattern matching softens the blow of this restriction. 
+	
+  * **Match expressions can't take apart argument lists of qbits**
+  
+	This is a stunner. A process can take an argument which is a list of qbits (or a list of values containing qbits, same difference). Match *processes* can look at the list and branch according to its contents,and that's a nice tree-shaped execution structure, so that's ok. Match *expressions* cause too many problems, especially if you try to match against a match expression ... (etc.), because you get a dag-shaped execution diagram.
+	
+The first two restrictions make the resource-checking algorithm simpler. The third is essential.I haven't imposed a restriction which entirely prevents tuples and lists containing qbits since it appears to be unnecessary and would be very restrictive.
 
-The first two restrictions make the resource-checking algorithm simpler. The third is essential. I haven't proposed a typing restriction which prevents tuples and lists containing qbits since it appears to be unnecessary and seems to be very restrictive.
+It might seem reasonable to ban qbit-valued conditional and match expressions: they decrease the accuracy of resource-checking and can cause spurious cloning errors. A ban remains a possibility. Some uses are outlawed, such as
 
-It might seem reasonable to ban qbit-valued conditional expressions: they decrease the accuracy of resource-checking and can cause spurious cloning errors. But examples like
+		c ! if a=0 then q1 else q2 fi
+
+Others are harmless, such as
 
 		if a=0 then q1 else q2 fi >> _H
-		
-may prove useful. A ban remains a possibility.
+
+Match expressions are equally problematic, but equally to be permitted (for the time being).
 
 ## A Resource-checking Algorithm
 
-Qbits in existence when a process starts can be delivered via its arguments. We assume (a non-cloning invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but since you can't yet take them apart (see above) that's not yet a problem.
+Qbits in existence when a process starts can be delivered via its arguments. We assume (a non-cloning invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but we number them when they appear in match patterns.
 
 When we read a qbit with *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
 

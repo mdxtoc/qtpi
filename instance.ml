@@ -31,6 +31,6 @@ let adorn_x x = adorn x.pos
 
 let strip_pos {pos=pos; inst=inst} = inst
 
-let pos_of_list ps =
-  let sps = List.map (fun {pos=pos} -> pos) ps in
+let pos_of_instances is =
+  let sps = List.map (fun {pos=pos} -> pos) is in
   enclosingspos_of_sposs sps

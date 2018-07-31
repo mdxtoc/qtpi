@@ -292,10 +292,10 @@ let arity_of_ugate ug =
   | GPhi _  -> 1
   | GCnot   -> 2
 
-let delist pos = function
-  | []  -> eadorn pos EUnit
-  | [e] -> e
-  | es  -> eadorn pos (ETuple es)
+let delist = function
+  | []  -> EUnit
+  | [e] -> e.inst.enode
+  | es  -> ETuple es
   
 let relist e = 
   match e.inst.enode with

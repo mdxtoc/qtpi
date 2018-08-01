@@ -74,7 +74,7 @@
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH HCTAM
 %token QUERY BANG MEASURE THROUGH 
-%token PLUSPLUS PLUS MINUS
+%token PLUSPLUS PLUS MINUS DIV
 %token EQUALS NOTEQUAL
 %token APPEND CONS
 %token AND OR
@@ -87,8 +87,8 @@
 %right CONS
 %left AND OR
 %nonassoc EQUALS NOTEQ
-%left PLUS MINUS
-%left PLUSPLUS
+%left PLUS MINUS PLUSPLUS
+%left DIV
 %left APPEND
 
 %right TYPEARROW
@@ -353,6 +353,7 @@ app:
   | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
+  | ntexpr DIV ntexpr                   {$1,Div,$3}
   | ntexpr PLUS ntexpr                  {$1,Plus,$3}
   | ntexpr MINUS ntexpr                 {$1,Minus,$3}
   

@@ -134,6 +134,7 @@ rule make_token = parse
   | "++"        {PLUSPLUS}
   | '+'         {PLUS}
   | '-'         {MINUS}
+  | '/'         {DIV}
   
   | "|0>"       {VZERO}
   | "|1>"       {VONE}

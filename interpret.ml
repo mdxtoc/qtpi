@@ -165,14 +165,14 @@ and short_string_of_env env =
 and string_of_runner (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
-                 (string_of_process proc)
+                 (short_string_of_process proc)
                  (short_string_of_env env)
                  
 and string_of_rwaiter (n, vars, proc, env) = 
   Printf.sprintf "%s = (%s)%s %s" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
-                 (string_of_process proc)
+                 (short_string_of_process proc)
                  (short_string_of_env env)
                  
 and short_string_of_rwaiter (n, vars, proc, env) = (* infinite loop if we print the environment *)
@@ -184,7 +184,7 @@ and string_of_wwaiter (n, vals, proc, env) =
   Printf.sprintf "%s = (%s)%s %s" 
                  (string_of_name n)
                  (string_of_list string_of_value ";" vals)
-                 (string_of_process proc)
+                 (short_string_of_process proc)
                  (short_string_of_env env)
                  
 and short_string_of_wwaiter (n, vals, proc, env) = (* infinite loop if we print the environment *)
@@ -273,12 +273,17 @@ let v_append vs vs' =
   in
   stitch vs' (v_rev vs)
   
-let rec v_iter f = function
-  | VCons (hd,tl)   -> ignore (f hd); v_iter f tl
-  | VNil            -> VUnit
-  | v               -> miseval "v_iter" v 
+let v_iter f vs = 
+  let f = funv f in
+  let rec doit = function
+    | VCons (hd,tl)   -> ignore (f hd); doit tl
+    | VNil            -> VUnit
+    | v               -> miseval "v_iter" v 
+  in
+  doit vs
   
 let v_map f vs =
+  let f = funv f in
   let rec m rs = function
     | VCons (hd,tl)   -> m (VCons (f hd, rs)) tl
     | VNil            -> v_rev rs
@@ -286,7 +291,28 @@ let v_map f vs =
   in
   m VNil vs
   
-
+let v_take n vs =
+  let n = intv n in
+  let rec take rs n vs =
+    match n, vs with
+    | 0, _  
+    | _, VNil           -> v_rev rs
+    | _, VCons(v,vs)    -> take (VCons (v,rs)) (n-1) vs
+    | _                 -> miseval "v_take" vs
+  in
+  take VNil n vs
+  
+let rec v_drop n vs =
+  let n = intv n in
+  let rec drop n vs =
+    match n, vs with
+    | 0, _  
+    | _, VNil           -> vs
+    | _, VCons(_,vs)    -> drop (n-1) vs
+    | _                 -> miseval "v_drop" vs
+  in
+  drop n vs
+  
 (* ******************** the interpreter proper ************************* *)
 
 (* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
@@ -475,7 +501,7 @@ let rec interp sysenv proc =
   let addstuck stuck = Queue.push stuck stucks in
   let rec step () =
     if RunnerQueue.is_empty runners then 
-      if !verbose_qsim || !show_final then
+      if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
         Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
                       (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                       (string_of_queue string_of_stuck "\n" stucks)

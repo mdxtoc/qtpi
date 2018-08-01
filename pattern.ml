@@ -27,7 +27,8 @@ open Functionutils
 open Instance
 open Name
 open Type
-open Expr
+open Basisv
+open Printpriority
 
 type pattern = pinst instance
 

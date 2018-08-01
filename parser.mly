@@ -30,6 +30,7 @@
   open Type
   open Name
   open Expr
+  open Basisv
   open Pattern
   open Sourcepos
   open Instance

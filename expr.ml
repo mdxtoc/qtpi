@@ -29,6 +29,9 @@ open Name
 open Sourcepos
 open Instance
 open Type
+open Pattern
+open Basisv
+open Printpriority
 
 exception Error of string
 
@@ -51,18 +54,13 @@ and enode =
   | ECons of expr * expr
   | ENil
   | ECond of expr * expr * expr
+  | EMatch of expr * ematch list
   | EApp of expr * expr
   | EArith of expr * arithop * expr
   | ECompare of expr * compareop * expr
   | EBoolArith of expr * boolop * expr
   | EAppend of expr * expr
   | EBitCombine of expr * expr
-
-and basisv =
-  | BVzero
-  | BVone
-  | BVplus
-  | BVminus
 
 and ugate = ugnode instance
 
@@ -95,7 +93,9 @@ and boolop =
   | Or
   | Implies
   | Iff
-  
+
+and ematch = pattern * expr
+
 let ewrap opt enode = {etype=ref opt; enode=enode}
 
 let eadorn pos = adorn pos <.> ewrap None
@@ -111,14 +111,6 @@ let rec list_of_expr e =
   | ENil          -> Some []    
   | ECons (hd,tl) -> list_of_expr tl &~~ (fun es -> Some (hd::es)) 
   | _             -> None
-  
-type prioritydir = Left | Right | Assoc | NonAssoc
-
-let string_of_prioritydir = function
-  | Left     -> "Left"
-  | Right    -> "Right"
-  | Assoc    -> "Assoc"
-  | NonAssoc -> "NonAssoc"
   
 let tupleprio               =  NonAssoc, -10
 
@@ -144,14 +136,6 @@ let abitlessthanprimaryprio =  NonAssoc, 900
 
 (* let string_of_prio = bracketed_string_of_pair string_of_prioritydir string_of_int *)
 
-let mustbracket_left (lassoc,lprio) (supassoc, supprio) =
-  lprio<supprio || (lprio=supprio && match supassoc with | Left | Assoc -> false |_ -> true)
-
-let mustbracket_right (supassoc, supprio) (rassoc,rprio) =
-  supprio>rprio || (supprio=rprio && match supassoc with | Right | Assoc -> false |_ -> true)
-
-let mustbracket_nonassoc (_,supprio) (_,subprio) = subprio <= supprio
-
 let rec exprprio e = 
   match e.inst.enode with 
   | EUnit                   
@@ -164,7 +148,8 @@ let rec exprprio e =
   | EBit        _ 
   | EBasisv     _
   | EGate       _
-  | ECond       _           -> primaryprio
+  | ECond       _           
+  | EMatch      _           -> primaryprio
   | EMinus      _           -> unaryprio
   | EApp        _           -> appprio
   | ECons       _           -> if is_nilterminated e then primaryprio else consprio
@@ -197,6 +182,7 @@ let rec string_of_primary e =
                         | Some es -> bracketed_string_of_list string_of_expr es
                         | None    -> bad ()
                        )
+  | EMatch (e, ems) -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list string_of_ematch "<+>" ems)
   | ECond (c,e1,e2) -> Printf.sprintf "if %s then %s else %s fi"
                                       (string_of_expr c)
                                       (string_of_expr e1)
@@ -232,7 +218,8 @@ and string_of_expr e =
   | EBool       _
   | EChar       _
   | EString     _ 
-  | ECond       _                   -> string_of_primary e
+  | ECond       _                   
+  | EMatch      _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 (if exprprio e2 = primaryprio then " " else "") appprio
   | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
@@ -265,13 +252,6 @@ and string_of_boolop = function
   | Implies -> "=>"
   | Iff     -> "<=>"
 
-and string_of_basisv bv =
-  match bv with
-  | BVzero				-> "|0>"
-  | BVone				-> "|1>"
-  | BVplus				-> "|+>"
-  | BVminus				-> "|->"
-  
 and string_of_ugate ug = 
   match ug.inst with
   | GH              -> "_H"  
@@ -281,6 +261,9 @@ and string_of_ugate ug =
   | GZ              -> "_Z"
   | GCnot           -> "_CNot"
   | GPhi (e)        -> Printf.sprintf "_Phi(%s)" (string_of_expr e)
+
+and string_of_ematch (pat,e) =
+  Printf.sprintf "%s.%s" (string_of_pattern pat) (string_of_expr e)
 
 let arity_of_ugate ug =
   match ug.inst with

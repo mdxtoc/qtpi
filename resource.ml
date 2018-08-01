@@ -191,6 +191,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                )
     | EMinus     e          -> ctfa_expr e
     | ETuple     es         -> List.iter ctfa_expr es
+    | EMatch      (em,ems)  -> raise (ResourceError (e.pos, "cannot ctfa match expressions yet"))
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
@@ -387,6 +388,7 @@ let resources_of_expr state env e =
                                                        )
                                         )
                                )
+    | EMatch      (em,ems)  -> raise (ResourceError (e.pos, "cannot rck match expressions yet"))
     | ECond       (ce,e1,e2)-> let _ , used0 = re Ubool ce in
                                let r1, used1 = re use e1 in
                                let r2, used2 = re use e2 in

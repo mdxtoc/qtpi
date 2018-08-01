@@ -220,10 +220,10 @@ let newqbit = (* hide the reference *)
      let q = !qbitcount in 
      qbitcount := !qbitcount+1; 
      let vec = match vopt with
-               | Some Expr.BVzero  -> Array.copy v_0
-               | Some Expr.BVone   -> Array.copy v_1
-               | Some Expr.BVplus  -> Array.copy v_plus
-               | Some Expr.BVminus -> Array.copy v_minus
+               | Some Basisv.BVzero  -> Array.copy v_0
+               | Some Basisv.BVone   -> Array.copy v_1
+               | Some Basisv.BVplus  -> Array.copy v_plus
+               | Some Basisv.BVminus -> Array.copy v_minus
 			   | None              -> if !Settings.symbq then
 										Array.init 2 (fun i -> Psymb (i=1, q)) 
 									  else (* random basis, random fixed value *)
@@ -240,7 +240,7 @@ let newqbit = (* hide the reference *)
        Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
                      (Name.string_of_name pn)
                      (Name.string_of_name n)
-                     (string_of_option Expr.string_of_basisv vopt)
+                     (string_of_option Basisv.string_of_basisv vopt)
                      (string_of_qbit q)
                      (string_of_qbit q)
                      (string_of_qval qv);

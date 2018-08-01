@@ -99,6 +99,7 @@ let rec rewrite_expr cxt e =
        | EMinus      e          -> rewrite_expr cxt e
        | ETuple      es         -> List.iter (rewrite_expr cxt) es
        | ECond       (e1,e2,e3) -> List.iter (rewrite_expr cxt) [e1;e2;e3]
+       | EMatch      (e,ems)    -> raise (TypeCheckError (e.pos, "cannot rewrite match expressions yet"))
        | ECons       (e1,e2)
        | EApp        (e1,e2)     
        | EAppend     (e1,e2)
@@ -317,6 +318,7 @@ and assigntype_expr cxt t e =
                                let t'' = (adorn e (List t')) in
                                let cxt = assigntype_expr cxt t'' tl in
                                unifytype cxt t t''
+     | EMatch (m,ems)       -> raise (TypeCheckError (e.pos, "can't interpret match expressions yet"))
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn c Bool) t t c e1 e2
      | EArith (e1,_,e2)     -> binary cxt (adorn e Int)  (adorn e1 Int)  (adorn e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 

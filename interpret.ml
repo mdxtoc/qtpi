@@ -28,6 +28,7 @@ open Sourcepos
 open Instance
 open Name
 open Expr
+open Basisv
 open Pattern
 open Type
 open Param
@@ -319,6 +320,7 @@ let rec evale env e =
   | ETuple es           -> VTuple (List.map (evale env) es)
   | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
   | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
+  | EMatch (e,ems)      -> raise (Error (e.pos, "can't interpret match expressions yet"))
   | EApp (f,a)          -> let fv = funev env f in
                            fv (evale env a)
   | EArith (e1,op,e2)   -> let v1 = intev env e1 in

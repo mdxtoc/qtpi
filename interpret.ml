@@ -55,7 +55,6 @@ let string_of_queue string_of_v sep q =
 module rec Types : sig
   type value =
     | VUnit
-    | VNil
     | VInt of int
     | VBool of bool
     | VChar of char
@@ -65,7 +64,7 @@ module rec Types : sig
     | VQbit of qbit
     | VChan of chan
     | VTuple of value list
-    | VCons of value * value
+    | VList of value list
     | VFun of (value -> value)        
     | VProcess of name list * iprocess
 
@@ -102,7 +101,6 @@ let string_of_pqueue string_of sep es =
 let rec string_of_value v =
   match v with
   | VUnit           -> "()"
-  | VNil            -> "[]"
   | VInt i          -> string_of_int i
   | VBool b         -> string_of_bool b
   | VBasisv bv      -> string_of_basisv bv
@@ -112,7 +110,7 @@ let rec string_of_value v =
   | VQbit q         -> "Qbit " ^ string_of_qbit q
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
-  | VCons _         -> bracketed_string_of_list string_of_value (list_of_value v)
+  | VList vs        -> bracketed_string_of_list string_of_value vs
   | VFun f          -> "(..->..)"
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
@@ -123,18 +121,11 @@ and short_string_of_value v =
   | VQbit q         -> "Qbit " ^ short_string_of_qbit q
   | VChan c         -> "Chan " ^ short_string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list short_string_of_value "," vs ^ ")"
-  | VCons _         -> bracketed_string_of_list short_string_of_value (list_of_value v)
+  | VList vs        -> bracketed_string_of_list short_string_of_value vs
   | VProcess (ns,p) -> Printf.sprintf "process (%s)"
                                       (string_of_list string_of_name "," ns)
   | v               -> string_of_value v
   
-(* this is listv, actually. But don't tell anybody *)
-and list_of_value = function
-  | VNil          -> []    
-  | VCons (hd,tl) -> hd :: list_of_value tl 
-  | v             -> raise (Error (dummy_spos, "list_of_value (" ^ string_of_value v ^ ")"))
-  
-
 and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
     let string_of_qelement = function
       | [v] -> string_of_value v
@@ -213,7 +204,6 @@ let (<@?>) env n     = NameMap.mem    n env
 
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
-(* listv and vlist are possible but too expensive *)
 let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
 let intv    = function VInt    i       -> i      | v -> miseval "intv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
@@ -224,7 +214,8 @@ let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
 let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
 let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
-let funv    = function VFun    f       -> f      | v -> miseval "pairv"    v
+let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
+let funv    = function VFun    f       -> f      | v -> miseval "funv"    v
 
 let vunit   ()  = VUnit
 let vint    i   = VInt    i
@@ -235,6 +226,7 @@ let vgate   g   = VGate   g
 let vchan   c   = VChan   c
 let vqbit   q   = VQbit   q
 let vpair   a b = VTuple  [a;b]
+let vlist   vs  = VList   vs
 let vfun    f   = VFun    f
 
 let mistyped pos thing v shouldbe =
@@ -245,74 +237,6 @@ let mistyped pos thing v shouldbe =
                )
         )
 
-(* ******************** a little library of list functions ************************* *)
-
-let v_hd = function
-  | VCons (hd,tl)   -> hd
-  | VNil            -> raise (Error (dummy_spos, "hd []"))
-  | v               -> miseval "v_hd" v
-
-let v_tl = function
-  | VCons (hd,tl)   -> tl
-  | VNil            -> raise (Error (dummy_spos, "tl []"))
-  | v               -> miseval "v_tl" v
-
-let v_rev v =
-  let rec r rs = function
-    | VCons (hd,tl)   -> r (VCons (hd,rs)) tl
-    | VNil            -> rs
-    | v               -> miseval "v_rev" v
-  in
-  r VNil v
-  
-let v_append vs vs' =
-  let rec stitch rs = function
-    | VCons (hd,tl)   -> stitch (VCons (hd,rs)) tl
-    | VNil            -> rs
-    | v               -> miseval "v_append" v
-  in
-  stitch vs' (v_rev vs)
-  
-let v_iter f vs = 
-  let f = funv f in
-  let rec doit = function
-    | VCons (hd,tl)   -> ignore (f hd); doit tl
-    | VNil            -> VUnit
-    | v               -> miseval "v_iter" v 
-  in
-  doit vs
-  
-let v_map f vs =
-  let f = funv f in
-  let rec m rs = function
-    | VCons (hd,tl)   -> m (VCons (f hd, rs)) tl
-    | VNil            -> v_rev rs
-    | v               -> miseval "v_map" v 
-  in
-  m VNil vs
-  
-let v_take n vs =
-  let n = intv n in
-  let rec take rs n vs =
-    match n, vs with
-    | 0, _  
-    | _, VNil           -> v_rev rs
-    | _, VCons(v,vs)    -> take (VCons (v,rs)) (n-1) vs
-    | _                 -> miseval "v_take" vs
-  in
-  take VNil n vs
-  
-let rec v_drop n vs =
-  let n = intv n in
-  let rec drop n vs =
-    match n, vs with
-    | 0, _  
-    | _, VNil           -> vs
-    | _, VCons(_,vs)    -> drop (n-1) vs
-    | _                 -> miseval "v_drop" vs
-  in
-  drop n vs
-  
 (* ******************** the interpreter proper ************************* *)
 
 (* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
@@ -353,7 +277,7 @@ let matcher pos env pairs value =
     match pat.inst.pnode, v with
     | PatAny            , _                 
     | PatUnit           , VUnit             
-    | PatNil            , VNil              -> yes env
+    | PatNil            , VList []          -> yes env
     | PatName   n       , _                 -> yes (env<@+>(n,v))
     | PatInt    i       , VInt    i'        -> maybe i i'
     | PatBool   b       , VBool   b'        -> maybe b b'
@@ -370,16 +294,16 @@ let matcher pos env pairs value =
                                                 | PatPhi p, GatePhi i -> succeed env (([p],[VInt i])::work) rhs pairs
                                                 | _                   -> no ()
                                                )
-    | PatCons   (ph,pt) , VCons   (vh,vt)   -> succeed env (([ph;pt],[vh;vt])::work) rhs pairs
+    | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
     | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
-    | _                                     -> no () (* can happen: PNil vs VCons, PCons vs VNil *)
+    | _                                     -> no () (* can happen: PNil vs ::, PCons vs [] *)
   in
   fail pairs
   
 let rec evale env e =
   match e.inst.enode with
   | EUnit               -> VUnit
-  | ENil                -> VNil
+  | ENil                -> VList []
   | EVar n              -> (try env<@>n 
                             with Invalid_argument _ -> 
                               raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
@@ -393,7 +317,7 @@ let rec evale env e =
   | EGate uge           -> VGate (ugev env uge)
   | EMinus e            -> VInt (- (intev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)
-  | ECons (hd,tl)       -> VCons (evale env hd, evale env tl)
+  | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
   | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
   | EApp (f,a)          -> let fv = funev env f in
                            fv (evale env a)
@@ -428,8 +352,7 @@ let rec evale env e =
                                       | Implies   -> (not v1) || v2
                                       | Iff       -> v1 = v2
                                    )
-  | EAppend (es, es')       -> (* jeez, this is expensive. Definitional Interpreters strikes again *)
-                               v_append (evale env es) (evale env es')
+  | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
   | EBitCombine (e1, e2)    -> let v1 = intev env e1 in
                                let v2 = intev env e2 in
                                VInt (v1*2+v2)
@@ -463,6 +386,11 @@ and pairev env e =
   match evale env e with
   | VTuple [e1;e2] -> e1, e2
   | v              -> mistyped e.pos (string_of_expr e) v "a pair"
+
+and listev env e =
+  match evale env e with
+  | VList vs -> vs
+  | v        -> mistyped e.pos (string_of_expr e) v "a list"
 
 and funev env e = 
   match evale env e with

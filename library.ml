@@ -21,6 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
+open Sourcepos
 open Functionutils
 open Interpret
 
@@ -33,9 +34,54 @@ open Interpret
 let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
 let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
+let v_hd vs =
+  let vs = listv vs in
+  try List.hd vs with _ -> raise (Error (dummy_spos, "hd []"))
+
+let v_tl vs =
+  let vs = listv vs in
+  try vlist (List.tl vs) with _ -> raise (Error (dummy_spos, "tl []"))
+  
+let v_append xs ys =
+  let xs = listv xs in
+  let ys = listv ys in
+  vlist (List.append xs ys)
+  
+let v_iter f xs =
+  let f = funv f in
+  let xs = listv xs in
+  vunit (List.iter (fun v -> ignore (f v)) xs)
+
+let v_map f xs =
+  let f = funv f in
+  let xs = listv xs in
+  vlist (List.map f xs)
+
+let v_take n xs =
+  let n = intv n in
+  let xs = listv xs in
+  let rec take rs n xs =
+    match n, xs with
+    | 0, _
+    | _, []     -> vlist (List.rev rs)
+    | _, x::xs  -> take (x::rs) (n-1) xs
+  in
+  take [] n xs
+  
+let v_drop n xs =
+  let n = intv n in
+  let xs = listv xs in
+  let rec drop n xs =
+    match n, xs with
+    | 0, _
+    | _, []     -> vlist []
+    | _, x::xs  -> drop (n-1) xs
+  in
+  drop n xs
+  
 let _ = Interpret.know ("hd"      , "'a list -> 'a"                     , vfun v_hd)
 let _ = Interpret.know ("tl"      , "'a list -> 'a list"                , vfun v_tl)
-let _ = Interpret.know ("rev"     , "'a list -> 'a list"                , vfun v_rev)
+let _ = Interpret.know ("rev"     , "'a list -> 'a list"                , vfun (vlist <.> List.rev <.> listv))
 let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list"     , vfun2 v_append)
 let _ = Interpret.know ("iter"    , "('a -> unit) -> 'a list -> unit"   , vfun2 v_iter)
 let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 v_map)

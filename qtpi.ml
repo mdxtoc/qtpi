@@ -34,8 +34,6 @@ open Typecheck
 open Resource
 open Interpret
 open Param
-open Library (* until we have dynamic loading *)
-open Pervasives (* to hide the library, I hope *)
 
 exception Error of string
 
@@ -76,4 +74,5 @@ let _ = match !Usage.files with
                 | Library.Abandon s      -> Printf.printf "\n\n** execution abandoned -- %s\n" s
                 | exn                    -> Printf.printf "\n\n** unexpected exception %s **\n"
                                                           (Printexc.to_string exn)
-                
+
+open Library (* pull it in, I hope *)                

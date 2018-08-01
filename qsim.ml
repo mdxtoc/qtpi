@@ -338,20 +338,19 @@ and simplify_sum ps =
             (* | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s *)
             | _                    -> Pervasives.compare p1 p2
           in
-          let rec double p1 p2 = (* looking for h(k)*X+h(k)*X. We know p1=p2 *)
-            let r = match p1, p2 with
-                    | Pneg p1           , Pneg p2                          
-                            -> double p1 p2 &~~ (_Some <.> neg)
-                    | Pprod (P_h i::p1s), Pprod (P_h j::p2s) when i>=2                               
+          let rec double p1 = (* looking for h(k)*X+h(k)*X. We know p1=p2 *)
+            let r = match p1 with
+                    | Pneg p1                        
+                            -> double p1 &~~ (_Some <.> neg)
+                    | Pprod (P_h i::p1s) when i>=2                               
                             -> Some (simplify_prod (sqrt_half (i-2) :: p1s))
-                    | P_h i             , P_h j              when i>=2                               
+                    | P_h i              when i>=2                               
                             -> Some (sqrt_half (i-2))
                     | _     -> None
             in
             if !verbose_simplify then
-              Printf.printf "double (%s) (%s) -> %s\n" (string_of_prob p1)  
-                                                       (string_of_prob p2)
-                                                       (string_of_option string_of_prob r);
+              Printf.printf "double (%s) -> %s\n" (string_of_prob p1)  
+												  (string_of_option string_of_prob r);
             r
           in
           let rec a2b2 p1 p2 = (* looking for X*a**2+X*b**2 *)
@@ -392,7 +391,7 @@ and simplify_sum ps =
             | P_0                :: ps            -> sp again r ps
             | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
             | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
-            | p1      :: p2      :: ps when p1=p2 -> (match double p1 p2 with
+            | p1      :: p2      :: ps when p1=p2 -> (match double p1 with
                                                       | Some p -> sp true (p::r) ps
                                                       | None   -> sp again (p1::r) (p2::ps)
                                                      )
@@ -416,7 +415,6 @@ and simplify_sum ps =
   if !verbose_simplify then
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_prob (Psum ps)) (string_of_prob r);
   r
-
 
 and sqrt_half i =   (* (1/sqrt 2)**i *)
   let r = if i=0 then P_1 else P_h i in
@@ -742,7 +740,7 @@ let qmeasure pn  q =
              else (let rg = Random.float 1.0 in
                    let rec iexp i rf = if i=0 then rf else iexp (i-1) (rf/.sqrt 2.0) in
                    let r = if iexp i 1.0 < rg then 1 else 0 in
-                   if !verbose_qsim then Printf.printf " guessing %d;" r;
+                   if !verbose_qsim then Printf.printf " (biased) guessing %d;" r;
                    r
                   )
   | _     -> guess ()

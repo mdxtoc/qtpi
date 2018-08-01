@@ -1,7 +1,7 @@
 <h1>qtpi language description</h1>
 <p>Based on CQP (Gay &amp; Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I don't like hiding state-changing operations inside expressions (e.g. unary gates, measurement); some to be closer to the pi calculus; new operators intended to be easy to read.</p>
 <h2>Grammar</h2>
-<p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, gate expressions <em>G</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
+<p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, patterns <em>pat</em>, gate expressions <em>G</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
 <ul>
 <li>
 <p>Process <em>P</em></p>
@@ -9,6 +9,7 @@
 | <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em><br />
 | <em>P</em> <code>|</code> ... <code>|</code> <em>P</em><br />
 | <code>if</code> <em>E</em> <code>then</code> <em>P</em> <code>else</code> <em>P</em> <code>fi</code><br />
+| <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>pat</em> <code>.</code> <em>P</em> <code>hctam</code><br />
 | <code>( new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
 | <code>( newq</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>)</code> <em>P</em><br />
 | <code>( let</code> <em>par</em> = <em>E</em> <code>)</code> <em>P</em><br />
@@ -19,18 +20,10 @@
 <li><code>new</code> creates channels.</li>
 <li><code>newq</code> creates qbits. Initialisation to basis vectors is optional (without it you get (<em>a</em><code>|0&gt;</code>+<em>b</em><code>|1&gt;</code>), for unknown <em>a</em> and <em>b</em>, where <em>a</em><sup>2</sup>+<em>b</em><sup>2</sup>=1.</li>
 <li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> is not yet supported: single input-output steps only at present. It uses the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
-<li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have parsing problems.</li>
+<li>match processes also use the &lt;+&gt; separator, because both guarded sum and match offer a disjunctive choice of alternatives. That makes it odd that parallel composition uses <code>|</code> ... And then because they both use the same separator, the sub-processes in matches often have to be bracketed. So it's a bit of a parsing mess at present.</li>
+<li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have caused parsing problems.</li>
 <li>The <code>{</code> <em>E</em> <code>}</code> step of CQP is not included, mostly because it hid quantum steps, which are now exposed.</li>
 <li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.</li>
-</ul>
-</li>
-<li>
-<p>proposed syntax for pattern matching</p>
-<p>| <code>match</code> <em>E</em> <code>.</code> <em>msum</em> <code>hctam</code></p>
-<p><em>msum</em> ::= <em>pattern</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>pattern</em> <code>.</code> <em>P</em></p>
-<ul>
-<li>similarly for pattern matching in expressions. Uses dots (periods, full stops) rather than <code>with</code> and <code>-&gt;</code> of OCaml; uses <code>&lt;+&gt;</code> as a separator because <code>|</code> is taken.</li>
-<li>a closing bracket.</li>
 </ul>
 </li>
 <li>
@@ -89,17 +82,29 @@
 </ul>
 </li>
 <li>
+<p>Pattern <em>pat</em></p>
+<p>| <code>_</code><br />
+| <em>n</em><br />
+| <em>pat</em> <code>::</code> <em>pat</em><br />
+| <em>pat</em> <code>,</code> ... <code>,</code> <em>pat</em><br />
+|<code>[]</code><br />
+| <code>()</code><br />
+| <em>constant</em>
+| <code>(</code> <em>pat</em> <code>)</code></p>
+</li>
+<li>
 <p>Expression <em>E</em></p>
 <p>The ususal stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants; <code>|0&gt;</code>, <code>|1&gt;</code>, <code>|+&gt;</code> and <code>|-&gt;</code> are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only &amp;&amp; and || so far).</p>
 <p>Conditionals are <code>if</code> <em>E</em> <code>then</code> E <code>else</code> E <code>fi</code>.
 Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left associative, so that <em>E</em> <em>E</em> <em>E</em> is (<em>E</em> <em>E</em>) <em>E</em>.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.</p>
 <p>No process stuff, no steps.</p>
+<p>No match expressions yet.</p>
 </li>
 <li>
 <p>Built-in operators</p>
 <ul>
 <li><code>@</code> (append) was an operator in one of Gay &amp; Nagarajan's examples.</li>
-<li>I haven't yet included <code>::</code> (cons), though I should.</li>
+<li><code>::</code> (cons) is now included.</li>
 <li><code>++</code> combines bits: <em>a</em><code>++</code><em>b</em> is <em>a</em> times 2 plus <em>b</em>. Included because it helps with range typing.</li>
 </ul>
 </li>
@@ -133,14 +138,32 @@ Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left as
 <li>
 <p>Interface functions</p>
 <p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
-<p><strong>BUT</strong>, <strong>but</strong>, <strong>but</strong>. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.</p>
+<p><strong>But</strong>, <em>but</em>, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.</p>
 <p>Here are the functions I currently provide. Easy to add more (see the file library.ml)</p>
 <ul>
 <li>
-<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em></p>
+<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em>  	(raises an error if applied to <code>[]</code>)</p>
 </li>
 <li>
-<p><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
+<p><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em>  	(raises an error if applied to <code>[]</code>)</p>
+</li>
+<li>
+<p><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
+</li>
+<li>
+<p><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
+</li>
+<li>
+<p><em>iter</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>unit</em></p>
+</li>
+<li>
+<p><em>map</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>'b list</em></p>
+</li>
+<li>
+<p><em>take</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
+</li>
+<li>
+<p><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
 </li>
 <li>
 <p><em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em></p>
@@ -167,17 +190,12 @@ Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left as
 <p><em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></p>
 </li>
 <li>
-<p><em>hd</em>, <em>tl</em>, <em>fst</em> and <em>snd</em> do what you'd expect (but you can't use them to deliver qbits: see above).</p>
-</li>
-<li>
-<p><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</p>
-</li>
-<li>
-<p><em>abandon</em> stops the program and doesn't return (i.e. raises an exception).</p>
-</li>
-<li>
-<p><em>qbit_state</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector. The constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means <em>h</em><sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <em>q</em><code>:[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>0:[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</p>
+<p><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em></p>
 </li>
 </ul>
+<p><em>hd</em>, <em>tl</em>, <em>fst</em> and <em>snd</em> do what you'd expect (but you can't use them to deliver qbits: see above).<br />
+<em>read_int</em> and <em>read_string</em> take a prompt-string argument.<br />
+<em>abandon</em> stops the program and doesn't return (i.e. raises an exception).</p>
+<p><em>qbit_state</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <em>q</em><code>:[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>0:[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</p>
 </li>
 </ul>

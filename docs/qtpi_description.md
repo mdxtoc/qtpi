@@ -4,7 +4,7 @@ Based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some
 
 ## Grammar 
 
-Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, types *T*, process names *N*, variable names *x*, parameters *par*, gate expressions *G*. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.
+Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, types *T*, process names *N*, variable names *x*, parameters *par*, patterns *pat*, gate expressions *G*. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.
 
 * Process *P* 
 
@@ -12,6 +12,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P*   
   | *P* `|` ... `|` *P*   
   | `if` *E* `then` *P* `else` *P* `fi`  
+  | `match` *E* `.` *pat* `.` *P* `<+>` ... `<+>` *pat* `.` *P* `hctam`  
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *par* = *E* `)` *P*  
@@ -22,19 +23,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * `new` creates channels.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
   * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* is not yet supported: single input-output steps only at present. It uses the separator `<+>` instead of `+` to avoid parsing problems.  
-  * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have parsing problems.  
+  * match processes also use the <+> separator, because both guarded sum and match offer a disjunctive choice of alternatives. That makes it odd that parallel composition uses `|` ... And then because they both use the same separator, the sub-processes in matches often have to be bracketed. So it's a bit of a parsing mess at present.  
+  * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * The `{` *E* `}` step of CQP is not included, mostly because it hid quantum steps, which are now exposed.  
   * You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.
   
-* proposed syntax for pattern matching
-
-  | `match` *E* `.` *msum* `hctam`
-  
-  *msum* ::= *pattern* `.` *P* `<+>` ... `<+>` *pattern* `.` *P*
-  
-  * similarly for pattern matching in expressions. Uses dots (periods, full stops) rather than `with` and `->` of OCaml; uses `<+>` as a separator because `|` is taken.  
-  * a closing bracket.
-
 * Quantum step *Q*
   
   | *E* `,` *E* `,` ... `,` *E* `>>` *G*    
@@ -87,6 +80,18 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
   * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
 
+* Pattern *pat*
+
+  | `_`  
+  | *n*  
+  | *pat* `::` *pat*  
+  | *pat* `,` ... `,` *pat*  
+  |` []`  
+  | `()`  
+  | *constant* 
+  | `(` *pat* `)`  
+
+
 * Expression *E*
 
   The ususal stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
@@ -96,10 +101,12 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   
   No process stuff, no steps.  
   
+  No match expressions yet.  
+  
 * Built-in operators  
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples.  
-    * I haven't yet included `::` (cons), though I should.  
+    * `::` (cons) is now included.  
     * `++` combines bits: *a*`++`*b* is *a* times 2 plus *b*. Included because it helps with range typing.
 
 * Process name *N*
@@ -131,12 +138,18 @@ A program is an optional `given` list and then a bunch of process definitions. O
 
     We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples. 
     
-    **BUT**, **but**, **but**. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.
+    **But**, *but*, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.
     
     Here are the functions I currently provide. Easy to add more (see the file library.ml) 
     
-    * *hd*: *'a list* -> *'a*  
-	* *tl*: *'a list* -> *'a list*  
+    * *hd*: *'a list* -> *'a*  	(raises an error if applied to `[]`) 
+	* *tl*: *'a list* -> *'a list*  	(raises an error if applied to `[]`)  
+	* *rev*: *'a list* -> *'a list*
+	* *append*: *'a list* -> *'a list* -> *'a list*
+	* *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
+	* *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
+	* *take*: *int* -> *'a list* -> *'a list*
+	* *drop*: *int* -> *'a list* -> *'a list*
 	* *fst*: *'a*\**'b* -> *'a*  
 	* *snd*: *'a*\**'b* -> *'b*  
 	
@@ -148,13 +161,11 @@ A program is an optional `given` list and then a bunch of process definitions. O
 	* *qbit_state*: *qbit* -> *string*  
 
 	* *print_string*: *string* -> *unit*  
-	* *print_strings*: *string list* -> *unit*  
+	* *print_strings*: *string list* -> *unit* 
+	* *string_of_value*: *'a* -> *string*
 	
-	* *hd*, *tl*, *fst* and *snd* do what you'd expect (but you can't use them to deliver qbits: see above).  
-	* *read_int* and *read_string* take a prompt-string argument.  
+	 *hd*, *tl*, *fst* and *snd* do what you'd expect (but you can't use them to deliver qbits: see above).  
+	*read_int* and *read_string* take a prompt-string argument.  
+	*abandon* stops the program and doesn't return (i.e. raises an exception).  
 	
-	* *abandon* stops the program and doesn't return (i.e. raises an exception).  
-	
-	* *qbit_state* gives you a string *q*`:(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector. The constant `h` means *sqrt*(1/2), and `h(`*k*`)` means *h*<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like *q*`:[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `0:[0,1](h|00>+h|01>)`. And so on for larger entanglements.
-
-    
+	*qbit_state* gives you a string *q*`:(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like *q*`:[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `0:[0,1](h|00>+h|01>)`. And so on for larger entanglements.

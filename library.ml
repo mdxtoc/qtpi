@@ -31,13 +31,18 @@ open Interpret
  *)
 
 let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
+let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
-let _ = Interpret.know ("hd"      , "'a list -> 'a"                , vfun v_hd)
-let _ = Interpret.know ("tl"      , "'a list -> 'a list"           , vfun v_tl)
-let _ = Interpret.know ("rev"     , "'a list -> 'a list"           , vfun v_rev)
-let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list", vfun2 v_append)
-let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                  , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                  , vfun (Pervasives.snd <.> pairv))
+let _ = Interpret.know ("hd"      , "'a list -> 'a"                     , vfun v_hd)
+let _ = Interpret.know ("tl"      , "'a list -> 'a list"                , vfun v_tl)
+let _ = Interpret.know ("rev"     , "'a list -> 'a list"                , vfun v_rev)
+let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list"     , vfun2 v_append)
+let _ = Interpret.know ("iter"    , "('a -> unit) -> 'a list -> unit"   , vfun2 v_iter)
+let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 v_map)
+let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
+let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
+let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
 let read_int s = print_string ("\n" ^ s ^"? "); flush stdout; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
@@ -55,9 +60,8 @@ let qbit_state q =  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q)
                                         
 let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
 
-let print_string = Pervasives.print_string <.> stringv
-let _ = Interpret.know ("print_string", "string -> unit"        , vfun (vunit <.> print_string))
-let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter print_string))
+let print_string = vunit <.> Pervasives.print_string <.> stringv
+let _ = Interpret.know ("print_string", "string -> unit"        , vfun (print_string))
+let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
 
-
-
+let _ = Interpret.know ("string_of_value", "'a -> string", vfun (vstring <.> string_of_value))

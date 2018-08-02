@@ -20,17 +20,17 @@ AliceSend(bvs, toBob) =
                )
 
 (* send encoded bits down channel qB *)
-(* a match expression would be better, but not yet *)
 AliceSendBits (bvs,qB,done) =   
-    match bvs .   
-        []         . (done!() . _0)
-    <m> (b,v)::bvs . (newq q = if v=0 then
-                                 if b=0 then |0> else |+> fi 
-                               else 
-                                 if b=0 then |1> else |-> fi
-                               fi
+    match bvs .
+        []         . done!() . _0
+    <m> (b,v)::bvs . (newq q = match b,v .
+                                   0b0,0b0 . |0> 
+                               <m> 0b0,0b1 . |1> 
+                               <m> 0b1,0b0 . |+> 
+                               <m> 0b1,0b1 . |-> 
+                               hctam
                      )
-                     qB ! q . 
+                     qB!q.
                      AliceSendBits(bvs,qB,done)
     hctam
 
@@ -43,13 +43,15 @@ AliceNegotiate (bvs,bsB) =
                   (let u = print_strings ["Alice reconciled "; string_of_value vs; "\n"])
                   bsB?(vBs) . (* vBs are the bits to check, from vs *)
                   (let u = print_strings ["Bob sent check bits "; string_of_value vBs; "\n"])
-                  AliceCheck (vBs,map snd bvs)
+                  (new done) (AliceCheck (vBs, vs, done)
+                              | done?(s) . Good (drop (length vBs) vs)
+                             )
                )
     
-AliceCheck (vBs, vs) =
+AliceCheck (vBs, vs, done) =
   match vBs, vs .
-      []    , _       . Good ()
-  <m> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs) else Bad () fi
+      []    , _       . done!() . _0
+  <m> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
   <m> _               . Bad ()
   hctam
 
@@ -57,13 +59,13 @@ Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
    <m> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <m> _                   . Stop ("Reconcile failure")
+   <m> _                   . Stop (["Reconcile failure"])
    hctam
   
-Stop (s) = (let s = print_strings [s;"\n"]) _0
+Stop (ss) = (let s = print_strings (ss @ ["\n"])) _0
 
-Good () = Stop ("interference detected")
-Bad  () = Stop ("seems ok")
+Bad () = Stop (["interference detected -- everything stops"])
+Good (vs) = Stop (["Alice's code is "; string_of_value vs])
 
 Bob(n:int, r:^bit, fromAlice) = 
     fromAlice?(qA,bsA) .
@@ -76,7 +78,10 @@ Bob(n:int, r:^bit, fromAlice) =
                   (new done) (  Reconcile (bAs,bvs,[],done)
                               | done?(vs) . (* the bits we agree on *)
                                 (let u = print_strings ["Bob reconciled "; string_of_value vs; "\n"])
-                                bsA!take (n/4) vs . (* send her a sample *)
+                                (let checklength = (length vs)/4)
+                                bsA!take checklength vs . (* send her a sample *)
+                                (let code = drop checklength vs)
+                                (let u = print_strings ["Bob's code is "; string_of_value code; "\n"])                                
                                 _0
                              )
                )

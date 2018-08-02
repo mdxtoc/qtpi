@@ -24,7 +24,7 @@ AliceSend(bvs, toBob) =
 AliceSendBits (bvs,qB,done) =   
     match bvs .   
         []         . (done!() . _0)
-    <+> (b,v)::bvs . (newq q = if v=0 then
+    <m> (b,v)::bvs . (newq q = if v=0 then
                                  if b=0 then |0> else |+> fi 
                                else 
                                  if b=0 then |1> else |-> fi
@@ -49,15 +49,15 @@ AliceNegotiate (bvs,bsB) =
 AliceCheck (vBs, vs) =
   match vBs, vs .
       []    , _       . Good ()
-  <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs) else Bad () fi
-  <+> _               . Bad ()
+  <m> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs) else Bad () fi
+  <m> _               . Bad ()
   hctam
 
 Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
-   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <+> _                   . Stop ("Reconcile failure")
+   <m> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
+   <m> _                   . Stop ("Reconcile failure")
    hctam
   
 Stop (s) = (let s = print_strings [s;"\n"]) _0

@@ -22,16 +22,18 @@ AliceSend(basis, vs:bit list, toBob) =
 
 (* send bits encoded in basis down channel qB *)
 AliceSendBits (vs,basis,qB,done) =   
-    if vs=[] then done!() . _0
-    else (newq q = if hd(vs)=0b0 then
-                     if basis=0b0 then |0> else |+> fi 
-                   else 
-                     if basis=0b0 then |1> else |-> fi
-                   fi
-         )
-         qB!q.
-         AliceSendBits(tl(vs),basis,qB,done)
-    fi
+    match vs .
+        []    . done!() . _0
+    <m> v::vs . (newq q = match basis,v .
+                              0b0,0b0 . |0> 
+                          <m> 0b0,0b1 . |1> 
+                          <m> 0b1,0b0 . |+> 
+                          <m> 0b1,0b1 . |-> 
+                          hctam
+                )
+                qB!q.
+                AliceSendBits(vs,basis,qB,done)
+    hctam
 
 Bob(n:int, r:^bit, fromAlice) = 
     fromAlice?(qA,bA,vA) .
@@ -51,13 +53,13 @@ BobReceive(n,bvs,qA,r,done) =
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 
-(* verify Alice's story. This needs pattern matching to be readable *)
+(* verify Alice's story *)
 BobVerify (basis, vs, bvs) = 
   match vs, bvs .
       []   , []           . Honest ()
-  <+> []   , _            . Liar ()
-  <+> _    , []           . Liar ()
-  <+> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
+  <m> []   , _            . Liar ()
+  <m> _    , []           . Liar ()
+  <m> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
                               then Liar ()
                               else BobVerify(basis,tl(vs),tl(bvs))
                             fi

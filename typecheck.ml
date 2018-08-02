@@ -166,6 +166,7 @@ let rec rewrite_process cxt proc =
   | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process cxt p
   | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_expr cxt e; rewrite_process cxt p
   | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process cxt p
+  | WithExpr (e,p)          -> rewrite_expr cxt e; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process cxt p1; rewrite_process cxt p2
   | PMatch    (e,pms)       -> rewrite_expr cxt e; 
                                List.iter (fun (pat,proc) -> rewrite_pat cxt pat; rewrite_process cxt proc) pms
@@ -516,6 +517,9 @@ and typecheck_process cxt p =
            let cxt = assigntype_expr cxt (adorn uge.pos (Gate(arity))) uge in
            typecheck_process cxt proc
       )
+  | WithExpr (e, proc) ->
+      let cxt = assigntype_expr cxt (adorn e.pos Unit) e in
+      typecheck_process cxt proc
   | GSum gs ->
       let check_g cxt (iostep,proc) =
         match iostep.inst with

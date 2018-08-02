@@ -490,6 +490,8 @@ let rec interp sysenv proc =
                                       ugstep pn qs g;
                                       addrunner (pn, proc, env)
             )
+        | WithExpr (e, proc)  -> let _ = evale env e in
+                                 addrunner (pn, proc, env)
         | GSum [iostep, proc] ->
             (match iostep.inst with
              | Read (e, ps) -> let c = chanev env e in

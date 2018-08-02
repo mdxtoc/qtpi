@@ -211,6 +211,7 @@ process:
   | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
   | qstep DOT process                   {adorn (WithQstep ($1,$3))}
+  | LBRACE expr RBRACE DOT process      {adorn (WithExpr ($2,$5))}
   | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))}
   | gsum                                {adorn (GSum $1)}
   | LPAR ubprocess RPAR                 {$2}

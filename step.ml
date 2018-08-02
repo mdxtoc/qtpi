@@ -51,9 +51,8 @@ let string_of_iostep iostep =
                                           (commasep (List.map string_of_expr es))
 let string_of_qstep qstep =
   match qstep.inst with
-  | Measure (e,p)       -> Printf.sprintf "%s?%c(%s)"
+  | Measure (e,p)       -> Printf.sprintf "%s=?(%s)"
                                           (string_of_expr e)
-                                          '?'
                                           (string_of_param p)
   | Ugatestep (es,u)    -> Printf.sprintf "%s>>%s"
                                           (commasep (List.map string_of_expr es))

@@ -1,7 +1,7 @@
 
 Alice (x:qbit, c:^0..3, z:qbit) = 
 	(let n = print_strings ["initially Alice's z is "; qbit_state z; "\n"])
-	z,x>>_CNot . z>>_H . z??(vz) . x??(vx) . c!vz++vx . _0 
+	z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
 
 Bob(y:qbit, c:^0..3) = 
   c?(n) . y>>_Phi(n) . 

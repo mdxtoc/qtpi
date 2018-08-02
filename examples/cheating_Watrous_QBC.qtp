@@ -5,7 +5,7 @@ Alice(cq:^qbit, cc:^bit*bit, r:^bit) =
     cq!qx.
     r?(basis).
     qw >> if basis=0b1 then _H else _I fi.
-    qw??(value).
+    qw=?(value).
     cc!value,basis. 
     _0
         
@@ -13,13 +13,13 @@ Bob(cq:^qbit, cc:^bit*bit) =
     cq?(qx).
     cc?(value,basis).
     qx >> if basis=0b1 then _H else _I fi.
-    qx??(measure).
+    qx=?(measure).
     (let n = print_string if measure = value then "honest\n" else "liar!!\n" fi)
     _0
     
 Random(q:qbit, r:^bit) =
     q >> _H.
-    q??(b).
+    q=?(b).
     r!b.
     Random(q,r)
  

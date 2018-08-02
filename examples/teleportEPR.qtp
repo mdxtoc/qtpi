@@ -1,7 +1,7 @@
 given Use: qbit process
 
 Alice (x:qbit, c:^0..3, z:qbit) = 
-    z,x>>_CNot . z>>_H . z??(vz) . x??(vx) . c!vz++vx . _0 
+    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
 
 Bob(y:qbit, c:^0..3) = c?(i) . y >> _Phi(i) . Use(y) 
 

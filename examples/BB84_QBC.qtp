@@ -16,7 +16,7 @@ AliceSend(basis, vs:bit list, toBob) =
     toBob!qB,bB,vB .
     (new done) (  AliceSendBits (vs,basis,qB,done)
                 | done?(s) . bB?(guess:bit) . vB!basis,vs .
-                  (let n = print_string if guess=basis then "Bob wins\n" else "Alice wins\n" fi)
+                  {print_string if guess=basis then "Bob wins\n" else "Alice wins\n" fi} .
                   _0
                )
 
@@ -49,7 +49,7 @@ BobReceive(n,bvs,qA,r,done) =
     else qA?(q).
          r?(basis).
          q >> if basis=0b1 then _H else _I fi.
-         q ?? (value).
+         q =? (value).
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 
@@ -65,11 +65,11 @@ BobVerify (basis, vs, bvs) =
                             fi
   hctam
   
-Liar   () = (let n = print_string "Alice lied\n") _0
-Honest () = (let n = print_string "Alice was honest\n") _0
+Liar   () = {print_string "Alice lied\n"} . _0
+Honest () = {print_string "Alice was honest\n"} . _0
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
+Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let n = read_int "number of qbits")
            (new r,c)

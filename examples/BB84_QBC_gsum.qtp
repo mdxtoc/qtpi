@@ -66,7 +66,7 @@ BobReceive(bvs,qB,go,stop,res) =
      go?(). qB?(q) .
      r?(b) .
      q >> if b=1 then _H else _I fi .
-     q ?? (v) .
+     q =? (v) .
      BobReceive ((b,v)::bvs,go,stop,res)
    <+> stop?() . res!(rev bvs) . _0
      
@@ -86,7 +86,7 @@ BobVerify (bvs:(bit*bit) list, basis:bit, svs:bit list) =
   <m> _                   . Liar()
   hctam
        
-Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
+Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let n = read_int "number of qbits")
            (new r,c)

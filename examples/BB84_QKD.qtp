@@ -2,7 +2,7 @@
 Alice(n:int, r:^bit, toBob) = 
   (new chosen) (  AliceChoose (n,[],r,chosen)
                 | chosen?(bvs) . 
-                  (let n = print_strings ["Alice chose "; string_of_value bvs; "\n"])
+                  {print_strings ["Alice chose "; string_of_value bvs; "\n"]} .
                   AliceSend (bvs, toBob)
                )
 
@@ -37,12 +37,12 @@ AliceSendBits (bvs,qB,done) =
 AliceNegotiate (bvs,bsB) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
-    (let u = print_strings ["Bob sent bases "; string_of_value bBs; "\n"])
+    {print_strings ["Bob sent bases "; string_of_value bBs; "\n"]} .
     (new done) (  Reconcile (bBs, bvs, [], done)
                 | done?(vs) . (* vs are the values we should agree upon *)
-                  (let u = print_strings ["Alice reconciled "; string_of_value vs; "\n"])
+                  {print_strings ["Alice reconciled "; string_of_value vs; "\n"]} .
                   bsB?(vBs) . (* vBs are the bits to check, from vs *)
-                  (let u = print_strings ["Bob sent check bits "; string_of_value vBs; "\n"])
+                  {print_strings ["Bob sent check bits "; string_of_value vBs; "\n"]} .
                   (new done) (AliceCheck (vBs, vs, done)
                               | done?(s) . Good (drop (length vBs) vs)
                              )
@@ -62,7 +62,7 @@ Reconcile (bBs,bvs,vs,done) =
    <m> _                   . Stop (["Reconcile failure"])
    hctam
   
-Stop (ss) = (let s = print_strings (ss @ ["\n"])) _0
+Stop (ss) = {print_strings (ss @ ["\n"])} . _0
 
 Bad () = Stop (["interference detected -- everything stops"])
 Good (vs) = Stop (["Alice's code is "; string_of_value vs])
@@ -71,17 +71,17 @@ Bob(n:int, r:^bit, fromAlice) =
     fromAlice?(qA,bsA) .
     (new done) (  BobReceive(n,[],qA,r,done)
                 | done?(bvs)      . (* bvs is what I saw *)
-                  (let u = print_strings ["Bob saw "; string_of_value bvs; "\n"])
+                  {print_strings ["Bob saw "; string_of_value bvs; "\n"]} .
                   bsA?(bAs)       . (* receive her bases *)
-                  (let u = print_strings ["Alice sent bases "; string_of_value bAs; "\n"])
+                  {print_strings ["Alice sent bases "; string_of_value bAs; "\n"]} .
                   bsA!map fst bvs . (* send my bases *)
                   (new done) (  Reconcile (bAs,bvs,[],done)
                               | done?(vs) . (* the bits we agree on *)
-                                (let u = print_strings ["Bob reconciled "; string_of_value vs; "\n"])
+                                {print_strings ["Bob reconciled "; string_of_value vs; "\n"]} .
                                 (let checklength = (length vs)/4)
                                 bsA!take checklength vs . (* send her a sample *)
                                 (let code = drop checklength vs)
-                                (let u = print_strings ["Bob's code is "; string_of_value code; "\n"])                                
+                                {print_strings ["Bob's code is "; string_of_value code; "\n"]} .                                
                                 _0
                              )
                )
@@ -92,12 +92,12 @@ BobReceive(n,bvs,qA,r,done) =
     else qA?(q).
          r?(basis).
          q >> if basis=0b1 then _H else _I fi.
-         q ?? (value).
+         q =? (value).
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
        
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-Random(q:qbit, r:^bit) = q>>_H . q??(v) . r!v . Random(q,r)
+Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let n = read_int "number of qbits")
            (new r,c)

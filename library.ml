@@ -74,19 +74,25 @@ let v_drop n xs =
   let rec drop n xs =
     match n, xs with
     | 0, _
-    | _, []     -> vlist []
+    | _, []     -> vlist xs
     | _, x::xs  -> drop (n-1) xs
   in
   drop n xs
   
+let _ = Interpret.know ("length"  , "'a list -> int"                    , vfun (vint <.> List.length <.> listv))
+
 let _ = Interpret.know ("hd"      , "'a list -> 'a"                     , vfun v_hd)
 let _ = Interpret.know ("tl"      , "'a list -> 'a list"                , vfun v_tl)
+
 let _ = Interpret.know ("rev"     , "'a list -> 'a list"                , vfun (vlist <.> List.rev <.> listv))
 let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list"     , vfun2 v_append)
+
 let _ = Interpret.know ("iter"    , "('a -> unit) -> 'a list -> unit"   , vfun2 v_iter)
 let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 v_map)
+
 let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
 let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
+
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 

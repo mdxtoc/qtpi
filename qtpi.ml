@@ -67,7 +67,8 @@ let _ = match !Usage.files with
                 | TypeCheckError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | TypeUnifyError (t1, t2) -> Printf.printf "\n\n** cannot unify %s with %s\n"
+                | TypeUnifyError (t1, t2) -> Printf.printf "\n\n** %s cannot unify type %s with type %s\n"
+                                                           (string_of_sourcepos t1.pos)
                                                            (string_of_type t1)
                                                            (string_of_type t2)
                 | Parseutils.Error s     -> print_endline s

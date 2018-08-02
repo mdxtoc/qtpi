@@ -12,10 +12,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P*   
   | *P* `|` ... `|` *P*   
   | `if` *E* `then` *P* `else` *P* `fi`  
-  | `match` *E* `.` *pat* `.` *P* `<+>` ... `<+>` *pat* `.` *P* `hctam`  
+  | `match` *E* `.` *pat* `.` *P* `<m>` ... `<m>` *pat* `.` *P* `hctam`  
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *par* = *E* `)` *P*  
+  | `{` *E* `}` `.` *P*  
   | *N* `(` *E*  `,`  ... `,` *E*  `)`  
   | `(` *P* `)`  
   | `_0`
@@ -23,18 +24,18 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * `new` creates channels.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
   * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* is not yet supported: single input-output steps only at present. It uses the separator `<+>` instead of `+` to avoid parsing problems.  
-  * match processes also use the <+> separator, because both guarded sum and match offer a disjunctive choice of alternatives. That makes it odd that parallel composition uses `|` ... And then because they both use the same separator, the sub-processes in matches often have to be bracketed. So it's a bit of a parsing mess at present.  
+  * match processes also use an <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`, if I could have made it work.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
-  * The `{` *E* `}` step of CQP is not included, mostly because it hid quantum steps, which are now exposed.  
   * You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.
   
 * Quantum step *Q*
   
   | *E* `,` *E* `,` ... `,` *E* `>>` *G*    
-  | *E* `??` (*par*)    
+  | *E* `=?` (*par*)    
 
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
-  * `??` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds a bit value. Not happy with the `??` operator: suggestions welcome.  
+  * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
+  * I should probably add `=H?` for measuring in the Hadamard basis.  
   * CQP had `*=` for measure, which looked like an assignment, so I changed it to `??`.   
 
 * Input-output step *IO*  
@@ -94,14 +95,15 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
 * Expression *E*
 
-  The ususal stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
+  * The ususal stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
   
-  Conditionals are `if` *E* `then` E `else` E `fi`. 
-  Function calls are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.  
+  * Conditionals are `if` *E* `then` *E* `else` *E* `fi`. 
   
-  No process stuff, no steps.  
+  * Match expressions are `match` *E* `.` *pat* `.` *E* `<m>` ... `<m>` *pat* `.` *E* `hctam`.  
   
-  No match expressions yet.  
+  * Function calls are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.  
+  
+  * No process stuff, no steps.  
   
 * Built-in operators  
     
@@ -132,7 +134,7 @@ A program is an optional `given` list and then a bunch of process definitions. O
 
 	| `given` *N* `:` *T* `,` *N* `:` *T* `,` ... *N* `:` *T*  
 
-    * Gives names and types of processes that aren't defined in the program. This allows undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from a print-out of the final state.
+    * Gives names and types of processes that aren't defined in the program. This allows undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from a print-out of the final state. (Now I have a library which includes output functions, this seems like an idea that could be dropped.)
     
 * Interface functions
 
@@ -142,6 +144,7 @@ A program is an optional `given` list and then a bunch of process definitions. O
     
     Here are the functions I currently provide. Easy to add more (see the file library.ml) 
     
+    * *length*: *'a list* -> *int*  	
     * *hd*: *'a list* -> *'a*  	(raises an error if applied to `[]`) 
 	* *tl*: *'a list* -> *'a list*  	(raises an error if applied to `[]`)  
 	* *rev*: *'a list* -> *'a list*

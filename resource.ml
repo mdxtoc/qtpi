@@ -93,7 +93,7 @@ let type_of_expr e =
 (* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
 (* ******************************* also check that we don't compare qbits ******************************** *)
 
-let ctfa_type classic t = 
+let rec ctfa_type classic t = 
   let badtype s = raise (ResourceError (t.pos,
                                         Printf.sprintf "type %s: %s"
                                                        (string_of_type t)
@@ -101,31 +101,29 @@ let ctfa_type classic t =
                                        )
                          )
   in
-  let rec ct classic vars t =
-    match t.inst with
-    | Qbit            -> if classic then badtype "should be classical, includes qbit" else ()
-    | Unit
-    | Int
-    | Char
-    | String
-    | Bool
-    | Bit 
-    | Basisv
-    | Gate    _
-    | Range   _       -> ()
-    | TypeVar n       -> if NameSet.mem n vars then () else badtype "Disaster (typechecker left a type variable)"
-    | Univ    (ns, t) -> ct classic (addnames ns vars) t
-    | List    t       -> ct classic vars t
-    | Tuple   ts    
-    | Process ts      -> List.iter (ct classic vars) ts
-    | Channel t       -> (match t.inst with
-                          | Qbit      -> () (* always ok, even in classical channels *)
-                          | _         -> try ct true vars t
-                                         with _ -> badtype "should be a channel of qbit or a classical channel"
-                         )
-    | Fun  _          -> () (* function types are classical, always *)
-  in
-  ct classic NameSet.empty t
+  match t.inst with
+  | Qbit            -> if classic then badtype "should be classical, includes qbit" else ()
+  | Unit
+  | Int
+  | Char
+  | String
+  | Bool
+  | Bit 
+  | Basisv
+  | Gate    _
+  | Range   _       -> ()
+  | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
+                       ()
+  | Univ    (ns, t) -> ctfa_type classic t
+  | List    t       -> ctfa_type classic t
+  | Tuple   ts    
+  | Process ts      -> List.iter (ctfa_type classic) ts
+  | Channel t       -> (match t.inst with
+                        | Qbit      -> () (* always ok, even in classical channels *)
+                        | _         -> try ctfa_type true t
+                                       with _ -> badtype "should be a channel of qbit or a classical channel"
+                       )
+  | Fun  _          -> () (* function types are classical, always *)
 
 let ctfa_given (pn, t) = ctfa_type false t
 

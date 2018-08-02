@@ -191,6 +191,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                )
     | EMinus     e          -> ctfa_expr e
     | ETuple     es         -> List.iter ctfa_expr es
+    | EMatch     (e,ems)    -> ctfa_expr e; List.iter (ctfa_expr <.> snd) ems
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
@@ -230,7 +231,7 @@ type resource =
   | RTuple of resource list
   | RList of name                   (* for stuff that hasn't been taken apart *)
   | RCons of resource * resource    (* using RNull at the end of the list ... *)
-  | RMaybe of resource * resource   (* for dealing with conditional expressions, sigh ... *)
+  | RMaybe of resource list         (* for dealing with conditional and match expressions, sigh ... *)
   
 let rec string_of_resource r =
   match r with
@@ -239,7 +240,7 @@ let rec string_of_resource r =
   | RTuple rs           -> Printf.sprintf "RTuple (%s)" (string_of_list string_of_resource "*" rs)
   | RList  n            -> Printf.sprintf "RList %s" (string_of_name n)
   | RCons  (rh,rt)      -> Printf.sprintf "RCons (%s,%s)" (string_of_resource rh) (string_of_resource rt)
-  | RMaybe (r1,r2)      -> Printf.sprintf "RMaybe (%s,%s)" (string_of_resource r1) (string_of_resource r2)
+  | RMaybe rs           -> Printf.sprintf "RMaybe %s" (bracketed_string_of_list string_of_resource rs)
   
 module OrderedResource = struct type t = resource let compare = Pervasives.compare let to_string = string_of_resource end
 module ResourceSet = MySet.Make(OrderedResource)  
@@ -308,13 +309,74 @@ let rec resources_of_resource r =
   | RQbit _         -> ResourceSet.singleton r                
   | RTuple rs       -> resources_of_resourcelist rs
   | RList _         -> ResourceSet.singleton r
-  | RCons  (r1,r2)
-  | RMaybe (r1,r2)  -> ResourceSet.union (resources_of_resource r1) (resources_of_resource r2)
+  | RCons  (r1,r2)  -> ResourceSet.union (resources_of_resource r1) (resources_of_resource r2)
+  | RMaybe rs       -> List.fold_left (fun u r -> ResourceSet.union u (resources_of_resource r)) ResourceSet.empty rs
   
 and resources_of_resourcelist rs = 
   List.fold_left (revargs ResourceSet.add) ResourceSet.empty rs
   
 exception OverLap of string
+
+  let rec rck_pat is_me contn state env pat res =
+    let bad () = raise (ResourceDisaster (pat.pos,
+                                          Printf.sprintf "pattern %s resource %s"
+                                                         (string_of_pattern pat)
+                                                         (string_of_resource res)
+                                         )
+                  )
+    in
+    if !verbose_resource then 
+      Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
+                                               (string_of_state state)
+                                               (string_of_env env)
+                                               (string_of_pattern pat)
+                                               (string_of_resource res);
+    match pat.inst.pnode with
+    | PatAny    
+    | PatUnit   
+    | PatNil
+    | PatInt    _ 
+    | PatBit    _
+    | PatBool   _
+    | PatChar   _
+    | PatString _
+    | PatBasisv _
+    | PatGate   _       -> contn state env
+    | PatName   n       -> contn state (env<@+>(n,res))
+    | PatCons   (ph,pt) -> let doit contn state env rh rt =
+                             let tl state env = rck_pat is_me contn state env pt rt in
+                             rck_pat is_me tl state env ph rh
+                           in
+                           (match res with
+                            | RNull         -> doit contn state env RNull RNull
+                            | RCons (rh,rt) -> doit contn state env rh rt
+                            | RList l       -> if is_me then
+                                                 raise (ResourceError (pat.pos,
+                                                                       "match expressions may not be used to uncover qbits in list parameters"
+                                                                      )
+                                                       )
+                                               else (let state, rh = resource_of_type state (_The !(ph.inst.ptype)) in
+                                                     let rt = RList (new_unknown_name ()) in
+                                                     let env = env<@+>(l,RCons(rh,rt)) in
+                                                     doit contn state env rh rt
+                                                    )
+                            | _             -> bad ()
+                           )
+    | PatTuple ps       -> let rec rck state env = function
+                             | (p,r)::prs -> rck_pat is_me (fun state env -> rck state env prs) state env p r
+                             | []         -> contn state env
+                           in
+                           (match res with
+                            | RNull     -> rck state env (List.map (fun p -> p,RNull) ps)
+                            | RTuple rs -> rck state env (zip ps rs)
+                            | _         -> bad ()
+                           )
+
+and rck_pats is_me rck state env re pxs =
+  let rck_px (pat,x) = rck_pat is_me (fun state env -> rck state env x) state env pat re in
+  List.map rck_px pxs
+    
+;; (* to give rck_pat and rck_pats a universal type *)
 
 let disju ers =
   let dju set er = if not (ResourceSet.is_empty (ResourceSet.inter set er)) 
@@ -323,84 +385,99 @@ let disju ers =
   List.fold_left dju ResourceSet.empty ers
 
 let resources_of_expr state env e =
-  let rec do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
-                                                               r::rs, ResourceSet.union set used 
-                                       )
-                                       es
-                                       ([],ResourceSet.empty) 
-  and re use e =
-    match e.inst.enode with
-    | EUnit 
-    | ENil
-    | EInt        _              
-    | EBool       _
-    | EChar       _
-    | EString     _
-    | EBit        _         
-    | EBasisv     _         -> RNull, ResourceSet.empty
-    | EGate       ug        -> (match ug.inst with
-                                  | GH | GI | GX | GY | GZ | GCnot -> RNull, ResourceSet.empty
-                                  | GPhi e                         -> let _, used = re use e in
-                                                                      RNull, used
-                               )                    
-    | EMinus      e         -> re Uarith e
-    | EArith      (e1,_,e2) -> let _, used = do_list Uarith   [e1;e2] in RNull, used
-    | ECompare    (e1,_,e2) -> let _, used = do_list Ucompare [e1;e2] in RNull, used
-    | EBoolArith  (e1,_,e2) -> let _, used = do_list Ubool    [e1;e2] in RNull, used
-    | EVar        n         -> let r = env <@> n in
-                                (match r with
-                                | RNull   -> RNull, ResourceSet.empty
-                                | RQbit q -> if use<>Uok then
-                                               raise (ResourceError (e.pos,
-                                                                     Printf.sprintf "use of qbit %s in %s"
-                                                                                    (match use with 
-                                                                                     | Uok      -> "??"
-                                                                                     | Uarith   -> "arithmetic"
-                                                                                     | Ucompare -> "comparison"
-                                                                                     | Ubool    -> "boolean arithmetic"
-                                                                                    )
-                                                                                    (string_of_name n)
-                                                                    )
-                                                      )
-                                             else
-                                             if State.find q state then r, ResourceSet.singleton r
-                                             else
-                                               raise (ResourceError (e.pos,
-                                                                     Printf.sprintf "use of sent-away qbit %s" (string_of_name n)
-                                                                    )
-                                                      )
-                                | _       -> r, resources_of_resource r
-                               )
-    | ETuple      es        -> let rs, used = do_list use es in RTuple rs, used
-    | ECons       (hd,tl)   -> let r1, u1 = re use hd in
-                               let r2, u2 = re use tl in
-                               (try match r1, r2 with
-                                | RNull, _        (* if the hd has no resource, neither can the list *)
-                                | _    , RNull -> (* likewise the tail *)
-                                                  RNull, ResourceSet.union u1 u2
-                                | _            -> RCons (r1,r2), disju [u1;u2] (* disjoint union essential *)
-                                with OverLap _ ->
-                                  raise (ResourceError (e.pos,
-                                                        Printf.sprintf "%s and %s share qbits"
-                                                                       (string_of_expr hd)
-                                                                       (string_of_expr tl)
-                                                       )
-                                        )
-                               )
-    | ECond       (ce,e1,e2)-> let _ , used0 = re Ubool ce in
-                               let r1, used1 = re use e1 in
-                               let r2, used2 = re use e2 in
-                               let used = ResourceSet.union used0 (ResourceSet.union used1 used2) in
-                               if r1=r2 && ResourceSet.equal used1 used2 then r1, used 
-                               else RMaybe (r1,r2), used
-    | EApp        (e1,e2)   
-    | EAppend     (e1,e2)   -> let _, used1 = re use e1 in
-                               let _, used2 = re use e2 in
-                               (* EAppend and EApp don't return resources: we checked *)
-                               RNull, ResourceSet.union used1 used2
-    | EBitCombine (e1,e2)   -> let _, used = do_list Uarith   [e1;e2] in RNull, used
+  let rec re_env use env e =
+    let rec re use e =
+      let do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
+                                                                 r::rs, ResourceSet.union set used 
+                                         )
+                                         es
+                                         ([],ResourceSet.empty) 
+      in
+      match e.inst.enode with
+      | EUnit 
+      | ENil
+      | EInt        _              
+      | EBool       _
+      | EChar       _
+      | EString     _
+      | EBit        _         
+      | EBasisv     _         -> RNull, ResourceSet.empty
+      | EGate       ug        -> (match ug.inst with
+                                    | GH | GI | GX | GY | GZ | GCnot -> RNull, ResourceSet.empty
+                                    | GPhi e                         -> let _, used = re use e in
+                                                                        RNull, used
+                                 )                    
+      | EMinus      e         -> re Uarith e
+      | EArith      (e1,_,e2) -> let _, used = do_list Uarith   [e1;e2] in RNull, used
+      | ECompare    (e1,_,e2) -> let _, used = do_list Ucompare [e1;e2] in RNull, used
+      | EBoolArith  (e1,_,e2) -> let _, used = do_list Ubool    [e1;e2] in RNull, used
+      | EVar        n         -> let r = env <@> n in
+                                  (match r with
+                                  | RNull   -> RNull, ResourceSet.empty
+                                  | RQbit q -> if use<>Uok then
+                                                 raise (ResourceError (e.pos,
+                                                                       Printf.sprintf "use of qbit %s in %s"
+                                                                                      (match use with 
+                                                                                       | Uok      -> "??"
+                                                                                       | Uarith   -> "arithmetic"
+                                                                                       | Ucompare -> "comparison"
+                                                                                       | Ubool    -> "boolean arithmetic"
+                                                                                      )
+                                                                                      (string_of_name n)
+                                                                      )
+                                                        )
+                                               else
+                                               if State.find q state then r, ResourceSet.singleton r
+                                               else
+                                                 raise (ResourceError (e.pos,
+                                                                       Printf.sprintf "use of sent-away qbit %s" (string_of_name n)
+                                                                      )
+                                                        )
+                                  | _       -> r, resources_of_resource r
+                                 )
+      | ETuple      es        -> let rs, used = do_list use es in RTuple rs, used
+      | ECons       (hd,tl)   -> let r1, u1 = re use hd in
+                                 let r2, u2 = re use tl in
+                                 (try match r1, r2 with
+                                  | RNull, _        (* if the hd has no resource, neither can the list *)
+                                  | _    , RNull -> (* likewise the tail *)
+                                                    RNull, ResourceSet.union u1 u2
+                                  | _            -> RCons (r1,r2), disju [u1;u2] (* disjoint union essential *)
+                                  with OverLap _ ->
+                                    raise (ResourceError (e.pos,
+                                                          Printf.sprintf "%s and %s share qbits"
+                                                                         (string_of_expr hd)
+                                                                         (string_of_expr tl)
+                                                         )
+                                          )
+                                 )
+      | EMatch      (em,ems)  -> let re, usede = re use e in
+                                 let rus = rck_pats true (fun _ env -> re_env use env) state env re ems in
+                                 let rs, useds = unzip rus in
+                                 (match List.filter (function RNull -> false | _ -> true) rs with
+                                  | []  -> RNull
+                                  | [r] -> r 
+                                  | rs  -> RMaybe rs
+                                 ),
+                                 List.fold_left ResourceSet.union usede useds
+      | ECond       (ce,e1,e2)-> let _ , used0 = re Ubool ce in
+                                 let r1, used1 = re use e1 in
+                                 let r2, used2 = re use e2 in
+                                 (match r1, r2 with
+                                  | RNull, _      -> r2
+                                  | _    , RNull  -> r1
+                                  | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
+                                 ),
+                                 ResourceSet.union used0 (ResourceSet.union used1 used2)
+      | EApp        (e1,e2)   
+      | EAppend     (e1,e2)   -> let _, used1 = re use e1 in
+                                 let _, used2 = re use e2 in
+                                 (* EAppend and EApp don't return resources: we checked *)
+                                 RNull, ResourceSet.union used1 used2
+      | EBitCombine (e1,e2)   -> let _, used = do_list Uarith   [e1;e2] in RNull, used
+    in re use e
   in
-  re Uok e
+  re_env Uok env e
   
 let resource_of_params state params = 
   List.fold_right (fun {inst=n,toptr} (state, nrs) -> 
@@ -463,10 +540,11 @@ let rec rck_proc state env proc =
                                    )
       | Cond (ce,p1,p2)         -> (try let _, used = resources_of_expr state env ce in
                                         let prs = List.map (rp state env) [p1;p2] in
-                                        ResourceSet.union used (disju prs)
+                                        ResourceSet.union used (disju prs) (* NOT disju, silly boy! *)
                                     with OverLap s -> badproc s
                                    )
-      | PMatch (e,pms)          -> rck_Pmatch proc.pos state env e pms
+      | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
+                                   List.fold_left ResourceSet.union usede (rck_pats false rck_proc state env re pms)
       | GSum gs                 -> let rg (iostep, proc) =
                                       match iostep.inst with 
                                       | Read (ce,params)  -> let _, used = resources_of_expr state env ce in
@@ -507,61 +585,6 @@ let rec rck_proc state env proc =
   in
   rp state env proc
   
-and rck_Pmatch pos state env e pms =
-  let re, usede = resources_of_expr state env e in
-  let rec rck_pat contn state env pat res =
-    let bad () = raise (ResourceDisaster (pat.pos,
-                                          Printf.sprintf "pattern %s resource %s"
-                                                         (string_of_pattern pat)
-                                                         (string_of_resource res)
-                                         )
-                  )
-    in
-    if !verbose_resource then 
-      Printf.printf "rck_pat %s %s %s %s\n" (string_of_state state)
-                                            (string_of_env env)
-                                            (string_of_pattern pat)
-                                            (string_of_resource res);
-    match pat.inst.pnode with
-    | PatAny    
-    | PatUnit   
-    | PatNil
-    | PatInt    _   
-    | PatBool   _
-    | PatChar   _
-    | PatString _
-    | PatBasisv _
-    | PatGate   _       -> contn state env
-    | PatName   n       -> contn state (env<@+>(n,res))
-    | PatCons   (ph,pt) -> let doit contn state env rh rt =
-                             let tl state env = rck_pat contn state env pt rt in
-                             rck_pat tl state env ph rh
-                           in
-                           (match res with
-                            | RNull         -> doit contn state env RNull RNull
-                            | RCons (rh,rt) -> doit contn state env rh rt
-                            | RList l       -> let state, rh = resource_of_type state (_The !(ph.inst.ptype)) in
-                                               let rt = RList (new_unknown_name ()) in
-                                               let env = env<@+>(l,RCons(rh,rt)) in
-                                               doit contn state env rh rt
-                            | _             -> bad ()
-                           )
-    | PatTuple ps       -> let rec rck state env = function
-                             | (p,r)::prs -> rck_pat (fun state env -> rck state env prs) state env p r
-                             | []    -> contn state env
-                           in
-                           (match res with
-                            | RNull     -> rck state env (List.map (fun p -> p,RNull) ps)
-                            | RTuple rs -> rck state env (zip ps rs)
-                            | _         -> bad ()
-                           )
-  in 
-  let rck_procmatch (pat,proc) =
-    let state, env = rck_pat (fun state env -> (state,env)) state env pat re in
-    rck_proc state env proc
-  in
-  List.fold_left ResourceSet.union usede (List.map rck_procmatch pms) (* NOT disju, silly boy! *)
-    
 let rck_def env (Processdef(pn, params, proc)) = 
   let state, rparams = resource_of_params State.empty params in
   if !verbose_resource then

@@ -28,6 +28,7 @@ open Sourcepos
 open Instance
 open Name
 open Expr
+open Basisv
 open Pattern
 open Type
 open Param
@@ -280,6 +281,7 @@ let matcher pos env pairs value =
     | PatNil            , VList []          -> yes env
     | PatName   n       , _                 -> yes (env<@+>(n,v))
     | PatInt    i       , VInt    i'        -> maybe i i'
+    | PatBit    b       , VInt    i'        -> maybe (if b then 1 else 0) i'
     | PatBool   b       , VBool   b'        -> maybe b b'
     | PatChar   c       , VChar   c'        -> maybe c c'
     | PatString s       , VString s'        -> maybe s s'
@@ -319,6 +321,14 @@ let rec evale env e =
   | ETuple es           -> VTuple (List.map (evale env) es)
   | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
   | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
+  | EMatch (me,ems)     -> let v = evale env me in
+                           (match matcher e.pos env ems v with
+                            | Some (env, e) -> evale env e
+                            | None          -> raise (Error (e.pos, Printf.sprintf "match failed against %s"
+                                                                                   (string_of_value v)
+                                                            )
+                                                     )
+                           )  
   | EApp (f,a)          -> let fv = funev env f in
                            fv (evale env a)
   | EArith (e1,op,e2)   -> let v1 = intev env e1 in
@@ -522,7 +532,10 @@ let rec interp sysenv proc =
         | PMatch (e,pms)    -> let v = evale env e in
                                (match matcher rproc.pos env pms v with
                                 | Some (env, proc) -> addrunner (pn, proc, env)
-                                | None             -> raise (Error (rproc.pos, "match failed"))
+                                | None             -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                                              (string_of_value v)
+                                                            )
+                                                     )
                                )  
         | Par ps            ->
             List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)

@@ -30,6 +30,7 @@
   open Type
   open Name
   open Expr
+  open Basisv
   open Pattern
   open Sourcepos
   open Instance
@@ -68,7 +69,7 @@
 
 %token EOP 
 %token GIVEN
-%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR BAR GPLUS COLON EQUALS
+%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
@@ -188,6 +189,15 @@ typevars:
   | typevar                             {[$1]}
   | typevar COMMA typevars              {$1::$3}
   
+parsep:
+  | PARSEP                                 {}
+  
+sumsep:
+  | SUMSEP                               {}
+  
+matchsep:
+  | MATCHSEP                               {}
+  
 process:
   | TERMINATE                           {adorn Terminate}
   | procname primary                    {adorn (Call ($1,match $2.inst.enode with 
@@ -208,7 +218,7 @@ process:
 
 procmatches:
   | procmatch                           {[$1]}
-  | procmatch GPLUS procmatches         {$1::$3}
+  | procmatch matchsep procmatches      {$1::$3}
   
 procmatch:
   | pattern DOT process                 {$1,$3}
@@ -223,11 +233,12 @@ ubprocess:
   
 processpar:
   | process                             {[$1]}
-  | process BAR processpar              {$1::$3}
+  | process parsep processpar           {$1::$3}
 
 gsum:
   | iostep DOT process                  {[$1,$3]}
-  | iostep DOT process GPLUS gsum       {($1,$3)::$5}
+  | iostep DOT process sumsep gsum      {($1,$3)::$5}
+
 qspecs:
   | qspec                               {[$1]}
   | qspec COMMA qspecs                  {$1::$3}
@@ -272,8 +283,8 @@ conspattern:
 simplepattern:
   | UNDERSCORE                          {padorn PatAny}
   | name                                {padorn (PatName $1)}
-  | BIT0                                {padorn (PatInt 0)}
-  | BIT1                                {padorn (PatInt 1)}
+  | BIT0                                {padorn (PatBit false)}
+  | BIT1                                {padorn (PatBit true)}
   | INT                                 {padorn (PatInt (int_of_string $1))}
   | TRUE                                {padorn (PatBool (true))}
   | FALSE                               {padorn (PatBool (false))}
@@ -321,10 +332,18 @@ primary:
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR ntexprs RPAR                   {eadorn (Expr.delist $2)}
   | IF eif FI                           {eadorn($2.inst.enode)}
+  | MATCH expr DOT ematches HCTAM       {eadorn (EMatch ($2,$4))}
   
 eif:
   | expr THEN expr ELSE expr            {eadorn (ECond ($1,$3,$5))}
   | expr THEN expr ELIF eif             {eadorn (ECond ($1,$3,$5))}
+  
+ematches:
+  | ematch                              {[$1]}
+  | ematch matchsep ematches            {$1::$3}
+  
+ematch:
+  | pattern DOT expr                    {$1,$3}
   
 expr:
   | ntexpr                              {$1}

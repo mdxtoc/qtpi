@@ -99,6 +99,8 @@ let rec rewrite_expr cxt e =
        | EMinus      e          -> rewrite_expr cxt e
        | ETuple      es         -> List.iter (rewrite_expr cxt) es
        | ECond       (e1,e2,e3) -> List.iter (rewrite_expr cxt) [e1;e2;e3]
+       | EMatch      (e,ems)    -> rewrite_expr cxt e; 
+                                   List.iter (fun (pat,e) -> rewrite_pat cxt pat; rewrite_expr cxt e) ems
        | ECons       (e1,e2)
        | EApp        (e1,e2)     
        | EAppend     (e1,e2)
@@ -122,6 +124,7 @@ and rewrite_pat cxt p =
        | PatName    _
        | PatUnit
        | PatNil
+       | PatBit     _
        | PatInt     _
        | PatBool    _
        | PatChar    _
@@ -236,6 +239,52 @@ let evalcxt cxt = NameMap.map (evaltype cxt) cxt
 
 let string_of_evalcxt = string_of_typecxt <.> evalcxt
 
+let rec typecheck_pats tc cxt t pxs =
+   List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
+   
+and assigntype_pat contn cxt t p =
+  p.inst.ptype := Some t;
+  try match p.inst.pnode with
+      | PatAny          -> contn cxt
+      | PatName n       -> let cxt = contn (cxt<@+>(n,t)) in cxt<@->n
+      | PatUnit         -> contn (unifytype cxt t (adorn p.pos Unit))
+      | PatNil          -> let vt = adorn p.pos (new_TypeVar()) in
+                           let lt = adorn p.pos (List vt) in
+                           contn (unifytype cxt t lt)
+      | PatInt _        -> contn (unifytype cxt t (adorn p.pos Int))
+      | PatBit _        -> contn (unifytype cxt t (adorn p.pos Bit))
+      | PatBool _       -> contn (unifytype cxt t (adorn p.pos Bool))
+      | PatChar _       -> contn (unifytype cxt t (adorn p.pos Char))
+      | PatString _     -> contn (unifytype cxt t (adorn p.pos String))
+      | PatBasisv _     -> contn (unifytype cxt t (adorn p.pos Basisv))
+      | PatGate pg      -> (match pg.inst with
+                            | PatH | PatI | PatX | PatY | PatZ -> contn (unifytype cxt t (adorn p.pos (Gate (1))))
+                            | PatCnot                          -> contn (unifytype cxt t (adorn p.pos (Gate (2))))
+                            | PatPhi p                         -> let pt = adorn p.pos Int in
+                                                                  let cxt = unifytype cxt t (adorn p.pos (Gate(1))) in
+                                                                  assigntype_pat contn cxt pt p
+                           ) 
+      | PatCons (ph,pt) -> let vt = adorn ph.pos (new_TypeVar()) in
+                           let lt = adorn p.pos (List vt) in
+                           let cf cxt = 
+                             assigntype_pat contn cxt t pt
+                           in
+                           let cxt = unifytype cxt t lt in
+                           assigntype_pat cf cxt vt ph
+      | PatTuple ps     -> let rec tc cxt = function
+                             | p::ps -> assigntype_pat ((revargs tc) ps) cxt (adorn p.pos (new_TypeVar())) p
+                             | []    -> contn cxt
+                           in
+                           tc cxt ps
+  with TypeUnifyError _ -> raise (TypeCheckError (p.pos,
+                                                  Printf.sprintf "cannot assign type %s to pattern %s"
+                                                                 (string_of_type (evaltype cxt t))
+                                                                 (string_of_pattern p)
+                                                 )
+                                 )
+
+;; (* to give typecheck_pats and assigntype_pat a universal type *)
+
 let rec assign_name_type pos cxt t n =
   match eval cxt n with
   | Some t' -> 
@@ -275,75 +324,80 @@ and assigntype_expr cxt t e =
        let cxt = binary cxt tout tin1 tin2 f1 f2 in
        unary cxt tout tin3 f3
      in
-     let adorn = Instance.adorn_x in
      match e.inst.enode with
-     | EUnit                -> unifytype cxt t (adorn e Unit)
-     | ENil                 -> unifytype cxt t (adorn e (List (adorn e (new_TypeVar()))))
+     | EUnit                -> unifytype cxt t (adorn_x e Unit)
+     | ENil                 -> unifytype cxt t (adorn_x e (List (adorn_x e (new_TypeVar()))))
      | EInt i               -> (match (evaltype cxt t).inst with 
                                 | Bit              -> if i=0||i=1 then cxt
-                                                      else unifytype cxt t (adorn e Int)
+                                                      else unifytype cxt t (adorn_x e Int)
                                 | Range (j,k) as t -> if j<=i && i<=k then cxt 
-                                                      else unifytype cxt (adorn e t) (adorn e Int)
-                                | t                -> unifytype cxt (adorn e t) (adorn e Int)
+                                                      else unifytype cxt (adorn_x e t) (adorn_x e Int)
+                                | t                -> unifytype cxt (adorn_x e t) (adorn_x e Int)
                                )
-     | EBool _              -> unifytype cxt t (adorn e Bool)
-     | EChar _              -> unifytype cxt t (adorn e Char)
-     | EString _            -> unifytype cxt t (adorn e String)
+     | EBool _              -> unifytype cxt t (adorn_x e Bool)
+     | EChar _              -> unifytype cxt t (adorn_x e Char)
+     | EString _            -> unifytype cxt t (adorn_x e String)
      | EBit b               -> (match (evaltype cxt t).inst with 
                                 | Int              -> cxt
                                 | Range (j,k) as t -> let i = if b then 1 else 0 in
                                                       if j<=i && i<=k then cxt 
-                                                      else unifytype cxt (adorn e t) (adorn e Bit)
-                                | t                -> unifytype cxt (adorn e t) (adorn e Bit)
+                                                      else unifytype cxt (adorn_x e t) (adorn_x e Bit)
+                                | t                -> unifytype cxt (adorn_x e t) (adorn_x e Bit)
                                )
-     | EBasisv _            -> unifytype cxt t (adorn e Basisv)
+     | EBasisv _            -> unifytype cxt t (adorn_x e Basisv)
      | EGate   ug           -> let cxt = match ug.inst with
                                          | GH | GI | GX | GY | GZ | GCnot -> cxt
-                                         | GPhi e                         -> assigntype_expr cxt (adorn e (Range (0,3))) e
+                                         | GPhi e                         -> assigntype_expr cxt (adorn_x e (Range (0,3))) e
                                in
-                               unifytype cxt t (adorn e (Gate(arity_of_ugate ug)))
+                               unifytype cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assign_name_type e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = adorn e2 (new_TypeVar()) in
-                               let ftype = adorn e1 (Fun (atype, t)) in
+     | EApp    (e1,e2)      -> let atype = adorn_x e2 (new_TypeVar()) in
+                               let ftype = adorn_x e1 (Fun (atype, t)) in
                                let cxt = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
-     | EMinus  e            -> unary cxt (adorn e Int) (adorn e Int) e
-     | ETuple  es           -> let ts = List.map (fun e -> adorn e (new_TypeVar ())) es in
+     | EMinus  e            -> unary cxt (adorn_x e Int) (adorn_x e Int) e
+     | ETuple  es           -> let ts = List.map (fun e -> adorn_x e (new_TypeVar ())) es in
                                let tes = List.combine ts es in
                                let cxt' = List.fold_left utaf cxt tes in
-                               unifytype cxt' t (adorn e (Tuple ts))
-     | ECons   (hd,tl)      -> let t' = adorn e (new_TypeVar()) in
+                               unifytype cxt' t (adorn_x e (Tuple ts))
+     | ECons   (hd,tl)      -> let t' = adorn_x e (new_TypeVar()) in
                                let cxt = assigntype_expr cxt t' hd in
-                               let t'' = (adorn e (List t')) in
+                               let t'' = (adorn_x e (List t')) in
                                let cxt = assigntype_expr cxt t'' tl in
                                unifytype cxt t t''
-     | ECond  (c,e1,e2)     -> ternary cxt t (adorn c Bool) t t c e1 e2
-     | EArith (e1,_,e2)     -> binary cxt (adorn e Int)  (adorn e1 Int)  (adorn e2 Int)  e1 e2
+     | EMatch (e,ems)       -> let et = adorn_x e (new_TypeVar ()) in
+                               let cxt = assigntype_expr cxt et e in
+                               let tc cxt e = 
+                                 assigntype_expr cxt t e
+                               in
+                               typecheck_pats tc cxt et ems
+     | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
+     | EArith (e1,_,e2)     -> binary cxt (adorn_x e Int)  (adorn_x e1 Int)  (adorn_x e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
-                                       let t = adorn e1 (new_TypeVar ()) in
-                                       binary cxt (adorn e Bool) t t e1 e2
+                                       let t = adorn_x e1 (new_TypeVar ()) in
+                                       binary cxt (adorn_x e Bool) t t e1 e2
                                    | _ ->
-                                       binary cxt (adorn e Bool) (adorn e1 Int) (adorn e2 Int)  e1 e2
+                                       binary cxt (adorn_x e Bool) (adorn_x e1 Int) (adorn_x e2 Int)  e1 e2
                                   )
-     | EBoolArith (e1,_,e2) -> binary cxt (adorn e Bool)  (adorn e1 Bool)  (adorn e2 Bool)  e1 e2
-     | EAppend (e1,e2)      -> let t' = adorn e (List (adorn e (new_TypeVar()))) in
+     | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool)  (adorn_x e1 Bool)  (adorn_x e2 Bool)  e1 e2
+     | EAppend (e1,e2)      -> let t' = adorn_x e (List (adorn_x e (new_TypeVar()))) in
                                let cxt = assigntype_expr cxt t' e1 in
                                let cxt = assigntype_expr cxt t' e2 in
                                unifytype cxt t t'
-     | EBitCombine (e1, e2) -> let t' = adorn e (new_TypeVar ()) in
+     | EBitCombine (e1, e2) -> let t' = adorn_x e (new_TypeVar ()) in
                                let cxt = assigntype_expr cxt t' e1 in
-                               let cxt = assigntype_expr cxt (adorn e2 Bit) e2 in
+                               let cxt = assigntype_expr cxt (adorn_x e2 Bit) e2 in
                                (* if e1 is a Bit, an Int or a Range then we know what to do. 
                                 * Otherwise force Int
                                 *)
                                let t' = evaltype cxt t' in
                                (match t'.inst with
                                 | Int         -> unifytype cxt t t'
-                                | Bit         -> unifytype cxt t (adorn e (Range (0,3)))
-                                | Range (j,k) -> unifytype cxt t (adorn e (Range (2*j, 2*k+1)))
-                                | t1          -> let cxt = unifytype cxt t' (adorn e Int) in
-                                                 unifytype cxt t (adorn e Int)
+                                | Bit         -> unifytype cxt t (adorn_x e (Range (0,3)))
+                                | Range (j,k) -> unifytype cxt t (adorn_x e (Range (2*j, 2*k+1)))
+                                | t1          -> let cxt = unifytype cxt t' (adorn_x e Int) in
+                                                 unifytype cxt t (adorn_x e Int)
                                )
 with 
   | TypeUnifyError (t1,t2)  -> raise (TypeCheckError (e.pos,
@@ -492,48 +546,6 @@ and typecheck_process cxt p =
                        typecheck_pats typecheck_process cxt et pms
   | Par (ps)        -> List.fold_left typecheck_process cxt ps
 
-and typecheck_pats tc cxt t pxs =
-   List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
-   
-and assigntype_pat contn cxt t p =
-  p.inst.ptype := Some t;
-  try match p.inst.pnode with
-      | PatAny          -> contn cxt
-      | PatName n       -> let cxt = contn (cxt<@+>(n,t)) in cxt<@->n
-      | PatUnit         -> contn (unifytype cxt t (adorn p.pos Unit))
-      | PatNil          -> let vt = adorn p.pos (new_TypeVar()) in
-                           let lt = adorn p.pos (List vt) in
-                           contn (unifytype cxt t lt)
-      | PatInt _        -> contn (unifytype cxt t (adorn p.pos Int))
-      | PatBool _       -> contn (unifytype cxt t (adorn p.pos Bool))
-      | PatChar _       -> contn (unifytype cxt t (adorn p.pos Char))
-      | PatString _     -> contn (unifytype cxt t (adorn p.pos String))
-      | PatBasisv _     -> contn (unifytype cxt t (adorn p.pos Basisv))
-      | PatGate pg      -> (match pg.inst with
-                            | PatH | PatI | PatX | PatY | PatZ -> contn (unifytype cxt t (adorn p.pos (Gate (1))))
-                            | PatCnot                          -> contn (unifytype cxt t (adorn p.pos (Gate (2))))
-                            | PatPhi p                         -> let pt = adorn p.pos Int in
-                                                                  let cxt = unifytype cxt t (adorn p.pos (Gate(1))) in
-                                                                  assigntype_pat contn cxt pt p
-                           ) 
-      | PatCons (ph,pt) -> let vt = adorn ph.pos (new_TypeVar()) in
-                           let lt = adorn p.pos (List vt) in
-                           let cf cxt = 
-                             assigntype_pat contn cxt t pt
-                           in
-                           let cxt = unifytype cxt t lt in
-                           assigntype_pat cf cxt vt ph
-      | PatTuple ps     -> let rec tc cxt = function
-                             | p::ps -> assigntype_pat ((revargs tc) ps) cxt (adorn p.pos (new_TypeVar())) p
-                             | []    -> contn cxt
-                           in
-                           tc cxt ps
-  with TypeUnifyError _ -> raise (TypeCheckError (p.pos,
-                                                  Printf.sprintf "cannot assign type %s to pattern %s"
-                                                                 (string_of_type (evaltype cxt t))
-                                                                 (string_of_pattern p)
-                                                 )
-                                 )
 let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
   let env_types = match (cxt<@>pn.inst).inst with
                   | Process ts -> ts

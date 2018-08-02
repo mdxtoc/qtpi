@@ -78,8 +78,9 @@ rule make_token = parse
   | '}'         {RBRACE}
   | '['         {LSQPAR}
   | ']'         {RSQPAR}
-  | '|'         {BAR}
-  | "<+>"       {GPLUS}
+  | '|'         {PARSEP}
+  | "<+>"       {SUMSEP}
+  | "<m>"       {MATCHSEP}
   | ':'         {COLON}
   | '='         {EQUALS}
   | '*'         {STAR}

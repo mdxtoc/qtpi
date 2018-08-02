@@ -27,7 +27,8 @@ open Functionutils
 open Instance
 open Name
 open Type
-open Expr
+open Basisv
+open Printpriority
 
 type pattern = pinst instance
 
@@ -39,6 +40,7 @@ and pnode =
   | PatUnit
   | PatNil
   | PatInt of int
+  | PatBit of bool (* as EBit *)
   | PatBool of bool
   | PatChar of char
   | PatString of string
@@ -69,6 +71,7 @@ let patprio p =
   | PatUnit
   | PatNil
   | PatInt      _
+  | PatBit      _
   | PatBool     _
   | PatChar     _
   | PatBasisv   _
@@ -92,6 +95,7 @@ let rec string_of_pattern p =
     | PatCons   (ph,pt) -> Printf.sprintf "%s::%s" (spb (mbl listprio) ph) (spb (mbr listprio) pt)
     | PatUnit           -> "()"
     | PatNil            -> "[]"
+    | PatBit    b       -> if b then "0b1" else "0b0"
     | PatTuple  ps      -> string_of_list (spb (mbn tupleprio)) "," ps
     | PatInt    i       -> string_of_int i
     | PatBool   b       -> string_of_bool b

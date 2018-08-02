@@ -1,9 +1,9 @@
 
-Alice(n:int, r:^bit, toBob) = 
+Alice(n:int, r:^bit, qB, bsB) = 
   (new chosen) (  AliceChoose (n,[],r,chosen)
                 | chosen?(bvs) . 
                   {print_strings ["Alice chose "; string_of_value bvs; "\n"]} .
-                  AliceSend (bvs, toBob)
+                  AliceSend (bvs, qB, bsB)
                )
 
 (* choose n basis,bit pairs *)
@@ -12,9 +12,7 @@ AliceChoose(n, bvs, r, chosen) =
            else r?(b) . r?(v) . AliceChoose(n-1,(b,v)::bvs,r,chosen)
     fi
 
-AliceSend(bvs, toBob) =
-    (new qB,bsB)
-    toBob!qB,bsB .
+AliceSend(bvs, qB, bsB) =
     (new done) (  AliceSendBits (bvs,qB,done)
                 | done?(s) . AliceNegotiate (bvs,bsB)
                )
@@ -67,8 +65,7 @@ Stop (ss) = {print_strings (ss @ ["\n"])} . _0
 Bad () = Stop (["interference detected -- everything stops"])
 Good (vs) = Stop (["Alice's code is "; string_of_value vs])
 
-Bob(n:int, r:^bit, fromAlice) = 
-    fromAlice?(qA,bsA) .
+Bob(n:int, r:^bit, qA, bsA) = 
     (new done) (  BobReceive(n,[],qA,r,done)
                 | done?(bvs)      . (* bvs is what I saw *)
                   {print_strings ["Bob saw "; string_of_value bvs; "\n"]} .
@@ -100,5 +97,5 @@ BobReceive(n,bvs,qA,r,done) =
 Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let n = read_int "number of qbits")
-           (new r,c)
-           (Alice(n,r,c) | Bob(n,r,c) | (newq q = |0>) Random(q,r))
+           (new r,qc,bsc)
+           (Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | (newq q = |0>) Random(q,r))

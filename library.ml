@@ -120,8 +120,7 @@ exception Abandon of string
 let abandon s = raise (Abandon s)
 let _ = Interpret.know ("abandon", "string -> 'a", vfun (abandon <.> stringv))
 
-let qbit_state q =  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) 
-                                        (Qsim.string_of_qval (Qsim.qval q)) 
+let qbit_state q =  Printf.sprintf "%s" (Qsim.string_of_qval (Qsim.qval q)) 
                                         
 let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
 

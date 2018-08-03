@@ -427,7 +427,6 @@ let rec interp sysenv proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
-  let chanpool = ref [] in
   let chanpool = ref [] in (* this is a space leak, but we're only playing, and it helps with diagnostics *)
   let newchan () = 
     let c = !chancount in 
@@ -453,7 +452,6 @@ let rec interp sysenv proc =
     if RunnerQueue.is_empty runners then 
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
         Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
-                      (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                       (string_of_chanpool ())
                       (string_of_queue string_of_stuck "\n" stucks)
                       (String.concat "\n " (strings_of_qsystem ()))
@@ -462,7 +460,6 @@ let rec interp sysenv proc =
       (if !verbose || !verbose_interpret then
          Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
                        (string_of_runnerqueue ";\n  " runners)
-                       (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                        (string_of_chanpool ())
                        (string_of_queue string_of_stuck "; " stucks)
                        (String.concat "\n " (strings_of_qsystem ()));
@@ -491,9 +488,15 @@ let rec interp sysenv proc =
             in
             let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
             addrunner (pn, proc, (List.fold_left (<@+>) env ps))
-        | WithLet (({inst=n,_},e), proc) ->
-            let env = env <@+> (n, evale env e) in
-            addrunner (pn, proc, env)
+        | WithLet ((pat,e), proc) ->
+            let v = evale env e in
+            (match matcher pat.pos env [pat,proc] v with
+             | Some (env,proc) -> addrunner (pn, proc, env)
+             | None            -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                          (string_of_value v)
+                                        )
+                                 )
+            )
         | WithQstep (qstep, proc) ->
             (match qstep.inst with
              | Measure (e, bopt, {inst=n,_}) -> let q = qbitev env e in

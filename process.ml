@@ -49,7 +49,7 @@ and procnode =
 
 and qspec = param * expr option
 
-and letspec = param * expr
+and letspec = pattern * expr
 
 let rec string_of_process proc = 
   match proc.inst with
@@ -63,8 +63,8 @@ let rec string_of_process proc =
   | WithQbit (qs,p)       -> Printf.sprintf "(newq %s)%s"
                                             (commasep (List.map string_of_qspec qs))
                                             (trailing_sop p)
-  | WithLet (x,p)        -> Printf.sprintf "(let %s)%s"
-                                            (string_of_letspec x)
+  | WithLet (lsc,p)       -> Printf.sprintf "(let %s)%s"
+                                            (string_of_letspec lsc)
                                             (trailing_sop p)
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
@@ -99,8 +99,8 @@ and short_string_of_process proc =
                                             (commasep (List.map string_of_param params))
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
                                             (commasep (List.map string_of_qspec xs))
-  | WithLet (x,p)        -> Printf.sprintf "(let %s) ..."
-                                            (string_of_letspec x)
+  | WithLet (lsc,p)       -> Printf.sprintf "(let %s) ..."
+                                            (string_of_letspec lsc)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
   | WithExpr (e,p)        -> Printf.sprintf "%s; ..."
@@ -122,9 +122,9 @@ and string_of_qspec (p, eopt) =
                   | Some bve  -> Printf.sprintf "=%s" (string_of_expr bve)
                  )
 
-and string_of_letspec (p,e) =
+and string_of_letspec (pat,e) =
   Printf.sprintf "%s=%s"
-  				 (string_of_param p)
+  				 (string_of_pattern pat)
   				 (string_of_expr e)
   				 
 and string_of_procmatch (pat,proc) =

@@ -169,7 +169,7 @@ let rec rewrite_process cxt proc =
   | Call      (n,es)        -> List.iter (rewrite_expr cxt) es
   | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process cxt p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process cxt p
-  | WithLet  ((param,e), p) -> rewrite_param cxt param; rewrite_expr cxt e; rewrite_process cxt p
+  | WithLet  ((pat,e), p)   -> rewrite_pat cxt pat; rewrite_expr cxt e; rewrite_process cxt p
   | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process cxt p
   | WithExpr (e,p)          -> rewrite_expr cxt e; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process cxt p1; rewrite_process cxt p2
@@ -509,11 +509,10 @@ and typecheck_process cxt p =
       let params = List.map fst qss in
       check_distinct params;
       do_procparams "WithQbit" cxt params proc
-  | WithLet ((p,e),proc) -> 
-      let (n,rt) = p.inst in
-      let t = fix_paramtype p.pos rt in
+  | WithLet ((pat,e),proc) ->
+      let t = adorn e.pos (new_TypeVar ()) in
       let cxt = assigntype_expr cxt t e in
-      do_procparams "WithLet" cxt [p] proc
+      assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
        | Measure (e, eopt, param) ->

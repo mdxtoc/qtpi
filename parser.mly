@@ -249,8 +249,7 @@ qspec:
   | param EQUALS ntexpr                 {$1, Some $3}
   
 letspec:
-  | name EQUALS expr                    {adorn ($1, ref None     ), $3}
-  | name COLON typespec EQUALS expr     {adorn ($1, ref (Some $3)), $5}
+  | pattern EQUALS expr                 {$1, $3}
   
 iostep:
   | expr QUERY LPAR paramseq RPAR       {adorn (Read ($1,$4))}

@@ -148,8 +148,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | WithNew   (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
     | WithQbit  (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
                                     ctfa_proc proc
-    | WithLet   (letspec, proc)  -> let param, e = letspec in
-                                    ctfa_param param; 
+    | WithLet   (letspec, proc)  -> let pat, e = letspec in
                                     ctfa_expr e;
                                     ctfa_proc proc
     | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
@@ -224,6 +223,8 @@ let ctfa_def (Processdef(pn, params, proc)) =
   List.iter ctfa_param params;
   ctfa_proc proc
   
+(* we don't need ctfa_pat *)
+
 (* *************** phase 2: resource check (rck_...) *************************** *)
 
 type resource =
@@ -525,10 +526,10 @@ let rec rck_proc state env proc =
                                    in
                                    rp state env proc
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
-                                   let param, e = letspec in
-                                   let n,_ = param.inst in
-                                   let r, er = resources_of_expr state env e in
-                                   ResourceSet.union (rp state (env <@+> (n, r)) proc) er
+                                   let pat, e = letspec in
+                                   let re, usede = resources_of_expr state env e in 
+                                   let used = rck_pat false (fun state env -> rp state env proc) state env pat re in
+                                   ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, bopt, param) -> 
                                         let n,_ = param.inst in

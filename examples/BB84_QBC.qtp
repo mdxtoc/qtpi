@@ -48,21 +48,17 @@ BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
-         q >> if basis=0b1 then _H else _I fi.
-         q =? (value).
          q =?[if basis=0b1 then _H else _I fi] (value).
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 
 (* verify Alice's story *)
-BobVerify (basis, vs, bvs) = 
   match vs, bvs .
       []   , []           . Honest ()
   <m> []   , _            . Liar ()
   <m> _    , []           . Liar ()
   <m> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
                               then Liar ()
-                              else BobVerify(basis,tl(vs),tl(bvs))
                               else BobVerify(basis,vs,bvs)
                             fi
   hctam

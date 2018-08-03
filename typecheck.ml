@@ -150,8 +150,13 @@ let rewrite_params cxt = List.iter (rewrite_param cxt)
 
 let rewrite_qstep cxt qstep = 
   match qstep.inst with
-  | Measure   (e,param)     -> rewrite_expr cxt e; rewrite_param cxt param
-  | Ugatestep (es, ug)      -> List.iter (rewrite_expr cxt) es
+  | Measure   (e,eopt,param) -> rewrite_expr cxt e; 
+                                (match eopt with
+                                 | Some e -> rewrite_expr cxt e
+                                 | None   -> ()
+                                );
+                                rewrite_param cxt param
+  | Ugatestep (es, ug)       -> List.iter (rewrite_expr cxt) es
 
 let rewrite_iostep cxt iostep = 
   match iostep.inst with
@@ -302,6 +307,11 @@ let rec assign_name_type pos cxt t n =
   | None    -> raise (Undeclared (pos, n))
 
 and assigntype_expr cxt t e =
+  if !verbose || !verbose_typecheck then
+    Printf.printf "assigntype_expr %s %s %s\n"
+                  (string_of_typecxt cxt)
+                  (string_of_type (evaltype cxt t))
+                  (string_of_expr e);
   e.inst.etype := Some t; (* for rewriting later *)
   let utaf cxt = uncurry2 (assigntype_expr cxt) in
   try 
@@ -506,9 +516,13 @@ and typecheck_process cxt p =
       do_procparams "WithLet" cxt [p] proc
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, param) ->
+       | Measure (e, eopt, param) ->
            let n,rt = param.inst in
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
+           let cxt = match eopt with
+                     | Some e -> assigntype_expr cxt (adorn e.pos (Gate(1))) e
+                     | None   -> cxt
+           in
            let cxt = unify_paramtype cxt rt (adorn param.pos Bit) in
            do_procparams "Measure" cxt [param] proc
        | Ugatestep (es, uge) ->

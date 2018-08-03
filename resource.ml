@@ -164,8 +164,10 @@ let ctfa_def (Processdef(pn, params, proc)) =
   
   and ctfa_qstep qstep =
     match qstep.inst with
-    | Measure   (qe,param)  -> ctfa_expr qe; ctfa_param param
-    | Ugatestep (qes, ug)   -> List.iter ctfa_expr qes
+    | Measure   (qe,gopt,param) -> ctfa_expr qe; 
+                                   (match gopt with Some g -> ctfa_expr g | None -> ());
+                                   ctfa_param param
+    | Ugatestep (qes, ug)       -> List.iter ctfa_expr qes
   
   and ctfa_iostep iostep =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
@@ -324,7 +326,6 @@ exception OverLap of string
                                          )
                   )
     in
-    if !verbose_resource then 
       Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
                                                (string_of_state state)
                                                (string_of_env env)
@@ -450,7 +451,6 @@ let resources_of_expr state env e =
                                                          )
                                           )
                                  )
-      | EMatch      (em,ems)  -> let re, usede = re use e in
                                  let rus = rck_pats true (fun _ env -> re_env use env) state env re ems in
                                  let rs, useds = unzip rus in
                                  (match List.filter (function RNull -> false | _ -> true) rs with
@@ -496,7 +496,6 @@ let rec rck_proc state env proc =
           )
   in
   let rec rp state env proc =
-    if !verbose_resource then 
       Printf.printf "rp %s %s %s\n" (string_of_env env)
                                     (string_of_state state)
                                     (short_string_of_process proc);
@@ -528,20 +527,26 @@ let rec rck_proc state env proc =
                                    let r, er = resources_of_expr state env e in
                                    ResourceSet.union (rp state (env <@+> (n, r)) proc) er
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, param)   -> let n,_ = param.inst in
-                                                               let _, used = resources_of_expr state env qe in
-                                                               ResourceSet.union used (rp state (env <@+> (n,RNull)) proc)
-                                    | Ugatestep (qes, ug)   -> (try let qers = List.map (snd <.> resources_of_expr state env) qes in
-                                                                    let used = disju qers in
-                                                                    ResourceSet.union (rp state env proc) used
-                                                                with OverLap s -> badproc s
-                                                               )
+                                    | Measure (qe, bopt, param) -> 
+                                        let n,_ = param.inst in
+                                        let _, usedq = resources_of_expr state env qe in
+                                        let usedb = match bopt with
+                                                    | Some e -> snd (resources_of_expr state env e)
+                                                    | None   -> ResourceSet.empty
+                                        in
+                                        ResourceSet.union usedq (ResourceSet.union usedb (rp state (env <@+> (n,RNull)) proc))
+                                    | Ugatestep (qes, ug)    -> 
+                                        (try let qers = List.map (snd <.> resources_of_expr state env) qes in
+                                             let used = disju qers in
+                                             ResourceSet.union (rp state env proc) used
+                                         with OverLap s -> badproc s
+                                        )
                                    )
       | WithExpr (e, proc)      -> let _, used = resources_of_expr state env e in
                                    ResourceSet.union used (rp state env proc)
       | Cond (ce,p1,p2)         -> (try let _, used = resources_of_expr state env ce in
                                         let prs = List.map (rp state env) [p1;p2] in
-                                        ResourceSet.union used (disju prs) (* NOT disju, silly boy! *)
+                                        List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
                                     with OverLap s -> badproc s
                                    )
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
@@ -580,7 +585,6 @@ let rec rck_proc state env proc =
                                    )
       )
     in
-    if !verbose_resource then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
     r
   in
@@ -588,7 +592,6 @@ let rec rck_proc state env proc =
   
 let rck_def env (Processdef(pn, params, proc)) = 
   let state, rparams = resource_of_params State.empty params in
-  if !verbose_resource then
     Printf.printf "\ndef %s params %s resource %s\n" 
                   (string_of_name pn.inst)
                   (bracketed_string_of_list string_of_param params)

@@ -38,7 +38,7 @@ and iostumble =
 type qstep = qstumble instance
 
 and qstumble =
-  | Measure of expr * param
+  | Measure of expr * expr option * param  (* qbit, Some gate, param *)
   | Ugatestep of expr list * expr
   
 let string_of_iostep iostep =
@@ -51,8 +51,12 @@ let string_of_iostep iostep =
                                           (commasep (List.map string_of_expr es))
 let string_of_qstep qstep =
   match qstep.inst with
-  | Measure (e,p)       -> Printf.sprintf "%s=?(%s)"
+  | Measure (e,g,p)       -> Printf.sprintf "%s=?%s(%s)"
                                           (string_of_expr e)
+                                          (match g with
+                                           | Some e -> Printf.sprintf "[%s]" (string_of_expr e)
+                                           | None   -> ""
+                                          )
                                           (string_of_param p)
   | Ugatestep (es,u)    -> Printf.sprintf "%s>>%s"
                                           (commasep (List.map string_of_expr es))

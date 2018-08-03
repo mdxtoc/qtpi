@@ -24,6 +24,7 @@
 open Settings
 open Listutils
 open Functionutils
+open Optionutils
 open Sourcepos
 open Instance
 open Name
@@ -482,13 +483,14 @@ let rec interp sysenv proc =
             addrunner (pn, proc, env)
         | WithQstep (qstep, proc) ->
             (match qstep.inst with
-             | Measure (e, {inst=n,_})  -> let q = qbitev env e in
-                                      let v = VInt (qmeasure pn q) in
-                                      addrunner (pn, proc, env <@+> (n,v))
-             | Ugatestep (es, ug)  -> let qs = List.map (qbitev env) es in
-                                      let g = gatev (evale env ug) in
-                                      ugstep pn qs g;
-                                      addrunner (pn, proc, env)
+             | Measure (e, bopt, {inst=n,_}) -> let q = qbitev env e in
+                                                let bvopt = bopt &~~ (fun e -> Some (gatev (evale env e))) in
+                                                let v = VInt (qmeasure pn bvopt q) in
+                                                addrunner (pn, proc, env <@+> (n,v))
+             | Ugatestep (es, ug)         -> let qs = List.map (qbitev env) es in
+                                             let g = gatev (evale env ug) in
+                                             ugstep pn qs g;
+                                             addrunner (pn, proc, env)
             )
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)

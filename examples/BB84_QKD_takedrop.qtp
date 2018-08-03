@@ -86,10 +86,10 @@ Bob(n:int, r:^bit, qA, bsA) =
 (* receive qbits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
-    else qA?(q).
-         r?(basis).
-         q >> if basis=0b1 then _H else _I fi.
-         q =? (value).
+    else qA?(q) .
+         r?(basis) .
+         q =?[if basis=0b1 then _H else _I fi] (value) .
+         dispose!q .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
        

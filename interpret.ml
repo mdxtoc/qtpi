@@ -77,12 +77,16 @@ module rec Types : sig
   and stuck = name * value list
 end = Types
 
-and OrderedRWaiters : Priority_queue.Ordered = struct type t = Types.rwaiter let compare = Pervasives.compare end
-and OrderedWWaiters : Priority_queue.Ordered = struct type t = Types.wwaiter let compare = Pervasives.compare end
+(* the bool refs in what follows are to deal with guarded sums: essentially, an offer
+   to communicate can be withdrawn from all guards by setting the ref to false. At
+   least I hope so.
+ *)
+and OrderedRWaiters : Priority_queue.Ordered = struct type t = Types.rwaiter * bool ref end
+and OrderedWWaiters : Priority_queue.Ordered = struct type t = Types.wwaiter * bool ref end
 and OrderedRunners : Priority_queue.Ordered = struct type t = Types.runner let compare = Pervasives.compare end
 
-and RWaiterQueue : Priority_queue.PQ with type elt=Types.rwaiter = Priority_queue.Make(OrderedRWaiters)
-and WWaiterQueue : Priority_queue.PQ with type elt=Types.wwaiter = Priority_queue.Make(OrderedWWaiters)
+and RWaiterQueue : Priority_queue.PQ with type elt=Types.rwaiter * bool ref = Priority_queue.Make(OrderedRWaiters)
+and WWaiterQueue : Priority_queue.PQ with type elt=Types.wwaiter * bool ref = Priority_queue.Make(OrderedWWaiters)
 and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.Make(OrderedRunners)
 
 open Types
@@ -157,29 +161,33 @@ and string_of_runner (n, proc, env) =
                  (short_string_of_process proc)
                  (short_string_of_env env)
                  
-and string_of_rwaiter (n, vars, proc, env) = 
-  Printf.sprintf "%s = (%s)%s %s" 
+and string_of_rwaiter ((n, vars, proc, env),br) = 
+  Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
                  (short_string_of_process proc)
                  (short_string_of_env env)
+                 (if !br then "" else "[dead]")
                  
-and short_string_of_rwaiter (n, vars, proc, env) = (* infinite loop if we print the environment *)
-  Printf.sprintf "%s(%s)" 
+and short_string_of_rwaiter ((n, vars, proc, env),br) = (* infinite loop if we print the environment *)
+  Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_list string_of_name ";" vars)
+                 (if !br then "" else "[dead]")
                  
-and string_of_wwaiter (n, vals, proc, env) = 
-  Printf.sprintf "%s = (%s)%s %s" 
+and string_of_wwaiter ((n, vals, proc, env),br) = 
+  Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_list string_of_value ";" vals)
                  (short_string_of_process proc)
                  (short_string_of_env env)
+                 (if !br then "" else "[dead]")
                  
-and short_string_of_wwaiter (n, vals, proc, env) = (* infinite loop if we print the environment *)
-  Printf.sprintf "%s(%s)" 
+and short_string_of_wwaiter ((n, vals, proc, env),br) = (* infinite loop if we print the environment *)
+  Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_list string_of_value ";" vals)
+                 (if !br then "" else "[dead]")
                  
 and string_of_stuck (n, vs) =
   Printf.sprintf "%s(%s)._"
@@ -510,6 +518,12 @@ let rec interp sysenv proc =
             (match iostep.inst with
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
+                               let rec get_wwaiter () = 
+                                 if WWaiterQueue.is_empty c.wwaiters then None 
+                                 else (let stuff,br = WWaiterQueue.pop c.wwaiters in
+                                       if !br then Some stuff else get_wwaiter ()
+                                      )
+                               in
                                if c.cname = -1 then (* reading from dispose, ho ho *)
                                  (let n = List.hd ns in (* ns typechecked to a single name *)
                                   let q = newqbit pn n None in
@@ -523,42 +537,47 @@ let rec interp sysenv proc =
                                   addrunner (pn, proc, env)
                                  )
                                else
-                               if not (WWaiterQueue.is_empty c.wwaiters) then
-                                 (let pn',vs',proc',env' = WWaiterQueue.pop c.wwaiters in
-                                  WWaiterQueue.excite c.wwaiters;
-                                  maybe_forget_chan c;
-                                  addrunner (pn', proc', env');
-                                  addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
-                                 )
-                               else
-                                 (RWaiterQueue.push c.rwaiters (pn, ns, proc, env);
-                                  remember_chan c
+                                 (match get_wwaiter () with
+                                  | Some (pn',vs',proc',env') ->
+                                      WWaiterQueue.excite c.wwaiters;
+                                      maybe_forget_chan c;
+                                      addrunner (pn', proc', env');
+                                      addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
+                                  | None -> 
+                                      RWaiterQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
+                                      remember_chan c
                                  )
              | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
+                               let rec get_rwaiter () = 
+                                 if RWaiterQueue.is_empty c.rwaiters then None 
+                                 else (let stuff,br = RWaiterQueue.pop c.rwaiters in
+                                       if !br then Some stuff else get_rwaiter ()
+                                      )
+                               in
                                if c.cname = -1 then (* it's dispose *)
                                  (disposeqbit pn (qbitv (List.hd vs)); (* typechecked to a single qbit *)
                                   addrunner (pn, proc, env)
                                  )
                                else
-                               if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
-                                 (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
-                                  RWaiterQueue.excite c.rwaiters;
-                                  maybe_forget_chan c;
-                                  addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
-                                  addrunner (pn, proc, env)
-                                 )
-                               else
-                               if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                                  !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-                               then
-                                 (Queue.push vs c.stream;
-                                  remember_chan c;
-                                  addrunner (pn, proc, env)
-                                 )
-                               else
-                                 (WWaiterQueue.push c.wwaiters (pn, vs, proc, env);
-                                  remember_chan c
+                                 (match get_rwaiter () with
+                                  | Some (pn',ns',proc',env') -> 
+                                      RWaiterQueue.excite c.rwaiters;
+                                      maybe_forget_chan c;
+                                      addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
+                                      addrunner (pn, proc, env)
+                                  | None ->
+                                      if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                                         !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+                                      then
+                                        (Queue.push vs c.stream;
+                                         remember_chan c;
+                                         addrunner (pn, proc, env)
+                                        )
+                                      else
+                                        (WWaiterQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
+                                         remember_chan c
+                                        )
                                  )
              )
         | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))

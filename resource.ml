@@ -326,6 +326,7 @@ exception OverLap of string
                                          )
                   )
     in
+    if !verbose || !verbose_resource then 
       Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
                                                (string_of_state state)
                                                (string_of_env env)
@@ -497,6 +498,7 @@ let rec rck_proc state env proc =
           )
   in
   let rec rp state env proc =
+    if !verbose || !verbose_resource then 
       Printf.printf "rp %s %s %s\n" (string_of_env env)
                                     (string_of_state state)
                                     (short_string_of_process proc);
@@ -586,6 +588,7 @@ let rec rck_proc state env proc =
                                    )
       )
     in
+    if !verbose || !verbose_resource then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
     r
   in
@@ -593,6 +596,7 @@ let rec rck_proc state env proc =
   
 let rck_def env (Processdef(pn, params, proc)) = 
   let state, rparams = resource_of_params State.empty params in
+  if !verbose || !verbose_resource then
     Printf.printf "\ndef %s params %s resource %s\n" 
                   (string_of_name pn.inst)
                   (bracketed_string_of_list string_of_param params)
@@ -609,8 +613,10 @@ let resourcecheck cxt lib defs =
      Let's police parameters: channels take either a single qbit or a classical value. Functions and
      applications must have nothing to do with qbits.
    *)
+  if !verbose || !verbose_resource then Printf.printf "about to ctfa\n";
   List.iter ctfa_given lib;
   List.iter ctfa_def defs;
+  if !verbose || !verbose_resource then Printf.printf "about to build sysenv\n";
   let knownassoc = 
     List.map (fun (n,t,_) -> let _, r = resource_of_type State.empty (Parseutils.parse_typestring t) in
                              n, r
@@ -618,4 +624,5 @@ let resourcecheck cxt lib defs =
              !Interpret.knowns 
   in
   let env = NameMap.of_assoc knownassoc in
+  if !verbose || !verbose_resource then Printf.printf "about to rck\n";
   List.iter (rck_def env) defs

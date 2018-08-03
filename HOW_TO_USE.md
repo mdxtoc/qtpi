@@ -14,7 +14,7 @@ from [GitHub](https://github.com/mdxtoc/qtpi): use the "Clone or download" butto
   
 # Try Me
 
-        ,/Qtpi examples/??.qtp
+        ./Qtpi examples/??.qtp
         
   Lots of examples to try.
   

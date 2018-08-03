@@ -729,12 +729,8 @@ let ugstep pn qs ugv =
 
 let rec qmeasure pn gopt q = 
   match gopt with
-  | Some gate -> (* in gate-defined basis *)
-      ugstep pn [q] gate; 
-	  let bit = qmeasure pn None q in
-	  ugstep pn [q] gate;
-	  bit
-  | None -> (* computational measure *)
+  | Some GateI
+  | None 		-> (* computational measure *)
 	  let qs, v = qval q in
 	  let bit = ibit q qs in
 	  let prob = 
@@ -809,3 +805,8 @@ let rec qmeasure pn gopt q =
 		Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
 	  record qv;
 	  r
+  | Some gate -> (* in gate-defined basis *)
+      ugstep pn [q] gate; 
+	  let bit = qmeasure pn None q in
+	  ugstep pn [q] gate;
+	  bit

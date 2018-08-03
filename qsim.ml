@@ -214,40 +214,56 @@ let v_1     = make_v [P_0   ; P_1         ]
 let v_plus  = make_v [P_h 1 ; P_h 1       ]
 let v_minus = make_v [P_h 1 ; Pneg (P_h 1)]
 
-let newqbit = (* hide the reference *)
-  (let qbitcount = ref 0 in
-   let newqbit pn n vopt = 
-     let q = !qbitcount in 
-     qbitcount := !qbitcount+1; 
-     let vec = match vopt with
-               | Some Basisv.BVzero  -> Array.copy v_0
-               | Some Basisv.BVone   -> Array.copy v_1
-               | Some Basisv.BVplus  -> Array.copy v_plus
-               | Some Basisv.BVminus -> Array.copy v_minus
-			   | None              -> if !Settings.symbq then
-										Array.init 2 (fun i -> Psymb (i=1, q)) 
-									  else (* random basis, random fixed value *)
-										Array.copy (match Random.bool (), Random.bool ()  with
-													| false, false -> v_0 
-													| false, true  -> v_1
-													| true , false -> v_plus 
-													| true , true  -> v_minus
-												   )
-     in
-     let qv = [q],vec in
-     Hashtbl.add qstate q qv;
-     if !verbose_qsim then
-       Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
-                     (Name.string_of_name pn)
-                     (Name.string_of_name n)
-                     (string_of_option Basisv.string_of_basisv vopt)
-                     (string_of_qbit q)
-                     (string_of_qbit q)
-                     (string_of_qval qv);
-     q
-   in
-   newqbit
-  )
+(* ****************** new and dispose for qbits ******************************* *)
+
+let newqbit, disposeqbit = (* hide the references *)
+  let qbitcount = ref 0 in
+  let qfrees = ref [] in
+  let newqbit pn n vopt = 
+	let q = match !qfrees, vopt with
+	  | q::qs, Some _ -> qfrees:=qs; q (* only re-use qbits when we don't make symbolic probabilities *)
+	  | _	  		  -> let q = !qbitcount in 
+						 qbitcount := q+1; 
+						 q
+	in
+	let vec = match vopt with
+			  | Some Basisv.BVzero  -> Array.copy v_0
+			  | Some Basisv.BVone   -> Array.copy v_1
+			  | Some Basisv.BVplus  -> Array.copy v_plus
+			  | Some Basisv.BVminus -> Array.copy v_minus
+			  | None                -> if !Settings.symbq then
+										 Array.init 2 (fun i -> Psymb (i=1, q)) (* this could be a bug if we used qfrees *)
+									   else (* random basis, random fixed value *)
+										 Array.copy (match Random.bool (), Random.bool ()  with
+													 | false, false -> v_0 
+													 | false, true  -> v_1
+													 | true , false -> v_plus 
+													 | true , true  -> v_minus
+													)
+	in
+	let qv = [q],vec in
+	Hashtbl.add qstate q qv;
+	if !verbose_qsim then
+	  Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
+					(Name.string_of_name pn)
+					(Name.string_of_name n)
+					(string_of_option Basisv.string_of_basisv vopt)
+					(string_of_qbit q)
+					(string_of_qbit q)
+					(string_of_qval qv);
+	q
+  in
+  let disposeqbit q = match Hashtbl.find qstate q with
+  					  | [q],_ -> Hashtbl.remove qstate q; qfrees := q::!qfrees
+  					  | qv	  -> (* don't dispose entangled qbits *)
+  					             if !verbose || !verbose_qsim then
+  					  		       Printf.printf "can't dispose qbit %d|->%s\n"
+  					  		       				 q
+  					  		       				 (string_of_qval qv)
+  in
+  newqbit, disposeqbit  
+
+(* *********************** simplification starts here ************************************ *)
 
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
@@ -711,78 +727,85 @@ let ugstep pn qs ugv =
                                         )
                                  )
 
-let qmeasure pn  q = 
-  let qs, v = qval q in
-  let bit = ibit q qs in
-  let prob = 
-    _for_leftfold 0 1 (vsize v) (fun i p -> if i land bit<>0 then 
-                                      sum (prod v.(i) v.(i)) p 
-                                    else p
-								) 
-								P_0 
-  in
-  if !verbose_qsim then 
-    Printf.printf "%s qmeasure %s; %s|->%s; prob |1> = %s;"
-                  (Name.string_of_name pn)
-                  (string_of_qbit q)
-                  (string_of_qbit q)
-                  (string_of_qval (qval q))
-                  (string_of_prob prob);
-  let guess () =
-    let r = if Random.bool () then 0 else 1 in
-    if !verbose_qsim then Printf.printf " guessing %d;" r;
-    r  
-  in
-  let r = match prob with
-  | P_0    -> 0
-  | P_1    -> 1
-  | P_h i -> if i=0 then 1
-             else (let rg = Random.float 1.0 in
-                   let rec iexp i rf = if i=0 then rf else iexp (i-1) (rf/.sqrt 2.0) in
-                   let r = if iexp i 1.0 < rg then 1 else 0 in
-                   if !verbose_qsim then Printf.printf " (biased) guessing %d;" r;
-                   r
-                  )
-  | _     -> guess ()
-  in
-  (* set the relevant probs to zero, normalise *)
-  _for 0 1 (vsize v) (fun i -> if (r=1 && i land bit=0) || (r=0 && i land bit<>0)
-                               then v.(i) <- P_0 (* else skip *)
-                     );
-  let modulus = _for_leftfold 0 1 (vsize v) (fun i p -> sum (prod v.(i) v.(i)) p) P_0 in
-  if !verbose_qcalc then 
-    Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
-  (match modulus with
-   | P_1                -> ()
-   | P_h k  when k mod 2 = 0 
-                        -> let n = k/2 in
-                           (* multiply by 2**(n/2) *)
-                           _for 0 1 (n/2) (fun _ -> _for 0 1 (vsize v) (fun i -> v.(i) <- sum v.(i) v.(i)));
-                           (* and then by h if n is odd *)
-                           if n mod 2 = 1 then
-                             _for 0 1 (vsize v) (fun i -> v.(i) <- r2 v.(i))
-   | Pprod [p1;p2] when p1=p2 
-                        -> _for 0 1 (vsize v) (fun i -> v.(i) <- div v.(i) p1)
-   (* at this point it _could_ be necessary to guess roots of squares, like sqrt (h(2)+ab) = h+ab. 
-    * Or maybe a better solution is required ...
-    *)
-   | _                  -> 
-       (* is there just one possibility? If so, set it to P_1. *)
-       let nzs = List.map (fun p -> if p<>P_0 then 1 else 0) (Array.to_list v) in
-       if List.fold_left (+) 0 nzs = 1 then
-         _for 0 1 (vsize v) (fun i -> if v.(i)<>P_0 then v.(i)<-P_1)
-       else
-		 (if !verbose_qsim then
-			Printf.printf " oh dear!\n"; 
-		  raise (Error (Printf.sprintf "normalise %s modulus %s" 
-									   (string_of_qval (qs,v)) 
-									   (string_of_prob modulus)
-					   )
-				)
-		 ) 
-  );
-  let qv = qs, v in
-  if !verbose_qsim then 
-    Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
-  record qv;
-  r
+let rec qmeasure pn gopt q = 
+  match gopt with
+  | Some gate -> (* in gate-defined basis *)
+      ugstep pn [q] gate; 
+	  let bit = qmeasure pn None q in
+	  ugstep pn [q] gate;
+	  bit
+  | None -> (* computational measure *)
+	  let qs, v = qval q in
+	  let bit = ibit q qs in
+	  let prob = 
+		_for_leftfold 0 1 (vsize v) (fun i p -> if i land bit<>0 then 
+										  sum (prod v.(i) v.(i)) p 
+										else p
+									) 
+									P_0 
+	  in
+	  if !verbose_qsim then 
+		Printf.printf "%s qmeasure %s; %s|->%s; prob |1> = %s;"
+					  (Name.string_of_name pn)
+					  (string_of_qbit q)
+					  (string_of_qbit q)
+					  (string_of_qval (qval q))
+					  (string_of_prob prob);
+	  let guess () =
+		let r = if Random.bool () then 0 else 1 in
+		if !verbose_qsim then Printf.printf " guessing %d;" r;
+		r  
+	  in
+	  let r = match prob with
+	  | P_0    -> 0
+	  | P_1    -> 1
+	  | P_h i -> if i=0 then 1
+				 else (let rg = Random.float 1.0 in
+					   let rec iexp i rf = if i=0 then rf else iexp (i-1) (rf/.sqrt 2.0) in
+					   let r = if iexp i 1.0 < rg then 1 else 0 in
+					   if !verbose_qsim then Printf.printf " (biased) guessing %d;" r;
+					   r
+					  )
+	  | _     -> guess ()
+	  in
+	  (* set the relevant probs to zero, normalise *)
+	  _for 0 1 (vsize v) (fun i -> if (r=1 && i land bit=0) || (r=0 && i land bit<>0)
+								   then v.(i) <- P_0 (* else skip *)
+						 );
+	  let modulus = _for_leftfold 0 1 (vsize v) (fun i p -> sum (prod v.(i) v.(i)) p) P_0 in
+	  if !verbose_qcalc then 
+		Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
+	  (match modulus with
+	   | P_1                -> ()
+	   | P_h k  when k mod 2 = 0 
+							-> let n = k/2 in
+							   (* multiply by 2**(n/2) *)
+							   _for 0 1 (n/2) (fun _ -> _for 0 1 (vsize v) (fun i -> v.(i) <- sum v.(i) v.(i)));
+							   (* and then by h if n is odd *)
+							   if n mod 2 = 1 then
+								 _for 0 1 (vsize v) (fun i -> v.(i) <- r2 v.(i))
+	   | Pprod [p1;p2] when p1=p2 
+							-> _for 0 1 (vsize v) (fun i -> v.(i) <- div v.(i) p1)
+	   (* at this point it _could_ be necessary to guess roots of squares, like sqrt (h(2)+ab) = h+ab. 
+		* Or maybe a better solution is required ...
+		*)
+	   | _                  -> 
+		   (* is there just one possibility? If so, set it to P_1. *)
+		   let nzs = List.map (fun p -> if p<>P_0 then 1 else 0) (Array.to_list v) in
+		   if List.fold_left (+) 0 nzs = 1 then
+			 _for 0 1 (vsize v) (fun i -> if v.(i)<>P_0 then v.(i)<-P_1)
+		   else
+			 (if !verbose_qsim then
+				Printf.printf " oh dear!\n"; 
+			  raise (Error (Printf.sprintf "normalise %s modulus %s" 
+										   (string_of_qval (qs,v)) 
+										   (string_of_prob modulus)
+						   )
+					)
+			 ) 
+	  );
+	  let qv = qs, v in
+	  if !verbose_qsim then 
+		Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
+	  record qv;
+	  r

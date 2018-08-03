@@ -78,6 +78,16 @@ let v_drop n xs =
     | _, x::xs  -> drop (n-1) xs
   in
   drop n xs
+
+let v_randbits n =
+  let n = intv n in
+  let rec randbits n =
+    if n=0 then [] 
+    else (let b = Random.bool () in
+          vint (if b then 1 else 0)::randbits (n-1)
+         ) 
+  in
+  vlist (randbits n)
   
 let _ = Interpret.know ("length"  , "'a list -> int"                    , vfun (vint <.> List.length <.> listv))
 
@@ -92,6 +102,9 @@ let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 
 
 let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
 let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
+
+let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vint <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
+let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
 
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))

@@ -76,7 +76,7 @@
 %token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH HCTAM
 %token QUERY BANG MEASURE THROUGH 
 %token PLUSPLUS PLUS MINUS DIV
-%token EQUALS NOTEQUAL
+%token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR
 %token UNIT TERMINATE
@@ -87,7 +87,7 @@
 /* remember %left %right %nonassoc and increasing priority */
 %right CONS
 %left AND OR
-%nonassoc EQUALS NOTEQ
+%nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS PLUSPLUS
 %left DIV
 %left APPEND
@@ -262,7 +262,9 @@ iostep:
                                         }
 
 qstep:
-  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,$4))}
+  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
+  | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       
+                                        {adorn (Measure ($1,Some $4,$7))}
   | ntexprs THROUGH expr                {adorn (Ugatestep ($1,$3))}
 
 args:
@@ -378,8 +380,16 @@ arith:
   | ntexpr MINUS ntexpr                 {$1,Minus,$3}
   
 compare:
-  | ntexpr EQUALS ntexpr                {$1,Eq,$3}
-  | ntexpr NOTEQUAL ntexpr              {$1,Neq,$3}
+  | ntexpr compareop ntexpr %prec EQUALS           
+                                        {$1,$2,$3}
+  
+compareop:
+  | LESS                                {Lt}
+  | LESSEQUAL                           {Leq}
+  | EQUALS                              {Eq}
+  | GREATEREQUAL                        {Geq}
+  | GREATER                             {Gt}
+  | NOTEQUAL                            {Neq}
 
 bool:
   | ntexpr AND ntexpr                   {$1,And,$3}

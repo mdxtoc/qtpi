@@ -3,7 +3,6 @@
    'really' works if the initial qbit is |0> or |+> 
    -- i.e. an unfair coin.
  *)
-given Win: unit process, Lose: unit process
 
 P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
                             | fromQ?(y) . y>>_X . toQ!y . _0

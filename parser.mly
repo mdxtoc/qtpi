@@ -262,11 +262,11 @@ args:
 
 pattern:
   | conspattern                         {$1}
-  | conspattern COMMA conspatterns      {padorn (Pattern.delist ($1::$3))}
+  | conspattern COMMA tuplepattern      {padorn (Pattern.delist ($1::$3))}
   
-conspatterns:
+tuplepattern:
   | conspattern                         {[$1]}
-  | conspattern COMMA conspatterns      {$1::$3}
+  | conspattern COMMA tuplepattern      {$1::$3}
   
 conspattern:
   | simplepattern                       {$1}
@@ -293,7 +293,7 @@ simplepattern:
   | LSQPAR patternlist RSQPAR           {$2}
   | LPAR RPAR                           {padorn PatUnit}
   | LPAR pattern RPAR                   {$2}
-  | pattern COLON typespec              {adorn (pwrap (Some $3) $1.inst.pnode)}
+  | simplepattern COLON typespec        {adorn (pwrap (Some $3) $1.inst.pnode)}
   
 patternlist:
   |                                     {padorn PatNil}

@@ -76,8 +76,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * `basisv` is the type of basis vectors (see below).  
   * '`*`' separates elements of a tuple type.   
-  * Type variables `'`*x* and function types *T* `->` ... `->` *T* are currently for internal use.  
-  * Process types *T* `process` are used in the `given` clause (see program description below).  
+  * Type variables `'`*x*, function types *T* `->` ... `->` *T* and process types *T* `process` are currently for internal use.  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
   * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
 
@@ -88,12 +87,13 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `()`  
   | *constant*  
   | *x*  
-  | *x* : *type*  
   | *pat* `::` *pat*  
   | *pat* `,` ... `,` *pat*  
+  | *pat* `:` *type*  
   | `(` *pat* `)`  
 
-
+  * typed patterns may need bracketing (of course).
+  
 * Expression *E*
 
   * The ususal stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
@@ -122,20 +122,15 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
 ## Program description
 
-A program is an optional `given` list and then a bunch of process definitions. One of the process descriptions must be `System`, which must have no parameters ('unit process' type).
+A program is a sequence of process definitions. One of the process descriptions must be `System`, which must have no parameters.
 
 * Process definition
 
   | *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*
   
   * Types are optional, but it seems to be pragmatic to include them.
-  * None of the parameters can be a process type.
+  * None of the parameters can be a process.
   
-* `given` list
-
-	| `given` *N* `:` *T* `,` *N* `:` *T* `,` ... *N* `:` *T*  
-
-    * Gives names and types of processes that aren't defined in the program. This allows undefined processes like 'Win', 'Lose' and so on, which help you to work out how the system finishes from a print-out of the final state. (Now I have a library which includes output functions, this seems like an idea that could be dropped.)
     
 * Interface functions
 

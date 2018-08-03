@@ -451,6 +451,7 @@ let resources_of_expr state env e =
                                                          )
                                           )
                                  )
+      | EMatch      (e,ems)   -> let re, usede = re use e in
                                  let rus = rck_pats true (fun _ env -> re_env use env) state env re ems in
                                  let rs, useds = unzip rus in
                                  (match List.filter (function RNull -> false | _ -> true) rs with

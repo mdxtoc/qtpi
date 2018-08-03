@@ -12,7 +12,7 @@
 | <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>P</em> <code>&lt;m&gt;</code> ... <code>&lt;m&gt;</code> <em>pat</em> <code>.</code> <em>P</em> <code>hctam</code><br />
 | <code>( new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
 | <code>( newq</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>)</code> <em>P</em><br />
-| <code>( let</code> <em>par</em> = <em>E</em> <code>)</code> <em>P</em><br />
+| <code>( let</code> <em>pat</em> = <em>E</em> <code>)</code> <em>P</em><br />
 | <code>{</code> <em>E</em> <code>}</code> <code>.</code> <em>P</em><br />
 | <em>N</em> <code>(</code> <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em>  <code>)</code><br />
 | <code>(</code> <em>P</em> <code>)</code><br />
@@ -85,12 +85,13 @@
 <li>
 <p>Pattern <em>pat</em></p>
 <p>| <code>_</code><br />
-| <em>n</em><br />
+| <code>[]</code><br />
+| <code>()</code><br />
+| <em>constant</em><br />
+| <em>x</em><br />
+| <em>x</em> : <em>type</em><br />
 | <em>pat</em> <code>::</code> <em>pat</em><br />
 | <em>pat</em> <code>,</code> ... <code>,</code> <em>pat</em><br />
-|<code>[]</code><br />
-| <code>()</code><br />
-| <em>constant</em>
 | <code>(</code> <em>pat</em> <code>)</code></p>
 </li>
 <li>

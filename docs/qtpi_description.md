@@ -15,7 +15,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `match` *E* `.` *pat* `.` *P* `<m>` ... `<m>` *pat* `.` *P* `hctam`  
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
-  | `( let` *par* = *E* `)` *P*  
+  | `( let` *pat* = *E* `)` *P*  
   | `{` *E* `}` `.` *P*  
   | *N* `(` *E*  `,`  ... `,` *E*  `)`  
   | `(` *P* `)`  
@@ -84,12 +84,13 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Pattern *pat*
 
   | `_`  
-  | *n*  
+  | ` []`  
+  | `()`  
+  | *constant*  
+  | *x*  
+  | *x* : *type*  
   | *pat* `::` *pat*  
   | *pat* `,` ... `,` *pat*  
-  |` []`  
-  | `()`  
-  | *constant* 
   | `(` *pat* `)`  
 
 

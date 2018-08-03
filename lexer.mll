@@ -144,6 +144,10 @@ rule make_token = parse
   
   | '='         {EQUALS}
   | "<>"        {NOTEQUAL}
+  | '<'         {LESS}
+  | "<="        {LESSEQUAL}
+  | ">="        {GREATEREQUAL}
+  | '>'         {GREATER}
   
   | "&&"        {AND}
   | "||"        {OR}

@@ -124,7 +124,8 @@ let qbit_state q =  Printf.sprintf "%s" (Qsim.string_of_qval (Qsim.qval q))
                                         
 let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
 
-let print_string = vunit <.> Pervasives.print_string <.> stringv
+let print_string s =  vunit (Pervasives.print_string (stringv s); flush stdout)
+
 let _ = Interpret.know ("print_string", "string -> unit"        , vfun (print_string))
 let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
 

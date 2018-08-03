@@ -62,6 +62,7 @@ BobVerify (basis, vs, bvs) =
   <m> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
                               then Liar ()
                               else BobVerify(basis,tl(vs),tl(bvs))
+                              else BobVerify(basis,vs,bvs)
                             fi
   hctam
   

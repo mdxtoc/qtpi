@@ -249,7 +249,10 @@ let rec typecheck_pats tc cxt t pxs =
    List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
    
 and assigntype_pat contn cxt t p =
-  p.inst.ptype := Some t;
+  let cxt = match !(p.inst.ptype) with
+            | Some pt -> unifytype cxt t pt
+            | None    -> p.inst.ptype := Some t; cxt
+  in
   try match p.inst.pnode with
       | PatAny          -> contn cxt
       | PatName n       -> let cxt = contn (cxt<@+>(n,t)) in cxt<@->n

@@ -303,6 +303,7 @@ simplepattern:
   | LSQPAR patternlist RSQPAR           {$2}
   | LPAR RPAR                           {padorn PatUnit}
   | LPAR pattern RPAR                   {$2}
+  | pattern COLON typespec              {adorn (pwrap (Some $3) $1.inst.pnode)}
   
 patternlist:
   |                                     {padorn PatNil}

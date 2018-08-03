@@ -428,12 +428,22 @@ let rec interp sysenv proc =
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
   let chanpool = ref [] in
+  let chanpool = ref [] in (* this is a space leak, but we're only playing, and it helps with diagnostics *)
   let newchan () = 
     let c = !chancount in 
     chancount := !chancount+1; 
     let chan = mkchan c in
     chanpool := chan::!chanpool;
     VChan chan 
+  in
+  let string_of_chanpool () = 
+    let empty_chan c =
+      Queue.is_empty c.stream &&
+      RWaiterQueue.is_empty c.rwaiters &&
+      WWaiterQueue.is_empty c.wwaiters
+    in
+    let cs = List.rev (List.filter (not <.> empty_chan) !chanpool) in
+    string_of_list string_of_chan ";\n  " cs
   in
   let runners = RunnerQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = RunnerQueue.push runners runner in
@@ -444,6 +454,7 @@ let rec interp sysenv proc =
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
         Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
                       (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
+                      (string_of_chanpool ())
                       (string_of_queue string_of_stuck "\n" stucks)
                       (String.concat "\n " (strings_of_qsystem ()))
       else ()
@@ -452,6 +463,7 @@ let rec interp sysenv proc =
          Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
                        (string_of_runnerqueue ";\n  " runners)
                        (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
+                       (string_of_chanpool ())
                        (string_of_queue string_of_stuck "; " stucks)
                        (String.concat "\n " (strings_of_qsystem ()));
        let runner = RunnerQueue.pop runners in

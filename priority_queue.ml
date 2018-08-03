@@ -25,7 +25,7 @@
 
 module type Ordered = sig
   type t 
-  val compare   : t -> t -> int
+  (* val compare   : t -> t -> int -- we don't care, because we use a random integer for sorting *)
   (* val to_string : e -> string *)
 end
 
@@ -38,6 +38,9 @@ module type PQ = sig
      taken from the queue, the integers of remaining elements are reduced, so their 
      'lust' to be chosen next increases a bit. So nobody, probably, gets overlooked 
      for ever.
+     
+     The 'lust' idea, and it's name, comes from Steve Cook who was working on Pascal-m
+     at Queen Mary College in the 1980s. Hello Steve!
    *)
 
   type t
@@ -78,6 +81,8 @@ module type PQ = sig
   (* entries in queue order, not at all efficient *)
   val queue : t -> (int * elt) list
   
+  (* the compare function the module uses: useful for sorting the results of queue above *)
+  val compare : (int*elt) -> (int*elt) -> int
 end
 
 module Make(X : Ordered) = struct
@@ -104,10 +109,8 @@ module Make(X : Ordered) = struct
 
   (* [resize] doubles the size of [data] *)
   
-  let compare (i,ei) (j,ej) =
-    (* i and j rev-compared; otherwise X.compare *)
-    let r = Pervasives.compare i j in
-    if i=0 then X.compare ei ej else -r
+  let compare (i,ei) (j,ej) = (* all that matters is those integers ... *)
+    - (Pervasives.compare i j)
 
   let resize q =
     let n = q.size in

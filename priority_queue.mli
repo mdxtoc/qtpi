@@ -22,15 +22,14 @@
 (**************************************************************************)
 
 module type Ordered = sig
-  type t
-  val compare : t -> t -> int
+  type t (* and no compare function: not needed *)
 end
 
 exception Empty
 
 module type PQ = sig
 
-  (* A collection of [elt]s, ordered mostly by a random integer selected when
+  (* A collection of [elt]s, ordered by a random integer selected when
      the [elt] is added to the queue, smallest integer first. Each time an [elt] is 
      taken from the queue, the integers of remaining elements are reduced, so their 
      'lust' to be chosen next increases a bit. So nobody, probably, gets overlooked 
@@ -75,6 +74,8 @@ module type PQ = sig
   (* entries in queue order, not at all efficient *)
   val queue : t -> (int * elt) list
 
+  (* the compare function the module uses: useful for sorting the results of queue above *)
+  val compare : (int*elt) -> (int*elt) -> int
 end
 
 module Make(Ord: Ordered) : PQ with type elt = Ord.t

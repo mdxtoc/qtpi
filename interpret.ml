@@ -52,7 +52,7 @@ let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
 
 let string_of_queue string_of_v sep q = 
   let vs = queue_elements q in
-  string_of_list string_of_v sep vs
+  "{" ^ string_of_list string_of_v sep vs ^ "}"
 
 module rec Types : sig
   type value =
@@ -93,11 +93,13 @@ and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.
 
 open Types
 let string_of_pqueue string_of sep es = 
+  "{" ^
   string_of_list (if !verbose_queues then (Tupleutils.string_of_pair string_of_int string_of ", ") 
                    else string_of <.> snd
                   )
                   sep
                   es
+  ^ "}"
 ;;
 
 let rec string_of_value v =
@@ -423,26 +425,31 @@ let mkchan c = {cname=c; stream=Queue.create ();
                          wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
                }
 
+module OrderedChan = struct type t = chan 
+                            let compare c1 c2 = Pervasives.compare c1.cname c2.cname
+                            let to_string = string_of_chan
+                     end
+module ChanSet = MySet.Make (OrderedChan)
+
 let rec interp sysenv proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
-  let chanpool = ref [] in (* this is a space leak, but we're only playing, and it helps with diagnostics *)
+  let chanpool = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
+  let string_of_chanpool () = ChanSet.to_string !chanpool in
+  let remember_chan c = chanpool := ChanSet.add c !chanpool in
+  let maybe_forget_chan c =
+    if Queue.is_empty c.stream && 
+       RWaiterQueue.is_empty c.rwaiters &&
+       WWaiterQueue.is_empty c.wwaiters
+    then
+      chanpool := ChanSet.remove c !chanpool
+  in
   let newchan () = 
     let c = !chancount in 
     chancount := !chancount+1; 
     let chan = mkchan c in
-    chanpool := chan::!chanpool;
     VChan chan 
-  in
-  let string_of_chanpool () = 
-    let empty_chan c =
-      Queue.is_empty c.stream &&
-      RWaiterQueue.is_empty c.rwaiters &&
-      WWaiterQueue.is_empty c.wwaiters
-    in
-    let cs = List.rev (List.filter (not <.> empty_chan) !chanpool) in
-    string_of_list string_of_chan ";\n  " cs
   in
   let runners = RunnerQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = RunnerQueue.push runners runner in
@@ -451,14 +458,14 @@ let rec interp sysenv proc =
   let rec step () =
     if RunnerQueue.is_empty runners then 
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
-        Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
+        Printf.printf "All stuck!\n channels=%s\n stuck pseudo-processes=%s\n %s\n\n"
                       (string_of_chanpool ())
                       (string_of_queue string_of_stuck "\n" stucks)
                       (String.concat "\n " (strings_of_qsystem ()))
       else ()
     else
       (if !verbose || !verbose_interpret then
-         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
+         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n stuck pseudo-processes=%s\n %s\n\n"
                        (string_of_runnerqueue ";\n  " runners)
                        (string_of_chanpool ())
                        (string_of_queue string_of_stuck "; " stucks)
@@ -523,17 +530,21 @@ let rec interp sysenv proc =
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
                                   let env = List.fold_left (<@+>) env (zip ns vs) in
+                                  maybe_forget_chan c;
                                   addrunner (pn, proc, env)
                                  )
                                else
                                if not (WWaiterQueue.is_empty c.wwaiters) then
                                  (let pn',vs',proc',env' = WWaiterQueue.pop c.wwaiters in
                                   WWaiterQueue.excite c.wwaiters;
+                                  maybe_forget_chan c;
                                   addrunner (pn', proc', env');
                                   addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
                                  )
                                else
-                                 RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
+                                 (RWaiterQueue.push c.rwaiters (pn, ns, proc, env);
+                                  remember_chan c
+                                 )
              | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
                                if c.cname = -1 then (* it's dispose *)
@@ -544,6 +555,7 @@ let rec interp sysenv proc =
                                if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
                                  (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
                                   RWaiterQueue.excite c.rwaiters;
+                                  maybe_forget_chan c;
                                   addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
                                   addrunner (pn, proc, env)
                                  )
@@ -552,10 +564,13 @@ let rec interp sysenv proc =
                                   !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
                                then
                                  (Queue.push vs c.stream;
+                                  remember_chan c;
                                   addrunner (pn, proc, env)
                                  )
                                else
-                                 WWaiterQueue.push c.wwaiters (pn, vs, proc, env)
+                                 (WWaiterQueue.push c.wwaiters (pn, vs, proc, env);
+                                  remember_chan c
+                                 )
              )
         | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))
         | Cond (e, p1, p2)  ->

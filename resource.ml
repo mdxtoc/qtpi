@@ -613,9 +613,11 @@ let resourcecheck cxt lib defs =
      Let's police parameters: channels take either a single qbit or a classical value. Functions and
      applications must have nothing to do with qbits.
    *)
+  
   if !verbose || !verbose_resource then Printf.printf "about to ctfa\n";
   List.iter ctfa_given lib;
   List.iter ctfa_def defs;
+  
   if !verbose || !verbose_resource then Printf.printf "about to build sysenv\n";
   let knownassoc = 
     List.map (fun (n,t,_) -> let _, r = resource_of_type State.empty (Parseutils.parse_typestring t) in
@@ -624,5 +626,7 @@ let resourcecheck cxt lib defs =
              !Interpret.knowns 
   in
   let env = NameMap.of_assoc knownassoc in
+  let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
+
   if !verbose || !verbose_resource then Printf.printf "about to rck\n";
   List.iter (rck_def env) defs

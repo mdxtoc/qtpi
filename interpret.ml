@@ -418,6 +418,11 @@ and ugev env ug =
   | GCnot               -> GateCnot
   | GPhi  e             -> GatePhi(intev env e)
 
+let mkchan c = {cname=c; stream=Queue.create (); 
+                         rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
+                         wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
+               }
+
 let rec interp sysenv proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
@@ -426,11 +431,7 @@ let rec interp sysenv proc =
   let newchan () = 
     let c = !chancount in 
     chancount := !chancount+1; 
-    let chan = {cname=c; stream=Queue.create (); 
-                         rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
-                         wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
-               } 
-    in
+    let chan = mkchan c in
     chanpool := chan::!chanpool;
     VChan chan 
   in
@@ -441,18 +442,18 @@ let rec interp sysenv proc =
   let rec step () =
     if RunnerQueue.is_empty runners then 
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
-        Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
+        Printf.printf "All stuck!\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
                       (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                       (string_of_queue string_of_stuck "\n" stucks)
-                      (string_of_qstate ())
+                      (String.concat "\n " (strings_of_qsystem ()))
       else ()
     else
       (if !verbose || !verbose_interpret then
-         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n qstate=%s\n\n"
+         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=[\n  %s\n]\n stucks=[%s]\n %s\n\n"
                        (string_of_runnerqueue ";\n  " runners)
                        (string_of_list string_of_chan ";\n  " (List.rev !chanpool))
                        (string_of_queue string_of_stuck "; " stucks)
-                       (string_of_qstate ());
+                       (String.concat "\n " (strings_of_qsystem ()));
        let runner = RunnerQueue.pop runners in
        RunnerQueue.excite runners;
        let pn, rproc, env = runner in
@@ -487,10 +488,10 @@ let rec interp sysenv proc =
                                                 let bvopt = bopt &~~ (fun e -> Some (gatev (evale env e))) in
                                                 let v = VInt (qmeasure pn bvopt q) in
                                                 addrunner (pn, proc, env <@+> (n,v))
-             | Ugatestep (es, ug)         -> let qs = List.map (qbitev env) es in
-                                             let g = gatev (evale env ug) in
-                                             ugstep pn qs g;
-                                             addrunner (pn, proc, env)
+             | Ugatestep (es, ug)            -> let qs = List.map (qbitev env) es in
+                                                let g = gatev (evale env ug) in
+                                                ugstep pn qs g;
+                                                addrunner (pn, proc, env)
             )
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)
@@ -498,6 +499,12 @@ let rec interp sysenv proc =
             (match iostep.inst with
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
+                               if c.cname = -1 then (* reading from dispose, ho ho *)
+                                 (let n = List.hd ns in (* ns typechecked to a single name *)
+                                  let q = newqbit pn n None in
+                                  addrunner (pn, proc, env <@+> (n,q))
+                                 )
+                               else
                                if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
                                  (let vs = Queue.pop c.stream in
                                   let env = List.fold_left (<@+>) env (zip ns vs) in
@@ -514,6 +521,11 @@ let rec interp sysenv proc =
                                  RWaiterQueue.push c.rwaiters (pn, ns, proc, env)
              | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
+                               if c.cname = -1 then (* it's dispose *)
+                                 (disposeqbit pn (qbitv (List.hd vs)); (* typechecked to a single qbit *)
+                                  addrunner (pn, proc, env)
+                                 )
+                               else
                                if not (RWaiterQueue.is_empty c.rwaiters) then (* there can be no stream *)
                                  (let pn',ns',proc',env' = RWaiterQueue.pop c.rwaiters in
                                   RWaiterQueue.excite c.rwaiters;
@@ -569,7 +581,8 @@ let interpret lib defs =
   let givenassoc = List.fold_right given lib [] in
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, IDef p))) defs in
-  let sysenv = List.fold_left (<@+>) NameMap.empty (defassoc @ givenassoc @ knownassoc) in
+  let sysenv = NameMap.of_assoc (defassoc @ givenassoc @ knownassoc) in
+  let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"

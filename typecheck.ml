@@ -600,7 +600,9 @@ let make_cxt lib defs =
                 lib;
       let lib = List.map (fun (n,t) -> n.inst, t) lib in
       let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
-      List.fold_left (fun cxt binding -> cxt <@+> binding) NameMap.empty (lib @ knownassoc)
+      let cxt = NameMap.of_assoc (lib @ knownassoc) in
+      if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose",adorn dummy_spos (Channel (adorn dummy_spos Qbit)))
+
       
 let typecheck lib defs =
   try

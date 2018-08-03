@@ -15,12 +15,14 @@ Q(x: qbit, toP:^qbit, fromP:^qbit) =
   (let n = print_strings ["finally "; qbit_state z; "\n"])
   _0 
 
-System() = (let bv = read_string "basis (0,1,+,-)")
-           (newq x = if   bv="0" then |0> 
-                     elif bv="1" then |1> 
-                     elif bv="+" then |+>
-                     elif bv="-" then |->
-                                 else abandon "bad basis"
-                     fi) 
+System() = (let bv = read_string "initial state (0,1,+,-)")
+           (newq x = match bv .
+                         "0" . |0> 
+                     <m> "1" . |1> 
+                     <m> "+" . |+>
+                     <m> "-" . |->
+                     <m> _   . abandon "bad initial state"
+                     hctam
+           ) 
            (new s:^qbit, r:^qbit) 
            (P(s,r) | Q(x,s,r))

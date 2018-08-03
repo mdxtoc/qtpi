@@ -41,12 +41,6 @@ open Qsim
 exception Error of sourcepos * string
 exception Disaster of sourcepos * string
 
-type iprocess = IGiven | IDef of process
-
-let string_of_iprocess = function
-  | IGiven -> "_"
-  | IDef p -> string_of_process p
-
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
 
@@ -68,7 +62,7 @@ module rec Types : sig
     | VTuple of value list
     | VList of value list
     | VFun of (value -> value)        
-    | VProcess of name list * iprocess
+    | VProcess of name list * process
 
   and chan = {cname: int; stream: (value list) Queue.t; wwaiters: WWaiterQueue.t; rwaiters: RWaiterQueue.t}
 
@@ -118,7 +112,7 @@ let rec string_of_value v =
   | VFun f          -> "(..->..)"
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
-                                      (string_of_iprocess p)
+                                      (string_of_process p)
 
 and short_string_of_value v =
   match v with
@@ -435,15 +429,15 @@ let rec interp sysenv proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
-  let chanpool = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
-  let string_of_chanpool () = ChanSet.to_string !chanpool in
-  let remember_chan c = chanpool := ChanSet.add c !chanpool in
+  let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
+  let string_of_stuck_chans () = ChanSet.to_string !stuck_chans in
+  let remember_chan c = stuck_chans := ChanSet.add c !stuck_chans in
   let maybe_forget_chan c =
     if Queue.is_empty c.stream && 
        RWaiterQueue.is_empty c.rwaiters &&
        WWaiterQueue.is_empty c.wwaiters
     then
-      chanpool := ChanSet.remove c !chanpool
+      stuck_chans := ChanSet.remove c !stuck_chans
   in
   let newchan () = 
     let c = !chancount in 
@@ -453,22 +447,18 @@ let rec interp sysenv proc =
   in
   let runners = RunnerQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = RunnerQueue.push runners runner in
-  let stucks = Queue.create () in
-  let addstuck stuck = Queue.push stuck stucks in
   let rec step () =
     if RunnerQueue.is_empty runners then 
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
-        Printf.printf "All stuck!\n channels=%s\n stuck pseudo-processes=%s\n %s\n\n"
-                      (string_of_chanpool ())
-                      (string_of_queue string_of_stuck "\n" stucks)
+        Printf.printf "All stuck!\n channels=%s\n %s\n\n"
+                      (string_of_stuck_chans ())
                       (String.concat "\n " (strings_of_qsystem ()))
       else ()
     else
       (if !verbose || !verbose_interpret then
-         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n stuck pseudo-processes=%s\n %s\n\n"
+         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
                        (string_of_runnerqueue ";\n  " runners)
-                       (string_of_chanpool ())
-                       (string_of_queue string_of_stuck "; " stucks)
+                       (string_of_stuck_chans ())
                        (String.concat "\n " (strings_of_qsystem ()));
        let runner = RunnerQueue.pop runners in
        RunnerQueue.excite runners;
@@ -478,10 +468,9 @@ let rec interp sysenv proc =
         | Call (n, es)      -> 
             (let vs = List.map (evale env) es in
              try (match env<@>n.inst with
-                  | VProcess (ns, IDef proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
-                                                addrunner (n.inst, proc, env)
-                  | VProcess (ns, IGiven)    -> addstuck (n.inst, vs)
-                  | v                        -> mistyped dummy_spos (string_of_name n.inst) v "a process"
+                  | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
+                                           addrunner (n.inst, proc, env)
+                  | v                   -> mistyped rproc.pos (string_of_name n.inst) v "a process"
                  )  
              with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
             )
@@ -596,22 +585,12 @@ let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
-let interpret lib defs =
+let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
-  let given (n,t) assoc =
-    match t.inst with 
-    | Process ts -> (n.inst, VProcess ((List.map (fun t -> new_unknown_name()) ts), IGiven))::assoc
-    | _          -> raise (Error(dummy_spos, Printf.sprintf "** cannot interpret with given %s:%s" 
-                                                            (string_of_name n.inst)
-                                                            (string_of_type t)
-                                )
-                          )
-  in
-  let givenassoc = List.fold_right given lib [] in
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, IDef p))) defs in
-  let sysenv = NameMap.of_assoc (defassoc @ givenassoc @ knownassoc) in
+  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, p))) defs in
+  let sysenv = NameMap.of_assoc (defassoc @ knownassoc) in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
@@ -619,7 +598,6 @@ let interpret lib defs =
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess ([], IDef p) -> interp sysenv p
-  | VProcess (ps, IDef _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
-  | VProcess (_ , IGiven) -> raise (Error (dummy_spos, "System process in 'given' list"))
+  | VProcess ([], p) -> interp sysenv p
+  | VProcess (ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
   | _                     -> raise (Error (dummy_spos, "System doesn't name a process"))

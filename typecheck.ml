@@ -588,27 +588,15 @@ let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
     );
   cxt
 
-let make_cxt lib defs =
-      (* lib is a list of name:type pairs; all should be process types with proper process names *)
-      List.iter (fun (n,t) -> match t.inst with 
-                              | Process _ -> ok_procname n 
-                              | _         -> raise (TypeCheckError (t.pos,
-                                                                    Printf.sprintf "error in given list: %s: %s is not a process spec"
-                                                                           (string_of_name n.inst)
-                                                                           (string_of_type t)
-                                                           )
-                                           )
-                ) 
-                lib;
-      let lib = List.map (fun (n,t) -> n.inst, t) lib in
+let make_cxt defs =
       let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
-      let cxt = NameMap.of_assoc (lib @ knownassoc) in
+      let cxt = NameMap.of_assoc knownassoc in
       if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose",adorn dummy_spos (Channel (adorn dummy_spos Qbit)))
 
       
-let typecheck lib defs =
+let typecheck defs =
   try
-      let cxt = make_cxt lib defs in
+      let cxt = make_cxt defs in
       let header_type cxt (Processdef (pn,ps,_) as def) =
         ok_procname pn;
         let process_param param = 
@@ -647,7 +635,7 @@ let typecheck lib defs =
       else
       if !typereport then 
         Printf.printf "fully typed program =\n%s\n\n" (string_of_list string_of_processdef "\n\n" defs);
-      (List.map (fun (n,t) -> n, evaltype cxt t) lib), cxt
+      cxt
   with Undeclared (pos, n) -> raise (TypeCheckError (pos,
                                                      Printf.sprintf "undeclared %s"
                                                                     (string_of_name n)

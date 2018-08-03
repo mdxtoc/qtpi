@@ -125,8 +125,6 @@ let rec ctfa_type classic t =
                        )
   | Fun  _          -> () (* function types are classical, always *)
 
-let ctfa_given (pn, t) = ctfa_type false t
-
 let ctfa_def (Processdef(pn, params, proc)) =
   let ctfa_param p =
     let bad_param s = raise (ResourceError (p.pos, Printf.sprintf "parameter %s: %s"
@@ -607,8 +605,8 @@ let rck_def env (Processdef(pn, params, proc)) =
   ()
 
 (* *************** main function: trigger the phases *************************** *)
-let resourcecheck cxt lib defs = 
-  (* the typecxt comes from typecheck. lib is from given. defs have been rewritten to mark exprs
+let resourcecheck cxt defs = 
+  (* the typecxt comes from typecheck. defs have been rewritten to mark exprs
      with their types.
      
      Let's police parameters: channels take either a single qbit or a classical value. Functions and
@@ -616,7 +614,6 @@ let resourcecheck cxt lib defs =
    *)
   
   if !verbose || !verbose_resource then Printf.printf "about to ctfa\n";
-  List.iter ctfa_given lib;
   List.iter ctfa_def defs;
   
   if !verbose || !verbose_resource then Printf.printf "about to build sysenv\n";

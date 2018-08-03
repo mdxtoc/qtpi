@@ -68,7 +68,6 @@
 %token <char> CHAR 
 
 %token EOP 
-%token GIVEN
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
@@ -100,20 +99,11 @@
 %token FORALL PROCESS
 %start readtype
 
-%type  <(Name.name Instance.instance * Type._type) list * Processdef.processdef list> program
+%type  <Processdef.processdef list> program
 %type  <Type._type> readtype
 
 %%
-program: library processdefs EOP        {$1,$2}
-
-library:
-  | GIVEN typednames                    {$2}
-  |                                     {[]}
-
-typednames:
-  | name COLON typespec                 {[adorn $1,$3]}
-  | name COLON typespec COMMA typednames 
-                                        {(adorn $1,$3)::$5}
+program: processdefs EOP                {$1}
                                         
 processdefs:
   | processdef                          {[$1]}

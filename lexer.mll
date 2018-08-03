@@ -167,9 +167,7 @@ rule make_token = parse
   
   | "->"        {TYPEARROW}
   | "'"         {PRIME}
-  
-  | "given"     {GIVEN}
-  
+    
   | "'" [^ '\\' '\'' 'n' '\r' '\t' ] "'"
                 { CHAR(Lexing.lexeme_char lexbuf 1) }
   | "'\\" ['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] "'"

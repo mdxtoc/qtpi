@@ -50,6 +50,7 @@ BobReceive(n,bvs,qA,r,done) =
          r?(basis).
          q >> if basis=0b1 then _H else _I fi.
          q =? (value).
+         q =?[if basis=0b1 then _H else _I fi] (value).
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 

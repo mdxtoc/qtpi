@@ -47,3 +47,32 @@ let string_of_assoc fx fy colon semicolon xys =
   String.concat semicolon (List.map (fun (x,y) -> fx x ^ colon ^ fy y) xys)
 
 let numbered xs = Array.to_list (Array.mapi (fun i x -> i,x) (Array.of_list xs))
+
+let take n xs =
+  let rec take rs n xs =
+    match n, xs with
+    | 0, _
+    | _, []     -> List.rev rs
+    | _, x::xs  -> take (x::rs) (n-1) xs
+  in
+  take [] n xs
+  
+let takewhile p xs =
+  let rec take rs xs =
+    match xs with
+    | []     -> List.rev rs
+    | x::xs  -> if p x then take (x::rs) xs else List.rev rs
+  in
+  take [] xs
+  
+let rec drop n xs =
+  match n, xs with
+  | 0, _
+  | _, []     -> xs
+  | _, x::xs  -> drop (n-1) xs
+
+let rec dropwhile p xs =
+  match xs with
+  | []     -> xs
+  | x::xs' -> if p x then dropwhile p xs' else xs
+

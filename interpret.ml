@@ -48,56 +48,39 @@ let string_of_queue string_of_v sep q =
   let vs = queue_elements q in
   "{" ^ string_of_list string_of_v sep vs ^ "}"
 
-module rec Types : sig
-  type value =
-    | VUnit
-    | VInt of int
-    | VBool of bool
-    | VChar of char
-    | VBasisv of basisv
-    | VGate of Qsim.ugv
-    | VString of string
-    | VQbit of qbit
-    | VChan of chan
-    | VTuple of value list
-    | VList of value list
-    | VFun of (value -> value)        
-    | VProcess of name list * process
-
-  and chan = {cname: int; stream: (value list) Queue.t; wwaiters: WWaiterQueue.t; rwaiters: RWaiterQueue.t}
-
-  and runner = name * process * env
-
-  and rwaiter = name * name list * process * env
-  
-  and wwaiter = name * value list * process * env
-
-  and env = value NameMap.t
-
-  and stuck = name * value list
-end = Types
+type value =
+  | VUnit
+  | VInt of int
+  | VBool of bool
+  | VChar of char
+  | VBasisv of basisv
+  | VGate of Qsim.ugv
+  | VString of string
+  | VQbit of qbit
+  | VChan of chan
+  | VTuple of value list
+  | VList of value list
+  | VFun of (value -> value)        
+  | VProcess of name list * process
 
 (* the bool refs in what follows are to deal with guarded sums: essentially, an offer
    to communicate can be withdrawn from all guards by setting the ref to false. At
    least I hope so.
  *)
-and OrderedRWaiters : Priority_queue.Ordered = struct type t = Types.rwaiter * bool ref end
-and OrderedWWaiters : Priority_queue.Ordered = struct type t = Types.wwaiter * bool ref end
-and OrderedRunners : Priority_queue.Ordered = struct type t = Types.runner let compare = Pervasives.compare end
+and chan = {cname: int; stream: (value list) Queue.t; wwaiters: (wwaiter*bool ref) PQueue.t; rwaiters: (rwaiter*bool ref) PQueue.t}
 
-and RWaiterQueue : Priority_queue.PQ with type elt=Types.rwaiter * bool ref = Priority_queue.Make(OrderedRWaiters)
-and WWaiterQueue : Priority_queue.PQ with type elt=Types.wwaiter * bool ref = Priority_queue.Make(OrderedWWaiters)
-and RunnerQueue : Priority_queue.PQ with type elt=Types.runner = Priority_queue.Make(OrderedRunners)
+and runner = name * process * env
 
-open Types
-let string_of_pqueue string_of sep es = 
-  "{" ^
-  string_of_list (if !verbose_queues then (Tupleutils.string_of_pair string_of_int string_of ", ") 
-                   else string_of <.> snd
-                  )
-                  sep
-                  es
-  ^ "}"
+and rwaiter = name * name list * process * env
+
+and wwaiter = name * value list * process * env
+
+and env = value NameMap.t
+
+and stuck = name * value list
+
+let string_of_pqueue string_of sep pq = 
+  "{" ^ string_of_list string_of sep (PQueue.elements pq) ^ "}"
 ;;
 
 let rec string_of_value v =
@@ -136,8 +119,8 @@ and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
     Printf.sprintf "%d vs:{%s} rs:{%s} ws:{%s}"
                    i
                    (string_of_queue string_of_qelement "; " vs)
-                   (string_of_pqueue short_string_of_rwaiter "; " (RWaiterQueue.queue rq))
-                   (string_of_pqueue short_string_of_wwaiter "; " (WWaiterQueue.queue wq))
+                   (string_of_pqueue short_string_of_rwaiter "; " rq)
+                   (string_of_pqueue short_string_of_wwaiter "; " wq)
 
 and short_string_of_chan {cname=i} =
     string_of_int i
@@ -195,7 +178,7 @@ and string_of_stuck (n, vs) =
                  (string_of_list string_of_value "," vs)
 
 and string_of_runnerqueue sep rq =
-  string_of_pqueue string_of_runner sep (RunnerQueue.queue rq)
+  string_of_pqueue string_of_runner sep rq
   
 let (<@>)  env n     = try NameMap.find   n env 
                        with Not_found -> raise (Disaster (dummy_spos, 
@@ -423,8 +406,8 @@ and ugev env ug =
   | GPhi  e             -> GatePhi(intev env e)
 
 let mkchan c = {cname=c; stream=Queue.create (); 
-                         rwaiters=RWaiterQueue.create 10; (* 10 is a guess *)
-                         wwaiters=WWaiterQueue.create 10; (* 10 is a guess *)
+                         rwaiters=PQueue.create 10; (* 10 is a guess *)
+                         wwaiters=PQueue.create 10; (* 10 is a guess *)
                }
 
 module OrderedChan = struct type t = chan 
@@ -442,8 +425,8 @@ let rec interp sysenv proc =
   let remember_chan c = stuck_chans := ChanSet.add c !stuck_chans in
   let maybe_forget_chan c =
     if Queue.is_empty c.stream && 
-       RWaiterQueue.is_empty c.rwaiters &&
-       WWaiterQueue.is_empty c.wwaiters
+       PQueue.is_empty c.rwaiters &&
+       PQueue.is_empty c.wwaiters
     then
       stuck_chans := ChanSet.remove c !stuck_chans
   in
@@ -453,10 +436,10 @@ let rec interp sysenv proc =
     let chan = mkchan c in
     VChan chan 
   in
-  let runners = RunnerQueue.create (10) in (* 10 is a guess *)
-  let addrunner runner = RunnerQueue.push runners runner in
+  let runners = PQueue.create (10) in (* 10 is a guess *)
+  let addrunner runner = PQueue.push runners runner in
   let rec step () =
-    if RunnerQueue.is_empty runners then 
+    if PQueue.is_empty runners then 
       if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
         Printf.printf "All stuck!\n channels=%s\n %s\n\n"
                       (string_of_stuck_chans ())
@@ -468,8 +451,8 @@ let rec interp sysenv proc =
                        (string_of_runnerqueue ";\n  " runners)
                        (string_of_stuck_chans ())
                        (String.concat "\n " (strings_of_qsystem ()));
-       let runner = RunnerQueue.pop runners in
-       RunnerQueue.excite runners;
+       let runner = PQueue.pop runners in
+       PQueue.excite runners;
        let pn, rproc, env = runner in
        (match rproc.inst with
         | Terminate         -> ()
@@ -519,8 +502,8 @@ let rec interp sysenv proc =
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
                                let rec get_wwaiter () = 
-                                 if WWaiterQueue.is_empty c.wwaiters then None 
-                                 else (let stuff,br = WWaiterQueue.pop c.wwaiters in
+                                 if PQueue.is_empty c.wwaiters then None 
+                                 else (let stuff,br = PQueue.pop c.wwaiters in
                                        if !br then Some stuff else get_wwaiter ()
                                       )
                                in
@@ -539,19 +522,19 @@ let rec interp sysenv proc =
                                else
                                  (match get_wwaiter () with
                                   | Some (pn',vs',proc',env') ->
-                                      WWaiterQueue.excite c.wwaiters;
+                                      PQueue.excite c.wwaiters;
                                       maybe_forget_chan c;
                                       addrunner (pn', proc', env');
                                       addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
                                   | None -> 
-                                      RWaiterQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
+                                      PQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
                                       remember_chan c
                                  )
              | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
                                let rec get_rwaiter () = 
-                                 if RWaiterQueue.is_empty c.rwaiters then None 
-                                 else (let stuff,br = RWaiterQueue.pop c.rwaiters in
+                                 if PQueue.is_empty c.rwaiters then None 
+                                 else (let stuff,br = PQueue.pop c.rwaiters in
                                        if !br then Some stuff else get_rwaiter ()
                                       )
                                in
@@ -562,7 +545,7 @@ let rec interp sysenv proc =
                                else
                                  (match get_rwaiter () with
                                   | Some (pn',ns',proc',env') -> 
-                                      RWaiterQueue.excite c.rwaiters;
+                                      PQueue.excite c.rwaiters;
                                       maybe_forget_chan c;
                                       addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
                                       addrunner (pn, proc, env)
@@ -575,7 +558,7 @@ let rec interp sysenv proc =
                                          addrunner (pn, proc, env)
                                         )
                                       else
-                                        (WWaiterQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
+                                        (PQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
                                          remember_chan c
                                         )
                                  )

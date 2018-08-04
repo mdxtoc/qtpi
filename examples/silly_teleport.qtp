@@ -1,0 +1,12 @@
+
+Alice (x:qbit, c:^0..3, z:qbit) = 
+	{print_strings ["initially Alice's z is "; qbit_state z; "\n"]} .
+	z,x>>_CNot . x=?[_H](vz) . z=?(vx) . c!vz++vx . _0 
+
+Bob(y:qbit, c:^0..3) = 
+  c?(n) . y>>_Phi(n) . 
+  {print_strings ["finally Bob's y is "; qbit_state y; "\n"]} .
+  _0
+
+System () = 
+  (newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^0..3) (Alice(x,c,z) | Bob(y,c))

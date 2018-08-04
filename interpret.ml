@@ -498,69 +498,72 @@ let rec interp sysenv proc =
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)
         | GSum [iostep, proc] ->
+            let canread c ns =
+              try if c.cname = -1 then (* reading from dispose, ho ho *)
+                    let n = List.hd ns in (* ns typechecked to a single name *)
+                    let q = newqbit pn n None in
+                    Some (env <@+> (n,q))
+                  else
+                    let vs = Queue.pop c.stream in
+                    (maybe_forget_chan c; 
+                     Some (List.fold_left (<@+>) env (zip ns vs))
+                    )
+              with Queue.Empty ->
+              let rec get_wwaiter () = 
+                try let (pn',vs',proc',env'),br = PQueue.pop c.wwaiters in
+                    if !br then 
+                      (br:=false;
+                       PQueue.excite c.wwaiters;
+                       maybe_forget_chan c;
+                       addrunner (pn', proc', env');
+                       Some (List.fold_left (<@+>) env (zip ns vs'))
+                      )
+                    else get_wwaiter ()
+                with PQueue.Empty -> None
+              in
+              get_wwaiter ()
+            in
+            let canwrite c vs =
+              let rec get_rwaiter () = 
+                let (pn',ns',proc',env'),br = PQueue.pop c.rwaiters in
+                    if !br then 
+                      (br:=false;
+                       PQueue.excite c.rwaiters;
+                       maybe_forget_chan c;
+                       addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
+                       true
+                      )
+                    else get_rwaiter ()
+              in
+              if c.cname = -1 then (* it's dispose *)
+                 (disposeqbit pn (qbitv (List.hd vs)); (* typechecked to a single qbit *)
+                  true
+                 )
+               else try get_rwaiter () with PQueue.Empty -> 
+               if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                  !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+               then
+                 (Queue.push vs c.stream;
+                  remember_chan c;
+                  true
+                 )
+               else false
+
+            in
             (match iostep.inst with
              | Read (e, ps) -> let c = chanev env e in
                                let ns = strip_params ps in
-                               let rec get_wwaiter () = 
-                                 if PQueue.is_empty c.wwaiters then None 
-                                 else (let stuff,br = PQueue.pop c.wwaiters in
-                                       if !br then Some stuff else get_wwaiter ()
-                                      )
-                               in
-                               if c.cname = -1 then (* reading from dispose, ho ho *)
-                                 (let n = List.hd ns in (* ns typechecked to a single name *)
-                                  let q = newqbit pn n None in
-                                  addrunner (pn, proc, env <@+> (n,q))
-                                 )
-                               else
-                               if not (Queue.is_empty c.stream) then (* there cannot be rwaiters ... *)
-                                 (let vs = Queue.pop c.stream in
-                                  let env = List.fold_left (<@+>) env (zip ns vs) in
-                                  maybe_forget_chan c;
-                                  addrunner (pn, proc, env)
-                                 )
-                               else
-                                 (match get_wwaiter () with
-                                  | Some (pn',vs',proc',env') ->
-                                      PQueue.excite c.wwaiters;
-                                      maybe_forget_chan c;
-                                      addrunner (pn', proc', env');
-                                      addrunner (pn, proc, (List.fold_left (<@+>) env (zip ns vs')))
-                                  | None -> 
-                                      PQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
-                                      remember_chan c
-                                 )
+                               (match canread c ns with
+                                | Some env -> addrunner (pn, proc, env)
+                                | None     -> PQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
+                                              remember_chan c
+                               )
              | Write (e,es) -> let c = chanev env e in
                                let vs = List.map (evale env) es in
-                               let rec get_rwaiter () = 
-                                 if PQueue.is_empty c.rwaiters then None 
-                                 else (let stuff,br = PQueue.pop c.rwaiters in
-                                       if !br then Some stuff else get_rwaiter ()
-                                      )
-                               in
-                               if c.cname = -1 then (* it's dispose *)
-                                 (disposeqbit pn (qbitv (List.hd vs)); (* typechecked to a single qbit *)
-                                  addrunner (pn, proc, env)
-                                 )
+                               if canwrite c vs then addrunner (pn, proc, env)
                                else
-                                 (match get_rwaiter () with
-                                  | Some (pn',ns',proc',env') -> 
-                                      PQueue.excite c.rwaiters;
-                                      maybe_forget_chan c;
-                                      addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
-                                      addrunner (pn, proc, env)
-                                  | None ->
-                                      if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                                         !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-                                      then
-                                        (Queue.push vs c.stream;
-                                         remember_chan c;
-                                         addrunner (pn, proc, env)
-                                        )
-                                      else
-                                        (PQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
-                                         remember_chan c
-                                        )
+                                 (PQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
+                                  remember_chan c
                                  )
              )
         | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))

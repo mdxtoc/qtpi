@@ -52,6 +52,9 @@ let _ = match !Usage.files with
                     if !Settings.interpret then
                       interpret defs
                 with 
+                | Interpret.Disaster (pos, s) -> Printf.printf "\n\n** interpret disaster ** %s: %s\n"
+                                                               (string_of_sourcepos pos)
+                                                               s
                 | ResourceError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s

@@ -4,7 +4,7 @@ Based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some
 
 ## Grammar 
 
-Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, types *T*, process names *N*, variable names *x*, parameters *par*, patterns *pat*, gate expressions *G*. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.
+Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, types *T*, process names *N*, variable names *x*, parameters *par*, patterns *pat*, gate expressions *G*. Square brackets surround optional elements.
 
 * Process *P* 
 
@@ -15,7 +15,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `match` *E* `.` *pat* `.` *P* `<m>` ... `<m>` *pat* `.` *P* `hctam`  
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
-  | `( let` *pat* = *E* `)` *P*  
+  | `( let` *pat* `=` *E* `)` *P*  
   | `{` *E* `}` `.` *P*  
   | *N* `(` *E*  `,`  ... `,` *E*  `)`  
   | `(` *P* `)`  
@@ -23,11 +23,12 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * `new` creates channels.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
-  * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* is not yet supported: single input-output steps only at present. It will use the separator `<+>` instead of `+` to avoid parsing problems.  
-  * match processes use the <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`, if I could have made it work.  
+  * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* uses the separator `<+>` instead of `+` to avoid parsing problems.  
+  * match processes use the <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`.  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
-  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.
+  * `{` *E* `}` `.` *P* lets you execute an arbitrary expression, but it has to be unit type. Useful for outputting strings and the like.  
+  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Especially non-pi if you write `let _ = `*E*. Sorry.
   
 * Quantum step *Q*
   

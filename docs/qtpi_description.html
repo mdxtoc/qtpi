@@ -1,7 +1,7 @@
 <h1>qtpi language description</h1>
 <p>Based on CQP (Gay &amp; Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I don't like hiding state-changing operations inside expressions (e.g. unary gates, measurement); some to be closer to the pi calculus; new operators intended to be easy to read.</p>
 <h2>Grammar</h2>
-<p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, patterns <em>pat</em>, gate expressions <em>G</em>. Sorry about layout (knocking this up in Markdown). Square brackets surround optional elements.</p>
+<p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, patterns <em>pat</em>, gate expressions <em>G</em>. Square brackets surround optional elements.</p>
 <ul>
 <li>
 <p>Process <em>P</em></p>
@@ -12,7 +12,7 @@
 | <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>P</em> <code>&lt;m&gt;</code> ... <code>&lt;m&gt;</code> <em>pat</em> <code>.</code> <em>P</em> <code>hctam</code><br />
 | <code>( new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
 | <code>( newq</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>)</code> <em>P</em><br />
-| <code>( let</code> <em>pat</em> = <em>E</em> <code>)</code> <em>P</em><br />
+| <code>( let</code> <em>pat</em> <code>=</code> <em>E</em> <code>)</code> <em>P</em><br />
 | <code>{</code> <em>E</em> <code>}</code> <code>.</code> <em>P</em><br />
 | <em>N</em> <code>(</code> <em>E</em>  <code>,</code>  ... <code>,</code> <em>E</em>  <code>)</code><br />
 | <code>(</code> <em>P</em> <code>)</code><br />
@@ -20,11 +20,12 @@
 <ul>
 <li><code>new</code> creates channels.</li>
 <li><code>newq</code> creates qbits. Initialisation to basis vectors is optional (without it you get (<em>a</em><code>|0&gt;</code>+<em>b</em><code>|1&gt;</code>), for unknown <em>a</em> and <em>b</em>, where <em>a</em><sup>2</sup>+<em>b</em><sup>2</sup>=1.</li>
-<li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> is not yet supported: single input-output steps only at present. It will use the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
-<li>match processes use the <m> separator, to avoid parsing problems. I would have preferred <code>&lt;+&gt;</code>, or indeed <code>+</code>, if I could have made it work.</li>
+<li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> uses the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
+<li>match processes use the <m> separator, to avoid parsing problems. I would have preferred <code>&lt;+&gt;</code>, or indeed <code>+</code>.</li>
 <li><code>let</code> expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.</li>
 <li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have caused parsing problems.</li>
-<li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.</li>
+<li><code>{</code> <em>E</em> <code>}</code> <code>.</code> <em>P</em> lets you execute an arbitrary expression, but it has to be unit type. Useful for outputting strings and the like.</li>
+<li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Especially non-pi if you write <code>let _ =</code><em>E</em>. Sorry.</li>
 </ul>
 </li>
 <li>

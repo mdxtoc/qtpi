@@ -43,6 +43,15 @@ let string_of_sourcepos (startpos,endpos) =
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
 
+let short_string_of_sourcepos (startpos,endpos) = 
+  if linenum startpos=linenum endpos then
+    Printf.sprintf "%d.%d-%d"
+                   (linenum startpos) (charnum startpos) (charnum endpos)    
+  else
+    Printf.sprintf "%d.%d-%d%d"
+      (linenum startpos) (charnum startpos)
+      (linenum endpos) (charnum endpos)
+
 let startsbefore pos1 pos2 = startline pos1 < startline pos2 || 
                              (startline pos1 = startline pos2 && startchar pos1 < startchar pos2)
 

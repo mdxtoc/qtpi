@@ -236,75 +236,69 @@ let ctfa_def (Processdef(pn, params, proc)) =
 
 type resource =
   | RNull
-  | RQbit of int                
+  | RQbit of resourceid                
   | RTuple of resource list
-  | RList of name                   (* for stuff that hasn't been taken apart *)
+  | RList of resourceid             (* for stuff that hasn't been taken apart *)
   | RCons of resource * resource    (* using RNull at the end of the list ... *)
   | RMaybe of resource list         (* for dealing with conditional and match expressions, sigh ... *)
-  
+
+and resourceid = sourcepos * string
+
 let rec string_of_resource r =
   match r with
   | RNull               -> "RNull"
-  | RQbit  i            -> Printf.sprintf "RQbit %d" i
+  | RQbit  rid          -> Printf.sprintf "RQbit %s" (string_of_resourceid rid)
   | RTuple rs           -> Printf.sprintf "RTuple (%s)" (string_of_list string_of_resource "*" rs)
-  | RList  n            -> Printf.sprintf "RList %s" (string_of_name n)
+  | RList  rid          -> Printf.sprintf "RList %s" (string_of_resourceid rid)
   | RCons  (rh,rt)      -> Printf.sprintf "RCons (%s,%s)" (string_of_resource rh) (string_of_resource rt)
   | RMaybe rs           -> Printf.sprintf "RMaybe %s" (bracketed_string_of_list string_of_resource rs)
+
+and string_of_resourceid (spos, s) =
+  Printf.sprintf "%s:%s" (short_string_of_sourcepos spos) s
   
+let extendid (spos, s) s1 = spos, s^"."^s
+
 module OrderedResource = struct type t = resource let compare = Pervasives.compare let to_string = string_of_resource end
 module ResourceSet = MySet.Make(OrderedResource)  
 
-module OrderedInt = struct type t = int let compare=Pervasives.compare let to_string=string_of_int end
-module State = MyMap.Make(OrderedInt) (* to tell if qbits have been sent away *)
+module OrderedRid = struct type t = resourceid let compare=Pervasives.compare let to_string=string_of_resourceid end
+module State = MyMap.Make(OrderedRid) (* to tell if qbits have been sent away *)
 
 let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
 
-let rec lookup renv n =
-  try let r = renv <@> n in
-      match r with
-      | RList l -> (try lookup renv l with _ -> r)
-      | _       -> r
-  with Not_found -> raise (ResourceDisaster (dummy_spos, "unbound " ^ n))
-
-let (<@>) = lookup
-
-let newqid =
-  (let qid = ref 0 in
-   let newqid state =
-     let q = !qid in
-     qid := !qid+1;
-     State.add q true state, q
-   in
-   newqid
-  )
+let newqid rid state = 
+  let q = extendid rid ".qbit" in
+  State.add q true state, q
   
-let resource_of_type state t = (* makes new resource: for use in parameter bindings *)
-  let rec rt state t =
-    match t.inst with
-    | Int
-    | Bool
-    | Char
-    | String
-    | Bit 
-    | Unit  
-    | Basisv
-    | Gate  _         
-    | Range _         -> state, RNull
-    | Qbit            -> let state, q = newqid state in state, RQbit q
-    | TypeVar _       -> state, RNull  (* checked in ctfa *)
-    | Univ _          -> state, RNull  (* checked in cfta *)
-    | List t          -> let state, r = rt state t in
-                         state, (if r=RNull then RNull else RList (new_unknown_name ()))
-    | Tuple ts        -> let state, rs = List.fold_right (fun t (state,rs) -> let state, r = rt state t in state, r::rs) ts (state,[]) in
-                         if List.exists (function RNull -> false | _ -> true) rs
-                         then state, RTuple rs 
-                         else state, RNull
-    | Channel _       
-    | Fun     _ 
-    | Process _       -> state, RNull
-  in
-  rt state t
+let rec resource_of_type rid state t = (* makes new resource: for use in parameter bindings *)
+  match t.inst with
+  | Int
+  | Bool
+  | Char
+  | String
+  | Bit 
+  | Unit  
+  | Basisv
+  | Gate  _         
+  | Range _         -> state, RNull
+  | Qbit            -> let state, q = newqid rid state in state, RQbit q
+  | TypeVar _       -> state, RNull  (* checked in ctfa *)
+  | Univ _          -> state, RNull  (* checked in cfta *)
+  | List t          -> let _, r = resource_of_type rid state t in
+                       state, (if r=RNull then RNull else RList rid)
+  | Tuple ts        -> let subrt (i,state,rs) t = 
+                         let rid = extendid rid (string_of_int i) in
+                         let state,r = resource_of_type rid state t in
+                         (i+1,state,r::rs)
+                       in
+                       let _, state, rs = List.fold_left subrt (0,state,[]) ts in
+                       if List.exists (function RNull -> false | _ -> true) rs
+                       then state, RTuple (List.rev rs) 
+                       else state, RNull
+  | Channel _       
+  | Fun     _ 
+  | Process _       -> state, RNull
 
 type use = 
   | Uok
@@ -347,22 +341,24 @@ and runion disjoint rset1 rset2 =
 
 let disju = List.fold_left (runion true) ResourceSet.empty
 
-
-
-let rec rck_pat is_me contn state env pat res =
+(* rck_pat can be given a resource (Some res) or rely on types. In the latter case, which
+   arises only in Read steps, we don't have to consider more than the range of patterns 
+   that can arise in bpats -- names, underscores and tuples 
+ *)
+ 
+let rec rck_pat contn state env pat resopt =
   let bad () = raise (ResourceDisaster (pat.pos,
                                         Printf.sprintf "pattern %s resource %s"
                                                        (string_of_pattern pat)
-                                                       (string_of_resource res)
+                                                       (string_of_option string_of_resource resopt)
                                        )
                 )
   in
   if !verbose || !verbose_resource then 
-    Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
-                                             (string_of_state state)
-                                             (string_of_env env)
-                                             (string_of_pattern pat)
-                                             (string_of_resource res);
+    Printf.printf "rck_pat %s %s %s %s\n" (string_of_state state)
+                                          (string_of_env env)
+                                          (string_of_pattern pat)
+                                          (string_of_option string_of_resource resopt);
   match pat.inst.pnode with
   | PatAny    
   | PatUnit   
@@ -374,38 +370,36 @@ let rec rck_pat is_me contn state env pat res =
   | PatString _
   | PatBasisv _
   | PatGate   _       -> contn state env
-  | PatName   n       -> contn state (env<@+>(n,res))
-  | PatCons   (ph,pt) -> let doit contn state env rh rt =
-                           let tl state env = rck_pat is_me contn state env pt rt in
-                           rck_pat is_me tl state env ph rh
+  | PatName   n       -> let state, res = match resopt with
+                           | Some res -> state, res
+                           | None     -> resource_of_type (pat.pos,n) state (type_of_pattern pat) 
                          in
-                         (match res with
-                          | RNull         -> doit contn state env RNull RNull
-                          | RCons (rh,rt) -> doit contn state env rh rt
-                          | RList l       -> if is_me then
-                                               raise (ResourceError (pat.pos,
-                                                                     "match expressions may not be used to uncover qbits in list parameters"
-                                                                    )
-                                                     )
-                                             else (let state, rh = resource_of_type state (type_of_pattern ph) in
-                                                   let rt = RList (new_unknown_name ()) in
-                                                   let env = env<@+>(l,RCons(rh,rt)) in
-                                                   doit contn state env rh rt
-                                                  )
+                         contn state (env<@+>(n,res))
+  | PatCons   (ph,pt) -> let docons contn state env rh rt =
+                           let tl state env = rck_pat contn state env pt (Some rt) in
+                           rck_pat tl state env ph (Some rh)
+                         in
+                         (match (_The resopt) with (* this pattern is not in bpat *)
+                          | RNull         -> docons contn state env RNull RNull
+                          | RCons (rh,rt) -> docons contn state env rh rt
+                          | RList rid     -> let state, rh = resource_of_type (extendid rid "hd") state (type_of_pattern ph) in
+                                             let rt = RList (extendid rid "tl") in
+                                             docons contn state env rh rt
                           | _             -> bad ()
                          )
   | PatTuple ps       -> let rec rck state env = function
-                           | (p,r)::prs -> rck_pat is_me (fun state env -> rck state env prs) state env p r
+                           | (p,r)::prs -> rck_pat (fun state env -> rck state env prs) state env p r
                            | []         -> contn state env
                          in
-                         (match res with
-                          | RNull     -> rck state env (List.map (fun p -> p,RNull) ps)
-                          | RTuple rs -> rck state env (zip ps rs)
-                          | _         -> bad ()
+                         (match resopt with
+                          | Some RNull       -> rck state env (List.map (fun p -> p,Some RNull) ps)
+                          | Some (RTuple rs) -> let rs = List.map _Some rs in rck state env (zip ps rs)
+                          | None             -> rck state env (List.map (fun p -> p,None) ps)
+                          | _                -> bad ()
                          )
 
-and rck_pats is_me rck state env re pxs =
-  let rck_px (pat,x) = rck_pat is_me (fun state env -> rck state env x) state env pat re in
+and rck_pats rck state env reopt pxs =
+  let rck_px (pat,x) = rck_pat (fun state env -> rck state env x) state env pat reopt in
   List.map rck_px pxs
     
 ;; (* to give rck_pat and rck_pats a universal type *)
@@ -481,7 +475,7 @@ let r_o_e disjoint state env e =
                                  ),
                                  ResourceSet.union u1 u2
       | EMatch      (e,ems)   -> let re, usede = re use e in
-                                 let rus = rck_pats true (fun _ env -> re_env use env) state env re ems in
+                                 let rus = rck_pats (fun _ env -> re_env use env) state env (Some re) ems in
                                  let rs, useds = unzip rus in
                                  (match List.filter (function RNull -> false | _ -> true) rs with
                                   | []  -> RNull
@@ -512,8 +506,9 @@ let resources_of_expr = r_o_e false
 let disjoint_resources_of_expr = r_o_e true
 
 let resource_of_params state params = 
-  List.fold_right (fun {inst=n,toptr} (state, nrs) -> 
-                     let state, r = resource_of_type state (_The !toptr) in
+  List.fold_right (fun param (state, nrs) ->
+                     let n, toptr = param.inst in
+                     let state, r = resource_of_type (param.pos,n) state (_The !toptr) in
                      state, (n,r)::nrs 
                   ) 
                   params
@@ -542,21 +537,24 @@ let rec rck_proc state env proc =
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
                                    rp state env proc
-      | WithQbit (qspecs, proc) -> (* all new qbits, nothing used *)
-                                   let state, env = 
-                                     List.fold_left (fun (state, env) (param,_) -> 
-                                                        let (n,_) = param.inst in
-                                                        let state, q = newqid state in
-                                                        state, env <@+> (n,RQbit q)
-                                                    ) 
-                                                    (state, env) 
-                                                    qspecs 
+      | WithQbit (qspecs, proc) -> (* all new qbits *)
+                                   let do_qspec (used, state, env) (param, eopt) =
+                                     let _, usede = match eopt with
+                                                    | Some e -> resources_of_expr state env e
+                                                    | None   -> RNull, ResourceSet.empty
+                                     in
+                                     let n, _ = param.inst in
+                                     let state, q = newqid (param.pos,n) state in
+                                     (ResourceSet.union used usede), state, env <@+> (n,RQbit q)
                                    in
-                                   rp state env proc
+                                   let used, state, env = 
+                                     List.fold_left do_qspec (ResourceSet.empty, state, env) qspecs 
+                                   in
+                                   ResourceSet.union used (rp state env proc)
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
                                    let pat, e = letspec in
                                    let re, usede = resources_of_expr state env e in 
-                                   let used = rck_pat false (fun state env -> rp state env proc) state env pat re in
+                                   let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, bopt, param) -> 
@@ -580,13 +578,12 @@ let rec rck_proc state env proc =
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
-                                   List.fold_left ResourceSet.union usede (rck_pats false rck_proc state env re pms)
+                                   List.fold_left ResourceSet.union usede (rck_pats rck_proc state env (Some re) pms)
       | GSum gs                 -> 
           let rg (iostep, proc) =
             match iostep.inst with 
             | Read (ce,pat)  -> let _, usedce = resources_of_expr state env ce in
-                                let state, rv = resource_of_type state (type_of_pattern pat) in
-                                let used = rck_pat true (fun state env -> rp state env proc) state env pat rv in
+                                let used = rck_pat (fun state env -> rp state env proc) state env pat None in
                                 ResourceSet.union usedce used
             | Write (ce,e)   -> (try let _, usedce = resources_of_expr state env ce in
                                      let r, usede = disjoint_resources_of_expr state env e in
@@ -633,6 +630,7 @@ let rck_def env (Processdef(pn, params, proc)) =
   ()
 
 (* *************** main function: trigger the phases *************************** *)
+
 let resourcecheck cxt defs = 
   (* the typecxt comes from typecheck. defs have been rewritten to mark exprs
      with their types.
@@ -646,7 +644,7 @@ let resourcecheck cxt defs =
   
   if !verbose || !verbose_resource then Printf.printf "about to build sysenv\n";
   let knownassoc = 
-    List.map (fun (n,t,_) -> let _, r = resource_of_type State.empty (Parseutils.parse_typestring t) in
+    List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
                              n, r
              ) 
              !Interpret.knowns 

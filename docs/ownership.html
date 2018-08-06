@@ -1,5 +1,6 @@
 <h1>Static treatment of ownership of qbits -- Resource-checking a program</h1>
-<p>My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's (he'd noticed that a treatment of qbit ownership was impossible in Microsoft's Q#). A process calculus like CQP seemed like it might provide a solution. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.</p>
+<p>My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's. He'd noticed that a treatment of qbit-ownership transfer between processes was impossible in Microsoft's Q#, which was all about efficient simulation of quantum computation. But quantum protocols are mostly about passing quantum bits between processes, and hardly do any quantum computation.</p>
+<p>A process calculus like CQP seemed like it might provide a solution to the ownership problem. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.</p>
 <p>The phrase <em>resource checking</em> harks back to my background in separation logic (I was there when ...). It was always something I wanted to do with heap programs, though I never knew how to do it accurately enough. (Others, of course, ...)</p>
 <p>Qbits are the resource manipulated by quantum-protocol programs. Qtpi checks the correct use of those resources.</p>
 <h2>The ownership problem</h2>
@@ -34,6 +35,14 @@
 <p><em>B</em> doesn't own two separate qbits.</p>
 </li>
 <li>
+<p>Values containing qbits as arguments?</p>
+<pre><code> 	A() = (newq q) (let n = q,q) B(n)
+ 	
+ 	B(qt:qbit*qbit) = ...  
+</code></pre>
+<p>Again, <em>B</em> doesn't own two separate qbits.</p>
+</li>
+<li>
 <p>How about sending the same qbit twice?</p>
 <pre><code> 	A(c:^qbit*qbit) = (newq q) c!q,q . ...
  
@@ -64,7 +73,7 @@
  	(newq q) (let qs = [q;q]) ... 
 </code></pre>
 <p>In the first example a single qbit has three names: <em>q</em>, <em>fst n</em> and <em>snd n</em>. In the second we have three names as well: <em>q</em>, <em>hd qs</em> and <em>hd (tl qs)</em>. But in each case only one qbit.</p>
-<p>(This problem is easily handled: see below.)</p>
+<p>(This problem can be handled: see below.)</p>
 </li>
 <li>
 <p>Conditional cloning?</p>
@@ -102,11 +111,7 @@
 <li>
 <p><strong>Function applications can't deliver qbits, or values containing qbits</strong></p>
 <p>You and I know what we mean by <em>hd</em> and <em>tl</em>, by <em>fst</em> and <em>snd</em>. But these are library functions: the interpreter doesn't understand them. Even though it knows from type information that given  <em>qs: qbit list</em>, <em>hd qs</em> will deliver a qbit, it doesn't know which one of the list it will get. And even we don't know much about <em>hd (rev qs)</em>.</p>
-<p>Pattern matching softens the blow of this restriction.</p>
-</li>
-<li>
-<p><strong>Match expressions can't take apart argument lists of qbits</strong></p>
-<p>This is a stunner. A process can take an argument which is a list of qbits (or a list of values containing qbits, same difference). Match <em>processes</em> can look at the list and branch according to its contents,and that's a nice tree-shaped execution structure, so that's ok. Match <em>expressions</em> cause too many problems, especially if you try to match against a match expression ... (etc.), because you get a dag-shaped execution diagram.</p>
+<p>Pattern matching softens the blow of this restriction, allowing the program to take apart lists and tuples containing qbits.</p>
 </li>
 </ul>
 <p>The first two restrictions make the resource-checking algorithm simpler. The third is essential.I haven't imposed a restriction which entirely prevents tuples and lists containing qbits since it appears to be unnecessary and would be very restrictive.</p>
@@ -116,12 +121,12 @@
 <p>Others are harmless, such as</p>
 <pre><code>	if a=0 then q1 else q2 fi &gt;&gt; _H
 </code></pre>
-<p>Match expressions are equally problematic, but equally to be permitted (for the time being).</p>
+<p>Match expressions are equally problematic, but equally to be tolerated.</p>
 <h2>A Resource-checking Algorithm</h2>
 <p>Qbits in existence when a process starts can be delivered via its arguments. We assume (a non-cloning invariant) that distinct parameters name distinct bundles of resource. We number the qbits we can see in single qbit parameters or in tuples. We don't do much with lists of qbits, but we number them when they appear in match patterns.</p>
 <p>When we read a qbit with <em>c</em>?(<em>q</em>) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.</p>
-<p>Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (<em>P</em>|<em>P</em>|...|<em>P</em>), process calls <em>N</em>(<em>E</em>,<em>E</em>,...,<em>E</em>) and writes <em>c</em>!<em>E</em>,<em>E</em>,...,<em>E</em> use disjoint resources in their components, preserving the non-cloning invariant. And in the latter two cases, any lists or tuples built to make the <em>E</em>s have to be disjoint as well.</p>
-<p>To handle the ownership problem, a symbolic execution -- an abstract interpretation, I'm told -- keeps track, in a numerically-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error.</p>
+<p>Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (<em>P</em>|<em>P</em>|...|<em>P</em>), process calls <em>N</em>(<em>E</em>,<em>E</em>,...,<em>E</em>) and writes <em>c</em>!<em>E</em>,<em>E</em>,...,<em>E</em> use disjoint resources in their components, preserving the non-cloning invariant. And in the latter two cases, any lists or tuples built to make the <em>E</em>s have to have disjoint parts as well.</p>
+<p>To handle the ownership problem, a symbolic execution -- i.e. an abstract interpretation, I believe -- keeps track, in a qbit-name-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error.</p>
 <p>And that's it: one pass through a process definition gives us a comprehensive check on ownership and cloning.</p>
 <p>When process definitions start to use parameterised types like <em>'a list</em>, we shall have to check their instantiations rather than their definitions. But that is for the future. It won't be a problem: we only have to make at most one process-check per call of a process.</p>
 <h2>Hubris, Nemesis?</h2>

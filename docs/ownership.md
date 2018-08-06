@@ -1,6 +1,8 @@
 # Static treatment of ownership of qbits -- Resource-checking a program
 
-My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's (he'd noticed that a treatment of qbit ownership was impossible in Microsoft's Q#). A process calculus like CQP seemed like it might provide a solution. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.
+My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's. He'd noticed that a treatment of qbit-ownership transfer between processes was impossible in Microsoft's Q#, which was all about efficient simulation of quantum computation. But quantum protocols are mostly about passing quantum bits between processes, and hardly do any quantum computation.
+
+A process calculus like CQP seemed like it might provide a solution to the ownership problem. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.
 
 The phrase *resource checking* harks back to my background in separation logic (I was there when ...). It was always something I wanted to do with heap programs, though I never knew how to do it accurately enough. (Others, of course, ...)
 
@@ -45,6 +47,14 @@ It is impossible to clone qbits. So a program should be incapable of making a co
 	
 	*B* doesn't own two separate qbits.
 	
+3. Values containing qbits as arguments?
+	
+			A() = (newq q) (let n = q,q) B(n)
+			
+			B(qt:qbit*qbit) = ...  
+	
+	Again, *B* doesn't own two separate qbits.
+	
 3. How about sending the same qbit twice?
 
 			A(c:^qbit*qbit) = (newq q) c!q,q . ...
@@ -78,7 +88,7 @@ If we want to check ownership we have to account for the use of qbits. This thro
 		
 	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit.
 	
-	(This problem is easily handled: see below.)
+	(This problem can be handled: see below.)
 	
 3. Conditional cloning?
 	
@@ -121,12 +131,8 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 	
 	You and I know what we mean by *hd* and *tl*, by *fst* and *snd*. But these are library functions: the interpreter doesn't understand them. Even though it knows from type information that given  *qs: qbit list*, *hd qs* will deliver a qbit, it doesn't know which one of the list it will get. And even we don't know much about *hd (rev qs)*.
 	
-	Pattern matching softens the blow of this restriction. 
-	
-  * **Match expressions can't take apart argument lists of qbits**
-  
-	This is a stunner. A process can take an argument which is a list of qbits (or a list of values containing qbits, same difference). Match *processes* can look at the list and branch according to its contents,and that's a nice tree-shaped execution structure, so that's ok. Match *expressions* cause too many problems, especially if you try to match against a match expression ... (etc.), because you get a dag-shaped execution diagram.
-	
+	Pattern matching softens the blow of this restriction, allowing the program to take apart lists and tuples containing qbits. 
+		
 The first two restrictions make the resource-checking algorithm simpler. The third is essential.I haven't imposed a restriction which entirely prevents tuples and lists containing qbits since it appears to be unnecessary and would be very restrictive.
 
 It might seem reasonable to ban qbit-valued conditional and match expressions: they decrease the accuracy of resource-checking and can cause spurious cloning errors. A ban remains a possibility. Some uses are outlawed, such as
@@ -137,7 +143,7 @@ Others are harmless, such as
 
 		if a=0 then q1 else q2 fi >> _H
 
-Match expressions are equally problematic, but equally to be permitted (for the time being).
+Match expressions are equally problematic, but equally to be tolerated.
 
 ## A Resource-checking Algorithm
 
@@ -145,9 +151,9 @@ Qbits in existence when a process starts can be delivered via its arguments. We 
 
 When we read a qbit with *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
 
-Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components, preserving the non-cloning invariant. And in the latter two cases, any lists or tuples built to make the *E*s have to be disjoint as well.
+Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components, preserving the non-cloning invariant. And in the latter two cases, any lists or tuples built to make the *E*s have to have disjoint parts as well.
 
-To handle the ownership problem, a symbolic execution -- an abstract interpretation, I'm told -- keeps track, in a numerically-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error. 
+To handle the ownership problem, a symbolic execution -- i.e. an abstract interpretation, I believe -- keeps track, in a qbit-name-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error. 
 
 And that's it: one pass through a process definition gives us a comprehensive check on ownership and cloning.
 

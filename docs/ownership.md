@@ -145,7 +145,7 @@ Qbits in existence when a process starts can be delivered via its arguments. We 
 
 When we read a qbit with *c*?(*q*) we know from the invariant that it is distinct from anything we own. So we give it a new number. It might be an old sent-away qbit coming back, but that's ok: treating it as new won't lead us astray.
 
-Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components, preserving the non-cloning invariant.
+Thus we can work out how names describe resource bundles. 'Let' bindings add to the fun, but don't create qbits. 'Newq' bindings do create named qbits, which we number. Reads add named qbits. Using a mapping from names to resource (an 'environment') we can calculate what resource an expression uses. We check that process Pars (*P*|*P*|...|*P*), process calls *N*(*E*,*E*,...,*E*) and writes *c*!*E*,*E*,...,*E* use disjoint resources in their components, preserving the non-cloning invariant. And in the latter two cases, any lists or tuples built to make the *E*s have to be disjoint as well.
 
 To handle the ownership problem, a symbolic execution -- an abstract interpretation, I'm told -- keeps track, in a numerically-indexed 'state', of which qbits are sent away in writes.  If an expression uses a sent-away qbit then it's a resourcing error. 
 
@@ -155,7 +155,7 @@ When process definitions start to use parameterised types like *'a list*, we sha
 
 ## Hubris, Nemesis?
 
-No free lunch has arrived. A symbolic execution is not a perfect solution. But it appears to be sound -- if it says a program is ok, it is ok -- even though it is evidently incomplete -- there are valid programs to which it will object.
+No free lunch has arrived. A symbolic execution is not a perfect solution. But it appears to be sound -- if it says a program is ok, it is ok. On the other hand it is evidently incomplete -- there are valid programs to which it will object.
 
 Inaccuracies arise with conditional expressions and guarded sums. Conditional expressions have been noted already: they are assessed as using the resources of both arms, though an execution uses only one arm at a time. They may not be a problem in principle, since every program using a qbit-valued conditional expression could be rewritten to use a conditional process.
 

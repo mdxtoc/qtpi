@@ -423,6 +423,8 @@ module OrderedChan = struct type t = chan
                      end
 module ChanSet = MySet.Make (OrderedChan)
 
+type gsum = Grw of chan * rwaiter | Gww of chan * wwaiter
+
 let rec interp sysenv proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
@@ -498,7 +500,7 @@ let rec interp sysenv proc =
             )
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)
-        | GSum [iostep, proc] ->
+        | GSum ioprocs      -> 
             let canread c pat =
               let do_match v = Some (bmatch env pat v) in
               try if c.cname = -1 then (* reading from dispose, ho ho *)
@@ -550,22 +552,31 @@ let rec interp sysenv proc =
                  )
                else false
             in
-            (match iostep.inst with
-             | Read (ce,pat) -> let c = chanev env ce in
-                                (match canread c pat with
-                                 | Some env -> addrunner (pn, proc, env)
-                                 | None     -> PQueue.push c.rwaiters ((pn, pat, proc, env),ref true);
-                                               remember_chan c
-                                )
-             | Write (ce,e)  -> let c = chanev env ce in
-                                let v = evale env e in
-                                if canwrite c v then addrunner (pn, proc, env)
-                                else
-                                  (PQueue.push c.wwaiters ((pn, v, proc, env), ref true);
-                                   remember_chan c
-                                  )
-             )
-        | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))
+            let rec process gsum pq = 
+              try let (iostep,proc) = PQueue.pop pq in
+                  match iostep.inst with
+                  | Read (ce,pat) -> let c = chanev env ce in
+                                     (match canread c pat with
+                                      | Some env -> addrunner (pn, proc, env)
+                                      | None     -> process (Grw (c, (pn, pat, proc, env))::gsum) pq
+                                     )
+                  | Write (ce,e)  -> let c = chanev env ce in
+                                     let v = evale env e in
+                                     if canwrite c v then addrunner (pn, proc, env)
+                                     else process (Gww (c, (pn, v, proc, env))::gsum) pq
+              with PQueue.Empty ->
+              let br = ref true in
+              let add_waiter = function
+                | Grw (c, rw) -> PQueue.push c.rwaiters (rw,br);
+                                 remember_chan c
+                | Gww (c, ww) -> PQueue.push c.wwaiters (ww,br);
+                                 remember_chan c
+              in
+              List.iter add_waiter gsum
+            in
+            let pq = PQueue.create (List.length ioprocs) in
+            List.iter (PQueue.push pq) ioprocs;
+            process [] pq
         | Cond (e, p1, p2)  ->
             addrunner (pn, (if boolev env e then p1 else p2), env)
         | PMatch (e,pms)    -> let v = evale env e in

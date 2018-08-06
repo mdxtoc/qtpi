@@ -20,8 +20,9 @@
 <ul>
 <li><code>new</code> creates channels.</li>
 <li><code>newq</code> creates qbits. Initialisation to basis vectors is optional (without it you get (<em>a</em><code>|0&gt;</code>+<em>b</em><code>|1&gt;</code>), for unknown <em>a</em> and <em>b</em>, where <em>a</em><sup>2</sup>+<em>b</em><sup>2</sup>=1.</li>
-<li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> is not yet supported: single input-output steps only at present. It uses the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
-<li>match processes also use an <m> separator, to avoid parsing problems. I would have preferred <code>&lt;+&gt;</code>, or indeed <code>+</code>, if I could have made it work.</li>
+<li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> is not yet supported: single input-output steps only at present. It will use the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
+<li>match processes use the <m> separator, to avoid parsing problems. I would have preferred <code>&lt;+&gt;</code>, or indeed <code>+</code>, if I could have made it work.</li>
+<li><code>let</code> expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.</li>
 <li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have caused parsing problems.</li>
 <li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.</li>
 </ul>
@@ -29,22 +30,23 @@
 <li>
 <p>Quantum step <em>Q</em></p>
 <p>| <em>E</em> <code>,</code> <em>E</em> <code>,</code> ... <code>,</code> <em>E</em> <code>&gt;&gt;</code> <em>G</em><br />
-| <em>E</em> <code>=?</code> (<em>par</em>)</p>
+| <em>E</em> <code>=?</code> (<em>par</em>)<br />
+| <em>E</em> <code>=?</code> <code>[</code> <em>E</em> <code>]</code> (<em>par</em>)</p>
 <ul>
 <li>'<code>&gt;&gt;</code>' is 'send through a gate'; each left-hand <em>E</em> must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).</li>
 <li><code>=?</code> is measure, in the computational basis defined by <code>|0&gt;</code> and <code>|1&gt;</code>.  The parameter <em>par</em> binds the single-bit result.</li>
-<li>I should probably add <code>=H?</code> for measuring in the Hadamard basis.</li>
-<li>CQP had <code>*=</code> for measure, which looked like an assignment, so I changed it to <code>??</code>.</li>
+<li>The optional square-bracketed <em>E</em> is a gate expression controlling the measurement basis: <code>_H</code> causes measurement in the Hadamard basis, and <code>_I</code> causes the computational basis. (Other gates and thus bases may follow :-).) Internally <code>q=?[G](b)</code> is equivalent to <code>q&gt;&gt;G . q=?(b) . q&gt;&gt;G</code>.</li>
+<li>CQP had <code>*=</code> for measure, which looked like an assignment, so I changed it to <code>=?</code>.</li>
 </ul>
 </li>
 <li>
 <p>Input-output step <em>IO</em></p>
-<p>| <em>E</em> <code>?</code> <code>(</code> <em>par</em> <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code><br />
-| <em>E</em> <code>!</code> <em>E</em> <code>,</code>  ... <code>,</code> <em>E</em></p>
+<p>| <em>E</em> <code>?</code> <code>(</code> <em>pat</em> <code>)</code><br />
+| <em>E</em> <code>!</code> <em>E</em></p>
 <ul>
-<li>'<code>?</code>' is read, as in the pi calculus: the first <em>E</em> must be a channel; the bindings are bracketed, as in the pi calculus; the types are optional.</li>
-<li>'<code>!</code>' is write, as in the pi calculus: the first <em>E</em> must be a channel; the output tuple can be bracketed if you wish.</li>
-<li>Channels each carry either a qbit or a classical value (not including any qbits).</li>
+<li>'<code>?</code>' is read, as in many implementations of the pi calculus: <em>E</em> is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a <code>let</code>  binding -- no constants, no lists.</li>
+<li>'<code>!</code>' is write, as in many implementations of the pi calculus: the first <em>E</em> is a channel; the output expression can of course be a tuple.</li>
+<li>Channels each carry either a qbit or a classical value (one not including any qbits).</li>
 </ul>
 </li>
 <li>

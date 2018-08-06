@@ -23,8 +23,9 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * `new` creates channels.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
-  * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* is not yet supported: single input-output steps only at present. It uses the separator `<+>` instead of `+` to avoid parsing problems.  
-  * match processes also use an <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`, if I could have made it work.  
+  * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* is not yet supported: single input-output steps only at present. It will use the separator `<+>` instead of `+` to avoid parsing problems.  
+  * match processes use the <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`, if I could have made it work.  
+  * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * You can execute an arbitrary expression via a 'let' binding, if you wish.  Sorry.
   
@@ -32,20 +33,21 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   
   | *E* `,` *E* `,` ... `,` *E* `>>` *G*    
   | *E* `=?` (*par*)    
+  | *E* `=?` `[` *E* `]` (*par*)    
 
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
-  * I should probably add `=H?` for measuring in the Hadamard basis.  
-  * CQP had `*=` for measure, which looked like an assignment, so I changed it to `??`.   
+  * The optional square-bracketed *E* is a gate expression controlling the measurement basis: `_H` causes measurement in the Hadamard basis, and `_I` causes the computational basis. (Other gates and thus bases may follow :-).) Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G`.  
+  * CQP had `*=` for measure, which looked like an assignment, so I changed it to `=?`.   
 
 * Input-output step *IO*  
 
-  | *E* `?` `(` *par* `,`  ... `,` *par* `)`    
-  | *E* `!` *E* `,`  ... `,` *E*   
+  | *E* `?` `(` *pat* `)`    
+  | *E* `!` *E*    
 
-  * '`?`' is read, as in the pi calculus: the first *E* must be a channel; the bindings are bracketed, as in the pi calculus; the types are optional.  
-  * '`!`' is write, as in the pi calculus: the first *E* must be a channel; the output tuple can be bracketed if you wish.  
-  * Channels each carry either a qbit or a classical value (not including any qbits).  
+  * '`?`' is read, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- no constants, no lists.  
+  * '`!`' is write, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be a tuple.  
+  * Channels each carry either a qbit or a classical value (one not including any qbits).  
   
 * Parameter *par*
 

@@ -135,6 +135,24 @@
 <p>Starts with a lower-case letter, continues with alphanumeric, prime and underscore.</p>
 </li>
 </ul>
+<h2>The <em>dispose</em> channel</h2>
+<p>Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and then waits for the next one. Garbage collection might be possible, but it would have to understand the central quantum state which deals with every qbit ever created and, in particular, deals with entanglements.</p>
+<p>Learning from my experience of separation logic, I implemented a <em>dispose</em> channel of qbits. Send a qbit down the <em>dispose</em> channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see <a href="./ownership.html">the resourcing document</a> for explanation).</p>
+<p>Because I didn't want to add one-way channels to the language, if you read from the <em>dispose</em> channel you get a new qbit. Ho ho?</p>
+<h2>Restrictions</h2>
+<p>All for <em>resourcing</em> reasons. See <a href="./ownership.html">the resourcing document</a> for explanation.</p>
+<ul>
+<li>
+<p><strong>No comparison of qbits, or values containing qbits</strong>.</p>
+</li>
+<li>
+<p><strong>A channel is either <code>^qbit</code> or <code>^classical</code></strong>.</p>
+</li>
+<li>
+<p><strong>Function applications can't deliver qbits, or values containing qbits</strong>.</p>
+<p>Pattern matching softens the blow of this restriction, allowing you to take apart lists and tuples containing qbits.</p>
+</li>
+</ul>
 <h2>Program description</h2>
 <p>A program is a sequence of process definitions. One of the process descriptions must be <code>System</code>, which must have no parameters.</p>
 <ul>
@@ -142,7 +160,7 @@
 <p>Process definition</p>
 <p>| <em>N</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em></p>
 <ul>
-<li>Types are optional, but it seems to be pragmatic to include them.</li>
+<li>Types are optional in the parameters, but it seems to be pragmatic to include them.</li>
 <li>None of the parameters can be a process.</li>
 </ul>
 </li>
@@ -206,10 +224,18 @@
 <li>
 <p><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em></p>
 </li>
-</ul>
-<p><em>hd</em>, <em>tl</em>, <em>fst</em> and <em>snd</em> do what you'd expect (but you can't use them to deliver qbits: see above).<br />
-<em>read_int</em> and <em>read_string</em> take a prompt-string argument.<br />
-<em>abandon</em> stops the program and doesn't return (i.e. raises an exception).</p>
+<li>
+<p>The list and tuple functions do what you'd expect (but you can't use them to deliver qbits: see above).</p>
+</li>
+<li>
+<p><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</p>
+</li>
+<li>
+<p><em>abandon</em> stops the program and doesn't return (i.e. raises an exception).</p>
+</li>
+<li>
 <p><em>qbit_state</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <em>q</em><code>:[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>0:[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</p>
+</li>
+</ul>
 </li>
 </ul>

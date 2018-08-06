@@ -122,6 +122,27 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   Starts with a lower-case letter, continues with alphanumeric, prime and underscore.
 
+## The *dispose* channel
+
+Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and then waits for the next one. Garbage collection might be possible, but it would have to understand the central quantum state which deals with every qbit ever created and, in particular, deals with entanglements.
+
+Learning from my experience of separation logic, I implemented a *dispose* channel of qbits. Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](./ownership.html) for explanation).
+
+Because I didn't want to add one-way channels to the language, if you read from the *dispose* channel you get a new qbit. Ho ho?
+
+## Restrictions
+
+All for *resourcing* reasons. See [the resourcing document](./ownership.html) for explanation.
+
+  * **No comparison of qbits, or values containing qbits**.
+	
+
+  * **A channel is either `^qbit` or `^classical`**.
+    	
+  * **Function applications can't deliver qbits, or values containing qbits**.
+	
+	Pattern matching softens the blow of this restriction, allowing you to take apart lists and tuples containing qbits.
+	
 ## Program description
 
 A program is a sequence of process definitions. One of the process descriptions must be `System`, which must have no parameters.
@@ -130,7 +151,7 @@ A program is a sequence of process definitions. One of the process descriptions 
 
   | *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*
   
-  * Types are optional, but it seems to be pragmatic to include them.
+  * Types are optional in the parameters, but it seems to be pragmatic to include them.
   * None of the parameters can be a process.
   
     
@@ -165,8 +186,8 @@ A program is a sequence of process definitions. One of the process descriptions 
 	* *print_strings*: *string list* -> *unit* 
 	* *string_of_value*: *'a* -> *string*
 	
-	 *hd*, *tl*, *fst* and *snd* do what you'd expect (but you can't use them to deliver qbits: see above).  
-	*read_int* and *read_string* take a prompt-string argument.  
-	*abandon* stops the program and doesn't return (i.e. raises an exception).  
+	 * The list and tuple functions do what you'd expect (but you can't use them to deliver qbits: see above).  
+	* *read_int* and *read_string* take a prompt-string argument.  
+	* *abandon* stops the program and doesn't return (i.e. raises an exception).  
 	
-	*qbit_state* gives you a string *q*`:(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like *q*`:[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `0:[0,1](h|00>+h|01>)`. And so on for larger entanglements.
+	* *qbit_state* gives you a string *q*`:(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like *q*`:[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `0:[0,1](h|00>+h|01>)`. And so on for larger entanglements.

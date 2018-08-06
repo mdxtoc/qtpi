@@ -27,13 +27,14 @@ open Instance
 open Name
 open Expr
 open Type
+open Pattern
 open Param
 
 type iostep = iostumble instance
 
 and iostumble =
-  | Read of expr * param list
-  | Write of expr * expr list
+  | Read of expr * pattern
+  | Write of expr * expr            (* argument expr can, of course, be a tuple *)
   
 type qstep = qstumble instance
 
@@ -43,12 +44,12 @@ and qstumble =
   
 let string_of_iostep iostep =
   match iostep.inst with
-  | Read (e,params)     -> Printf.sprintf "%s?(%s)"
+  | Read (ce,pat)       -> Printf.sprintf "%s?(%s)"
+                                          (string_of_expr ce)
+                                          (string_of_pattern pat)
+  | Write (ce,e)        -> Printf.sprintf "%s!%s"
+                                          (string_of_expr ce)
                                           (string_of_expr e)
-                                          (commasep (List.map string_of_param params))
-  | Write (e,es)        -> Printf.sprintf "%s!%s"
-                                          (string_of_expr e)
-                                          (commasep (List.map string_of_expr es))
 let string_of_qstep qstep =
   match qstep.inst with
   | Measure (e,g,p)       -> Printf.sprintf "%s=?%s(%s)"

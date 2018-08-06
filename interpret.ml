@@ -67,13 +67,13 @@ type value =
    to communicate can be withdrawn from all guards by setting the ref to false. At
    least I hope so.
  *)
-and chan = {cname: int; stream: (value list) Queue.t; wwaiters: (wwaiter*bool ref) PQueue.t; rwaiters: (rwaiter*bool ref) PQueue.t}
+and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*bool ref) PQueue.t; rwaiters: (rwaiter*bool ref) PQueue.t}
 
 and runner = name * process * env
 
-and rwaiter = name * name list * process * env
+and rwaiter = name * pattern * process * env
 
-and wwaiter = name * value list * process * env
+and wwaiter = name * value * process * env
 
 and env = value NameMap.t
 
@@ -112,13 +112,9 @@ and short_string_of_value v =
   | v               -> string_of_value v
   
 and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
-    let string_of_qelement = function
-      | [v] -> string_of_value v
-      | vs  -> "(" ^ string_of_list string_of_value "," vs ^ ")"
-    in
     Printf.sprintf "%d vs:{%s} rs:{%s} ws:{%s}"
                    i
-                   (string_of_queue string_of_qelement "; " vs)
+                   (string_of_queue string_of_value "; " vs)
                    (string_of_pqueue short_string_of_rwaiter "; " rq)
                    (string_of_pqueue short_string_of_wwaiter "; " wq)
 
@@ -144,39 +140,34 @@ and string_of_runner (n, proc, env) =
                  (short_string_of_process proc)
                  (short_string_of_env env)
                  
-and string_of_rwaiter ((n, vars, proc, env),br) = 
+and string_of_rwaiter ((n, pat, proc, env),br) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
-                 (string_of_list string_of_name ";" vars)
+                 (string_of_pattern pat)
                  (short_string_of_process proc)
                  (short_string_of_env env)
                  (if !br then "" else "[dead]")
                  
-and short_string_of_rwaiter ((n, vars, proc, env),br) = (* infinite loop if we print the environment *)
+and short_string_of_rwaiter ((n, pat, proc, env),br) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
-                 (string_of_list string_of_name ";" vars)
+                 (string_of_pattern pat)
                  (if !br then "" else "[dead]")
                  
-and string_of_wwaiter ((n, vals, proc, env),br) = 
+and string_of_wwaiter ((n, v, proc, env),br) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
-                 (string_of_list string_of_value ";" vals)
+                 (string_of_value v)
                  (short_string_of_process proc)
                  (short_string_of_env env)
                  (if !br then "" else "[dead]")
                  
-and short_string_of_wwaiter ((n, vals, proc, env),br) = (* infinite loop if we print the environment *)
+and short_string_of_wwaiter ((n, v, proc, env),br) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
-                 (string_of_list string_of_value ";" vals)
+                 (string_of_value v)
                  (if !br then "" else "[dead]")
                  
-and string_of_stuck (n, vs) =
-  Printf.sprintf "%s(%s)._"
-                 (string_of_name n)
-                 (string_of_list string_of_value "," vs)
-
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep rq
   
@@ -289,6 +280,22 @@ let matcher pos env pairs value =
     | _                                     -> no () (* can happen: PNil vs ::, PCons vs [] *)
   in
   fail pairs
+  
+let bmatch env pat v =
+  match matcher pat.pos env [pat,()] v with
+  | Some (env,()) -> env
+  | None          -> raise (Disaster (pat.pos,
+                                      Printf.sprintf "bmatch %s %s"
+                                                     (string_of_pattern pat)
+                                                     (string_of_value v)
+                                     )
+                           )
+  
+let name_of_bpat pat = (* only called by dispose?(q) *)
+  match pat.inst.pnode with
+  | PatName n -> n
+  | PatAny    -> "_"
+  | _         -> "can't happen"
   
 let rec evale env e =
   match e.inst.enode with
@@ -477,13 +484,7 @@ let rec interp sysenv proc =
             addrunner (pn, proc, (List.fold_left (<@+>) env ps))
         | WithLet ((pat,e), proc) ->
             let v = evale env e in
-            (match matcher pat.pos env [pat,proc] v with
-             | Some (env,proc) -> addrunner (pn, proc, env)
-             | None            -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
-                                                                          (string_of_value v)
-                                        )
-                                 )
-            )
+            addrunner (pn, proc, bmatch env pat v)
         | WithQstep (qstep, proc) ->
             (match qstep.inst with
              | Measure (e, bopt, {inst=n,_}) -> let q = qbitev env e in
@@ -498,73 +499,71 @@ let rec interp sysenv proc =
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)
         | GSum [iostep, proc] ->
-            let canread c ns =
+            let canread c pat =
+              let do_match v = Some (bmatch env pat v) in
               try if c.cname = -1 then (* reading from dispose, ho ho *)
-                    let n = List.hd ns in (* ns typechecked to a single name *)
-                    let q = newqbit pn n None in
-                    Some (env <@+> (n,q))
+                    let q = newqbit pn (name_of_bpat pat) None in
+                    do_match q
                   else
-                    let vs = Queue.pop c.stream in
+                    let v = Queue.pop c.stream in
                     (maybe_forget_chan c; 
-                     Some (List.fold_left (<@+>) env (zip ns vs))
+                     do_match v
                     )
               with Queue.Empty ->
-              let rec get_wwaiter () = 
-                try let (pn',vs',proc',env'),br = PQueue.pop c.wwaiters in
+              let rec match_wwaiter () = 
+                try let (pn',v',proc',env'),br = PQueue.pop c.wwaiters in
                     if !br then 
                       (br:=false;
                        PQueue.excite c.wwaiters;
                        maybe_forget_chan c;
                        addrunner (pn', proc', env');
-                       Some (List.fold_left (<@+>) env (zip ns vs'))
+                       do_match v'
                       )
-                    else get_wwaiter ()
+                    else match_wwaiter ()
                 with PQueue.Empty -> None
               in
-              get_wwaiter ()
+              match_wwaiter ()
             in
-            let canwrite c vs =
-              let rec get_rwaiter () = 
-                let (pn',ns',proc',env'),br = PQueue.pop c.rwaiters in
+            let canwrite c v =
+              let rec match_rwaiter () = 
+                let (pn',pat',proc',env'),br = PQueue.pop c.rwaiters in
                     if !br then 
                       (br:=false;
                        PQueue.excite c.rwaiters;
                        maybe_forget_chan c;
-                       addrunner (pn', proc', (List.fold_left (<@+>) env' (zip ns' vs)));
+                       addrunner (pn', proc', bmatch env' pat' v);
                        true
                       )
-                    else get_rwaiter ()
+                    else match_rwaiter ()
               in
               if c.cname = -1 then (* it's dispose *)
-                 (disposeqbit pn (qbitv (List.hd vs)); (* typechecked to a single qbit *)
+                 (disposeqbit pn (qbitv v); 
                   true
                  )
-               else try get_rwaiter () with PQueue.Empty -> 
+               else try match_rwaiter () with PQueue.Empty -> 
                if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
                   !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
                then
-                 (Queue.push vs c.stream;
+                 (Queue.push v c.stream;
                   remember_chan c;
                   true
                  )
                else false
-
             in
             (match iostep.inst with
-             | Read (e, ps) -> let c = chanev env e in
-                               let ns = strip_params ps in
-                               (match canread c ns with
-                                | Some env -> addrunner (pn, proc, env)
-                                | None     -> PQueue.push c.rwaiters ((pn, ns, proc, env),ref true);
-                                              remember_chan c
-                               )
-             | Write (e,es) -> let c = chanev env e in
-                               let vs = List.map (evale env) es in
-                               if canwrite c vs then addrunner (pn, proc, env)
-                               else
-                                 (PQueue.push c.wwaiters ((pn, vs, proc, env), ref true);
-                                  remember_chan c
-                                 )
+             | Read (ce,pat) -> let c = chanev env ce in
+                                (match canread c pat with
+                                 | Some env -> addrunner (pn, proc, env)
+                                 | None     -> PQueue.push c.rwaiters ((pn, pat, proc, env),ref true);
+                                               remember_chan c
+                                )
+             | Write (ce,e)  -> let c = chanev env ce in
+                                let v = evale env e in
+                                if canwrite c v then addrunner (pn, proc, env)
+                                else
+                                  (PQueue.push c.wwaiters ((pn, v, proc, env), ref true);
+                                   remember_chan c
+                                  )
              )
         | GSum _            -> raise (Error (proc.pos, "can't handle proper guarded sums yet"))
         | Cond (e, p1, p2)  ->

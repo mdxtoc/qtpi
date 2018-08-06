@@ -160,8 +160,8 @@ let rewrite_qstep cxt qstep =
 
 let rewrite_iostep cxt iostep = 
   match iostep.inst with
-  | Read      (e,params)    -> rewrite_expr cxt e; rewrite_params cxt params
-  | Write     (e,es)        -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) es
+  | Read      (ce,pat)    -> rewrite_expr cxt ce; rewrite_pat cxt pat
+  | Write     (ce,e)      -> rewrite_expr cxt ce; rewrite_expr cxt e 
 
 let rec rewrite_process cxt proc = 
   match proc.inst with
@@ -539,21 +539,14 @@ and typecheck_process cxt p =
   | GSum gs ->
       let check_g cxt (iostep,proc) =
         match iostep.inst with
-         | Read (chan, params) ->
-             let chants = List.map (fun param -> adorn param.pos (new_TypeVar())) params in 
-             let chant = Type.delist chan.pos chants in
-             let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
-             let stitch (t', {inst=n,rt}) cxt = 
-               unify_paramtype cxt rt t'
-             in
-             let cxt = List.fold_right stitch (zip chants params) cxt in
-             check_distinct params;
-             do_procparams "Read" cxt params proc 
-         | Write (chan, es) ->
-             let chants = List.map (fun e -> adorn e.pos (new_TypeVar())) es in 
-             let chant = Type.delist chan.pos chants in
-             let cxt = assigntype_expr cxt (adorn chan.pos (Channel chant)) chan in
-             let cxt = List.fold_left (fun cxt (t,v) -> assigntype_expr cxt t v) cxt (zip chants es) in
+         | Read (ce, pat) ->
+             let t = adorn ce.pos (new_TypeVar ()) in
+             let cxt = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
+             assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
+         | Write (ce, e) ->
+             let t = adorn ce.pos (new_TypeVar()) in 
+             let cxt = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
+             let cxt = assigntype_expr cxt t e in
              typecheck_process cxt proc
       in
       List.fold_left check_g cxt gs

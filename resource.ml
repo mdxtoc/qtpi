@@ -85,8 +85,17 @@ let type_of_expr e =
   match !(e.inst.etype) with
   | Some t -> t
   | None   -> raise (ResourceDisaster (e.pos,
-                                       Printf.sprintf "typecheck didn't mark %s"
+                                       Printf.sprintf "typecheck didn't mark expr %s"
                                                       (string_of_expr e)
+                                      )
+                    )
+
+let type_of_pattern p =
+  match !(p.inst.ptype) with
+  | Some t -> t
+  | None   -> raise (ResourceDisaster (p.pos,
+                                       Printf.sprintf "typecheck didn't mark pattern %s"
+                                                      (string_of_pattern p)
                                       )
                     )
 
@@ -169,8 +178,8 @@ let ctfa_def (Processdef(pn, params, proc)) =
   and ctfa_iostep iostep =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
     match iostep.inst with
-    | Read      (ce,params) -> ctfa_expr ce; List.iter ctfa_param params
-    | Write     (ce,es)     -> List.iter ctfa_expr (ce::es)
+    | Read      (ce,pat) -> ctfa_expr ce
+    | Write     (ce,e)   -> ctfa_expr ce; ctfa_expr e
   
   and ctfa_expr e =
     match e.inst.enode with
@@ -303,74 +312,97 @@ type use =
   | Ucompare
   | Ubool
   
-let rec resources_of_resource r =
+exception OverLap of string
+
+let rec resources_of_resource disjoint r =
+  let bad () = raise (OverLap (Printf.sprintf "non-disjoint resource %s" 
+                                              (string_of_resource r)
+                              )
+                     )
+  in
   match r with
   | RNull           -> ResourceSet.empty
   | RQbit _         -> ResourceSet.singleton r                
-  | RTuple rs       -> resources_of_resourcelist rs
+  | RTuple rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
+                       (try List.fold_left (runion disjoint) ResourceSet.empty rsets 
+                        with OverLap _ -> bad()
+                       )
   | RList _         -> ResourceSet.singleton r
-  | RCons  (r1,r2)  -> ResourceSet.union (resources_of_resource r1) (resources_of_resource r2)
-  | RMaybe rs       -> List.fold_left (fun u r -> ResourceSet.union u (resources_of_resource r)) ResourceSet.empty rs
+  | RCons  (r1,r2)  -> let rset1 = resources_of_resource disjoint r1 in
+                       let rset2 = resources_of_resource disjoint r2 in
+                       (try runion disjoint rset1 rset2 with OverLap _ -> bad ()) 
+  | RMaybe rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
+                       List.fold_left ResourceSet.union ResourceSet.empty rsets
   
-and resources_of_resourcelist rs = 
-  List.fold_left (revargs ResourceSet.add) ResourceSet.empty rs
+and runion disjoint rset1 rset2 =
+  if disjoint && not (ResourceSet.is_empty (ResourceSet.inter rset1 rset2)) 
+  then raise (OverLap (Printf.sprintf "non-disjoint resources (%s) and (%s)" 
+                                      (ResourceSet.to_string rset1)
+                                      (ResourceSet.to_string rset2)
+                      )
+             )
+  else ResourceSet.union rset1 rset2
   
-exception OverLap of string
+(* and in what follows *)
 
-  let rec rck_pat is_me contn state env pat res =
-    let bad () = raise (ResourceDisaster (pat.pos,
-                                          Printf.sprintf "pattern %s resource %s"
-                                                         (string_of_pattern pat)
-                                                         (string_of_resource res)
-                                         )
-                  )
-    in
-    if !verbose || !verbose_resource then 
-      Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
-                                               (string_of_state state)
-                                               (string_of_env env)
-                                               (string_of_pattern pat)
-                                               (string_of_resource res);
-    match pat.inst.pnode with
-    | PatAny    
-    | PatUnit   
-    | PatNil
-    | PatInt    _ 
-    | PatBit    _
-    | PatBool   _
-    | PatChar   _
-    | PatString _
-    | PatBasisv _
-    | PatGate   _       -> contn state env
-    | PatName   n       -> contn state (env<@+>(n,res))
-    | PatCons   (ph,pt) -> let doit contn state env rh rt =
-                             let tl state env = rck_pat is_me contn state env pt rt in
-                             rck_pat is_me tl state env ph rh
-                           in
-                           (match res with
-                            | RNull         -> doit contn state env RNull RNull
-                            | RCons (rh,rt) -> doit contn state env rh rt
-                            | RList l       -> if is_me then
-                                                 raise (ResourceError (pat.pos,
-                                                                       "match expressions may not be used to uncover qbits in list parameters"
-                                                                      )
-                                                       )
-                                               else (let state, rh = resource_of_type state (_The !(ph.inst.ptype)) in
-                                                     let rt = RList (new_unknown_name ()) in
-                                                     let env = env<@+>(l,RCons(rh,rt)) in
-                                                     doit contn state env rh rt
-                                                    )
-                            | _             -> bad ()
-                           )
-    | PatTuple ps       -> let rec rck state env = function
-                             | (p,r)::prs -> rck_pat is_me (fun state env -> rck state env prs) state env p r
-                             | []         -> contn state env
-                           in
-                           (match res with
-                            | RNull     -> rck state env (List.map (fun p -> p,RNull) ps)
-                            | RTuple rs -> rck state env (zip ps rs)
-                            | _         -> bad ()
-                           )
+let disju = List.fold_left (runion true) ResourceSet.empty
+
+
+
+let rec rck_pat is_me contn state env pat res =
+  let bad () = raise (ResourceDisaster (pat.pos,
+                                        Printf.sprintf "pattern %s resource %s"
+                                                       (string_of_pattern pat)
+                                                       (string_of_resource res)
+                                       )
+                )
+  in
+  if !verbose || !verbose_resource then 
+    Printf.printf "rck_pat %B %s %s %s %s\n" is_me 
+                                             (string_of_state state)
+                                             (string_of_env env)
+                                             (string_of_pattern pat)
+                                             (string_of_resource res);
+  match pat.inst.pnode with
+  | PatAny    
+  | PatUnit   
+  | PatNil
+  | PatInt    _ 
+  | PatBit    _
+  | PatBool   _
+  | PatChar   _
+  | PatString _
+  | PatBasisv _
+  | PatGate   _       -> contn state env
+  | PatName   n       -> contn state (env<@+>(n,res))
+  | PatCons   (ph,pt) -> let doit contn state env rh rt =
+                           let tl state env = rck_pat is_me contn state env pt rt in
+                           rck_pat is_me tl state env ph rh
+                         in
+                         (match res with
+                          | RNull         -> doit contn state env RNull RNull
+                          | RCons (rh,rt) -> doit contn state env rh rt
+                          | RList l       -> if is_me then
+                                               raise (ResourceError (pat.pos,
+                                                                     "match expressions may not be used to uncover qbits in list parameters"
+                                                                    )
+                                                     )
+                                             else (let state, rh = resource_of_type state (type_of_pattern ph) in
+                                                   let rt = RList (new_unknown_name ()) in
+                                                   let env = env<@+>(l,RCons(rh,rt)) in
+                                                   doit contn state env rh rt
+                                                  )
+                          | _             -> bad ()
+                         )
+  | PatTuple ps       -> let rec rck state env = function
+                           | (p,r)::prs -> rck_pat is_me (fun state env -> rck state env prs) state env p r
+                           | []         -> contn state env
+                         in
+                         (match res with
+                          | RNull     -> rck state env (List.map (fun p -> p,RNull) ps)
+                          | RTuple rs -> rck state env (zip ps rs)
+                          | _         -> bad ()
+                         )
 
 and rck_pats is_me rck state env re pxs =
   let rck_px (pat,x) = rck_pat is_me (fun state env -> rck state env x) state env pat re in
@@ -378,13 +410,7 @@ and rck_pats is_me rck state env re pxs =
     
 ;; (* to give rck_pat and rck_pats a universal type *)
 
-let disju ers =
-  let dju set er = if not (ResourceSet.is_empty (ResourceSet.inter set er)) 
-                   then raise (OverLap (Printf.sprintf "non-disjoint resources (%s)" (string_of_list ResourceSet.to_string "," ers)))
-                   else ResourceSet.union set er in
-  List.fold_left dju ResourceSet.empty ers
-
-let resources_of_expr state env e =
+let r_o_e disjoint state env e =
   let rec re_env use env e =
     let rec re use e =
       let do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
@@ -392,6 +418,14 @@ let resources_of_expr state env e =
                                          )
                                          es
                                          ([],ResourceSet.empty) 
+      in
+      let try_disjoint r =
+        try let _ = resources_of_resource disjoint r in r
+        with OverLap _ -> raise (ResourceError (e.pos,
+                                                Printf.sprintf "non-separated expression %s"
+                                                               (string_of_expr e)
+                                               )
+                                )
       in
       match e.inst.enode with
       | EUnit 
@@ -433,24 +467,19 @@ let resources_of_expr state env e =
                                                                        Printf.sprintf "use of sent-away qbit %s" (string_of_name n)
                                                                       )
                                                         )
-                                  | _       -> r, resources_of_resource r
+                                  | _       -> r, resources_of_resource disjoint r
                                  )
-      | ETuple      es        -> let rs, used = do_list use es in RTuple rs, used
+      | ETuple      es        -> let rs, used = do_list use es in
+                                 try_disjoint (RTuple rs), used
       | ECons       (hd,tl)   -> let r1, u1 = re use hd in
                                  let r2, u2 = re use tl in
-                                 (try match r1, r2 with
+                                 (match r1, r2 with
                                   | RNull, _        (* if the hd has no resource, neither can the list *)
                                   | _    , RNull -> (* likewise the tail *)
-                                                    RNull, ResourceSet.union u1 u2
-                                  | _            -> RCons (r1,r2), disju [u1;u2] (* disjoint union essential *)
-                                  with OverLap _ ->
-                                    raise (ResourceError (e.pos,
-                                                          Printf.sprintf "%s and %s share qbits"
-                                                                         (string_of_expr hd)
-                                                                         (string_of_expr tl)
-                                                         )
-                                          )
-                                 )
+                                                    RNull
+                                  | _            -> try_disjoint (RCons (r1,r2))
+                                 ),
+                                 ResourceSet.union u1 u2
       | EMatch      (e,ems)   -> let re, usede = re use e in
                                  let rus = rck_pats true (fun _ env -> re_env use env) state env re ems in
                                  let rs, useds = unzip rus in
@@ -479,6 +508,9 @@ let resources_of_expr state env e =
   in
   re_env Uok env e
   
+let resources_of_expr = r_o_e false
+let disjoint_resources_of_expr = r_o_e true
+
 let resource_of_params state params = 
   List.fold_right (fun {inst=n,toptr} (state, nrs) -> 
                      let state, r = resource_of_type state (_The !toptr) in
@@ -505,10 +537,8 @@ let rec rck_proc state env proc =
       (match proc.inst with
       | Terminate               -> ResourceSet.empty
       | Call (n, es)            -> (* disjoint resources in the arguments, no dead qbits used *)
-                                   (try let ers = List.map (snd <.> resources_of_expr state env) es in
-                                        disju ers
-                                    with OverLap s -> badproc s
-                                   )
+                                   let ers = List.map (snd <.> disjoint_resources_of_expr state env) es in
+                                   (try disju ers with OverLap s -> badproc s)
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
                                    rp state env proc
@@ -538,49 +568,47 @@ let rec rck_proc state env proc =
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedb (rp state (env <@+> (n,RNull)) proc))
                                     | Ugatestep (qes, ug)    -> 
-                                        (try let qers = List.map (snd <.> resources_of_expr state env) qes in
-                                             let used = disju qers in
+                                        let qers = List.map (snd <.> resources_of_expr state env) qes in
+                                        (try let used = disju qers in
                                              ResourceSet.union (rp state env proc) used
                                          with OverLap s -> badproc s
                                         )
                                    )
       | WithExpr (e, proc)      -> let _, used = resources_of_expr state env e in
                                    ResourceSet.union used (rp state env proc)
-      | Cond (ce,p1,p2)         -> (try let _, used = resources_of_expr state env ce in
-                                        let prs = List.map (rp state env) [p1;p2] in
-                                        List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
-                                    with OverLap s -> badproc s
-                                   )
+      | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
+                                   let prs = List.map (rp state env) [p1;p2] in
+                                   List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
                                    List.fold_left ResourceSet.union usede (rck_pats false rck_proc state env re pms)
-      | GSum gs                 -> let rg (iostep, proc) =
-                                      match iostep.inst with 
-                                      | Read (ce,params)  -> let _, used = resources_of_expr state env ce in
-                                                             let state, extras = resource_of_params state params in
-                                                             let env = List.fold_left (<@+>) env extras in
-                                                             ResourceSet.union (rp state env proc) used
-                                      | Write (ce,es)     -> (try let _, used = resources_of_expr state env ce in
-                                                                  let rers = List.map (resources_of_expr state env) es in
-                                                                  (* if it's a channel of qbit, then it sends away a qbit *)
-                                                                  let state = 
-                                                                    match (type_of_expr ce).inst, es, rers with
-                                                                    | Channel {inst=Qbit}, [e], [r,rs] ->
-                                                                        (match r with
-                                                                         | RQbit q   -> State.add q false state
-                                                                         | _         ->
-                                                                            raise (ResourceError (e.pos,
-                                                                                                  "ambiguous qbit-sending expression"
-                                                                                                 )
-                                                                                  )
-                                                                        )
-                                                                    | _                         -> state
-                                                                  in
-                                                                  let used = ResourceSet.union used (disju (List.map snd rers)) in
-                                                                  ResourceSet.union (rp state env proc) used
-                                                              with OverLap s -> badproc s
-                                                             )
-                                   in
-                                   List.fold_left ResourceSet.union ResourceSet.empty (List.map rg gs)
+      | GSum gs                 -> 
+          let rg (iostep, proc) =
+            match iostep.inst with 
+            | Read (ce,pat)  -> let _, usedce = resources_of_expr state env ce in
+                                let state, rv = resource_of_type state (type_of_pattern pat) in
+                                let used = rck_pat true (fun state env -> rp state env proc) state env pat rv in
+                                ResourceSet.union usedce used
+            | Write (ce,e)   -> (try let _, usedce = resources_of_expr state env ce in
+                                     let r, usede = disjoint_resources_of_expr state env e in
+                                     (* if it's a channel of qbit, then it sends away a qbit *)
+                                     let state = 
+                                       match (type_of_expr ce).inst with
+                                       | Channel {inst=Qbit} ->
+                                           (match r with
+                                            | RQbit q   -> State.add q false state
+                                            | _         ->
+                                               raise (ResourceError (e.pos,
+                                                                     "ambiguous qbit-sending expression"
+                                                                    )
+                                                     )
+                                           )
+                                       | _                         -> state
+                                     in
+                                     List.fold_left ResourceSet.union ResourceSet.empty [usedce; usede; rp state env proc]
+                                 with OverLap s -> badproc s
+                                )
+         in
+         List.fold_left ResourceSet.union ResourceSet.empty (List.map rg gs)
       | Par ps                  -> (try let prs = List.map (rp state env) ps in
                                         disju prs
                                     with OverLap s -> badproc s

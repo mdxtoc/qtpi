@@ -239,16 +239,11 @@ qspec:
   | param EQUALS ntexpr                 {$1, Some $3}
   
 letspec:
-  | pattern EQUALS expr                 {$1, $3}
+  | bpattern EQUALS expr                {$1, $3}
   
 iostep:
-  | expr QUERY LPAR paramseq RPAR       {adorn (Read ($1,$4))}
-  | expr BANG ntexprs                   {let es = match $3 with 
-                                                  | [{inst={enode=ETuple es}}] -> es
-                                                  | es                         -> es
-                                         in
-                                         adorn (Write ($1,es))
-                                        }
+  | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
+  | expr BANG expr                      {adorn (Write ($1,$3))}
 
 qstep:
   | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
@@ -303,6 +298,21 @@ patternlist:
 patterns:
   | pattern                             {[$1]}
   | pattern COMMA patterns              {$1::$3}
+  
+/* simpler form of pattern for lets, reads. Can't fail to match */
+bpattern:
+  | simplebpattern                      {$1}                
+  | simplebpattern COMMA bpatterns      {padorn (Pattern.delist ($1::$3))}
+  
+bpatterns:
+  | simplebpattern                      {[$1]}                
+  | simplebpattern COMMA bpatterns      {$1::$3}
+  
+simplebpattern:
+  | UNDERSCORE                          {padorn PatAny}
+  | name                                {padorn (PatName $1)}
+  | LPAR bpattern RPAR                  {$2}
+  | simplebpattern COLON typespec       {adorn (pwrap (Some $3) $1.inst.pnode)}
   
 basisv:
   | VZERO                               {BVzero }

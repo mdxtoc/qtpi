@@ -110,7 +110,7 @@ processdefs:
   | processdef processdefs              {$1::$2}
 
 processdef:
-  procname LPAR params RPAR EQUALS ubprocess  
+  procname LPAR params RPAR EQUALS process  
                                         {Processdef($1,$3,$6)}
 
 procname:
@@ -180,15 +180,39 @@ typevars:
   | typevar COMMA typevars              {$1::$3}
   
 parsep:
-  | PARSEP                                 {}
+  | PARSEP                              {}
   
 sumsep:
-  | SUMSEP                               {}
+  | SUMSEP                              {}
   
 matchsep:
-  | MATCHSEP                               {}
+  | MATCHSEP                            {}
   
 process:
+  | sumprocess                          {$1}
+  | sumprocess parsep processpar        {adorn (Par ($1::$3))}
+  
+processpar:
+  | sumprocess                          {[$1]}
+  | sumprocess parsep processpar        {$1::$3}
+
+sumprocess:
+  | ioproc                              {adorn (GSum [$1])}
+  | ioproc sumsep processsum            {adorn (GSum ($1::$3))}
+  | simpleprocess                       {$1}
+
+processsum:
+  | ioproc                              {[$1]}
+  | ioproc sumsep processsum            {$1::$3}
+
+ioproc:
+  | iostep DOT simpleprocess            {$1,$3}
+  
+iostep:
+  | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
+  | expr BANG expr                      {adorn (Write ($1,$3))}
+
+simpleprocess:
   | TERMINATE                           {adorn Terminate}
   | procname primary                    {adorn (Call ($1,match $2.inst.enode with 
                                                          | EUnit     -> []
@@ -197,14 +221,19 @@ process:
                                                      )
                                                )
                                         }
-  | LPAR NEWDEC paramseq RPAR process   {adorn (WithNew ($3,$5))}
-  | LPAR QBITDEC qspecs RPAR process    {adorn (WithQbit ($3,$5))}
-  | LPAR LETDEC letspec RPAR process    {adorn (WithLet ($3,$5))}
-  | qstep DOT process                   {adorn (WithQstep ($1,$3))}
-  | LBRACE expr RBRACE DOT process      {adorn (WithExpr ($2,$5))}
+  | LPAR NEWDEC paramseq RPAR simpleprocess   
+                                        {adorn (WithNew ($3,$5))}
+  | LPAR QBITDEC qspecs RPAR simpleprocess    
+                                        {adorn (WithQbit ($3,$5))}
+  | LPAR LETDEC letspec RPAR simpleprocess    
+                                        {adorn (WithLet ($3,$5))}
+  | qstep DOT simpleprocess                   
+                                        {adorn (WithQstep ($1,$3))}
+  | iostep DOT simpleprocess            {adorn (GSum [$1,$3])}
+  | LBRACE expr RBRACE DOT simpleprocess      
+                                        {adorn (WithExpr ($2,$5))}
   | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))}
-  | gsum                                {adorn (GSum $1)}
-  | LPAR ubprocess RPAR                 {$2}
+  | LPAR process RPAR                   {$2}
   | IF ubif FI                          {$2}
 
 procmatches:
@@ -215,20 +244,9 @@ procmatch:
   | pattern DOT process                 {$1,$3}
   
 ubif: 
-  | expr THEN ubprocess ELSE ubprocess  {adorn (Cond ($1, $3, $5))}
-  | expr THEN ubprocess ELIF ubif       {adorn (Cond ($1, $3, $5))}
+  | expr THEN process ELSE process      {adorn (Cond ($1, $3, $5))}
+  | expr THEN process ELIF ubif         {adorn (Cond ($1, $3, $5))}
   
-ubprocess:
-  | processpar                          {adorn (Par $1)} /* only case in which a process can be unbracketed */
-  | process                             {$1}
-  
-processpar:
-  | process                             {[$1]}
-  | process parsep processpar           {$1::$3}
-
-gsum:
-  | iostep DOT process                  {[$1,$3]}
-  | iostep DOT process sumsep gsum      {($1,$3)::$5}
 
 qspecs:
   | qspec                               {[$1]}
@@ -241,10 +259,6 @@ qspec:
 letspec:
   | bpattern EQUALS expr                {$1, $3}
   
-iostep:
-  | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
-  | expr BANG expr                      {adorn (Write ($1,$3))}
-
 qstep:
   | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
   | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       

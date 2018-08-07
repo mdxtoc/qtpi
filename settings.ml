@@ -62,3 +62,16 @@ let verboseopts = [("all"              , verbose                  );
                   ] 
 
 let setverbose s = (List.assoc s verboseopts) := true
+
+let temp_setting vref v f =
+  let oldv = !vref in
+  vref := v;
+  try
+    let result = f () in
+    vref := oldv;
+    result
+  with exn -> vref:=oldv; raise exn
+  
+let push_verbose v f = 
+  temp_setting verbose (!verbose||v) f
+  

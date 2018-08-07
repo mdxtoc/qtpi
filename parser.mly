@@ -241,7 +241,7 @@ procmatches:
   | procmatch matchsep procmatches      {$1::$3}
   
 procmatch:
-  | pattern DOT process                 {$1,$3}
+  | pattern DOT simpleprocess           {$1,$3}
   
 ubif: 
   | expr THEN process ELSE process      {adorn (Cond ($1, $3, $5))}

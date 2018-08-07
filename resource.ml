@@ -55,10 +55,14 @@ open Processdef
 open Process
 open Step
 open Pattern
-open Typecheck
 
 exception ResourceError of sourcepos * string
 exception ResourceDisaster of sourcepos * string
+
+let (<@>)  env n     = NameMap.find n env       
+let (<@+>) env (n,r) = NameMap.add n r env      
+let (<@->) env n     = NameMap.remove n env     
+let (<@?>) env n     = NameMap.mem n env        
 
 let rec is_resource_type t =
   match t.inst with
@@ -633,11 +637,10 @@ let rck_def env (Processdef(pn, params, proc)) =
 
 (* *************** main function: trigger the phases *************************** *)
 
-let resourcecheck cxt defs = 
-  (* the typecxt comes from typecheck. defs have been rewritten to mark exprs
-     with their types.
+let resourcecheck defs = 
+  (* defs have been rewritten to mark exprs with their types.
      
-     Let's police parameters: channels take either a single qbit or a classical value. Functions and
+     We police parameters: channels take either a single qbit or a classical value. Functions and
      applications must have nothing to do with qbits.
    *)
   

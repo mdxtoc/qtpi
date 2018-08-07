@@ -29,11 +29,9 @@ Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB)
                                   )
   fi
   
-(* choose n basis,bit pairs *)
+(* choose n basis,bit pairs -- this could all be done with Random *)
 AliceChoose(n, bvs, r, chosen) =
-    if n=0 then chosen!bvs . _0
-           else r?(b) . r?(v) . AliceChoose(n-1,(b,v)::bvs,r,chosen)
-    fi
+    (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
 AliceSend(verbose, bvs, qB, bsB, again) =
     (new done) (  AliceSendBits (bvs,qB,done)

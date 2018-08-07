@@ -197,17 +197,17 @@ let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
 let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
 let funv    = function VFun    f       -> f      | v -> miseval "funv"    v
 
-let vunit   ()  = VUnit
-let vint    i   = VInt    i
-let vbool   b   = VBool   b
-let vchar   c   = VChar   c
-let vstring s   = VString s
-let vgate   g   = VGate   g
-let vchan   c   = VChan   c
-let vqbit   q   = VQbit   q
-let vpair   a b = VTuple  [a;b]
-let vlist   vs  = VList   vs
-let vfun    f   = VFun    f
+let vunit   ()    = VUnit
+let vint    i     = VInt    i
+let vbool   b     = VBool   b
+let vchar   c     = VChar   c
+let vstring s     = VString s
+let vgate   g     = VGate   g
+let vchan   c     = VChan   c
+let vqbit   q     = VQbit   q
+let vpair   (a,b) = VTuple  [a;b]
+let vlist   vs    = VList   vs
+let vfun    f     = VFun    f
 
 let mistyped pos thing v shouldbe =
   raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 

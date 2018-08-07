@@ -23,7 +23,10 @@
 
 open Sourcepos
 open Functionutils
+open Listutils
 open Interpret
+
+exception Error of string
 
 (* ******************** built-in functions ********************* *)
 
@@ -36,11 +39,11 @@ let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
 let v_hd vs =
   let vs = listv vs in
-  try List.hd vs with _ -> raise (Error (dummy_spos, "hd []"))
+  try List.hd vs with _ -> raise (Error "hd []")
 
 let v_tl vs =
   let vs = listv vs in
-  try vlist (List.tl vs) with _ -> raise (Error (dummy_spos, "tl []"))
+  try vlist (List.tl vs) with _ -> raise (Error "tl []")
   
 let v_append xs ys =
   let xs = listv xs in
@@ -88,7 +91,17 @@ let v_randbits n =
          ) 
   in
   vlist (randbits n)
-  
+
+let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))) 
+                  with Invalid_argument _ -> raise (Error (Printf.sprintf "zip %s %s" 
+                                                                          (bracketed_string_of_list string_of_value (listv xs))
+                                                                          (bracketed_string_of_list string_of_value (listv ys))
+                                                          )
+                                                   )
+
+let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
+                  vpair (vlist xs, vlist ys)
+
 let _ = Interpret.know ("length"  , "'a list -> int"                    , vfun (vint <.> List.length <.> listv))
 
 let _ = Interpret.know ("hd"      , "'a list -> 'a"                     , vfun v_hd)
@@ -103,11 +116,14 @@ let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 
 let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
 let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
 
-let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vint <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
-let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
+let _ = Interpret.know ("zip"     , "'a list -> 'b list -> 'a*'b list"  , vfun2 v_zip)
+let _ = Interpret.know ("unzip"   , "'a*'b list -> 'a list * 'b list"   , vfun v_unzip)
 
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
+
+let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vint <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
+let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
 
 let read_int s = print_string ("\n" ^ s ^"? "); flush stdout; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))

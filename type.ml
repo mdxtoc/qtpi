@@ -114,9 +114,8 @@ and string_of_typevar n =
   if starts_with n "?" then string_of_name n else "'" ^ string_of_name n
   
 and string_of_typelist ifeq supprio = function
-  | [t] -> possbracket ifeq supprio t
-  | ts  -> let substring = String.concat "*" (List.map (possbracket true tupleprio) ts) in
-           possbracket' ifeq supprio tupleprio substring
+  | [t] -> string_of_type t
+  | ts  -> String.concat "*" (List.map (possbracket true tupleprio) ts)
 
 and possbracket ifeq supprio t = 
   possbracket' ifeq supprio (typeprio t) (string_of_type t)

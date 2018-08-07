@@ -4,10 +4,10 @@
    -- i.e. an unfair coin.
  *)
 
-P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
-                            | fromQ?(y) . 
-                              (let n = print_string "with _X\n")
-                              y>>_X . toQ!y . _0
+P(fromQ:^qbit, toQ:^qbit) =     fromQ?(y) . toQ!y . _0
+                            <+> fromQ?(y) . 
+                                (let n = print_string "with _X\n")
+                                y>>_X . toQ!y . _0
                      
 Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   (let n = print_strings ["initially "; qbit_state x; "\n"])

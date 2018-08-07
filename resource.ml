@@ -256,7 +256,7 @@ let rec string_of_resource r =
 and string_of_resourceid (spos, s) =
   Printf.sprintf "%s:%s" (short_string_of_sourcepos spos) s
   
-let extendid (spos, s) s1 = spos, s^"."^s
+let extendid (spos, s) s1 = spos, s^"."^s1
 
 module OrderedResource = struct type t = resource let compare = Pervasives.compare let to_string = string_of_resource end
 module ResourceSet = MySet.Make(OrderedResource)  
@@ -268,10 +268,12 @@ let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
 
 let newqid rid state = 
-  let q = extendid rid ".qbit" in
+  let q = rid in
   State.add q true state, q
   
 let rec resource_of_type rid state t = (* makes new resource: for use in parameter bindings *)
+  if !verbose || !verbose_resource then
+    Printf.printf "resource_of_type %s %s %s\n" (string_of_resourceid rid) (string_of_state state) (string_of_type t);
   match t.inst with
   | Int
   | Bool

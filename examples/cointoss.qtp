@@ -1,28 +1,54 @@
 (* given a random qbit (a|0>+b|1>), this may terminate with
    either a|0>+b|1> or a|0>-b|1>. Interesting, eh? Only 
-   'really' works if the initial qbit is |0> or |+> 
-   -- i.e. an unfair coin.
+   'really' works if the initial qbit is |0> 
+   -- i.e. an unfair coin IMHO.
  *)
 
-P(fromQ:^qbit, toQ:^qbit) =     fromQ?(y) . toQ!y . _0
-                            <+> fromQ?(y) . 
-                                (let n = print_string "with _X\n")
-                                y>>_X . toQ!y . _0
+P(fromQ:^qbit, toQ:^qbit, withX) =     fromQ?(y) . toQ!y . withX!false . _0
+                                   <+> fromQ?(y) . y>>_X . toQ!y . withX!true . _0
                      
-Q(x: qbit, toP:^qbit, fromP:^qbit) = 
-  (let n = print_strings ["initially "; qbit_state x; "\n"])
-  x>>_H . toP!x . fromP?(z) . z>>_H . 
-  (let n = print_strings ["finally "; qbit_state z; "\n"])
-  _0 
+Q(q: qbit, toP:^qbit, fromP:^qbit, done) = 
+  (let init = qbit_state q)
+  q>>_H . toP!q . fromP?(q') . q'>>_H . 
+  done!init, qbit_state q' . _0 
 
-System() = (let bv = read_string "initial state (0,1,+,-)")
-           (newq x = match bv .
-                         "0" . |0> 
-                     <+> "1" . |1> 
-                     <+> "+" . |+>
-                     <+> "-" . |->
-                     <+> _   . abandon "bad initial state"
-                     hctam
-           ) 
-           (new s:^qbit, r:^qbit) 
-           (P(s,r) | Q(x,s,r))
+System() = (let k = read_int "number of trials")
+           (let sb = read_string "initial state (0,1,+,-)")
+           (let bv = match sb .
+                 "0" . |0> 
+             <+> "1" . |1> 
+             <+> "+" . |+>
+             <+> "-" . |->
+             <+> _   . abandon "bad initial state"
+             hctam
+           )
+           (let verbose = match read_string "with commentary (y/n)" .
+                              "y" . true
+                          <+> "n" . false
+                          <+> _   . abandon "pardon?"
+                          hctam
+           )
+           Controller (k, 0, verbose, bv, 0, 0)
+
+Controller (k, i, verbose, bv, score, nX) = 
+  if i=k then {print_strings [string_of_value i; " trials, "; 
+                              string_of_value nX; " flips; ";
+                              string_of_value score; " successes\n"
+                             ]} . _0
+  else
+    (newq q = bv) 
+    (new s:^qbit, r:^qbit)
+    (new done, withX)
+    (  P(s,r,withX) 
+     | Q(q,s,r,done) 
+     | done?(init,final) .
+       withX?(b) .
+       {if verbose && b then print_string "with a flip; " else () fi} .
+       {if verbose then print_strings ["initially "; string_of_value init; " finally "; string_of_value final; "\n"]
+        else () fi
+       } .
+       Controller (k, i+1, verbose, bv, if init=final then score+1 else score fi,
+                                        if b then nX+1 else nX fi
+                  )
+    )
+  fi

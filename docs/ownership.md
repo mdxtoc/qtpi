@@ -165,7 +165,7 @@ No free lunch has arrived. A symbolic execution is not a perfect solution. But i
 
 Inaccuracies arise with conditional expressions and guarded sums. Conditional expressions have been noted already: they are assessed as using the resources of both arms, though an execution uses only one arm at a time. They may not be a problem in principle, since every program using a qbit-valued conditional expression could be rewritten to use a conditional process.
 
-There remains a problem. The resources used by a conditional process are assessed as the union of the resources used by each of its arms. The resources used by a guarded sum are assessed as the union of the resources of all its arms. Then a Process par (*P*|*P*|...|*P*) of guarded sums and/or conditional processes may seem cause more cloning objections than an actual execution could actually exploit. But this will be over-caution: incompleteness, not unsoundness.
+There remains a problem. The resources used by a conditional process are assessed as the union of the resources used by each of its arms. The resources used by a guarded sum are assessed as the union of the resources of all its arms. Then a Process par (*P*|*P*|...|*P*) of guarded sums and/or conditional processes may cause more cloning objections than an actual execution could actually exploit. But this will be over-caution: incompleteness, not unsoundness.
 
 There may be new problems when I allow pattern-matching and encounter programs that use lists of qbits (which some protocols may need). There will certainly be complications, but I doubt there will be novel incompleteness.
 

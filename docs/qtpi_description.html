@@ -9,7 +9,7 @@
 | <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em><br />
 | <em>P</em> <code>|</code> ... <code>|</code> <em>P</em><br />
 | <code>if</code> <em>E</em> <code>then</code> <em>P</em> <code>else</code> <em>P</em> <code>fi</code><br />
-| <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>P</em> <code>&lt;m&gt;</code> ... <code>&lt;m&gt;</code> <em>pat</em> <code>.</code> <em>P</em> <code>hctam</code><br />
+| <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>pat</em> <code>.</code> <em>P</em> <code>hctam</code><br />
 | <code>( new</code> <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> <em>P</em><br />
 | <code>( newq</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>,</code>  ... <code>,</code> <em>par</em> [ <code>=</code> <em>E</em> ] <code>)</code> <em>P</em><br />
 | <code>( let</code> <em>pat</em> <code>=</code> <em>E</em> <code>)</code> <em>P</em><br />
@@ -21,7 +21,7 @@
 <li><code>new</code> creates channels.</li>
 <li><code>newq</code> creates qbits. Initialisation to basis vectors is optional (without it you get (<em>a</em><code>|0&gt;</code>+<em>b</em><code>|1&gt;</code>), for unknown <em>a</em> and <em>b</em>, where <em>a</em><sup>2</sup>+<em>b</em><sup>2</sup>=1.</li>
 <li>The guarded sum <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em> uses the separator <code>&lt;+&gt;</code> instead of <code>+</code> to avoid parsing problems.</li>
-<li>match processes use the <m> separator, to avoid parsing problems. I would have preferred <code>&lt;+&gt;</code>, or indeed <code>+</code>.</li>
+<li>match processes also use the &lt;+&gt; separator.</li>
 <li><code>let</code> expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.</li>
 <li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have caused parsing problems.</li>
 <li><code>{</code> <em>E</em> <code>}</code> <code>.</code> <em>P</em> lets you execute an arbitrary expression, but it has to be unit type. Useful for outputting strings and the like.</li>
@@ -103,13 +103,13 @@
 <p>Expression <em>E</em></p>
 <ul>
 <li>
-<p>The ususal stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants; <code>|0&gt;</code>, <code>|1&gt;</code>, <code>|+&gt;</code> and <code>|-&gt;</code> are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only &amp;&amp; and || so far).</p>
+<p>The usual stuff: constants (<code>0b1</code> and <code>1b1</code> are bit constants; <code>|0&gt;</code>, <code>|1&gt;</code>, <code>|+&gt;</code> and <code>|-&gt;</code> are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only &amp;&amp; and || so far).</p>
 </li>
 <li>
 <p>Conditionals are <code>if</code> <em>E</em> <code>then</code> <em>E</em> <code>else</code> <em>E</em> <code>fi</code>.</p>
 </li>
 <li>
-<p>Match expressions are <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>E</em> <code>&lt;m&gt;</code> ... <code>&lt;m&gt;</code> <em>pat</em> <code>.</code> <em>E</em> <code>hctam</code>.</p>
+<p>Match expressions are <code>match</code> <em>E</em> <code>.</code> <em>pat</em> <code>.</code> <em>E</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>pat</em> <code>.</code> <em>E</em> <code>hctam</code>.</p>
 </li>
 <li>
 <p>Function calls are <em>E</em> <em>E</em> -- juxtaposition. And of course left associative, so that <em>E</em> <em>E</em> <em>E</em> is (<em>E</em> <em>E</em>) <em>E</em>.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.</p>

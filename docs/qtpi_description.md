@@ -12,7 +12,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P*   
   | *P* `|` ... `|` *P*   
   | `if` *E* `then` *P* `else` *P* `fi`  
-  | `match` *E* `.` *pat* `.` *P* `<m>` ... `<m>` *pat* `.` *P* `hctam`  
+  | `match` *E* `.` *pat* `.` *P* `<+>` ... `<+>` *pat* `.` *P* `hctam`  
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *pat* `=` *E* `)` *P*  
@@ -24,7 +24,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * `new` creates channels.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
   * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* uses the separator `<+>` instead of `+` to avoid parsing problems.  
-  * match processes use the <m> separator, to avoid parsing problems. I would have preferred `<+>`, or indeed `+`.  
+  * match processes also use the <+> separator.  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P* lets you execute an arbitrary expression, but it has to be unit type. Useful for outputting strings and the like.  
@@ -99,11 +99,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   
 * Expression *E*
 
-  * The ususal stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
+  * The usual stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
   
   * Conditionals are `if` *E* `then` *E* `else` *E* `fi`. 
   
-  * Match expressions are `match` *E* `.` *pat* `.` *E* `<m>` ... `<m>` *pat* `.` *E* `hctam`.  
+  * Match expressions are `match` *E* `.` *pat* `.` *E* `<+>` ... `<+>` *pat* `.` *E* `hctam`.  
   
   * Function calls are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.  
   

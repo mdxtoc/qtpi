@@ -47,8 +47,8 @@ let _ = match !Usage.files with
                     let defs = List.concat defss in
                     if !verbose then
                       print_endline (string_of_list string_of_processdef "\n\n" defs);
-                    let cxt = typecheck defs in
-                    resourcecheck cxt defs;
+                    typecheck defs;
+                    resourcecheck defs;
                     if !Settings.interpret then
                       interpret defs
                 with 

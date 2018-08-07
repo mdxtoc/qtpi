@@ -116,8 +116,8 @@ let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 
 let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
 let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
 
-let _ = Interpret.know ("zip"     , "'a list -> 'b list -> 'a*'b list"  , vfun2 v_zip)
-let _ = Interpret.know ("unzip"   , "'a*'b list -> 'a list * 'b list"   , vfun v_unzip)
+let _ = Interpret.know ("zip"     , "'a list -> 'b list -> ('a*'b) list", vfun2 v_zip)
+let _ = Interpret.know ("unzip"   , "('a*'b) list -> 'a list * 'b list" , vfun v_unzip)
 
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))

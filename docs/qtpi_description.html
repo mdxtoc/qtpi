@@ -169,16 +169,19 @@
 <p>Interface functions</p>
 <p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
 <p><strong>But</strong>, <em>but</em>, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.</p>
-<p>Here are the functions I currently provide. Easy to add more (see the file library.ml)</p>
+<p>Here are the functions I currently provide. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above).</p>
 <ul>
 <li>
 <p><em>length</em>: <em>'a list</em> -&gt; <em>int</em></p>
 </li>
 <li>
-<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em>  	(raises an error if applied to <code>[]</code>)</p>
+<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em></p>
 </li>
 <li>
-<p><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em>  	(raises an error if applied to <code>[]</code>)</p>
+<p><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
+<ul>
+<li><em>hd</em> and <em>tl</em> raise Library.Error if applied to <code>[]</code></li>
+</ul>
 </li>
 <li>
 <p><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
@@ -199,6 +202,15 @@
 <p><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
 </li>
 <li>
+<p><em>zip</em>: <em>'a</em> <em>list</em> -&gt; <em>'b</em> <em>list</em> -&gt; <em>'a</em>*<em>'b</em> <em>list</em></p>
+<ul>
+<li><em>zip</em> raises Library.Error if applied to lists of differing lengths</li>
+</ul>
+</li>
+<li>
+<p><em>unzip</em>: <em>'a</em>*<em>'b</em> <em>list</em> -&gt; <em>'a</em> <em>list</em> * <em>'b</em> <em>list</em></p>
+</li>
+<li>
 <p><em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em></p>
 </li>
 <li>
@@ -209,12 +221,9 @@
 </li>
 <li>
 <p><em>read_string</em>: <em>string</em> -&gt; <em>string</em></p>
-</li>
-<li>
-<p><em>abandon</em>: <em>string</em> -&gt; <em>'a</em></p>
-</li>
-<li>
-<p><em>qbit_state</em>: <em>qbit</em> -&gt; <em>string</em></p>
+<ul>
+<li><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</li>
+</ul>
 </li>
 <li>
 <p><em>print_string</em>: <em>string</em> -&gt; <em>unit</em></p>
@@ -224,18 +233,21 @@
 </li>
 <li>
 <p><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em></p>
+<ul>
+<li><em>string_of_value</em> converts any value to a string. If you use it on a qbit you won't see anything interesting.</li>
+</ul>
 </li>
 <li>
-<p>The list and tuple functions do what you'd expect (but you can't use them to deliver qbits: see above).</p>
+<p><em>qbit_state</em>: <em>qbit</em> -&gt; <em>string</em></p>
+<ul>
+<li><em>qbit_state</em> gives you a string <em>q</em><code>(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector in the computational basis. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <code>[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</li>
+</ul>
 </li>
 <li>
-<p><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</p>
-</li>
-<li>
-<p><em>abandon</em> stops the program and doesn't return (i.e. raises an exception).</p>
-</li>
-<li>
-<p><em>qbit_state</em> gives you a string <em>q</em><code>:(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <em>q</em><code>:[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>0:[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</p>
+<p><em>abandon</em>: <em>string</em> -&gt; <em>'a</em></p>
+<ul>
+<li><em>abandon</em> stops the program and doesn't return (raises Library.Abandon).</li>
+</ul>
 </li>
 </ul>
 </li>

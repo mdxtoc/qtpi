@@ -162,33 +162,37 @@ A program is a sequence of process definitions. One of the process descriptions 
     
     **But**, *but*, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.
     
-    Here are the functions I currently provide. Easy to add more (see the file library.ml) 
+    Here are the functions I currently provide. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above). 
     
     * *length*: *'a list* -> *int*  	
-    * *hd*: *'a list* -> *'a*  	(raises an error if applied to `[]`) 
-	* *tl*: *'a list* -> *'a list*  	(raises an error if applied to `[]`)  
+    * *hd*: *'a list* -> *'a*  
+	* *tl*: *'a list* -> *'a list*  
+		* *hd* and *tl* raise Library.Error if applied to `[]` 
 	* *rev*: *'a list* -> *'a list*
 	* *append*: *'a list* -> *'a list* -> *'a list*
 	* *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
 	* *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
 	* *take*: *int* -> *'a list* -> *'a list*
 	* *drop*: *int* -> *'a list* -> *'a list*
+	* *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
+		* *zip* raises Library.Error if applied to lists of differing lengths 
+	* *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
 	* *fst*: *'a*\**'b* -> *'a*  
 	* *snd*: *'a*\**'b* -> *'b*  
 	
 	* *read_int*: *string* -> *int*  
 	* *read_string*: *string* -> *string*  
-
-	* *abandon*: *string* -> *'a*  
-
-	* *qbit_state*: *qbit* -> *string*  
+		* *read_int* and *read_string* take a prompt-string argument.  
 
 	* *print_string*: *string* -> *unit*  
 	* *print_strings*: *string list* -> *unit* 
+	
 	* *string_of_value*: *'a* -> *string*
+		* *string_of_value* converts any value to a string. If you use it on a qbit you won't see anything interesting.  
 	
-	 * The list and tuple functions do what you'd expect (but you can't use them to deliver qbits: see above).  
-	* *read_int* and *read_string* take a prompt-string argument.  
-	* *abandon* stops the program and doesn't return (i.e. raises an exception).  
-	
-	* *qbit_state* gives you a string *q*`:(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like *q*`:[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `0:[0,1](h|00>+h|01>)`. And so on for larger entanglements.
+	* *qbit_state*: *qbit* -> *string*  
+		* *qbit_state* gives you a string *q*`(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector in the computational basis. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like `[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `[0,1](h|00>+h|01>)`. And so on for larger entanglements.
+
+	* *abandon*: *string* -> *'a*  
+		* *abandon* stops the program and doesn't return (raises Library.Abandon).  
+

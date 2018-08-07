@@ -72,8 +72,8 @@ let rec string_of_process proc =
   | WithExpr (e,p)        -> Printf.sprintf "{%s}.%s" 
                                             (string_of_expr e) 
                                             (trailing_sop p)
-  | GSum gs               -> String.concat "+" (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
-  | Par  ps               -> String.concat "|" (List.map string_of_process ps)
+  | GSum gs               -> "(" ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs) ^ ")"
+  | Par  ps               -> "(" ^ String.concat " | " (List.map string_of_process ps) ^ ")"
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_expr e)
                                             (string_of_process p1)
@@ -106,8 +106,8 @@ and short_string_of_process proc =
   | WithExpr (e,p)        -> Printf.sprintf "%s; ..."
                                             (string_of_expr e)
   | GSum gs               -> let sf (g,p) = Printf.sprintf "%s. ..." (string_of_iostep g) in
-                             String.concat "+" (List.map sf gs)
-  | Par  ps               -> String.concat "|" (List.map short_string_of_process ps)
+                             "(" ^ String.concat " <+> " (List.map sf gs) ^ ")"
+  | Par  ps               -> "(" ^ String.concat " | " (List.map short_string_of_process ps) ^ ")" 
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_expr e)
                                             (short_string_of_process p1)

@@ -21,11 +21,11 @@ AliceSend(bvs, qB, bsB) =
 AliceSendBits (bvs,qB,done) =   
     match bvs .
         []         . done!() . _0
-    <m> (b,v)::bvs . (newq q = match b,v .
+    <+> (b,v)::bvs . (newq q = match b,v .
                                    0b0,0b0 . |0> 
-                               <m> 0b0,0b1 . |1> 
-                               <m> 0b1,0b0 . |+> 
-                               <m> 0b1,0b1 . |-> 
+                               <+> 0b0,0b1 . |1> 
+                               <+> 0b1,0b0 . |+> 
+                               <+> 0b1,0b1 . |-> 
                                hctam
                      )
                      qB!q.
@@ -49,15 +49,15 @@ AliceNegotiate (bvs,bsB) =
 AliceCheck (vBs, vs, done) =
   match vBs, vs .
       []    , _       . done!() . _0
-  <m> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
-  <m> _               . Bad ()
+  <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
+  <+> _               . Bad ()
   hctam
 
 Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
-   <m> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <m> _                   . Stop (["Reconcile failure"])
+   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
+   <+> _                   . Stop (["Reconcile failure"])
    hctam
   
 Stop (ss) = {print_strings (ss @ ["\n"])} . _0

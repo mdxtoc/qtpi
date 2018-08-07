@@ -22,16 +22,16 @@ AliceChoose(vs, r:^bit, go, stop, bits) =
 Iter (vs,go,stop) = 
   match vs .
       []    . stop!() . _0
-  <m> v::vs . go!v . Iter (vs,go,stop)
+  <+> v::vs . go!v . Iter (vs,go,stop)
   hctam
   
 AliceSendBit(qB,basis,go,stop) =
       go?(v) .
       (newq q = match basis,v .
                     0,0 . |0>
-                <m> 0,1 . |1>
-                <m> 1,0 . |+>
-                <m> 1,1 . |->
+                <+> 0,1 . |1>
+                <+> 1,0 . |+>
+                <+> 1,1 . |->
                 hctam
       )
       qB!q .
@@ -81,9 +81,9 @@ BobCheck(res,r,toAlice) =
 BobVerify (bvs:(bit*bit) list, basis:bit, svs:bit list) = 
   match bvs, svs .
       [],[]               . Honest()
-  <m> (b,v)::bvs, sv::svs . if b=basis && v<>sv then Liar()
+  <+> (b,v)::bvs, sv::svs . if b=basis && v<>sv then Liar()
                             else BobVerify (bvs,basis,svs)
-  <m> _                   . Liar()
+  <+> _                   . Liar()
   hctam
        
 Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)

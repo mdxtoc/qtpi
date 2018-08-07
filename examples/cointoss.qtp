@@ -18,10 +18,10 @@ Q(x: qbit, toP:^qbit, fromP:^qbit) =
 System() = (let bv = read_string "initial state (0,1,+,-)")
            (newq x = match bv .
                          "0" . |0> 
-                     <m> "1" . |1> 
-                     <m> "+" . |+>
-                     <m> "-" . |->
-                     <m> _   . abandon "bad initial state"
+                     <+> "1" . |1> 
+                     <+> "+" . |+>
+                     <+> "-" . |->
+                     <+> _   . abandon "bad initial state"
                      hctam
            ) 
            (new s:^qbit, r:^qbit) 

@@ -42,11 +42,11 @@ AliceSend(verbose, bvs, qB, bsB, again) =
 AliceSendBits (bvs,qB,done) =   
     match bvs .
         []         . done!() . _0
-    <m> (b,v)::bvs . (newq q = match b,v .
+    <+> (b,v)::bvs . (newq q = match b,v .
                                    0b0,0b0 . |0> 
-                               <m> 0b0,0b1 . |1> 
-                               <m> 0b1,0b0 . |+> 
-                               <m> 0b1,0b1 . |-> 
+                               <+> 0b0,0b1 . |1> 
+                               <+> 0b1,0b0 . |+> 
+                               <+> 0b1,0b1 . |-> 
                                hctam
                      )
                      qB!q.
@@ -88,24 +88,24 @@ AliceNegotiate (verbose,bvs,bsB,again) =
 AliceCheck (mask, vBs, vs, done) =
   match mask, vBs, vs .
       []       , []     , []    . done!true . _0
-  <m> 0b1::mask, vB::vBs, v::vs . if v=vB then AliceCheck (mask, vBs, vs, done) else done!false . _0 fi
-  <m> 0b0::mask, _      , v::vs . AliceCheck (mask, vBs, vs, done)
-  <m> _                         . done!false . _0
+  <+> 0b1::mask, vB::vBs, v::vs . if v=vB then AliceCheck (mask, vBs, vs, done) else done!false . _0 fi
+  <+> 0b0::mask, _      , v::vs . AliceCheck (mask, vBs, vs, done)
+  <+> _                         . done!false . _0
   hctam
 
 Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . done!rev vs . _0
-   <m> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <m> _                   . {print_string "Reconcile failure"} . _0
+   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
+   <+> _                   . {print_string "Reconcile failure"} . _0
    hctam
   
 
 Filter (mask, vs, code, done) =
   match mask, vs .
       0b1::mask , v::vs . Filter (mask, vs, code, done)
-  <m> 0b0::mask, v::vs . Filter (mask, vs, v::code, done)
-  <m> _                  . done!rev code . _0
+  <+> 0b0::mask, v::vs . Filter (mask, vs, v::code, done)
+  <+> _                  . done!rev code . _0
   hctam
   
 Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
@@ -150,7 +150,7 @@ BobReceive(n,bvs,qA,r,done) =
 BobSample (vs, r, mask, sample, done) =
   match vs .
       []    . done!rev mask . done!rev sample . _0
-  <m> v::vs . r?(b1) . r?(b2) . 
+  <+> v::vs . r?(b1) . r?(b2) . 
               if b1=0b0 && b2=0b0 then 
                 BobSample (vs, r, 0b1::mask, v::sample, done)
               else
@@ -184,6 +184,6 @@ Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let s = read_string "with commentary (y/n)")
-           (let verbose = match s . "y" . true <m> "n" . false <m> _ . abandon "pardon?" hctam)
+           (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
            (new r,qc1,qc2,bsc)
            (Alice(k,verbose,n,r,qc1,bsc) | Bob(k,verbose,n,r,qc2,bsc) | Eve (k,verbose,n,r,qc1,qc2) | (newq q = |0>) Random(q,r))

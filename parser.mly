@@ -186,7 +186,7 @@ sumsep:
   | SUMSEP                              {}
   
 matchsep:
-  | MATCHSEP                            {}
+  | SUMSEP                              {}
   
 process:
   | sumprocess                          {$1}

@@ -37,11 +37,11 @@ Alice1(verbose, k, i, nA, nB, nH, n:int, r:^bit, qB, bB, vB, again) =
 AliceSendBits (vs,basis,qB,done) =   
     match vs .
         []    . done!() . _0
-    <m> v::vs . (newq q = match basis,v .
+    <+> v::vs . (newq q = match basis,v .
                               0b0,0b0 . |0> 
-                          <m> 0b0,0b1 . |1> 
-                          <m> 0b1,0b0 . |+> 
-                          <m> 0b1,0b1 . |-> 
+                          <+> 0b0,0b1 . |1> 
+                          <+> 0b1,0b0 . |+> 
+                          <+> 0b1,0b1 . |-> 
                           hctam
                 )
                 qB!q.
@@ -82,9 +82,9 @@ BobReceive(n,bvs,qA,r,done) =
 BobVerify (basis,vs,bvs,done) =
   match vs, bvs .
       []   , []           . Honest (done)
-  <m> []   , _            . Liar (done)
-  <m> _    , []           . Liar (done)
-  <m> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
+  <+> []   , _            . Liar (done)
+  <+> _    , []           . Liar (done)
+  <+> v::vs, (b,v')::bvs  . if b=basis && v<>v' 
                               then Liar (done)
                               else BobVerify(basis,vs,bvs,done)
                             fi
@@ -99,7 +99,7 @@ Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let s = read_string "with commentary (y/n)")
-           (let verbose = match s . "y" . true <m> "n" . false <m> _ . abandon "pardon?" hctam)
+           (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
            (new r,qc,bc,vc,again)
            (  Alice(verbose,k,n,r,qc,bc,vc,again) 
             | Bob(verbose,k,n,r,qc,bc,vc,again) 

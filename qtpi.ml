@@ -31,6 +31,7 @@ open Instance
 open Type
 open Processdef
 open Typecheck
+open Matchcheck
 open Resource
 open Interpret
 open Param
@@ -48,6 +49,8 @@ let _ = match !Usage.files with
                     if !verbose then
                       print_endline (string_of_list string_of_processdef "\n\n" defs);
                     typecheck defs;
+                    if !Settings.matchcheck then
+                      matchcheck defs;
                     resourcecheck defs;
                     if !Settings.interpret then
                       interpret defs

@@ -33,4 +33,4 @@ let strip_pos {pos=pos; inst=inst} = inst
 
 let pos_of_instances is =
   let sps = List.map (fun {pos=pos} -> pos) is in
-  enclosingspos_of_sposs sps
+  enclosing_sp_of_sps sps

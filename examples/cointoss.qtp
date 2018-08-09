@@ -4,13 +4,14 @@
    -- i.e. an unfair coin IMHO.
  *)
 
-P(fromQ:^qbit, toQ:^qbit, withX) =     fromQ?(y) . toQ!y . withX!false . _0
-                                   <+> fromQ?(y) . y>>_X . toQ!y . withX!true . _0
+P(fromQ:^qbit, toQ:^qbit, report) =     fromQ?(y) . toQ!y .         report!false . _0
+                                    <+> fromQ?(y) . y>>_X . toQ!y . report!true  . _0
                      
-Q(q: qbit, toP:^qbit, fromP:^qbit, done) = 
-  (let init = qbit_state q)
+Q(q: qbit, toP:^qbit, fromP:^qbit, report) = 
+  report!qbit_state q  .
   q>>_H . toP!q . fromP?(q') . q'>>_H . 
-  done!init, qbit_state q' . _0 
+  report!qbit_state q' . 
+  _0 
 
 System() = (let k = read_int "number of trials")
            (let sb = read_string "initial state (0,1,+,-)")
@@ -28,9 +29,11 @@ System() = (let k = read_int "number of trials")
                           <+> _   . abandon "pardon?"
                           hctam
            )
-           Controller (k, 0, verbose, bv, 0, 0)
+           Controller (k, bv, verbose)
 
-Controller (k, i, verbose, bv, score, nX) = 
+Controller (k, bv, verbose) = Report (k, bv, verbose, 0, 0, 0)
+
+Report (k, bv, verbose, i, score, nX) = 
   if i=k then {print_strings [string_of_value i; " trials, "; 
                               string_of_value nX; " flips; ";
                               string_of_value score; " successes\n"
@@ -38,17 +41,19 @@ Controller (k, i, verbose, bv, score, nX) =
   else
     (newq q = bv) 
     (new s:^qbit, r:^qbit)
-    (new done, withX)
-    (  P(s,r,withX) 
-     | Q(q,s,r,done) 
-     | done?(init,final) .
-       withX?(b) .
+    (new reportP, reportQ)
+    (  P(s,r,reportP) 
+     | Q(q,s,r,reportQ) 
+     | reportQ?(init)  .
+       reportP?(b)     .
+       reportQ?(final) .
        {if verbose && b then print_string "with a flip; " else () fi} .
-       {if verbose then print_strings ["initially "; string_of_value init; " finally "; string_of_value final; "\n"]
+       {if verbose then print_strings ["initially "; init; " finally "; final; "\n"]
         else () fi
        } .
-       Controller (k, i+1, verbose, bv, if init=final then score+1 else score fi,
-                                        if b then nX+1 else nX fi
-                  )
+       Report (k, bv, verbose, i+1, 
+                               if init=final then score+1 else score fi,
+                               if b then nX+1 else nX fi
+              )
     )
   fi

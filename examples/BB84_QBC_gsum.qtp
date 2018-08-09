@@ -1,10 +1,5 @@
-given Honest    : unit process,
-      Liar      : unit process,
-      BobWin    : unit process,
-      BobLose   : unit process
-
 Times(n:int, go:^unit, stop:^unit) = 
-    if n>0 then go!() . Times(n=1,go,stop) else stop!() . _0 fi
+    if n>0 then go!() . Times(n-1,go,stop) else stop!() . _0 fi
 
 Alice(n:int, r:^bit, toBob) = 
     (new bits:^bit list)
@@ -15,8 +10,8 @@ Alice(n:int, r:^bit, toBob) =
     )
 
 AliceChoose(vs, r:^bit, go, stop, bits) =
-    (    go?() . r?(v) . AliceChoose(v::vs,r,go,stop,bits)
-     <+> stop?() . bits!vs . _0
+    (    go?(_) . r?(v) . AliceChoose(v::vs,r,go,stop,bits)
+     <+> stop?(_) . bits!vs . _0
     )
 
 Iter (vs,go,stop) = 
@@ -36,7 +31,7 @@ AliceSendBit(qB,basis,go,stop) =
       )
       qB!q .
       AliceSendBit(qB,basis,go,stop)
-  <+> stop?() . sent!() . _0
+  <+> stop?(_) . sent!() . _0
   
 AliceSend(bits:^bit list*int, r:^bit, toBob, sent) =
     bits?(n,vs) .
@@ -49,7 +44,6 @@ AliceSend(bits:^bit list*int, r:^bit, toBob, sent) =
                     )
      | AliceReport (sent,basis,vs,fromBob)
     )
-    fi
 
 AliceReport(sent:^unit,basis:bit,vs:bit list,fromBob) = 
     fromBob?(guess:bit,toBob) .
@@ -63,19 +57,19 @@ Bob(n,r,fromAlice) =
            )
   
 BobReceive(bvs,qB,go,stop,res) = 
-     go?(). qB?(q) .
+     go?(_). qB?(q) .
      r?(b) .
      q >> if b=1 then _H else _I fi .
      q =? (v) .
      BobReceive ((b,v)::bvs,go,stop,res)
-   <+> stop?() . res!(rev bvs) . _0
+   <+> stop?(_) . res!(rev bvs) . _0
      
 BobCheck(res,r,toAlice) =
   res?(bvs) .
   r?(guess) .
   (new reply)
   toAlice!guess,reply .
-  reply?basis,vs .
+  reply?(basis,vs) .
   BobVerify (bvs,basis,vs)
   
 BobVerify (bvs:(bit*bit) list, basis:bit, svs:bit list) = 
@@ -83,6 +77,7 @@ BobVerify (bvs:(bit*bit) list, basis:bit, svs:bit list) =
       [],[]               . Honest()
   <+> (b,v)::bvs, sv::svs . if b=basis && v<>sv then Liar()
                             else BobVerify (bvs,basis,svs)
+                            fi
   <+> _                   . Liar()
   hctam
        

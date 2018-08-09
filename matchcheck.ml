@@ -79,20 +79,21 @@ let string_of_constructor = function
   | CBit    b   -> Printf.sprintf "CBit 0b%d" (if b then 1 else 0)           
   | CUnit       -> "CUnit"          
   | CBasisv bv  -> Printf.sprintf "CBasisv %s" (string_of_basisv bv)
-  | CGate   s   -> Printf.sprintf "CGate %s" s    (* this is WRONG *)
+  | CGate   s   -> Printf.sprintf "CGate %s" s   
 
 let short_string_of_constructor = function
-  | CCons       -> "::"
-  | CNil        -> "Nil"
-  | CTuple      -> "CTuple"
-  | CInt    i   -> Printf.sprintf "%d" i 
-  | CBool   b   -> Printf.sprintf "%B" b
-  | CChar   c   -> Printf.sprintf "'%s'" (Char.escaped c)
-  | CString s   -> Printf.sprintf "\"%s\"" (String.escaped s)
-  | CBit    b   -> Printf.sprintf "0b%d" (if b then 1 else 0)           
-  | CUnit       -> "CUnit"          
-  | CBasisv bv  -> Printf.sprintf "%s" (string_of_basisv bv)
-  | CGate   s   -> s
+  | CCons           -> "::"
+  | CNil            -> "Nil"
+  | CTuple          -> "CTuple"
+  | CInt    i       -> Printf.sprintf "%d" i 
+  | CBool   b       -> Printf.sprintf "%B" b
+  | CChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
+  | CString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
+  | CBit    b       -> Printf.sprintf "0b%d" (if b then 1 else 0)           
+  | CUnit           -> "CUnit"          
+  | CBasisv bv      -> Printf.sprintf "%s" (string_of_basisv bv)
+  | CGate   "Phi"   -> "Phi _"
+  | CGate   s       -> s
 
 let string_of_con con =
   Printf.sprintf "{con=%s;arity=%d;span=%d}" 
@@ -206,10 +207,109 @@ let staticmatch con termd =
                   (string_of_termd termd)
                   (string_of_answer r);
   r
-  
+
+(* rhs and pattern things have to be instances. Luckily expr and process each is an instance *)
+
 let matchcheck_pats string_of_rhs rules = 
 
   let string_of_rules rules = "[" ^  string_of_list (string_of_pair string_of_pattern string_of_rhs ".") " <+> " rules ^ "]" in
+  
+  let sps = List.map (fun rule -> (fst rule).pos) rules in
+  let patspos = enclosing_sp_of_sps sps in
+  
+  let successes = Hashtbl.create (List.length rules) in         (* a sourcepos-indexed record of successes in the tree *)
+  
+  let show_fail dsc =
+    let neginfo neg negs =
+      let several words =
+        Printf.sprintf "%s which is %s %s" 
+                       words 
+                       (match negs with [] -> "not" | _ -> "neither")
+                       (String.concat " nor " (List.sort Pervasives.compare (List.map short_string_of_con (neg::negs))))
+      in
+      match neg.con with
+      | CCons       -> "an empty list"
+      | CNil        -> "a non-empty list"
+      | CUnit            
+      | CTuple      -> raise (Can'tHappen (Printf.sprintf "show_fail (%s) -- first Neg element?" 
+                                                          (string_of_termd dsc)
+                                          )
+                             )
+      | CInt    i   -> several "an integer" 
+      | CBool   b   -> Printf.sprintf "%B" (not b)
+      | CChar   c   -> several "a char"
+      | CString s   -> several "a string"
+      | CBit    b   -> Printf.sprintf "0b%d" (if not b then 1 else 0)           
+      | CBasisv bv  -> several "a basis vector" 
+      | CGate   s   -> several "a gate" 
+                      
+    in
+    let rec posinfo x con args =
+      let rec phrase = function
+        | []            -> raise (Can'tHappen ("phrase []"))
+        | [ws]          -> ws
+        | [ws1;ws2]     -> ws1 ^ " and " ^ ws2
+        | ws::wheres    -> ws ^ ", " ^ phrase wheres
+      in
+      let witharg (name,arg) =
+        match arg with
+        | Neg []          -> ""
+        | Neg (neg::negs) -> Printf.sprintf "%s is %s" name (neginfo neg negs)
+        | Pos (con,args)  -> Printf.sprintf "%s is %s" name (posinfo (x^"x") con args)
+      in
+      let withargs words arginfos =
+        let arginfos = List.map (fun (_,x,arg) -> x,arg) (List.filter fstof3 arginfos) in
+        let wheres = List.map witharg arginfos in
+        let wheres = List.filter (fun s -> s<>"") wheres in
+        Printf.sprintf "%s, where %s" words (phrase wheres)
+      in
+      let constinfo arg =
+        match arg with 
+        | Pos (con, args) ->
+            (match con.con with
+             | CCons   
+             | CTuple  
+             | CGate   "Phi" -> None    
+             | _             -> Some (short_string_of_con con)
+            )
+        | Neg []          -> Some "_"
+        | _               -> None
+      in
+      let arginfo namedargs =
+        let arginfo (i,(name,arg)) =
+          match constinfo arg with
+          | Some info -> false, info             , arg
+          | None      -> true , x^string_of_int i, arg
+        in
+        List.map arginfo (numbered namedargs)
+      in
+      match con.con, args with
+      | CCons      , [_;_] -> let names = [x;x^"s"] in
+                              let arginfos = arginfo (zip names args) in
+                              let words = Printf.sprintf "a list %s::%ss" 
+                                                         (sndof3 (List.hd arginfos)) 
+                                                         (sndof3 (List.hd (List.tl arginfos))) 
+                              in
+                              withargs words arginfos
+      | CTuple     , _     -> let names = tabulate (List.length args) (fun i -> x^string_of_int i) in
+                              let arginfos = arginfo (zip names args) in
+                              withargs (Printf.sprintf "a tuple (%s)" (string_of_list sndof3  "," arginfos)) arginfos
+      | CGate "Phi", [a]   -> let arginfos = arginfo [x,a] in
+                              withargs (Printf.sprintf "Phi(%s)" (sndof3 (List.hd arginfos))) arginfos      
+      | _                  -> short_string_of_con con
+    in
+    match dsc with
+    | Neg (neg::negs)  -> 
+        Printf.printf "Warning! %s: this match is incomplete. It will fail on %s\n"
+                      (string_of_sourcepos patspos)
+                      (neginfo neg negs)
+    | Neg []         -> 
+        Printf.printf "Warning! %s: this match has no patterns. It is certain to fail\n" (string_of_sourcepos patspos)
+    | Pos (con,args) -> 
+        Printf.printf "Warning! %s: this match is incomplete. It will fail on %s\n" 
+                                      (string_of_sourcepos patspos)
+                                      (posinfo "x" con args)
+  in
   
   let rec fail dsc rules =
     if !verbose then
@@ -217,7 +317,8 @@ let matchcheck_pats string_of_rhs rules =
                     (string_of_termd dsc) 
                     (string_of_rules rules);
     match rules with
-    | []               -> Printf.printf "\n** Failure dsc=%s\n\n" (string_of_termd dsc); Failure
+    | []               -> show_fail dsc;
+                          Failure
     | (pat,rhs)::rules -> _match pat Obj dsc [] [] rhs rules
   
   and succeed cxt work rhs rules =
@@ -228,7 +329,8 @@ let matchcheck_pats string_of_rhs rules =
                     (string_of_rhs rhs) 
                     (string_of_rules rules);
     match work with
-    | []      -> Success rhs
+    | []      -> Hashtbl.add successes rhs.pos true;
+                 Success rhs 
     | w::work -> (match w with
                     [],[],[]                        -> succeed (norm cxt) work rhs rules 
                   | pat::pats, obj::objs, dsc::dscs -> _match pat obj dsc cxt ((pats,objs,dscs)::work) rhs rules
@@ -272,10 +374,7 @@ let matchcheck_pats string_of_rhs rules =
     | None             -> 
         succeed (augment cxt dsc) work rhs rules
     | Some (con,cargs)  -> 
-        let args f = 
-          let a = Array.init con.arity f in
-          Array.to_list a 
-        in
+        let args f = tabulate con.arity f in
         let getdargs termd =
           match termd with
           | Neg _            -> args (fun _ -> Neg [])
@@ -288,18 +387,22 @@ let matchcheck_pats string_of_rhs rules =
         let fail' dsc = fail (builddsc cxt dsc work) rules in
         match staticmatch con dsc with
         | Yes    -> succeed' ()
-        | No     -> fail' dsc          
+        | No     -> fail' dsc         (* this is redundancy, I think *) 
         | Maybe  -> IfEq (obj, con, succeed' (), fail' (addneg dsc con))
   in 
   if !verbose then
     Printf.printf "\nmatchcheck_pats %s\n" (string_of_rules rules);
   let dtree = fail (Neg []) rules in
   if !verbose then 
-    let sps = List.map (fun rule -> (fst rule).pos) rules in
     Printf.printf "\nmatchcheck_pats %s [%s] => %s\n\n" 
-                  (string_of_sourcepos (enclosing_sp_of_sps sps))
+                  (string_of_sourcepos patspos)
                   (string_of_rules rules)
-                  (string_of_dtree string_of_rhs dtree)
+                  (string_of_dtree string_of_rhs dtree);
+  let redundancy (pat,rhs) = if Hashtbl.mem successes rhs.pos then ()
+                             else Printf.printf "Warning! %s: this pattern is redundant (can never match)\n"
+                                  (string_of_sourcepos pat.pos)
+  in
+  List.iter redundancy rules
 
 let rec matchcheck_expr e =
   match e.inst.enode with

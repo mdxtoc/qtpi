@@ -60,6 +60,8 @@ and gpnode =
   | PatCnot
   | PatPhi of pattern 
   
+let nGatepat = 7  (* for matchchecker *)
+
 let constprio = NonAssoc, 10
 let tupleprio = NonAssoc, 6
 let listprio  = Right   , 3

@@ -27,6 +27,8 @@ type basisv =
   | BVplus
   | BVminus
 
+let nBasisv =4 (* for matchchecker *)
+
 let string_of_basisv bv =
   match bv with
   | BVzero				-> "|0>"

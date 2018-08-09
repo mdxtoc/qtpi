@@ -99,6 +99,8 @@ let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))
                                                           )
                                                    )
 
+exception Abandon of string
+
 let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
                   vpair (vlist xs, vlist ys)
 
@@ -125,13 +127,21 @@ let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (
 let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vint <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
 
-let read_int s = print_string ("\n" ^ s ^"? "); flush stdout; Pervasives.read_int ()
+let read_int s = print_string (s ^"? "); flush stdout; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
 
-let read_string s = print_string ("\n" ^ s ^"? "); flush stdout; Pervasives.read_line ()
+let read_string s = print_string (s ^"? "); flush stdout; Pervasives.read_line ()
 let _ = Interpret.know ("read_string", "string -> string"        , vfun (vstring <.> read_string <.> stringv))
 
-exception Abandon of string
+let read_bool prompt y n =
+  let prompt = stringv prompt in
+  let y = stringv y in
+  let n = stringv n in
+  let s = read_string (Printf.sprintf "%s (%s/%s)" prompt y n) in 
+  if s = y then vbool true else
+  if s = n then vbool false else
+  raise (Abandon (Printf.sprintf "read_bool \"%s\" saw %s; should have been %s or %s" prompt s y n))
+let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
 
 let abandon s = raise (Abandon s)
 let _ = Interpret.know ("abandon", "string -> 'a", vfun (abandon <.> stringv))

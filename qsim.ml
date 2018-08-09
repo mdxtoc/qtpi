@@ -198,7 +198,7 @@ let init () = Hashtbl.reset qstate
 let string_of_qstate () = 
   let qqvs = Hashtbl.fold (fun q qv ss -> (q,qv) :: ss) qstate []
   in
-  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort compare qqvs))
+  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort Pervasives.compare qqvs))
 
 let qval q = try Hashtbl.find qstate q
              with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"
@@ -282,10 +282,16 @@ let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted according to the type definition: i.e.
- * P_0, P_1, P_h, P_i, Psymb.
+ * P_0, P_1, P_h, P_i, Psymb. But ... this isn't good enough. 
+ 
+ * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  *)
 
-  
+let probcompare p1 p2 =
+  match p1, p2 with
+  | Psymb (b1,q1), Psymb (b2,q2) -> Pervasives.compare (q1,b1) (q2,b2)
+  | _                            -> Pervasives.compare p1      p2
+
 let rec neg p =
   let r = match p with
           | Pneg p        -> p
@@ -324,7 +330,7 @@ and simplify_prod ps = (* basically we deal with constants *)
             | p              :: ps -> sp is_neg (p::r) ps
             | []                   -> is_neg, List.rev r
           in
-          let is_neg, ps = sp false [] (List.sort compare ps) in
+          let is_neg, ps = sp false [] (List.sort probcompare ps) in
           let p = match ps with 
                   | []  -> P_1
                   | [p] -> p 
@@ -365,8 +371,8 @@ and simplify_sum ps =
             match p1, p2 with
             | Pneg p1  , _         -> scompare p1 p2
             | _        , Pneg p2   -> scompare p1 p2
-            (* | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s *)
-            | _                    -> Pervasives.compare p1 p2
+            (* | Pprod p1s, Pprod p2s -> probcompare p1s p2s *)
+            | _                    -> probcompare p1 p2
           in
           let rec double p1 = (* looking for h(k)*X+h(k)*X. We know p1=p2 *)
             let r = match p1 with

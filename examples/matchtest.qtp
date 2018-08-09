@@ -1,0 +1,24 @@
+S(i) = _0
+System() = match 0 .
+               7 . S(1)
+           <+> 9 . S(2)
+           hctam
+
+A() = match 0 .
+          n . S(1)
+      <+> m . S(2)
+      hctam
+
+B() = match 0 .
+          0 . S(1)
+      <+> 0 . S(2)
+      <+> 1 . S(3)
+      <+> n . S(4)
+      hctam
+      
+C() = match 0,|+> .
+          1, _   . S(1)
+      <+> _, |-> . S(2)
+      <+> 2, |+> . S(3)
+      hctam
+

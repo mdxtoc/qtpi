@@ -1,12 +1,44 @@
 
-Alice (x:qbit, c:^0..3, z:qbit) = 
-	{print_strings ["initially Alice's z is "; qbit_state z; "\n"]} .
-	z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz++vx . _0 
+Alice (x:qbit, c:^0..3, z:qbit, report) = 
+    report!qbit_state z .
+    z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz++vx . _0 
 
-Bob(y:qbit, c:^0..3) = 
+Bob(y:qbit, c:^0..3, report) = 
   c?(n) . y>>_Phi(n) . 
-  {print_strings ["finally Bob's y is "; qbit_state y; "\n"]} .
+  report!qbit_state y .
   _0
 
 System () = 
-  (newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^0..3) (Alice(x,c,z) | Bob(y,c))
+  (let k = read_int "number of trials")
+  (let standard = read_bool "standard initial state or random" "s" "r")
+  (let verbose = read_bool "with commentary" "y" "n")
+  Report (k, verbose, standard, 0, 0)
+
+Report (k, verbose, standard, i, score) =
+  if i=k then {print_strings [string_of_value k; " trials; "; 
+                              string_of_value score; "successes\n"
+                             ]
+              } . _0
+  else (new reportA, reportB)
+       (  if standard then (newq x=|0>, y=|0>) Control (x, y, reportA, reportB)
+                      else (newq x,y)          Control (x, y, reportA, reportB)
+          fi
+        | reportA?(init)  .
+          reportB?(final) .
+          {if verbose then print_strings ["initially Alice's z is "; init; 
+                                          "; finally Bob's y is "; final;
+                                          "\n"
+                                         ] 
+                      else () 
+           fi} .
+          Report (k, verbose, standard, i+1, if init=final then score+1 else score fi)
+       )
+  fi
+  
+Control (x, y, reportA, reportB) =
+  x>>_H . x,y>>_CNot . 
+  (new c:^0..3)
+  (newq z)
+  (  Alice(x,c,z,reportA) 
+   | Bob(y,c,reportB)
+  )

@@ -34,6 +34,7 @@ let chanbuf_limit = ref 0			(* buffer limit for channels: -1 for infinite, 0 for
 
 let verbose = ref false
 let verbose_interpret = ref false
+let verbose_matchcheck = ref false
 let verbose_qsim = ref false
 let verbose_qcalc = ref false
 let verbose_queues = ref false
@@ -47,12 +48,15 @@ let fancyvec = ref true
 
 let interpret = ref true
 
+let matchcheck = ref true
+
 let show_final = ref false
 
 let typereport = ref false
 
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
+                   ("matchcheck" 	   , verbose_matchcheck		  );
                    ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
                    ("queues"           , verbose_queues           );

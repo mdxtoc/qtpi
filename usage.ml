@@ -36,6 +36,8 @@ let opts = Arg.align
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-interpret"  , Arg.Bool (set_arg interpret), 
                     Printf.sprintf " interpret the program (default %B)" !interpret);
+              ("-matchcheck" , Arg.Bool (set_arg matchcheck), 
+                    Printf.sprintf " matchcheck the program (default %B)" !matchcheck);
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qbit states");
               ("-symbq"  , Arg.Bool (set_arg symbq), 

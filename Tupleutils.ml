@@ -28,3 +28,13 @@ let string_of_pair string_of_a string_of_b sep (a,b) =
                           
 let bracketed_string_of_pair string_of_a string_of_b pair = 
     "(" ^ string_of_pair string_of_a string_of_b "," pair ^ ")"
+    
+let string_of_triple string_of_a string_of_b string_of_c sep (a,b,c) =
+  Printf.sprintf "%s%s%s%s%s" (string_of_a a)
+                              sep
+                              (string_of_b b)
+                              sep
+                              (string_of_c c)
+                          
+let bracketed_string_of_triple string_of_a string_of_b string_of_c triple = 
+    "(" ^ string_of_triple string_of_a string_of_b string_of_c "," triple ^ ")"

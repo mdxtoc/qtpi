@@ -48,6 +48,10 @@ let string_of_assoc fx fy colon semicolon xys =
 
 let numbered xs = Array.to_list (Array.mapi (fun i x -> i,x) (Array.of_list xs))
 
+let tabulate n f = 
+  let a = Array.init n f in
+  Array.to_list a
+  
 let take n xs =
   let rec take rs n xs =
     match n, xs with

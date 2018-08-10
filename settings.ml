@@ -52,6 +52,8 @@ let matchcheck = ref true
 
 let show_final = ref false
 
+let tryrotate = ref false
+
 let typereport = ref false
 
 let verboseopts = [("all"              , verbose                  );

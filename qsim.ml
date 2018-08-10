@@ -617,9 +617,11 @@ let idx q qs =
   in
   f 0 qs
 
+let bitmask iq qs = 1 lsl (List.length qs-iq-1)
+
 let ibit q qs = (* a single-bit mask to pick out q from qs *)
-  let i = idx q qs in
-  1 lsl (List.length qs-i-1)
+  let iq = idx q qs in
+  bitmask iq qs
 
 let mask n = (* an n-bit mask *)
   let rec f m i =
@@ -627,44 +629,76 @@ let mask n = (* an n-bit mask *)
   in
   f 0 n
 
-let try_split v =
-  let id_string () = Printf.sprintf "try_split %s" (string_of_probvec v) in
-  if !verbose_qcalc then 
-    print_string (id_string ());
-  let n = vsize v in
-  let nh = vsize v / 2 in
-  let r = (* if the first half is all zeros then use v_1, which is 0+1 *)
-          if _for_all 0 1 nh (fun i -> v.(i)=P_0) then
-            Some (Array.copy v_1, Array.init nh (fun i -> v.(nh+i)))
-          else
-          (* if the second half is all zeros then use v_0, which is 1+0 *)
-          if _for_all nh 1 n (fun i -> v.(i)=P_0) then
-            Some (Array.copy v_0, Array.init nh (fun i -> v.(i)))
-          else
-            None
+let make_first qs v iq =
+  let nqs = List.length qs in
+  let nv = vsize v in
+  let imask = bitmask iq qs in
+  let i0 = bitmask 0 qs in
+  let lmask = (mask iq) lsl (nqs-iq) in
+  let rmask = mask (nqs-iq-1) in
+  (* if !verbose || !verbose_qsim then Printf.printf "iq %d i0 %d lmask %d rmask %d\n" iq i0 lmask rmask; *)
+  let v' = Array.copy v in
+  for i=0 to nv-1 do
+    let j = ((i land lmask) lsr 1) lor (i land rmask) lor (if i land imask<>0 then i0 else 0) in
+    (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
+    v'.(j) <- v.(i)
+  done;
+  let seg1 = take iq qs in
+  let seg2 = drop iq qs in
+  let qs' = List.hd seg2 :: (seg1 @ List.tl seg2) in
+  qs', v'
+
+let rotate_left qs v = make_first qs v (List.length qs - 1)
+
+let try_split qs v =
+  let nqs = List.length qs in
+  let rec t_s i qs v = 
+    if i=nqs then None 
+    else
+      (if !tryrotate && !verbose_qcalc then 
+         Printf.printf "t_s %s\n" (string_of_probvec v);
+       let n = vsize v in
+       let nh = vsize v / 2 in
+       (* if the first half is all zeros then use v_1, which is 0+1 *)
+       if _for_all 0 1 nh (fun i -> v.(i)=P_0) then
+         Some (qs, Array.copy v_1, Array.init nh (fun i -> v.(nh+i)))
+       else
+       (* if the second half is all zeros then use v_0, which is 1+0 *)
+       if _for_all nh 1 n (fun i -> v.(i)=P_0) then
+         Some (qs, Array.copy v_0, Array.init nh (fun i -> v.(i)))
+       else
+       if !tryrotate then
+         (let qs, v = rotate_left qs v in 
+          t_s (i+1) qs v
+         )
+       else None
+      )
   in
+  let r = t_s 0 qs v in
   if !verbose_qcalc then
-    Printf.printf " -> %s\n" 
-                  (string_of_option (fun (v,v') -> Printf.sprintf "%s, %s" 
-                                                   (string_of_probvec v) 
-                                                   (string_of_probvec v')
+    Printf.printf "try_split %s => %s\n" 
+                  (string_of_probvec v)
+                  (string_of_option (string_of_triple (bracketed_string_of_list string_of_qbit)
+                                                      string_of_probvec 
+                                                      string_of_probvec 
+                                                      ","
                                     )
                                     r
                   );
   r
   
 let rec record ((qs, vq) as qv) =
-   let doit q = if !verbose || !verbose_qsim then
-                  Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
-                Hashtbl.replace qstate q qv 
+   let accept q = if !verbose || !verbose_qsim then
+                    Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
+                  Hashtbl.replace qstate q qv 
    in
    match qs with
    | []     -> raise (Error (Printf.sprintf "record gets %s" (string_of_qval qv)))
-   | [q]    -> doit q
-   | q::qs'  -> (* try to split it up *)
-               match try_split vq with
-               | Some (vq,v') -> record ([q], vq); record (qs', v')
-               | None         -> List.iter doit qs
+   | [q]    -> accept q
+   | _'     -> (* try to split it up *)
+               match try_split qs vq with
+               | Some (q'::qs',vq,v') -> record ([q'], vq); record (qs', v')
+               | _                    -> List.iter accept qs
 
 let ugstep pn qs ugv = 
   let id_string () = Printf.sprintf (if List.length qs = 1 then "%s ugstep %s >> %s" else "%s ugstep [%s] >> %s")
@@ -808,7 +842,7 @@ let rec qmeasure pn gopt q =
                                  _for 0 1 nv (fun i -> v.(i) <- r2 v.(i))
        | Pprod [p1;p2] when p1=p2 
                             -> _for 0 1 nv (fun i -> v.(i) <- div v.(i) p1)
-       (* at this point it _could_ be necessary to guess roots of squares, like sqrt (h(2)+ab) = h+ab. 
+       (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)
        | _                  -> 
@@ -819,8 +853,7 @@ let rec qmeasure pn gopt q =
            else
              (if !verbose || !verbose_qsim then
                 Printf.printf " oh dear!\n"; 
-              raise (Error (Printf.sprintf "normalise %s modulus %s" 
-                                           (string_of_qval (qs,v)) 
+              raise (Error (Printf.sprintf "can't guess sqrt(%s)" 
                                            (string_of_prob modulus)
                            )
                     )

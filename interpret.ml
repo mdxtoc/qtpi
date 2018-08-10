@@ -185,6 +185,8 @@ let (<@?>) env n     = NameMap.mem    n env
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
 let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
+let bitv    = function VInt    0       -> 0  
+                     | VInt    1       -> 1      | v -> miseval "bitv"     v
 let intv    = function VInt    i       -> i      | v -> miseval "intv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
@@ -198,6 +200,7 @@ let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
 let funv    = function VFun    f       -> f      | v -> miseval "funv"    v
 
 let vunit   ()    = VUnit
+let vbit    i     = VInt    (i land 1)
 let vint    i     = VInt    i
 let vbool   b     = VBool   b
 let vchar   c     = VChar   c
@@ -312,7 +315,6 @@ let rec evale env e =
   | EBit b              -> VInt (if b then 1 else 0)
   | EBasisv bv          -> VBasisv bv
   | EGate uge           -> VGate (ugev env uge)
-  | EMinus e            -> VInt (- (intev env e))
   | EMinus e            -> VInt (~- (intev env e))
   | ENot   e            -> VBool (not (boolev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)

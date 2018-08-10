@@ -124,8 +124,11 @@ let _ = Interpret.know ("unzip"   , "('a*'b) list -> 'a list * 'b list" , vfun v
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
-let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vint <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
+let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
+
+let xor_bits b1 b2 = vbit (bitv b1 lxor bitv b2)
+let _ = Interpret.know ("xor_bits", "bit -> bit -> bit"                 , vfun2 xor_bits)
 
 let read_int s = print_string (s ^"? "); flush stdout; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
@@ -156,3 +159,9 @@ let _ = Interpret.know ("print_string", "string -> unit"        , vfun (print_st
 let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
 
 let _ = Interpret.know ("string_of_value", "'a -> string", vfun (vstring <.> string_of_value))
+
+let uncurry2 f ab = let a,b = pairv ab in
+                        let f = funv f in
+                        (funv (f a)) b
+let _ = Interpret.know ("uncurry2", "('a -> 'b -> 'c) -> ('a*'b) -> 'c", vfun2 uncurry2)
+

@@ -50,6 +50,7 @@ and enode =
   | EBasisv of basisv
   | EGate of ugate
   | EMinus of expr
+  | ENot of expr
   | ETuple of expr list
   | ECons of expr * expr
   | ENil
@@ -150,7 +151,8 @@ let rec exprprio e =
   | EGate       _
   | ECond       _           
   | EMatch      _           -> primaryprio
-  | EMinus      _           -> unaryprio
+  | EMinus      _           
+  | ENot        _           -> unaryprio
   | EApp        _           -> appprio
   | ECons       _           -> if is_nilterminated e then primaryprio else consprio
   | EArith      (_,op,_)    -> arithprio op
@@ -222,6 +224,7 @@ and string_of_expr e =
   | EMatch      _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 (if exprprio e2 = primaryprio then " " else "") appprio
   | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
+  | ENot   e                        -> Printf.sprintf "not %s" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
                                        else string_of_binary_expr hd tl "::" consprio
   | ETuple es                       -> commasep (List.map (bracket_nonassoc tupleprio) es)

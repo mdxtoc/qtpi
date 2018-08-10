@@ -121,7 +121,8 @@ let rec rewrite_expr cxt e =
                                     | GH | GI | GX | GY | GZ | GCnot -> ()
                                     | GPhi e                         -> rewrite_expr cxt e
                                    )
-       | EMinus      e          -> rewrite_expr cxt e
+       | EMinus      e          
+       | ENot        e          -> rewrite_expr cxt e
        | ETuple      es         -> List.iter (rewrite_expr cxt) es
        | ECond       (e1,e2,e3) -> List.iter (rewrite_expr cxt) [e1;e2;e3]
        | EMatch      (e,ems)    -> rewrite_expr cxt e; 
@@ -408,6 +409,7 @@ and assigntype_expr cxt t e =
                                let cxt = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
      | EMinus  e            -> unary cxt (adorn_x e Int) (adorn_x e Int) e
+     | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
      | ETuple  es           -> let ts = List.map (fun e -> adorn_x e (new_TypeVar ())) es in
                                let tes = List.combine ts es in
                                let cxt' = List.fold_left utaf cxt tes in

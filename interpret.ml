@@ -313,6 +313,8 @@ let rec evale env e =
   | EBasisv bv          -> VBasisv bv
   | EGate uge           -> VGate (ugev env uge)
   | EMinus e            -> VInt (- (intev env e))
+  | EMinus e            -> VInt (~- (intev env e))
+  | ENot   e            -> VBool (not (boolev env e))
   | ETuple es           -> VTuple (List.map (evale env) es)
   | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
   | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)

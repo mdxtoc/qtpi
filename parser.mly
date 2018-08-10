@@ -77,7 +77,7 @@
 %token PLUSPLUS PLUS MINUS DIV
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
-%token AND OR
+%token AND OR NOT
 %token UNIT TERMINATE
 %token COMMA STAR SEMICOLON
 %token TRUE FALSE BIT0 BIT1
@@ -86,9 +86,10 @@
 /* remember %left %right %nonassoc and increasing priority */
 %right CONS
 %left AND OR
+%right NOT
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS PLUSPLUS
-%left DIV
+%left mult_op DIV
 %left APPEND
 
 %right TYPEARROW
@@ -377,7 +378,8 @@ ntexpr:  /* a non-tuple expression -- can be a cons */
 ntlexpr: /* neither tuple nor cons */
   | primary                             {$1} 
   | app                                 {$1}
-  | MINUS primary                       {eadorn (EMinus ($2))}
+  | MINUS primary                       {eadorn (EMinus $2)}
+  | NOT primary                         {eadorn (ENot $2)}
   | ntexpr PLUSPLUS ntexpr              {eadorn (EBitCombine ($1,$3))}
   | ntexpr APPEND primary               {eadorn (EAppend ($1,$3))}
   | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
@@ -389,6 +391,7 @@ app:
   | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
+  | ntexpr STAR ntexpr %prec mult_op    {$1,Times,$3}
   | ntexpr DIV ntexpr                   {$1,Div,$3}
   | ntexpr PLUS ntexpr                  {$1,Plus,$3}
   | ntexpr MINUS ntexpr                 {$1,Minus,$3}

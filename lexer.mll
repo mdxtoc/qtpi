@@ -151,7 +151,8 @@ rule make_token = parse
   
   | "&&"        {AND}
   | "||"        {OR}
-
+  | "not"       {NOT}
+  
   | '@'         {APPEND}
   | "::"        {CONS}
       

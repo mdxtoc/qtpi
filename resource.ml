@@ -200,7 +200,8 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                   | GH | GI | GX | GY | GZ | GCnot -> ()
                                   | GPhi e                         -> ctfa_expr e
                                )
-    | EMinus     e          -> ctfa_expr e
+    | EMinus     e          
+    | ENot       e          -> ctfa_expr e
     | ETuple     es         -> List.iter ctfa_expr es
     | EMatch     (e,ems)    -> ctfa_expr e; List.iter (ctfa_expr <.> snd) ems
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
@@ -442,6 +443,7 @@ let r_o_e disjoint state env e =
                                                                         RNull, used
                                  )                    
       | EMinus      e         -> re Uarith e
+      | ENot        e         -> re Ubool e
       | EArith      (e1,_,e2) -> let _, used = do_list Uarith   [e1;e2] in RNull, used
       | ECompare    (e1,_,e2) -> let _, used = do_list Ucompare [e1;e2] in RNull, used
       | EBoolArith  (e1,_,e2) -> let _, used = do_list Ubool    [e1;e2] in RNull, used

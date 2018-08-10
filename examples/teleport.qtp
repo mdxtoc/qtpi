@@ -10,13 +10,17 @@ Bob(y:qbit, c:^0..3, report) =
 
 System () = 
   (let k = read_int "number of trials")
-  (let standard = read_bool "standard initial state or random" "s" "r")
   (let verbose = read_bool "with commentary" "y" "n")
+  (let standard = read_bool "standard initial state or random" "s" "r")
+  {if standard then ()
+   else print_string "\nThat, as you will see, is a step too far for the symbolic quantum simulator\n\n"
+   fi
+  } .
   Report (k, verbose, standard, 0, 0)
 
 Report (k, verbose, standard, i, score) =
   if i=k then {print_strings [string_of_value k; " trials; "; 
-                              string_of_value score; "successes\n"
+                              string_of_value score; " successes\n"
                              ]
               } . _0
   else (new reportA, reportB)

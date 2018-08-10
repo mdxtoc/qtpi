@@ -1,47 +1,25 @@
 
-Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
-
-Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB) = 
-  if i=0 then {print_strings ["all done: "; 
-                              string_of_value nGood; " Eve's; ";
-                              string_of_value nBad; " Alice's; ";
-                              "average check bits "; string_of_value (sumChecks/k); 
-                              " minimum check bits "; string_of_value minChecks; "\n"
-                             ]
-              } . 
-              _0
-         else {print_strings ["trial number "; string_of_value (k-i+1); if verbose then "\n" else " " fi]} .
-              (new chosen, again) (  AliceChoose (n,[],r,chosen)
-                                   | chosen?(bvs) . 
-                                     {if verbose then print_strings ["Alice chose "; string_of_value bvs; "\n"] else () fi} .
-                                     AliceSend (verbose, bvs, qB, bsB, again)
-                                   | again?(b,nc) .
-                                     Alice1 (k, i-1,
-                                                if b then nGood+1 else nGood fi,
-                                                if b then nBad else nBad+1 fi,
-                                                sumChecks+nc,
-                                                if minChecks<0 then nc
-                                                elif nc<minChecks then nc
-                                                else minChecks
-                                                fi,
-                                                verbose,
-                                                n,r,qB,bsB)
-                                  )
-  fi
+Alice(n:int, r:^bit, qB, bsB, report) = 
+  (new chosen) 
+  (  AliceChoose (n,[],r,chosen)
+   | chosen?(bvs) . 
+     report!map fst bvs .
+     report!map snd bvs .
+     (new sent)
+     (  AliceSendBits (bvs, qB, sent)
+      | sent?(_) .
+        AliceNegotiate (bvs, bsB, report)
+     )
+  )
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
 AliceChoose(n, bvs, r, chosen) =
     (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
-AliceSend(verbose, bvs, qB, bsB, again) =
-    (new done) (  AliceSendBits (bvs,qB,done)
-                | done?(s) . AliceNegotiate (verbose, bvs, bsB, again)
-               )
-
 (* send encoded bits down channel qB *)
-AliceSendBits (bvs,qB,done) =   
+AliceSendBits (bvs,qB,sent) =   
     match bvs .
-        []         . done!() . _0
+        []         . sent!() . _0
     <+> (b,v)::bvs . (newq q = match b,v .
                                    0b0,0b0 . |0> 
                                <+> 0b0,0b1 . |1> 
@@ -50,132 +28,124 @@ AliceSendBits (bvs,qB,done) =
                                hctam
                      )
                      qB!q.
-                     AliceSendBits(bvs,qB,done)
+                     AliceSendBits(bvs,qB,sent)
     hctam
 
-AliceNegotiate (verbose,bvs,bsB,again) =
+AliceNegotiate (bvs,bsB,report) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
-    {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
-    (new done) (  Reconcile (bBs, bvs, [], done)
-                | done?(vs) . (* vs are the values we should agree upon *)
-                  {if verbose then print_strings ["Alice reconciled "; string_of_value vs; "\n"] else () fi} .
-                  bsB?(mask) . (* A mask of vs: 0b1 if sampled *)
-                  {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
-                  bsB?(vBs) . (* vBs are the bits to check, from vs *)
-                  {if verbose then print_strings ["Bob sent check bits "; string_of_value vBs; "\n"] else () fi} .
-                  (new done) (AliceCheck (mask, vBs, vs, done)
-                              | done?(b) . 
-                                if b then
-                                  (new done) (  Filter (mask, vs, [], done)
-                                              | done?(code) .
-                                                {print_strings (if verbose then ["Alice's code is "; 
-                                                                                 string_of_value code; 
-                                                                                 "\n"]
-                                                                           else  ["code chosen -- "; string_of_value (length vBs); " check bits\n"]
-                                                                fi
-                                                               )
-                                                } .
-                                                again!b, length vBs . _0
-                                             )
-                                else {print_strings ["interference detected -- "; string_of_value (length vBs); " check bits\n"]} .
-                                again!b, length vBs . _0
-                                fi
-                                
-                             )
-               )
+    report!bBs      .
+    (new reconciled) 
+    (  Reconcile (bBs, bvs, [], reconciled)
+     | reconciled?(rvs)  . (* rvs are the values we should agree upon *)
+       report!rvs        . 
+       bsB?(mask)        . (* A mask of rvs: 0b1 if sampled *)
+       report!mask       .
+       bsB?(vBs)         . (* vBs are the bits to check, from vs *)
+       report!vBs        .
+       (new filtered, checked)
+       (  AliceCheck (mask, vBs, rvs, checked)
+        | checked?(b) . 
+          if b then
+              Filter (mask, rvs, [], filtered)
+            | filtered?(code)  .
+              report!0b1::code .
+              _0
+          else 
+            report![0b0] .
+            _0
+          fi
+      )
+    )
     
-AliceCheck (mask, vBs, vs, done) =
+AliceCheck (mask, vBs, vs, result) =
   match mask, vBs, vs .
-      []       , []     , []    . done!true . _0
-  <+> 0b1::mask, vB::vBs, v::vs . if v=vB then AliceCheck (mask, vBs, vs, done) else done!false . _0 fi
-  <+> 0b0::mask, _      , v::vs . AliceCheck (mask, vBs, vs, done)
-  <+> _                         . done!false . _0
+      []       , []     , []    . result!true . _0
+  <+> 0b1::mask, vB::vBs, v::vs . if v=vB then AliceCheck (mask, vBs, vs, result) 
+                                          else result!false . _0 
+                                  fi
+  <+> 0b0::mask, _      , v::vs . AliceCheck (mask, vBs, vs, result)
+  <+> _                         . result!false . _0
   hctam
 
-Reconcile (bBs,bvs,vs,done) =
+Reconcile (bBs,bvs,vs,result) =
   match bBs, bvs .
-       []     , []         . done!rev vs . _0
-   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <+> _                   . {print_string "Reconcile failure"} . _0
+       []     , []         . result!rev vs . _0
+   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, result)
+   <+> _                   . {abandon "Reconcile failure"} . _0
    hctam
   
 
 Filter (mask, vs, code, done) =
   match mask, vs .
       0b1::mask , v::vs . Filter (mask, vs, code, done)
-  <+> 0b0::mask, v::vs . Filter (mask, vs, v::code, done)
-  <+> _                  . done!rev code . _0
+  <+> 0b0::mask, v::vs  . Filter (mask, vs, v::code, done)
+  <+> _                 . done!rev code . _0
   hctam
   
-Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
-  if k=0 then _0
-  else
-    (new done) (  BobReceive(n,[],qA,r,done)
-                | done?(bvs)      . (* bvs is what I saw *)
-                  {if verbose then print_strings ["Bob saw "; string_of_value bvs; "\n"] else () fi} .
-                  bsA?(bAs)       . (* receive her bases *)
-                  {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
-                  bsA!map fst bvs . (* send my bases *)
-                  (new done) (  Reconcile (bAs,bvs,[],done)
-                              | done?(vs) . (* the bits we agree on *)
-                                {if verbose then print_strings ["Bob reconciled "; string_of_value vs; "\n"] else () fi} .
-                                (  BobSample (vs, r, [], [], done)
-                                 | done?(mask) .
-                                   done?(sample) .
-                                   bsA!mask   . (* send her the mask *)
-                                   bsA!sample . (* send her the sample *)
-                                   (  Filter (mask, vs, [], done)
-                                    | done?(code) .
-                                      {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .                                
-                                      Bob (k-1, verbose, n, r, qA, bsA)
-                                   )
-                                )
-                    
-                             )
-               )
-  fi
+Bob(n:int, r:^bit, qA, bsA, report) = 
+    (new received, reconciled) 
+    (  BobReceive(n,[],qA,r,received)
+     | received?(bvs)     . (* bvs is what I saw *)
+       report!map fst bvs .
+       report!map snd bvs .
+       bsA?(bAs)          . (* receive her bases *)
+       report!bAs         .
+       bsA!map fst bvs    . (* send my bases *)
+       Reconcile (bAs,bvs,[],reconciled)
+     | reconciled?(rvs) . (* the bits we should agree on *)
+       report!rvs       .
+       (new sampled, filtered)
+       (  BobSample (rvs, r, [], [], sampled)
+        | sampled?(mask)   .
+          sampled?(sample) .
+          bsA!mask         . (* send her the mask *)
+          bsA!sample       . (* send her the sample *)
+          Filter (mask, rvs, [], filtered)
+        | filtered?(code) .
+          report!code .
+          _0
+       )
+    )
   
-(* receive qbits down qA, measure them, record the results *)
-BobReceive(n,bvs,qA,r,done) =
-    if n=0 then done!rev bvs . _0
+(* receive qbits, measure them, record the results *)
+BobReceive(n,bvs,qA,r,result) =
+    if n=0 then result!rev bvs . _0
     else qA?(q).
          r?(basis).
          q =?[if basis=0b1 then _H else _I fi] (value) .
          dispose!q .
-         BobReceive(n-1,(basis,value)::bvs,qA,r,done)
+         BobReceive(n-1,(basis,value)::bvs,qA,r,result)
     fi
        
 (* sample the agreed bits at random: take a quarter for check bits *)
-BobSample (vs, r, mask, sample, done) =
+BobSample (vs, r, mask, sample, result) =
   match vs .
-      []    . done!rev mask . done!rev sample . _0
+      []    . result!rev mask . result!rev sample . _0
   <+> v::vs . r?(b1) . r?(b2) . 
               if b1=0b0 && b2=0b0 then 
-                BobSample (vs, r, 0b1::mask, v::sample, done)
+                BobSample (vs, r, 0b1::mask, v::sample, result)
               else
-                BobSample (vs, r, 0b0::mask, sample, done)
+                BobSample (vs, r, 0b0::mask, sample, result)
               fi
   hctam
   
 (* a very naive eavesdropper. Sees Alice's bits but messes with them. Knows 'n', somehow *)
-Eve (k, verbose, n, r:^bit, qA, qB) =
-  if k=0 then _0
-  else
+Eve (n, r:^bit, qA, qB, report) =
     (new done) (  EvesDrop(n,[],r,qA,qB,done)
                 | done?(bvs) .
-                  {if verbose then print_strings ["Eve saw "; string_of_value bvs; "\n"] else () fi} .
-                  Eve (k-1, verbose, n, r, qA, qB)
+                  report!map fst bvs .
+                  report!map snd bvs .
+                  _0
                )
-  fi
   
-EvesDrop (n, bvs, r:^bit, qA, qB, done) =
-    if n=0 then done!rev bvs . _0
+EvesDrop (n, bvs, r:^bit, qA, qB, result) =
+    if n=0 then result!rev bvs . _0
     else qA?(q) .
          r?(b) .
          q=?[if b=0 then _I else _H fi](v) . 
          qB!q . 
-         EvesDrop (n-1, (b,v)::bvs, r, qA, qB, done)
+         EvesDrop (n-1, (b,v)::bvs, r, qA, qB, result)
     fi
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
@@ -183,7 +153,75 @@ Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
-           (let s = read_string "with commentary (y/n)")
-           (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
-           (new r,qc1,qc2,bsc)
-           (Alice(k,verbose,n,r,qc1,bsc) | Bob(k,verbose,n,r,qc2,bsc) | Eve (k,verbose,n,r,qc1,qc2) | (newq q = |0>) Random(q,r))
+           (let verbose = read_bool "with commentary" "y" "n")
+           (new r)
+           (  (newq q) Random(q,r)
+            | Report (k, verbose, n, r)
+           )
+           
+Report (k, verbose, n, r) = Controller (k, 0, verbose, 0, 0, 0, -1, n, r)
+
+Controller (k, i, verbose, nGood, nBad, sumChecks, minChecks, n, r) =
+  if k=i then {print_strings ["all done: "; 
+                              string_of_value nGood; " Eve's; ";
+                              string_of_value nBad; " Alice's; ";
+                              "average check bits "; string_of_value (sumChecks/k); 
+                              " minimum check bits "; string_of_value minChecks; "\n"
+                             ]
+              } . 
+              _0 
+         else {print_strings ["trial number "; string_of_value (i+1); if verbose then "\n" else " " fi]} .
+              (new qc1,qc2,bsc,reportA,reportB,reportE)
+              (  Alice (n,r,qc1,bsc,reportA) 
+               | Bob   (n,r,qc2,bsc,reportB) 
+               | Eve   (n,r,qc1,qc2,reportE) 
+               | reportA?(bsA)   .
+                 reportA?(vsA)   .
+                 {if verbose then print_strings ["Alice chose "; string_of_value (zip bsA vsA); "\n"] else () fi} .
+                 reportE?(bsE) .
+                 reportE?(vsE) .
+                 {if verbose then print_strings ["Eve saw "; string_of_value (zip bsE vsE); "\n"] else () fi} .
+                 reportB?(bsB) .
+                 reportB?(vsB) .
+                 {if verbose then print_strings ["Bob saw "; string_of_value (zip bsB vsB); "\n"] else () fi} .
+                 reportB?(bAs)         .
+                 {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
+                 reportA?(bBs)  .
+                 {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
+                 reportA?(rvAs)   . 
+                 {if verbose then print_strings ["Alice reconciled "; string_of_value rvAs; "\n"] else () fi} .
+                 reportB?(rvBs) .
+                 {if verbose then print_strings ["Bob reconciled "; string_of_value rvBs; "\n"] else () fi} .
+                 reportA?(mask) .
+                 {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
+                 reportA?(vBs)  .
+                 {if verbose then print_strings ["Bob sent check bits "; string_of_value vBs; "\n"] else () fi} .
+                 reportB?(codeB) .
+                 {if verbose then print_strings ["Bob's code is "; string_of_value codeB; "\n"] else () fi} . 
+                 reportA?(bcodeA) .
+                 (let b, codeA = match bcodeA .
+                                     0b1::code . true, code
+                                 <+> [0b0]     . false, []
+                                 <+> _         . abandon "can't happen"
+                                 hctam
+                 )
+                 (let nc = length vBs)
+                 {print_strings 
+                    if b then
+                      if verbose then ["Alice's code is "; string_of_value codeA; "\n"]
+                                 else ["code chosen -- "; string_of_value nc; " check bits\n"]
+                      fi
+                    else ["interference detected -- "; string_of_value nc; " check bits\n"]
+                    fi
+                 } .
+                 Controller (k, i+1, verbose,
+                             if b then nGood+1 else nGood fi,
+                             if b then nBad else nBad+1 fi,
+                             sumChecks+nc,
+                             if minChecks<0 then nc
+                             elif nc<minChecks then nc
+                             else minChecks
+                             fi,
+                             n,r)
+              )
+  fi

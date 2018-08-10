@@ -1,37 +1,12 @@
 
-Alice(verbose, k, n:int, r:^bit, qB, bB, vB, again) = 
-  Alice1 (verbose, k, 0, 0, 0, 0, n, r, qB, bB, vB, again)
-
-Alice1(verbose, k, i, nA, nB, nH, n:int, r:^bit, qB, bB, vB, again) = 
-  if i=k then 
-    {print_strings ["\n\nAll over: "; string_of_value nA; " Alice; ";
-                                      string_of_value nB; " Bob; ";
-                                      string_of_value nH; " honest\n"
-                   ]
-    } . 
-    _0
-  else
-    {print_strings ["trial number "; string_of_value (i+1)]} .
-    {print_string if verbose then ": " else "\n" fi} .
+Alice(n:int, r:^bit, qB, vB, report) = 
     r?(basis) .
     (let vs = randbits n)
-    {if verbose then print_strings ["Alice chose basis "; string_of_value basis;
-                                    " and values "; string_of_value vs; "\n"
-                                   ]
-     else ()
-     fi
-    } .
+    report![basis] .
+    report!vs .
     (new done) (  AliceSendBits (vs,basis,qB,done)
-                | done?(s) . bB?(guess:bit) . vB!basis,vs . again?(honest) .
-                  (let nH = if honest then nH+1 else nH fi)
-                  (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
-                  {print_string if guess=basis then "Alice says Bob wins\n"
-                                               else "Alice claims a win\n"
-                  fi
-                  } . 
-                  Alice1(verbose,k,i+1,nA,nB,nH,n,r,qB,bB,vB,again)
+                | done?(_) . vB!basis,vs . _0
                )
-  fi
 
 (* send bits encoded in basis down channel qB *)
 AliceSendBits (vs,basis,qB,done) =   
@@ -48,25 +23,20 @@ AliceSendBits (vs,basis,qB,done) =
                 AliceSendBits(vs,basis,qB,done)
     hctam
 
-Bob(verbose, k, n:int, r:^bit, qA, bA, vA, again) = 
-  if k=0 then _0
-  else
-    (new done,verified) 
-    (  BobReceive(n,[],qA,r,done)
-     | done?(bvs) . r?(guess) .
-       {if verbose then print_strings ["Bob received "; string_of_value bvs;
-                                       " and guessed "; string_of_value guess; "\n"
-                                      ]
-        else ()
-        fi
-       } .
-       bA!guess . vA?(basis:bit, vs:bit list) .
-       BobVerify (basis,vs,bvs,verified)
-     | verified?(honest) .
-       again!honest .
-       Bob (verbose, k-1, n, r, qA, bA, vA, again)
-    )
-  fi
+Bob(n:int, r:^bit, qA, vA, report) = 
+  (new done,verified) 
+  (  BobReceive(n,[],qA,r,done)
+   | done?(bvs) . 
+     report!(map fst bvs) .
+     report!(map snd bvs) .
+     r?(guess) .
+     report![guess] .
+     vA?(basis:bit, vs:bit list) .
+     BobVerify (basis,vs,bvs,verified)
+   | verified?(honest) .
+     report![if honest then 0b1 else 0b0 fi] .
+     _0
+  )
 
 (* receive qbits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
@@ -90,18 +60,70 @@ BobVerify (basis,vs,bvs,done) =
                             fi
   hctam
   
-Liar   (done) = {print_string "Bob says Alice lied\n"} . done!false . _0
-Honest (done) = {print_string "Bob says Alice was honest\n"} . done!true . _0
+Liar   (done) = done!false . _0
+Honest (done) = done!true  . _0
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
-           (let s = read_string "with commentary (y/n)")
-           (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
-           (new r,qc,bc,vc,again)
-           (  Alice(verbose,k,n,r,qc,bc,vc,again) 
-            | Bob(verbose,k,n,r,qc,bc,vc,again) 
+           (let verbose = read_bool "with commentary" "y" "n")
+           (new r)
+           (   Report (k, verbose, n, r)
             | (newq q = |0>) Random(q,r)
            )
+           
+Report (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
+
+Control (k, i, verbose, nA, nB, nH, n, r) =
+  if k=i then 
+    {print_strings ["\n\nAll over: "; string_of_value nA; " Alice; ";
+                                      string_of_value nB; " Bob; ";
+                                      string_of_value nH; " honest\n"
+                   ]
+    } . 
+    _0
+  else
+    {print_strings ["trial number "; string_of_value (i+1);
+                    if verbose then ": " else "\n" fi
+                   ]
+    } .
+    (new qc, vc, reportA, reportB)
+    (  Alice(n,r,qc,vc,reportA) 
+     | Bob(n,r,qc,vc,reportB)
+     | reportA?(bases) .
+       (let basis = hd bases)
+       reportA?(vs) .
+       {if verbose then print_strings ["Alice chose basis "; string_of_value basis;
+                                       " and values "; string_of_value vs; "\n"
+                                      ]
+        else ()
+        fi
+       } .
+       reportB?(bs) .
+       reportB?(vs) .
+       (let bvs = zip bs vs)
+       reportB?(guesses) .
+       (let guess = hd guesses)
+       {if verbose then print_strings ["Bob received "; string_of_value bvs;
+                                       " and guessed "; string_of_value guess; "\n"
+                                      ]
+        else ()
+        fi
+       } .
+       reportB?(honests) .
+       (let honest = hd honests = 0b1)
+       {print_strings ["Bob says Alice ";
+                       if honest then "was honest" else "lied" fi;
+                       "\n"
+                      ]} .
+       (let nH = if honest then nH+1 else nH fi)
+       (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
+       {print_string if guess=basis then "Bob wins\n"
+                                    else "Alice wins\n"
+                     fi
+       } . 
+       Control (k, i+1, verbose, nA, nB, nH, n, r)
+    )
+  fi

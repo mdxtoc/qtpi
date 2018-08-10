@@ -299,9 +299,9 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
                          (i+1,state,r::rs)
                        in
                        let _, state, rs = List.fold_left subrt (0,state,[]) ts in
-                       if List.exists (function RNull -> false | _ -> true) rs
-                       then state, RTuple (List.rev rs) 
-                       else state, RNull
+                       if List.for_all (function RNull -> true | _ -> false) rs
+                       then state, RNull
+                       else state, RTuple (List.rev rs) 
   | Channel _       
   | Fun     _ 
   | Process _       -> state, RNull
@@ -470,7 +470,9 @@ let r_o_e disjoint state env e =
                                   | _       -> r, resources_of_resource disjoint r
                                  )
       | ETuple      es        -> let rs, used = do_list use es in
-                                 try_disjoint (RTuple rs), used
+                                 if List.for_all (function RNull -> true | _ -> false) rs 
+                                 then RNull, used
+                                 else try_disjoint (RTuple rs), used
       | ECons       (hd,tl)   -> let r1, u1 = re use hd in
                                  let r2, u2 = re use tl in
                                  (match r1, r2 with

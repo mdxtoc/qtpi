@@ -61,6 +61,7 @@ let _ = match !Usage.files with
                 | Interpret.Error (pos, s) -> Printf.printf "\n\n** execution error %s: %s\n"
                                                             (string_of_sourcepos pos)
                                                             s
+                | Qsim.Error s -> Printf.printf "\n\n** quantum simulator error %s\n" s
                 | ResourceError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s

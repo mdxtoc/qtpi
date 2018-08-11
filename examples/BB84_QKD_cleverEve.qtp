@@ -1,0 +1,59 @@
+(* a naive eavesdropper. Sees Alice's bits but messes with them. Doesn't know 'n' *)
+Eve (qA, qB, bsA, bsB, report) =
+    (new copied) 
+    (  CopyBits([],qA,qB,bsA,copied)
+     | copied?(bs)     .
+       copied?(vs)     .
+       report!bs       .
+       report!vs       .
+      
+       copied?(basesA) . bsA!bs       .
+       bsB!bs          . bsB?(basesB) . 
+        
+       (let bvs = zip bs vs)
+       (new reconA, reconB, cA, cB, m)
+       (  Reconcile (basesA, bvs, [], reconA)
+        | Reconcile (basesB, bvs, [], reconB)
+        | reconB?(rvsB) .                 (* we have Bob's reconciliation *)
+          bsB?(maskB) . bsB?(_)   .       (* ignore Bob's sample *)
+          Filter (maskB, rvsB, [], cB)
+        | reconA?(rvsA) .                 (* we have Alice's reconciliation *)
+          cB?(codeB)    .                 (* we have Bob's code *)
+          (  (let diff = length rvsA - length codeB)
+             if diff>=0 then                 (* almost always? *)
+               (let maskA = init diff 0b1 @ init (length codeB) 0b0)      
+               bsA!maskA . bsA!take diff rvsA  .
+               Filter (maskA, rvsA, [], cA)   
+             else                            (* rarely? *)
+               bsA![] . bsA!init (length rvsA) 0b0 .
+               cA!rvsA .
+               _0
+             fi
+           | bsB?(codedvs)  .                (* receive coded message *)
+             report!codedvs .
+             Mask (codeB, codedvs, m)        (* xor with codeB and send on m *)
+           | cA?(codeA)  .
+             m?(messageB) .
+             report!0b1::messageB   .         (* decoded! *)
+             (let messageA = 
+                if   length codeA=length messageB then messageB       (* almost never! *)
+                elif length codeA<length messageB then take (length codeA) messageB
+                else messageB @ (randbits (length codeA-length messageB))
+                fi
+             )
+             Mask (codeA, messageA, bsA)      (* encode for Alice and send it to her *)
+          )
+       )
+    )
+  
+CopyBits (bvs, qA, qB, bsA, result) =
+        qA?(q)          . (let b = randbit ())
+                          q=?[if b=0 then _I else _H fi](v) . 
+                          qB!q                              . 
+                          CopyBits ((b,v)::bvs, qA, qB, bsA, result)
+    <+> bsA?(basesA)    . (let bvs = rev bvs)
+                          result!map fst bvs . 
+                          result!map snd bvs . 
+                          result!basesA      .
+                          _0
+

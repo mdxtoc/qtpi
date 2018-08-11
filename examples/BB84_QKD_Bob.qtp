@@ -1,0 +1,39 @@
+Bob(n:int, qA, bsA, report) = 
+    (new received, reconciled) 
+    (  ReceiveBits(n,[],qA,received)
+     | received?(bvs)     . (* bvs is what I saw *)
+       report!map fst bvs .
+       report!map snd bvs .
+       bsA?(bAs)          . (* receive her bases *)
+       report!bAs         .
+       bsA!map fst bvs    . (* send my bases *)
+       Reconcile (bAs,bvs,[],reconciled)
+     | reconciled?(rvs) . (* the bits we should agree on *)
+       report!rvs       .
+       (new sampled)
+       (  Sample (rvs, [], [], sampled)
+        | sampled?(mask)   .
+          sampled?(sample) .
+          bsA!mask         . (* send her the mask *)
+          bsA!sample       . (* send her the sample *)
+          (new filtered)
+          (  Filter (mask, rvs, [], filtered)
+           | filtered?(code) .
+             report!code    .
+             (let message = randbits (length code))
+             report!message .
+             Mask (code, message, bsA)  (* xor with mask and send to Alice *)
+          )
+       )
+    )
+  
+(* receive qbits, measure them, record the results *)
+ReceiveBits(n,bvs,qA,result) =
+    if n=0 then result!rev bvs . _0
+    else qA?(q).
+         (let basis = randbit ())
+         q =?[if basis=0b1 then _H else _I fi] (value) .
+         dispose!q .
+         ReceiveBits(n-1,(basis,value)::bvs,qA,result)
+    fi
+       

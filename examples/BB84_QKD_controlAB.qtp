@@ -1,0 +1,68 @@
+Experiment (n,reportA,reportB) = (new qc,bsc)
+                                 (  Alice (n,qc,bsc,reportA) 
+                                  | Bob   (n,qc,bsc,reportB)
+                                 )
+    
+System() = (let k = read_int "number of trials")
+           (let n = read_int "number of qbits")
+           (let verbose = read_bool "with commentary" "y" "n")
+           Report (k, verbose, n)
+           
+Report (k, verbose, n) = Controller (k, 0, verbose, 0, 0, -1, n)
+
+Controller (k, i, verbose, nOk, sumChecks, minChecks, n) =
+  if i<k then {print_strings ["trial number "; string_of_value (i+1); if verbose then "\n" else " " fi]} .
+              (new reportA,reportB)
+              (  Experiment (n,reportA,reportB) 
+               | reportA?(bsA)   .
+                 reportA?(vsA)   .
+                 {if verbose then print_strings ["Alice chose "; string_of_value (zip bsA vsA); "\n"] else () fi} .
+                 reportB?(bsB) .
+                 reportB?(vsB) .
+                 {if verbose then print_strings ["Bob saw "; string_of_value (zip bsB vsB); "\n"] else () fi} .
+                 reportB?(bAs)         .
+                 {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
+                 reportA?(bBs)  .
+                 {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
+                 reportA?(rvAs)   . 
+                 {if verbose then print_strings ["Alice reconciled "; string_of_value rvAs; "\n"] else () fi} .
+                 reportB?(rvBs) .
+                 {if verbose then print_strings ["Bob reconciled "; string_of_value rvBs; "\n"] else () fi} .
+                 reportA?(mask) .
+                 {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
+                 reportA?(vBs)  .
+                 {if verbose then print_strings ["Bob sent check bits "; string_of_value vBs; "\n"] else () fi} .
+                 reportB?(codeB) .
+                 {if verbose then print_strings ["Bob's code is "; string_of_value codeB; "\n"] else () fi} . 
+                 reportA?(bcodeA) .
+                 (let intf_seen, codeA = match bcodeA .
+                                             b::code . b<>0b1, code
+                                         <+> _       . abandon "can't happen"
+                                         hctam
+                 )
+                 (let nc = length vBs)
+                 {print_strings if   intf_seen then ["interference detected -- "; string_of_value nc; " check bits\n"]
+                                elif verbose then   []
+                                else                ["\n"]
+                                fi
+                 } .
+                 {if verbose then print_strings ["Alice's code is "; string_of_value codeA; "\n"] else () fi} .
+                 reportB?(messageB) .
+                 {if verbose then print_strings ["Bob chooses message "; string_of_value messageB; "\n"] else () fi} .
+                 reportA?(codedAvs)  .
+                 {if verbose then print_strings ["Alice sees coded "; string_of_value codedAvs; "\n"] else () fi} .
+                 reportA?(messageA) .
+                 {if verbose then print_strings ["Alice decodes message "; string_of_value messageA; "\n"] else () fi} .
+                 (let nOk = if not intf_seen && messageA=messageB then nOk+1 else nOk fi)
+                 (let minChecks = if minChecks<0 then nc elif nc<minChecks then nc else minChecks fi)
+                 Controller (k, i+1, verbose, nOk, sumChecks+nc, minChecks, n)
+              )
+  else {print_strings ["all done: "; 
+                       string_of_value nOk;            " ok; ";
+                       string_of_value (k-nOk);        " not ok; ";
+                       "average check bits " ; string_of_value (sumChecks/k); 
+                       " minimum check bits "; string_of_value minChecks; "\n"
+                      ]
+       } . 
+       _0 
+  fi

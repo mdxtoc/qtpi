@@ -1,0 +1,57 @@
+Alice(n:int, qB, bsB, report) = 
+  (new chosen) 
+  (  Choose (n,[],chosen)
+   | chosen?(bvs) . 
+     report!map fst bvs .
+     report!map snd bvs .
+     (new sent)
+     (  SendBits (bvs, qB, sent)
+      | sent?(_) .
+        Negotiate (bvs, bsB, report)
+     )
+  )
+  
+(* choose n basis,bit pairs -- this could all be done with Random *)
+Choose(n, bvs, chosen) =
+    (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
+
+(* send encoded bits down channel qB *)
+SendBits (bvs,qB,sent) =   
+    match bvs .
+        []         . sent!() . _0
+    <+> (b,v)::bvs . (newq q = match b,v .
+                                   0b0,0b0 . |0> 
+                               <+> 0b0,0b1 . |1> 
+                               <+> 0b1,0b0 . |+> 
+                               <+> 0b1,0b1 . |-> 
+                               hctam
+                     )
+                     qB!q.
+                     SendBits(bvs,qB,sent)
+    hctam
+
+Negotiate (bvs,bsB,report) =
+    bsB!map fst bvs . (* send him my bases *)
+    bsB?(bBs)       . (* receive his bases *)
+    report!bBs      .
+    (new reconciled) 
+    (  Reconcile (bBs, bvs, [], reconciled)
+     | reconciled?(rvs)  . (* rvs are the values we should agree upon *)
+       report!rvs        . 
+       bsB?(mask)        . (* A mask of rvs: 0b1 if sampled *)
+       report!mask       .
+       bsB?(sample)      . (* the corresponding bits from vs *)
+       report!sample     .
+       (new checked)
+       (  CheckBits (mask, sample, rvs, checked)
+        | checked?(b)       . 
+          (new filtered)
+          (  Filter (mask, rvs, [], filtered)
+           | filtered?(code)   .
+             report!if b then 0b1 else 0b0 fi::code . 
+             bsB?(codedvs)     .
+             report!codedvs    .
+             Mask (code, codedvs, report)   (* xor with mask and report it *)
+          )
+      )
+    )

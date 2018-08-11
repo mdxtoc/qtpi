@@ -1,0 +1,43 @@
+(* check that masked bits in vs match check bits *)
+CheckBits (mask, checks, vs, result) =
+  match mask, checks, vs .
+      []       , []        , []    . result!true . _0
+  <+> 0b1::mask, cb::checks, v::vs . if v=cb then CheckBits (mask, checks, vs, result) 
+                                             else result!false . _0 
+                                    fi
+  <+> 0b0::mask, _         , v::vs . CheckBits (mask, checks, vs, result)
+  <+> _                            . result!false . _0
+  hctam
+
+(* pick out the bits that are in the same bases *)
+Reconcile (bs,bvs,vs,result) =
+  match bs, bvs .
+       []    , []         . result!rev vs . _0
+   <+> b'::bs, (b,v)::bvs . Reconcile (bs, bvs, if b'=b then v::vs else vs fi, result)
+   <+> _                  . {abandon "Reconcile failure"} . _0
+   hctam
+  
+(* filter out masked bits *)
+Filter (mask, vs, filtered, done) =
+  match mask, vs .
+      0b1::mask, v::vs  . Filter (mask, vs, filtered, done)
+  <+> 0b0::mask, v::vs  . Filter (mask, vs, v::filtered, done)
+  <+> _                 . done!rev filtered . _0
+  hctam
+
+(* sample bits at random: take a quarter for check bits *)
+Sample (vs, mask, sample, result) =
+  match vs .
+      []    . result!rev mask . result!rev sample . _0
+  <+> v::vs . (let b1, b2 = randbit(), randbit()) 
+              if b1=0b0 && b2=0b0 then 
+                Sample (vs, 0b1::mask, v::sample, result)
+              else
+                Sample (vs, 0b0::mask, sample, result)
+              fi
+  hctam
+
+Mask (code, message, result) =
+  result ! map (uncurry2 xor_bits) (zip code message) .
+  _0
+  

@@ -381,7 +381,7 @@ ntlexpr: /* neither tuple nor cons */
   | MINUS primary                       {eadorn (EMinus $2)}
   | NOT primary                         {eadorn (ENot $2)}
   | ntexpr PLUSPLUS ntexpr              {eadorn (EBitCombine ($1,$3))}
-  | ntexpr APPEND primary               {eadorn (EAppend ($1,$3))}
+  | ntexpr APPEND ntexpr                {eadorn (EAppend ($1,$3))}
   | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in eadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in eadorn (EBoolArith (e1,op,e2))}

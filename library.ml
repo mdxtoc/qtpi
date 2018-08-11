@@ -121,6 +121,18 @@ let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 
 let _ = Interpret.know ("zip"     , "'a list -> 'b list -> ('a*'b) list", vfun2 v_zip)
 let _ = Interpret.know ("unzip"   , "('a*'b) list -> 'a list * 'b list" , vfun v_unzip)
 
+let v_tabulate n f =
+  let n = intv n in
+  let f = funv f in
+  let a = Array.init n (f <.> vint) in
+  vlist (Array.to_list a)
+
+let v_init n v =
+  v_tabulate n (vfun (fun _ -> v))
+  
+let _ = Interpret.know ("tabulate", "int -> (int -> 'a) -> 'a list"    , vfun2 v_tabulate)
+let _ = Interpret.know ("init"    , "int -> 'a -> 'a list"             , vfun2 v_init)
+
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 

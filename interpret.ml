@@ -112,7 +112,7 @@ and short_string_of_value v =
   | v               -> string_of_value v
   
 and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
-    Printf.sprintf "%d vs:{%s} rs:{%s} ws:{%s}"
+    Printf.sprintf "%d = vs:{%s} rs:{%s} ws:{%s}"
                    i
                    (string_of_queue string_of_value "; " vs)
                    (string_of_pqueue short_string_of_rwaiter "; " rq)

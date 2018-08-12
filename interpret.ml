@@ -538,7 +538,6 @@ let rec interp sysenv proc =
                   gsir := false, [];
                   withdraw chans;
                   PQueue.excite c.wwaiters;
-                  maybe_forget_chan c;
                   addrunner (pn', proc', env');
                   do_match v'
               with PQueue.Empty -> None
@@ -555,7 +554,6 @@ let rec interp sysenv proc =
                    gsir := false, [];
                    withdraw chans;
                    PQueue.excite c.rwaiters;
-                   maybe_forget_chan c;
                    addrunner (pn', proc', bmatch env' pat' v);
                    true
                with PQueue.Empty -> 

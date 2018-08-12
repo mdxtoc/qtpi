@@ -24,8 +24,8 @@ Eve (qA, qB, bsA, bsB, report) =
                (let maskA = init diff 0b1 @ init (length codeB) 0b0)      
                bsA!maskA . bsA!take diff rvsA  .
                Filter (maskA, rvsA, [], cA)   
-             else                            (* rarely? *)
-               bsA![] . bsA!init (length rvsA) 0b0 .
+             else                            (* rarely? we have to improvise *)
+               bsA!init (length rvsA) 0b0 . bsA![] .  (* null mask, no check bits *)
                cA!rvsA .
                _0
              fi

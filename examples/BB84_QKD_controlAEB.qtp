@@ -79,11 +79,11 @@ Controller (k, i, verbose, nAlice, nEve, sumChecks, minChecks, n) =
                  (let minChecks = if minChecks<0 then nc elif nc<minChecks then nc else minChecks fi)
                  Controller (k, i+1, verbose, nAlice, nEve, sumChecks+nc, minChecks, n)
               )
-         else (let draws = k-nAlice-nEve)
+         else (let nCorrupt = k-nAlice-nEve)
               {print_strings ["all done: "; 
                               string_of_value nEve;            " Eve's; ";
                               string_of_value nAlice;          " Alice's; ";
-                              string_of_value draws;           if draws=1 then " draw; " else " draws; " fi;
+                              string_of_value nCorrupt;        " messages corrupted; ";
                               "average check bits " ; string_of_value (sumChecks/k); 
                               " minimum check bits "; string_of_value minChecks; "\n"
                              ]

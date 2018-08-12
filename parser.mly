@@ -38,7 +38,7 @@
   exception ParserCrash of string
   
   let get_sourcepos() =
-    Parsing.symbol_start_pos(), Parsing.symbol_end_pos()
+    !Settings.filename, Parsing.symbol_start_pos(), Parsing.symbol_end_pos()
   
   let bad s = raise (Program.ParseError(get_sourcepos(),s))
 

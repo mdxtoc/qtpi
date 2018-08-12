@@ -21,29 +21,32 @@
     (or look at http://www.gnu.org).
 *)
  
-type sourcepos = Lexing.position * Lexing.position
+type sourcepos = string * Lexing.position * Lexing.position (* filename, line num, char num *)
 
-let dummy_spos = (Lexing.dummy_pos, Lexing.dummy_pos)
+let dummy_spos = ("", Lexing.dummy_pos, Lexing.dummy_pos)
 
-let linenum spos = spos.Lexing.pos_lnum
-let charnum spos = spos.Lexing.pos_cnum-spos.Lexing.pos_bol
+let linenum lpos = lpos.Lexing.pos_lnum
+let charnum lpos = lpos.Lexing.pos_cnum-lpos.Lexing.pos_bol
 
-let startline (startpos,endpos) = linenum startpos
-let endline   (startpos,endpos) = linenum endpos
-
-let startchar (startpos,endpos) = charnum startpos
-let endchar   (startpos,endpos) = charnum endpos
-
-let string_of_sourcepos (startpos,endpos) = 
+let string_of_sourcepos spos = 
+  if spos = dummy_spos then "_" else
+  let filename, startpos,endpos = spos in
   if linenum startpos=linenum endpos then
-    Printf.sprintf "line %d chars %d-%d" 
-      (linenum startpos) (charnum startpos) (charnum endpos)
+    Printf.sprintf "%s line %d chars %d-%d" 
+      filename (linenum startpos) (charnum startpos) (charnum endpos)
   else
-    Printf.sprintf "line %d char %d - line %d char %d"
+    Printf.sprintf "%s line %d char %d - line %d char %d"
+      filename
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
 
-let short_string_of_sourcepos (startpos,endpos) = 
+let startline (_,startpos,endpos) = linenum startpos
+let endline   (_,startpos,endpos) = linenum endpos
+
+let startchar (_,startpos,endpos) = charnum startpos
+let endchar   (_,startpos,endpos) = charnum endpos
+
+let short_string_of_sourcepos (_,startpos,endpos) = 
   if linenum startpos=linenum endpos then
     Printf.sprintf "%d.%d-%d"
                    (linenum startpos) (charnum startpos) (charnum endpos)    
@@ -58,17 +61,13 @@ let startsbefore pos1 pos2 = startline pos1 < startline pos2 ||
 let endsbefore pos1 pos2 = endline pos1 < endline pos2 || 
                            (endline pos1 = endline pos2 && endchar pos1 < endchar pos2)
 
-let compare pos1 pos2 =
-  if pos1=pos2 then 0 else
-  if startsbefore pos1 pos2 then (-1) else 1
-
 let spos_of_spos2 pos1 pos2 =
   if pos1=dummy_spos then pos2 else
   if pos2=dummy_spos then pos1 else
     let fst = if startsbefore pos1 pos2 then pos1 else pos2 in
     let snd = if endsbefore pos1 pos2 then pos2 else pos1 in
     match fst, snd with
-    | (startpos,_), (_,endpos) -> (startpos, endpos)
+    | (fn,startpos,_), (_,_,endpos) -> (fn,startpos, endpos)
 
 
 let enclosing_sp_of_sps sps = 

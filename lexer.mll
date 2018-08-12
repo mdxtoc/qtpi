@@ -38,7 +38,7 @@
     curr.Lexing.pos_lnum
     
   let get_loc lexbuf =
-    (Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
+    (!Settings.filename, Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
 
   let backslashed = function
     | 'n' -> '\n'
@@ -170,7 +170,7 @@ rule make_token = parse
   | "'"         {PRIME}
     
   | "'" [^ '\\' '\'' 'n' '\r' '\t' ] "'"
-                { CHAR(Lexing.lexeme_char lexbuf 1) }
+                {CHAR(Lexing.lexeme_char lexbuf 1)}
   | "'\\" ['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] "'"
                 { CHAR(backslashed (Lexing.lexeme_char lexbuf 2)) }
   | "'\\" _

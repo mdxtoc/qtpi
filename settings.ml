@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
  
+let filename = ref ""			(* for creating sourcepos values *)
+
 let temp_setting vref v f =
   let oldv = !vref in
   vref := v;

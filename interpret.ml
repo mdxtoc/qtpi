@@ -64,11 +64,15 @@ type value =
   | VFun of (value -> value)        
   | VProcess of name list * process
 
-(* the bool refs in what follows are to deal with guarded sums: an offer
-   to communicate is withdrawn from all guards by setting the shared ref to false.
+(* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
+   to communicate is withdrawn from all guards by setting the shared boolean to false.
+   The channel list is to remove a space leak (blush): clear out the dead from those channels.
+   The space leak is because we keep a set stuck_chans (a set?) for diagnostic printing purposes.
  *)
  
-and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*bool ref) PQueue.t; rwaiters: (rwaiter*bool ref) PQueue.t}
+and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) PQueue.t; rwaiters: (rwaiter*gsum_info) PQueue.t}
+
+and gsum_info = (bool * chan list) ref
 
 and runner = name * process * env
 
@@ -140,33 +144,33 @@ and string_of_runner (n, proc, env) =
                  (short_string_of_process proc)
                  (short_string_of_env env)
                  
-and string_of_rwaiter ((n, pat, proc, env),br) = 
+and string_of_rwaiter ((n, pat, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_pattern pat)
                  (short_string_of_process proc)
                  (short_string_of_env env)
-                 (if !br then "" else "[dead]")
+                 (if fst !gsir then "" else "[dead]")
                  
-and short_string_of_rwaiter ((n, pat, proc, env),br) = (* infinite loop if we print the environment *)
+and short_string_of_rwaiter ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_pattern pat)
-                 (if !br then "" else "[dead]")
+                 (if fst !gsir then "" else "[dead]")
                  
-and string_of_wwaiter ((n, v, proc, env),br) = 
+and string_of_wwaiter ((n, v, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_value v)
                  (short_string_of_process proc)
                  (short_string_of_env env)
-                 (if !br then "" else "[dead]")
+                 (if fst !gsir then "" else "[dead]")
                  
-and short_string_of_wwaiter ((n, v, proc, env),br) = (* infinite loop if we print the environment *)
+and short_string_of_wwaiter ((n, v, proc, env),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_value v)
-                 (if !br then "" else "[dead]")
+                 (if fst !gsir then "" else "[dead]")
                  
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep rq
@@ -218,6 +222,15 @@ let mistyped pos thing v shouldbe =
                                     shouldbe
                )
         )
+        
+(* bring out your dead: a nasty space leak plugged *)
+let rec boyd pq = 
+  try let _, gsir = PQueue.first pq in
+      let b, _ = !gsir in
+      if b then () else (PQueue.remove pq; boyd pq)
+  with PQueue.Empty -> ()
+
+;; (* to give boyd a universal type *)
 
 (* ******************** the interpreter proper ************************* *)
 
@@ -427,7 +440,7 @@ module OrderedChan = struct type t = chan
                      end
 module ChanSet = MySet.Make (OrderedChan)
 
-type gsum = Grw of chan * rwaiter | Gww of chan * wwaiter
+type gsum = Grw of rwaiter | Gww of wwaiter
 
 let rec interp sysenv proc =
   Qsim.init ();
@@ -437,6 +450,8 @@ let rec interp sysenv proc =
   let string_of_stuck_chans () = ChanSet.to_string !stuck_chans in
   let remember_chan c = stuck_chans := ChanSet.add c !stuck_chans in
   let maybe_forget_chan c =
+    boyd c.rwaiters;
+    boyd c.wwaiters;
     if Queue.is_empty c.stream && 
        PQueue.is_empty c.rwaiters &&
        PQueue.is_empty c.wwaiters
@@ -505,48 +520,45 @@ let rec interp sysenv proc =
         | WithExpr (e, proc)  -> let _ = evale env e in
                                  addrunner (pn, proc, env)
         | GSum ioprocs      -> 
+            let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
             let canread c pat =
-              let do_match v = Some (bmatch env pat v) in
+              let do_match v' = Some (bmatch env pat v') in
               try if c.cname = -1 then (* reading from dispose, ho ho *)
                     let q = newqbit pn (name_of_bpat pat) None in
                     do_match q
                   else
-                    let v = Queue.pop c.stream in
+                    let v' = Queue.pop c.stream in
                     (maybe_forget_chan c; 
-                     do_match v
+                     do_match v'
                     )
               with Queue.Empty ->
-              let rec match_wwaiter () = 
-                try let (pn',v',proc',env'),br = PQueue.pop c.wwaiters in
-                    if !br then 
-                      (br:=false;
-                       PQueue.excite c.wwaiters;
-                       maybe_forget_chan c;
-                       addrunner (pn', proc', env');
-                       do_match v'
-                      )
-                    else match_wwaiter ()
-                with PQueue.Empty -> None
-              in
-              match_wwaiter ()
+              try boyd c.wwaiters; (* now the first must be alive *)
+                  let (pn',v',proc',env'),gsir = PQueue.pop c.wwaiters in
+                  let _, chans = !gsir in
+                  gsir := false, [];
+                  withdraw chans;
+                  PQueue.excite c.wwaiters;
+                  maybe_forget_chan c;
+                  addrunner (pn', proc', env');
+                  do_match v'
+              with PQueue.Empty -> None
             in
             let canwrite c v =
-              let rec match_rwaiter () = 
-                let (pn',pat',proc',env'),br = PQueue.pop c.rwaiters in
-                    if !br then 
-                      (br:=false;
-                       PQueue.excite c.rwaiters;
-                       maybe_forget_chan c;
-                       addrunner (pn', proc', bmatch env' pat' v);
-                       true
-                      )
-                    else match_rwaiter ()
-              in
               if c.cname = -1 then (* it's dispose *)
                  (disposeqbit pn (qbitv v); 
                   true
                  )
-               else try match_rwaiter () with PQueue.Empty -> 
+               else
+               try boyd c.rwaiters;
+                   let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
+                   let _, chans = !gsir in
+                   gsir := false, [];
+                   withdraw chans;
+                   PQueue.excite c.rwaiters;
+                   maybe_forget_chan c;
+                   addrunner (pn', proc', bmatch env' pat' v);
+                   true
+               with PQueue.Empty -> 
                if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
                   !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
                then
@@ -556,31 +568,32 @@ let rec interp sysenv proc =
                  )
                else false
             in
-            let rec process gsum pq = 
+            let rec try_iosteps gsum pq = 
               try let (iostep,proc) = PQueue.pop pq in
                   match iostep.inst with
                   | Read (ce,pat) -> let c = chanev env ce in
                                      (match canread c pat with
                                       | Some env -> addrunner (pn, proc, env)
-                                      | None     -> process (Grw (c, (pn, pat, proc, env))::gsum) pq
+                                      | None     -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
                                      )
                   | Write (ce,e)  -> let c = chanev env ce in
                                      let v = evale env e in
                                      if canwrite c v then addrunner (pn, proc, env)
-                                     else process (Gww (c, (pn, v, proc, env))::gsum) pq
+                                     else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
               with PQueue.Empty ->
-              let br = ref true in
+              let cs = List.map fst gsum in
+              let gsir = ref (true, cs) in
               let add_waiter = function
-                | Grw (c, rw) -> PQueue.push c.rwaiters (rw,br);
-                                 remember_chan c
-                | Gww (c, ww) -> PQueue.push c.wwaiters (ww,br);
-                                 remember_chan c
+                | c, Grw rw -> PQueue.push c.rwaiters (rw,gsir);
+                               remember_chan c
+                | c, Gww ww -> PQueue.push c.wwaiters (ww,gsir);
+                               remember_chan c
               in
               List.iter add_waiter gsum
             in
             let pq = PQueue.create (List.length ioprocs) in
             List.iter (PQueue.push pq) ioprocs;
-            process [] pq
+            try_iosteps [] pq
         | Cond (e, p1, p2)  ->
             addrunner (pn, (if boolev env e then p1 else p2), env)
         | PMatch (e,pms)    -> let v = evale env e in

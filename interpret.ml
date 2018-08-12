@@ -40,6 +40,7 @@ open Qsim
 
 exception Error of sourcepos * string
 exception Disaster of sourcepos * string
+exception LibraryError of string
 
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
@@ -63,10 +64,10 @@ type value =
   | VFun of (value -> value)        
   | VProcess of name list * process
 
-(* the bool refs in what follows are to deal with guarded sums: essentially, an offer
-   to communicate can be withdrawn from all guards by setting the ref to false. At
-   least I hope so.
+(* the bool refs in what follows are to deal with guarded sums: an offer
+   to communicate is withdrawn from all guards by setting the shared ref to false.
  *)
+ 
 and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*bool ref) PQueue.t; rwaiters: (rwaiter*bool ref) PQueue.t}
 
 and runner = name * process * env
@@ -75,9 +76,7 @@ and rwaiter = name * pattern * process * env
 
 and wwaiter = name * value * process * env
 
-and env = value NameMap.t
-
-and stuck = name * value list
+and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
 
 let string_of_pqueue string_of sep pq = 
   "{" ^ string_of_list string_of sep (PQueue.elements pq) ^ "}"
@@ -122,18 +121,19 @@ and short_string_of_chan {cname=i} =
     string_of_int i
     
 and string_of_env env =
-  NameMap.to_string string_of_value env
+  "{" ^ string_of_assoc string_of_name string_of_value ":" ";" env ^ "}"
 
 and short_string_of_env env =
-  NameMap.to_string short_string_of_value 
-      (NameMap.filter (fun a -> function 
-                                | VFun     _ 
-                                | VProcess _ -> false
-                                | _          -> true
-                      )
-                      env 
-      )
-      
+  "{" ^  string_of_assoc string_of_name short_string_of_value  ":" ";" 
+                         (List.filter (function 
+                                       | _, VFun     _ 
+                                       | _, VProcess _ -> false
+                                       | _             -> true
+                                      )
+                                      env 
+                         ) ^
+  "}"   
+  
 and string_of_runner (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
@@ -171,16 +171,15 @@ and short_string_of_wwaiter ((n, v, proc, env),br) = (* infinite loop if we prin
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep rq
   
-let (<@>)  env n     = try NameMap.find   n env 
+let (<@>)  env n     = try Listutils.(<@>) env n 
                        with Not_found -> raise (Disaster (dummy_spos, 
                                                           Printf.sprintf "looking up %s in %s"
                                                                          (string_of_name n)
                                                                          (short_string_of_env env)
                                                          )
                                                )       
-let (<@+>) env (n,t) = NameMap.add    n t env      
-let (<@->) env n     = NameMap.remove n env     
-let (<@?>) env n     = NameMap.mem    n env        
+let (<@+>) = Listutils.(<@+>)      
+let (<@?>) = Listutils.(<@?>)        
 
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
@@ -329,7 +328,8 @@ let rec evale env e =
                                                      )
                            )  
   | EApp (f,a)          -> let fv = funev env f in
-                           fv (evale env a)
+                           (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
+
   | EArith (e1,op,e2)   -> let v1 = intev env e1 in
                            let v2 = intev env e2 in
                            VInt (match op with
@@ -609,7 +609,7 @@ let interpret defs =
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, p))) defs in
-  let sysenv = NameMap.of_assoc (defassoc @ knownassoc) in
+  let sysenv = defassoc @ knownassoc in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);

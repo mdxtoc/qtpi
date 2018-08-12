@@ -26,8 +26,6 @@ open Functionutils
 open Listutils
 open Interpret
 
-exception Error of string
-
 (* ******************** built-in functions ********************* *)
 
 (* This stuff is intended to be replaced by dynamically-loaded stuff,
@@ -39,11 +37,11 @@ let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
 let v_hd vs =
   let vs = listv vs in
-  try List.hd vs with _ -> raise (Error "hd []")
+  try List.hd vs with _ -> raise (LibraryError "hd []")
 
 let v_tl vs =
   let vs = listv vs in
-  try vlist (List.tl vs) with _ -> raise (Error "tl []")
+  try vlist (List.tl vs) with _ -> raise (LibraryError "tl []")
   
 let v_append xs ys =
   let xs = listv xs in
@@ -93,9 +91,9 @@ let v_randbits n =
   vlist (randbits n)
 
 let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))) 
-                  with Invalid_argument _ -> raise (Error (Printf.sprintf "zip %s %s" 
-                                                                          (bracketed_string_of_list string_of_value (listv xs))
-                                                                          (bracketed_string_of_list string_of_value (listv ys))
+                  with Invalid_argument _ -> raise (LibraryError (Printf.sprintf "zip %s %s" 
+                                                                                 (bracketed_string_of_list string_of_value (listv xs))
+                                                                                 (bracketed_string_of_list string_of_value (listv ys))
                                                           )
                                                    )
 
@@ -142,10 +140,10 @@ let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v
 let xor_bits b1 b2 = vbit (bitv b1 lxor bitv b2)
 let _ = Interpret.know ("xor_bits", "bit -> bit -> bit"                 , vfun2 xor_bits)
 
-let read_int s = print_string (s ^"? "); flush stdout; Pervasives.read_int ()
+let read_int s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
 
-let read_string s = print_string (s ^"? "); flush stdout; Pervasives.read_line ()
+let read_string s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_line ()
 let _ = Interpret.know ("read_string", "string -> string"        , vfun (vstring <.> read_string <.> stringv))
 
 let read_bool prompt y n =

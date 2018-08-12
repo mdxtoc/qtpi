@@ -36,6 +36,9 @@ let (<@@>) xys x = List.assq x xys
 let (<@?>) xys x = List.mem_assoc x xys
 let (<@@?>) xys x = List.mem_assq x xys
 
+let (<@+>) xys xy = xy::xys
+let (<@@+>)       = (<@+>)
+
 let (<@->) xys x = List.remove_assoc x xys
 let (<@@->) xys x = List.remove_assq x xys
 

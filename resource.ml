@@ -144,22 +144,23 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                                                   (string_of_param p)
                                                                   s
                                            )
-                                    )
+                            )
     in
     let n, tor = p.inst in
     match !tor with
-    | Some t -> ctfa_type false t
+    | Some t -> if t.inst=Qbit then () else ctfa_type true t
     | _      -> bad_param "Disaster (typechecked type expected)"
   in
   
   let rec ctfa_proc proc =
     match proc.inst with
     | Terminate                  -> ()
-    | Call      (pn', es)        -> List.iter ctfa_expr es
+    | Call      (pn', es)        -> List.iter (ctfa_arg "process argument") es; List.iter ctfa_expr es
     | WithNew   (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
     | WithQbit  (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
                                     ctfa_proc proc
     | WithLet   (letspec, proc)  -> let pat, e = letspec in
+                                    ctfa_pat "'let'" pat;
                                     ctfa_expr e;
                                     ctfa_proc proc
     | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
@@ -169,9 +170,21 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                       ctfa_iostep iostep; ctfa_proc proc
                                     in
                                     List.iter ctfa_g gs
-    | PMatch    (e,pms)          -> ctfa_expr e; List.iter (ctfa_proc <.> snd) pms
+    | PMatch    (e,pms)          -> ctfa_expr e; List.iter (function pat,proc -> ctfa_pat "pattern" pat; ctfa_proc proc) pms
     | Par       procs            -> List.iter ctfa_proc procs
   
+  and ctfa_arg s e =
+    let t = type_of_expr e in
+    if t.inst = Qbit then 
+      match e.inst.enode with
+      | ECond  _
+      | EMatch _ -> raise (ResourceError (e.pos,
+                                          "qbit-valued conditional expression as " ^ s
+                                         )
+                          )
+      | _        -> ()
+    else ctfa_type true t 
+
   and ctfa_qstep qstep =
     match qstep.inst with
     | Measure   (qe,gopt,param) -> ctfa_expr qe; 
@@ -183,7 +196,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
     match iostep.inst with
     | Read      (ce,pat) -> ctfa_expr ce
-    | Write     (ce,e)   -> ctfa_expr ce; ctfa_expr e
+    | Write     (ce,e)   -> ctfa_expr ce; ctfa_arg "send argument" e; ctfa_expr e
   
   and ctfa_expr e =
     match e.inst.enode with
@@ -203,7 +216,7 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | EMinus     e          
     | ENot       e          -> ctfa_expr e
     | ETuple     es         -> List.iter ctfa_expr es
-    | EMatch     (e,ems)    -> ctfa_expr e; List.iter (ctfa_expr <.> snd) ems
+    | EMatch     (e,ems)    -> ctfa_expr e; List.iter (function pat,e -> ctfa_pat "pattern" pat; ctfa_expr e) ems
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
@@ -231,12 +244,31 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                else ();
                                List.iter ctfa_expr [e1;e2]
     
+  and ctfa_pat s pat = (* check binding restriction *)
+    match pat.inst.pnode with
+    | PatName     _       -> (try ctfa_type true (type_of_pattern pat) 
+                              with _ -> raise (ResourceError (pat.pos,
+                                                              s ^ " may only bind classical values"
+                                                             )
+                                              )
+                             )
+    | PatAny
+    | PatUnit
+    | PatNil
+    | PatInt      _
+    | PatBit      _ 
+    | PatBool     _
+    | PatChar     _
+    | PatString   _
+    | PatBasisv   _
+    | PatGate     _       -> ()
+    | PatCons     (p1,p2) -> ctfa_pat s p1; ctfa_pat s p2
+    | PatTuple    ps      -> List.iter (ctfa_pat s) ps
+
   in
   List.iter ctfa_param params;
   ctfa_proc proc
   
-(* we don't need ctfa_pat *)
-
 (* *************** phase 2: resource check (rck_...) *************************** *)
 
 type resource =

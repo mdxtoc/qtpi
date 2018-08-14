@@ -16,16 +16,16 @@ Eve (qA, qB, bsA, bsB, report) =
         | Reconcile (basesB, bvs, [], reconB)
         | reconB?(rvsB) .                 (* we have Bob's reconciliation *)
           bsB?(maskB) . bsB?(_)   .       (* ignore Bob's sample *)
-          Filter (maskB, rvsB, [], cB)
-        | reconA?(rvsA) .                 (* we have Alice's reconciliation *)
-          cB?(codeB)    .                 (* we have Bob's code *)
+          (let codeB = masked_filter maskB rvsB [])
+          reconA?(rvsA) .                 (* we have Alice's reconciliation *)
           (  (let diff = length rvsA - length codeB)
              if diff>=0 then                 (* almost always? *)
                (let maskA = tabulate diff (const 0b1) @ 
                             tabulate (length codeB) (const 0b0)
                )      
                bsA!maskA . bsA!take diff rvsA  .
-               Filter (maskA, rvsA, [], cA)   
+               cA!masked_filter maskA rvsA []  .
+               _0
              else                            (* rarely? we have to improvise *)
                bsA!tabulate (length rvsA) (const 0b0) . bsA![] .  (* null mask, no check bits *)
                cA!rvsA .
@@ -33,7 +33,8 @@ Eve (qA, qB, bsA, bsB, report) =
              fi
            | bsB?(codedvs)  .                (* receive coded message *)
              report!codedvs .
-             Mask (codeB, codedvs, m)        (* xor with codeB and send on m *)
+             m ! xor_mask codeB codedvs .
+             _0
            | cA?(codeA)  .
              m?(messageB) .
              report!0b1::messageB   .         (* decoded! *)
@@ -43,7 +44,8 @@ Eve (qA, qB, bsA, bsB, report) =
                 else messageB @ (randbits (length codeA-length messageB))
                 fi
              )
-             Mask (codeA, messageA, bsA)      (* encode for Alice and send it to her *)
+             bsA ! xor_mask codeA messageA .      (* encode for Alice and send it to her *)
+             _0
           )
        )
     )

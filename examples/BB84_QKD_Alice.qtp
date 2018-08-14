@@ -42,16 +42,12 @@ Negotiate (bvs,bsB,report) =
        report!mask       .
        bsB?(sample)      . (* the corresponding bits from vs *)
        report!sample     .
-       (new checked)
-       (  CheckBits (mask, sample, rvs, checked)
-        | checked?(b)       . 
-          (new filtered)
-          (  Filter (mask, rvs, [], filtered)
-           | filtered?(code)   .
-             report!if b then 0b1 else 0b0 fi::code . 
-             bsB?(codedvs)     .
-             report!codedvs    .
-             Mask (code, codedvs, report)   (* xor with mask and report it *)
-          )
-      )
+       (let b = test_checkbits mask sample rvs)
+       (new filtered)
+       (let code = masked_filter mask rvs [])
+       report!if b then 0b1 else 0b0 fi::code . 
+       bsB?(codedvs)     .
+       report!codedvs    .
+       report!(xor_mask code codedvs) .
+       _0
     )

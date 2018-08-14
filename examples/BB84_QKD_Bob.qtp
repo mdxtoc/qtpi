@@ -16,14 +16,12 @@ Bob(n:int, qA, bsA, report) =
           sampled?(sample) .
           bsA!mask         . (* send her the mask *)
           bsA!sample       . (* send her the sample *)
-          (new filtered)
-          (  Filter (mask, rvs, [], filtered)
-           | filtered?(code) .
-             report!code    .
-             (let message = randbits (length code))
-             report!message .
-             Mask (code, message, bsA)  (* xor with mask and send to Alice *)
-          )
+          (let code = masked_filter mask rvs [])
+           report!code    .
+           (let message = randbits (length code))
+           report!message .
+           bsA!(xor_mask code message) .
+           _0
        )
     )
   

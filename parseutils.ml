@@ -21,6 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
 open Sourcepos
 
 exception Error of string
@@ -53,6 +54,7 @@ let parse_typestring s = Settings.filename := ""; parse_string Parser.readtype s
 let parse_exprstring s = Settings.filename := ""; parse_string Parser.readexpr s
 
 let parse_program filename =
+  Settings.filename := filename; 
   let in_channel = open_in filename in
   let lexbuf = Lexing.from_channel in_channel in
   try
@@ -63,16 +65,28 @@ let parse_program filename =
   | Parsing.Parse_error ->
       (close_in in_channel;
        let curr = lexbuf.Lexing.lex_curr_p in
-       raise (Error ("**Parse error at line "^string_of_int (curr.Lexing.pos_lnum)^ 
-                     " character "^string_of_int (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)^
-                     " (just before \""^Lexing.lexeme lexbuf^"\")"))
+       raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"
+                                    filename
+                                    (curr.Lexing.pos_lnum)
+                                    (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
+                                    (Lexing.lexeme lexbuf)
                     )
+             )
+      )
   | Program.ParseError(spos,s) ->
         (close_in in_channel;
-         raise (Error ("\n**SYNTAX ERROR at "^string_of_sourcepos spos ^ ": " ^ s))
+         raise (Error (Printf.sprintf "\n** %s: SYNTAX ERROR: %s\n"
+                                      (string_of_sourcepos spos)
+                                      s
+                      )
+               )
         )
   | Lexer.LexError(spos,s) -> 
         (close_in in_channel;
-         raise (Error ("\n**LEXING ERROR at "^string_of_sourcepos spos ^ ": " ^ s))
+         raise (Error (Printf.sprintf "\n**%s: LEXING ERROR: %s\n"
+                                      (string_of_sourcepos spos)
+                                      s
+                      )
+               )
         )
   | exn -> (close_in in_channel; raise exn)

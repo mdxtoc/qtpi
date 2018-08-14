@@ -21,11 +21,13 @@ Eve (qA, qB, bsA, bsB, report) =
           cB?(codeB)    .                 (* we have Bob's code *)
           (  (let diff = length rvsA - length codeB)
              if diff>=0 then                 (* almost always? *)
-               (let maskA = init diff 0b1 @ init (length codeB) 0b0)      
+               (let maskA = tabulate diff (const 0b1) @ 
+                            tabulate (length codeB) (const 0b0)
+               )      
                bsA!maskA . bsA!take diff rvsA  .
                Filter (maskA, rvsA, [], cA)   
              else                            (* rarely? we have to improvise *)
-               bsA!init (length rvsA) 0b0 . bsA![] .  (* null mask, no check bits *)
+               bsA!tabulate (length rvsA) (const 0b0) . bsA![] .  (* null mask, no check bits *)
                cA!rvsA .
                _0
              fi

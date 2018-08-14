@@ -1,12 +1,7 @@
 
-System () = (newq q) (let init=qbit_state q) 
+System () = (newq q) 
+			{print_string "initially "} . {print_qbit q} . {print_string "; "} .
 			q>>_H . 
-			q>>_H . (let final=qbit_state q)
-			(let n = print_strings ["initially q=";
-								    init;
-								    "; finally q=";
-								    final;
-								    "\n"
-								   ]
-			)
+			q>>_H . 
+			{print_string "finally "} . {print_qbit q} . {print_string "\n"} .
 			_0

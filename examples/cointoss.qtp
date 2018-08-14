@@ -4,14 +4,16 @@
    -- i.e. an unfair coin IMHO.
  *)
 
-P(fromQ:^qbit, toQ:^qbit, report) =     fromQ?(y) . toQ!y .         report!false . _0
-                                    <+> fromQ?(y) . y>>_X . toQ!y . report!true  . _0
+P(fromQ:^qbit, toQ:^qbit, report) =     fromQ?(y) . toQ!y .         report!() . _0
+                                    <+> fromQ?(y) . y>>_X . 
+                                        {print_string "with a flip; "}. 
+                                        toQ!y .                     report!()  . _0
                      
 Q(q: qbit, toP:^qbit, fromP:^qbit, report) = 
-  report!qbit_state q  .
+  {print_string "initially "} . {print_qbit q} . {print_string "; "} .
   q>>_H . toP!q . fromP?(q') . q'>>_H . 
-  report!qbit_state q' . 
-  _0 
+  {print_string "finally "} . {print_qbit q'} . {print_string "\n"} .
+  report!() . _0 
 
 System() = (let k = read_int "number of trials")
            (let sb = read_string "initial state (0,1,+,-)")
@@ -29,31 +31,21 @@ System() = (let k = read_int "number of trials")
                           <+> _   . abandon "pardon?"
                           hctam
            )
+           {print_string "See output for results -- can print but can't examine qbit state\n"} .
            Controller (k, bv, verbose)
 
-Controller (k, bv, verbose) = Report (k, bv, verbose, 0, 0, 0)
+Controller (k, bv, verbose) = Report (k, bv, verbose, 0)
 
-Report (k, bv, verbose, i, score, nX) = 
-  if i=k then {print_strings [string_of_value i; " trials, "; 
-                              string_of_value nX; " flips; ";
-                              string_of_value score; " successes\n"
-                             ]} . _0
+Report (k, bv, verbose, i) = 
+  if i=k then {print_strings [string_of_value i; " trials\n"]} . _0
   else
     (newq q = bv) 
     (new s:^qbit, r:^qbit)
     (new reportP, reportQ)
     (  P(s,r,reportP) 
      | Q(q,s,r,reportQ) 
-     | reportQ?(init)  .
-       reportP?(b)     .
-       reportQ?(final) .
-       {if verbose && b then print_string "with a flip; " else () fi} .
-       {if verbose then print_strings ["initially "; init; " finally "; final; "\n"]
-        else () fi
-       } .
-       Report (k, bv, verbose, i+1, 
-                               if init=final then score+1 else score fi,
-                               if b then nX+1 else nX fi
-              )
+     | reportP?(_) .
+       reportQ?(_) .
+       Report (k, bv, verbose, i+1)
     )
   fi

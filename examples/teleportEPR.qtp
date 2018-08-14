@@ -1,12 +1,12 @@
 
 Alice (x:qbit, c:^0..3, z:qbit) = 
-	{print_strings ["initially Alice's z is "; qbit_state z; "\n"]} .
+    {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "; "} .
     z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
 
 Bob(y:qbit, c:^0..3) = 
-  c?(i) . y >> _Phi(i) . 
-  {print_strings ["finally Bob's y is "; qbit_state y; "\n"]} .
-  _0
+  	c?(i) . y >> _Phi(i) . 
+    {print_string "finally Bob's y is "} .  {print_qbit y} . {print_string "\n"} .
+  	_0
   
 Alice'(s:^qbit,c:^0..3,z:qbit) = s?(x:qbit) . Alice(x,c,z)
 

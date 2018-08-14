@@ -1,5 +1,7 @@
 # Static treatment of ownership of qbits -- Resource-checking a program
 
+*Oh hubris. I didn't read the Gay and Nagarajan paper properly (and I didn't read the right version). Much of this can be done with linear typing. And with the right language restrictions (see [the language description](./qtpi_description.html)) almost all of it can. So I'm switching to that treatment, and Real Soon Now most of this will be obsoleted. Sob.*
+
 My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's. He'd noticed that a treatment of qbit-ownership transfer between processes was impossible in Microsoft's Q#, which was all about efficient simulation of quantum computation. But quantum protocols are mostly about passing quantum bits between processes, and hardly do any quantum computation.
 
 A process calculus like CQP seemed like it might provide a solution to the ownership problem. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.

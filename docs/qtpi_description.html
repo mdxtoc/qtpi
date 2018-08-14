@@ -139,23 +139,43 @@
 <h2>The <em>dispose</em> channel</h2>
 <p>Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and then waits for the next one. Garbage collection might be possible, but it would have to understand the central quantum state which deals with every qbit ever created and, in particular, deals with entanglements.</p>
 <p>Learning from my experience of separation logic, I implemented a <em>dispose</em> channel of qbits. Send a qbit down the <em>dispose</em> channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see <a href="./ownership.html">the resourcing document</a> for explanation).</p>
-<p>Because I didn't want to add one-way channels to the language, if you read from the <em>dispose</em> channel you get a new qbit. Ho ho?</p>
+<p>Because I didn't know how to add one-way channels to the language, if you read from the <em>dispose</em> channel you get a new qbit. Ho ho?</p>
 <h2>Restrictions</h2>
-<p>All for <em>resourcing</em> reasons. See <a href="./ownership.html">the resourcing document</a> for explanation.</p>
+<p>Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although you could reasonably expect to be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols you cannot. This also massively simplifies <em>resourcing</em>: see <a href="./ownership.html">the resourcing document</a> for explanation.</p>
+<p>The qbit world is further separated from the classical world by restrictions on bindings and functions. The binding restriction simplifies resource-checking, but it's really there for aesthetic reasons.</p>
+<p>It is impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...)</p>
 <ul>
-<li>
-<p><strong>No comparison of qbits, or values containing qbits</strong>.</p>
-</li>
 <li>
 <p><strong>A channel is either <code>^qbit</code> or <code>^classical</code></strong>.</p>
 </li>
 <li>
-<p><strong>Function applications can't deliver qbits, or values containing qbits</strong>.</p>
-<p>Pattern matching softens the blow of this restriction, allowing you to take apart lists and tuples containing qbits.</p>
+<p><strong>A process argument is either <code>qbit</code>, <code>^qbit</code>,  or classical</strong>.</p>
+</li>
+<li>
+<p><strong>No qbit-valued conditionals as  process argument or send argument</strong>.</p>
+<p>Conditionals include <code>if</code> and pattern-matching. It's ok to have qbit-valued conditionals in other positions, such as</p>
+<pre><code>	if a=0 then q1 else q2 fi &gt;&gt; _H
+</code></pre>
+</li>
+<li>
+<p><strong><code>let</code>, and patterns, can only bind classical values</strong>.</p>
+</li>
+<li>
+<p><strong>A function application can only deliver a classical value</strong>.</p>
+</li>
+<li>
+<p><strong>No comparison of qbits, or values containing qbits</strong>.</p>
+<p>Given the other restrictions, such comparisons would be more or less useless anyway.</p>
+</li>
+<li>
+<p><strong>Library functions don't expose simulation state</strong>.</p>
+<p>There used to be a function <em>qbit_state</em> which allowed you to peek at a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of <em>qbit_state</em> on them. Horror!</p>
+<p>Not all is lost: there's <em>print_qbit</em>, and the <code>-verbose qsim</code> switch allows you to watch the simulation.</p>
+<p>This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.</p>
 </li>
 </ul>
 <h2>Program description</h2>
-<p>A program is a sequence of process definitions. One of the process descriptions must be <code>System</code>, which must have no parameters.</p>
+<p>A program is a sequence of process definitions. One of the process descriptions must be <code>System</code>, which must have no parameters. (And soon we will have user-defined functions.)</p>
 <ul>
 <li>
 <p>Process definition</p>
@@ -168,54 +188,48 @@
 <li>
 <p>Interface functions</p>
 <p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
-<p><strong>But</strong>, <em>but</em>, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.</p>
-<p>Here are the functions I currently provide. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above).</p>
+<p><strong>But</strong>, <em>but</em>, but. Functions can't deliver qbits or values containing qbits. See restrictions above.</p>
+<p>Mostly inspired by Miranda and/or Bird &amp; Wadler's &quot;Introduction to Functional Programming&quot;. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above). Note the restriction on revealing state above.</p>
 <ul>
-<li>
-<p><em>length</em>: <em>'a list</em> -&gt; <em>int</em></p>
-</li>
-<li>
-<p><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em></p>
-</li>
-<li>
-<p><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
+<li><em>abandon</em>: <em>string</em> -&gt; <em>'a</em>
 <ul>
-<li><em>hd</em> and <em>tl</em> raise Library.Error if applied to <code>[]</code></li>
+<li>stops the program and doesn't return (raises an exception).</li>
 </ul>
 </li>
-<li>
-<p><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></p>
-</li>
-<li>
-<p><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
-</li>
-<li>
-<p><em>iter</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>unit</em></p>
-</li>
-<li>
-<p><em>map</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>'b list</em></p>
-</li>
-<li>
-<p><em>take</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
-</li>
-<li>
-<p><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></p>
-</li>
-<li>
-<p><em>zip</em>: <em>'a</em> <em>list</em> -&gt; <em>'b</em> <em>list</em> -&gt; <em>'a</em>*<em>'b</em> <em>list</em></p>
+<li><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>const</em>: <em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em></li>
+<li><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em></li>
+<li><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em>
 <ul>
-<li><em>zip</em> raises Library.Error if applied to lists of differing lengths</li>
+<li>raises an exception if applied to <code>[]</code></li>
 </ul>
 </li>
-<li>
-<p><em>unzip</em>: <em>'a</em>*<em>'b</em> <em>list</em> -&gt; <em>'a</em> <em>list</em> * <em>'b</em> <em>list</em></p>
+<li><em>iter</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>unit</em></li>
+<li><em>length</em>: <em>'a list</em> -&gt; <em>int</em></li>
+<li><em>map</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>'b list</em></li>
+<li><em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></li>
+<li><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em>
+<ul>
+<li>converts any value to a string. If you use it on a qbit you won't see anything interesting.</li>
+</ul>
 </li>
-<li>
-<p><em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em></p>
+<li><em>tabulate</em>: <em>int</em> -&gt; (<em>int</em> -&gt; <em>'a</em>) -&gt; <em>'a list</em></li>
+<li><em>take</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em>
+<ul>
+<li>raises an exception if applied to <code>[]</code></li>
+</ul>
 </li>
-<li>
-<p><em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></p>
+<li><em>unzip</em>: <em>'a</em>*<em>'b</em> <em>list</em> -&gt; <em>'a</em> <em>list</em> * <em>'b</em> <em>list</em></li>
+<li><em>zip</em>: <em>'a</em> <em>list</em> -&gt; <em>'b</em> <em>list</em> -&gt; <em>'a</em>*<em>'b</em> <em>list</em>
+<ul>
+<li>raises an exception if applied to lists of differing lengths</li>
+</ul>
 </li>
+</ul>
+<p>I/O functions.</p>
+<ul>
 <li>
 <p><em>read_int</em>: <em>string</em> -&gt; <em>int</em></p>
 </li>
@@ -226,28 +240,16 @@
 </ul>
 </li>
 <li>
+<p><em>print_qbit</em>: <em>qbit</em> -&gt; <em>unit</em></p>
+<ul>
+<li>prints a string <em>q</em><code>(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector in the computational basis. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <code>[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</li>
+</ul>
+</li>
+<li>
 <p><em>print_string</em>: <em>string</em> -&gt; <em>unit</em></p>
 </li>
 <li>
 <p><em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></p>
-</li>
-<li>
-<p><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em></p>
-<ul>
-<li><em>string_of_value</em> converts any value to a string. If you use it on a qbit you won't see anything interesting.</li>
-</ul>
-</li>
-<li>
-<p><em>qbit_state</em>: <em>qbit</em> -&gt; <em>string</em></p>
-<ul>
-<li><em>qbit_state</em> gives you a string <em>q</em><code>(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector in the computational basis. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <code>[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</li>
-</ul>
-</li>
-<li>
-<p><em>abandon</em>: <em>string</em> -&gt; <em>'a</em></p>
-<ul>
-<li><em>abandon</em> stops the program and doesn't return (raises Library.Abandon).</li>
-</ul>
 </li>
 </ul>
 </li>

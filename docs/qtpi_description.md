@@ -129,24 +129,45 @@ Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and t
 
 Learning from my experience of separation logic, I implemented a *dispose* channel of qbits. Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](./ownership.html) for explanation).
 
-Because I didn't want to add one-way channels to the language, if you read from the *dispose* channel you get a new qbit. Ho ho?
+Because I didn't know how to add one-way channels to the language, if you read from the *dispose* channel you get a new qbit. Ho ho?
 
 ## Restrictions
 
-All for *resourcing* reasons. See [the resourcing document](./ownership.html) for explanation.
+Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although you could reasonably expect to be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols you cannot. This also massively simplifies *resourcing*: see [the resourcing document](./ownership.html) for explanation.
 
-  * **No comparison of qbits, or values containing qbits**.
-	
+The qbit world is further separated from the classical world by restrictions on bindings and functions. The binding restriction simplifies resource-checking, but it's really there for aesthetic reasons.
+
+It is impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...)
 
   * **A channel is either `^qbit` or `^classical`**.
     	
-  * **Function applications can't deliver qbits, or values containing qbits**.
-	
-	Pattern matching softens the blow of this restriction, allowing you to take apart lists and tuples containing qbits.
-	
+  * **A process argument is either `qbit`, `^qbit`,  or classical**.
+  
+  * **No qbit-valued conditionals as  process argument or send argument**.
+  
+  	Conditionals include `if` and pattern-matching. It's ok to have qbit-valued conditionals in other positions, such as
+  	
+  			if a=0 then q1 else q2 fi >> _H
+
+  * **`let`, and patterns, can only bind classical values**.
+  
+  * **A function application can only deliver a classical value**.
+
+  * **No comparison of qbits, or values containing qbits**.
+  
+  	Given the other restrictions, such comparisons would be more or less useless anyway.
+  
+  * **Library functions don't expose simulation state**.
+  
+  	There used to be a function *qbit_state* which allowed you to peek at a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of *qbit_state* on them. Horror!
+  	
+  	Not all is lost: there's *print_qbit*, and the `-verbose qsim` switch allows you to watch the simulation.
+  	
+  	This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.
+
 ## Program description
 
-A program is a sequence of process definitions. One of the process descriptions must be `System`, which must have no parameters.
+A program is a sequence of process definitions. One of the process descriptions must be `System`, which must have no parameters. (And soon we will have user-defined functions.)
 
 * Process definition
 
@@ -160,39 +181,41 @@ A program is a sequence of process definitions. One of the process descriptions 
 
     We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples. 
     
-    **But**, *but*, but. Functions can't deliver qbits or values containing qbits. See the documentation on resourcing for an explanation.
+    **But**, *but*, but. Functions can't deliver qbits or values containing qbits. See restrictions above.
     
-    Here are the functions I currently provide. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above). 
+    Mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above). Note the restriction on revealing state above.
     
-    * *length*: *'a list* -> *int*  	
-    * *hd*: *'a list* -> *'a*  
-	* *tl*: *'a list* -> *'a list*  
-		* *hd* and *tl* raise Library.Error if applied to `[]` 
-	* *rev*: *'a list* -> *'a list*
+	* *abandon*: *string* -> *'a*  
+		* stops the program and doesn't return (raises an exception).  
 	* *append*: *'a list* -> *'a list* -> *'a list*
-	* *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
-	* *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
-	* *take*: *int* -> *'a list* -> *'a list*
+	* *const*: *'a* -> *'b* -> *'a*
 	* *drop*: *int* -> *'a list* -> *'a list*
-	* *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
-		* *zip* raises Library.Error if applied to lists of differing lengths 
-	* *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
 	* *fst*: *'a*\**'b* -> *'a*  
+	* *hd*: *'a list* -> *'a*  
+		* raises an exception if applied to `[]`  
+	* *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
+	* *length*: *'a list* -> *int*  	
+	* *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
 	* *snd*: *'a*\**'b* -> *'b*  
+	* *string_of_value*: *'a* -> *string*
+		* converts any value to a string. If you use it on a qbit you won't see anything interesting.  
+	* *tabulate*: *int* -> (*int* -> *'a*) -> *'a list*
+	* *take*: *int* -> *'a list* -> *'a list*
+	* *tl*: *'a list* -> *'a list*  
+		* raises an exception if applied to `[]`  
+	* *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
+	* *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
+		* raises an exception if applied to lists of differing lengths 
 	
-	* *read_int*: *string* -> *int*  
-	* *read_string*: *string* -> *string*  
+	I/O functions.
+
+	* *read_int*: *string* -> *int*
+	* *read_string*: *string* -> *string*
 		* *read_int* and *read_string* take a prompt-string argument.  
 
-	* *print_string*: *string* -> *unit*  
-	* *print_strings*: *string list* -> *unit* 
-	
-	* *string_of_value*: *'a* -> *string*
-		* *string_of_value* converts any value to a string. If you use it on a qbit you won't see anything interesting.  
-	
-	* *qbit_state*: *qbit* -> *string*  
-		* *qbit_state* gives you a string *q*`(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector in the computational basis. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like `[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `[0,1](h|00>+h|01>)`. And so on for larger entanglements.
+	* *print_qbit*: *qbit* -> *unit*
+		* prints a string *q*`(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector in the computational basis. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like `[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `[0,1](h|00>+h|01>)`. And so on for larger entanglements.
+	* *print_string*: *string* -> *unit*
+	* *print_strings*: *string list* -> *unit*
 
-	* *abandon*: *string* -> *'a*  
-		* *abandon* stops the program and doesn't return (raises Library.Abandon).  
 

@@ -82,6 +82,7 @@
 %token COMMA STAR SEMICOLON
 %token TRUE FALSE BIT0 BIT1
 %token VZERO VONE VPLUS VMINUS
+%token FORALL PROCESS
 
 /* remember %left %right %nonassoc and increasing priority */
 %right CONS
@@ -96,12 +97,12 @@
 %nonassoc STAR
 
 %start program             /* Entry point */
-
-%token FORALL PROCESS
 %start readtype
+%start readexpr
 
 %type  <Processdef.processdef list> program
 %type  <Type._type> readtype
+%type  <Expr.expr> readexpr
 
 %%
 program: processdefs EOP                {$1}
@@ -434,5 +435,10 @@ names:
 
 readtype:
   | typespec EOP                       {$1}
+  
+/* entry point for reading types to save brain when testing new typechecker */
+
+readexpr:
+  | expr EOP                            {$1}
 
 %%

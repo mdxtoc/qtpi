@@ -75,10 +75,10 @@ let typeprio t =
   | Fun     _       -> funprio
   | Process _       -> processprio
   
-let delist pos = function
-  | []  -> {pos=pos; inst=Unit}
-  | [t] -> t
-  | ts  -> {pos=pos; inst=Tuple ts}
+let delist = function
+  | []  -> Unit
+  | [t] -> t.inst
+  | ts  -> Tuple ts
 
 let relist t =
   match t.inst with
@@ -108,7 +108,7 @@ and string_of_tnode = function
   | Fun     (t1,t2) -> Printf.sprintf "%s->%s"
                                       (possbracket true funprio t1)
                                       (possbracket false funprio t2)
-  | Process ts      -> Printf.sprintf "%s process" (string_of_typelist false processprio ts)
+  | Process ts      -> Printf.sprintf "%s process" (string_of_tnode (delist ts))
 
 and string_of_typevar n =
   if starts_with n "?" then string_of_name n else "'" ^ string_of_name n

@@ -48,7 +48,9 @@ let parse_string entry string =
                      )
               )
 
-let parse_typestring s = parse_string Parser.readtype s
+let parse_typestring s = Settings.filename := ""; parse_string Parser.readtype s
+
+let parse_exprstring s = Settings.filename := ""; parse_string Parser.readexpr s
 
 let parse_program filename =
   let in_channel = open_in filename in

@@ -32,7 +32,7 @@ module type S = sig
   include Set.S
   val of_list   : elt list -> t
   val to_string : t -> string
-  val map       : (elt -> 'a) -> ('a list -> 'b) -> t -> 'b
+  val map       : (elt -> elt) -> t -> t
 end
 
 module Make (Ord : OrderedType) = struct
@@ -44,6 +44,6 @@ module Make (Ord : OrderedType) = struct
   let to_string set =
     Printf.sprintf "{%s}" (Listutils.string_of_list Ord.to_string "," (elements set))
     
-  let map f output =
-    output <.> List.map f <.> elements
+  let map f =
+    of_list <.> List.map f <.> elements
 end

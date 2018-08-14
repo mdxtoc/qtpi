@@ -30,7 +30,7 @@ module type S = sig
   include Set.S
   val of_list   : elt list -> t
   val to_string : t -> string
-  val map       : (elt -> 'a) -> ('a list -> 'b) -> t -> 'b
+  val map       : (elt -> elt) -> t -> t
 end
 
 module Make (Ord : OrderedType) : S with type elt = Ord.t

@@ -125,11 +125,10 @@ let v_tabulate n f =
   let a = Array.init n (f <.> vint) in
   vlist (Array.to_list a)
 
-let v_init n v =
-  v_tabulate n (vfun (fun _ -> v))
+let v_const a b = a
   
 let _ = Interpret.know ("tabulate", "int -> (int -> 'a) -> 'a list"    , vfun2 v_tabulate)
-let _ = Interpret.know ("init"    , "int -> 'a -> 'a list"             , vfun2 v_init)
+let _ = Interpret.know ("const"   , "'a -> 'b -> 'a"                   , vfun2 v_const)
 
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
@@ -141,10 +140,10 @@ let xor_bits b1 b2 = vbit (bitv b1 lxor bitv b2)
 let _ = Interpret.know ("xor_bits", "bit -> bit -> bit"                 , vfun2 xor_bits)
 
 let read_int s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_int ()
-let _ = Interpret.know ("read_int", "string -> int"        , vfun (vint <.> read_int <.> stringv))
+let _ = Interpret.know ("read_int", "string -> int"                     , vfun (vint <.> read_int <.> stringv))
 
 let read_string s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_line ()
-let _ = Interpret.know ("read_string", "string -> string"        , vfun (vstring <.> read_string <.> stringv))
+let _ = Interpret.know ("read_string", "string -> string"               , vfun (vstring <.> read_string <.> stringv))
 
 let read_bool prompt y n =
   let prompt = stringv prompt in
@@ -159,14 +158,13 @@ let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3
 let abandon s = raise (Abandon s)
 let _ = Interpret.know ("abandon", "string -> 'a", vfun (abandon <.> stringv))
 
-let qbit_state q =  Printf.sprintf "%s" (Qsim.string_of_qval (Qsim.qval q)) 
+
+let print_string s = vunit (Pervasives.print_string (stringv s); flush stdout)
+let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
                                         
-let _ = Interpret.know ("qbit_state", "qbit -> string"        , vfun (vstring <.> qbit_state <.> qbitv))
-
-let print_string s =  vunit (Pervasives.print_string (stringv s); flush stdout)
-
-let _ = Interpret.know ("print_string", "string -> unit"        , vfun (print_string))
+let _ = Interpret.know ("print_string" , "string -> unit"       , vfun (print_string))
 let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
+let _ = Interpret.know ("print_qbit"   , "qbit -> unit"         , vfun print_qbit)
 
 let _ = Interpret.know ("string_of_value", "'a -> string", vfun (vstring <.> string_of_value))
 

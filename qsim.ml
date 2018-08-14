@@ -223,6 +223,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
   let newqbit pn n vopt = 
     let q = match !qfrees, vopt with
       | q::qs, Some _ -> qfrees:=qs; q (* only re-use qbits when we don't make symbolic probabilities *)
+                                       (* note this is a space leak, but a small one *)
       | _             -> let q = !qbitcount in 
                          qbitcount := q+1; 
                          q
@@ -260,12 +261,17 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
     match Hashtbl.find qstate q with
                       | [q],_ -> Hashtbl.remove qstate q; qfrees := q::!qfrees;
                                  if !verbose || !verbose_qsim then
-                                   print_endline "to qfrees" 
+                                   Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit !qfrees)
                       | qv    -> (* don't dispose entangled qbits *)
                                  if !verbose || !verbose_qsim then
-                                   Printf.printf "to qlimbo (%s|->%s)\n"
-                                                 (string_of_qbit q)
-                                                 (string_of_qval qv);
+                                   Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
+                                                                     (fun q -> Printf.sprintf "%s|->%s"
+                                                                                              (string_of_qbit q)
+                                                                                              (string_of_qval (Hashtbl.find qstate q))
+                                                                     )
+                                                                     !qlimbo
+                                                                  )
+                                                 ;
                                  qlimbo := q::!qlimbo
   in
   let string_of_qfrees () = bracketed_string_of_list string_of_qbit !qfrees in

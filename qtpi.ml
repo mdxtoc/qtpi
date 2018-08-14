@@ -29,7 +29,7 @@ open Sourcepos
 open Name
 open Instance
 open Type
-open Processdef
+open Def
 open Typecheck
 open Matchcheck
 open Resource
@@ -39,7 +39,6 @@ open Param
 exception Error of string
 
 let parsefile opts usage filename =
-  Settings.filename := filename; 
   Parseutils.parse_program filename
 
 let _ = match !Usage.files with 
@@ -47,10 +46,9 @@ let _ = match !Usage.files with
         | fs -> try let defss = List.map (parsefile Usage.opts Usage.usage) (List.rev fs) in
                     let defs = List.concat defss in
                     if !verbose then
-                      print_endline (string_of_list string_of_processdef "\n\n" defs);
+                      print_endline (string_of_list string_of_def "\n\n" defs);
                     typecheck defs;
-                    if !Settings.matchcheck then
-                      matchcheck defs;
+                    matchcheck defs;
                     resourcecheck defs;
                     if !Settings.interpret then
                       interpret defs
@@ -68,9 +66,9 @@ let _ = match !Usage.files with
                 | ResourceDisaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | TypeCheckError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
-                                                          (string_of_sourcepos pos)
-                                                          s
+                | Typecheck.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                                                            (string_of_sourcepos pos)
+                                                            s
                 | TypeUnifyError (outer, inner) -> Printf.printf "\n\n** type %s (%s) doesn't fit in type %s (%s)\n"
                                                            (string_of_type inner)
                                                            (string_of_sourcepos inner.pos)

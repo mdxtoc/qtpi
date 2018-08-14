@@ -30,12 +30,11 @@ open Functionutils
 open Expr
 open Basisv
 open Process
-open Processdef
+open Def
 open Step
 open Pattern
 
 exception Error of sourcepos * string
-exception Can'tHappen of string
 
 (* Sestoft's pattern-match compiler, from ML pattern match compilation and partial evaluation. *)
 
@@ -394,7 +393,7 @@ let matchcheck_pats string_of_rhs rules =
     Printf.printf "\nmatchcheck_pats %s\n" (string_of_rules rules);
   let dtree = fail (Neg []) rules in
   if !verbose then 
-    Printf.printf "\nmatchcheck_pats %s [%s] => %s\n\n" 
+    Printf.printf "\nmatchcheck_pats %s %s => %s\n\n" 
                   (string_of_sourcepos patspos)
                   (string_of_rules rules)
                   (string_of_dtree string_of_rhs dtree);
@@ -405,6 +404,8 @@ let matchcheck_pats string_of_rhs rules =
   List.iter redundancy rules
 
 let rec matchcheck_expr e =
+  if !verbose then 
+    Printf.printf "\nmatchcheck_expr %s\n" (string_of_expr e);
   match e.inst.enode with
   | EUnit
   | EVar        _
@@ -432,6 +433,8 @@ let rec matchcheck_expr e =
   | EBitCombine (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
 
 let rec matchcheck_proc proc =
+  if !verbose then 
+    Printf.printf "\nmatchcheck_proc %s\n" (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
   | Call      (pn,es)       -> List.iter matchcheck_expr es
@@ -468,6 +471,11 @@ let rec matchcheck_proc proc =
                                List.iter matchcheck_iop iops
   | Par       ps            -> List.iter matchcheck_proc ps
 
-let matchcheck_def (Processdef (pn, params, proc)) = matchcheck_proc proc
+let matchcheck_def def =
+  if !verbose then 
+    Printf.printf "\nmatchcheck_def %s\n" (string_of_def def);
+  match def with
+  | Processdef  (pn, params, proc)  -> matchcheck_proc proc
+  | Functiondef (fn, fparams, expr) -> matchcheck_expr expr
 
 let matchcheck defs = push_verbose !verbose_matchcheck (fun () -> List.iter matchcheck_def defs)

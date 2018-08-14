@@ -23,6 +23,8 @@
  
 let filename = ref ""			(* for creating sourcepos values *)
 
+exception Can'tHappen of string	(* for anybody to use *)
+
 let temp_setting vref v f =
   let oldv = !vref in
   vref := v;

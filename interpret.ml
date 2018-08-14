@@ -35,7 +35,7 @@ open Type
 open Param
 open Step
 open Process
-open Processdef
+open Def
 open Qsim
 
 exception Error of sourcepos * string
@@ -61,7 +61,7 @@ type value =
   | VChan of chan
   | VTuple of value list
   | VList of value list
-  | VFun of (value -> value)        
+  | VFun of (value -> value)        (* with the environment baked in for closures *)
   | VProcess of name list * process
 
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
@@ -175,6 +175,8 @@ and short_string_of_wwaiter ((n, v, proc, env),gsir) = (* infinite loop if we pr
 and string_of_runnerqueue sep rq =
   string_of_pqueue string_of_runner sep rq
   
+let empty_env = []
+
 let (<@>)  env n     = try Listutils.(<@>) env n 
                        with Not_found -> raise (Disaster (dummy_spos, 
                                                           Printf.sprintf "looking up %s in %s"
@@ -617,15 +619,33 @@ let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
+(* a global function gets its environment from the stored_sysenv *)
+
+let stored_sysenv = ref []
+
+let rec fun_of expr env pats =
+  match pats with
+  | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
+  | []        -> evale env expr
+
+let bind_def = function
+  | Processdef  (n,params,p)     -> (n.inst, VProcess (strip_params params, p))
+  | Functiondef (n,fparams,expr) -> let f v = 
+                                      let env = !stored_sysenv in
+                                      fun_of expr (bmatch env (List.hd fparams) v) (List.tl fparams)
+                                    in
+                                    (n.inst, VFun f)
+
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let defassoc = List.map (fun (Processdef (n,params,p)) -> (n.inst, VProcess (strip_params params, p))) defs in
+  let defassoc = List.map bind_def defs in
   let sysenv = defassoc @ knownassoc in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
+  stored_sysenv := sysenv;
   let sysv = try sysenv <@> "System"
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 

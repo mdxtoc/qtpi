@@ -51,18 +51,13 @@ open Name
 open Type
 open Expr
 open Param
-open Processdef
+open Def
 open Process
 open Step
 open Pattern
 
 exception ResourceError of sourcepos * string
 exception ResourceDisaster of sourcepos * string
-
-let (<@>)  env n     = NameMap.find n env       
-let (<@+>) env (n,r) = NameMap.add n r env      
-let (<@->) env n     = NameMap.remove n env     
-let (<@?>) env n     = NameMap.mem n env        
 
 let rec is_resource_type t =
   match t.inst with
@@ -138,7 +133,7 @@ let rec ctfa_type classic t =
                        )
   | Fun  _          -> () (* function types are classical, always *)
 
-let ctfa_def (Processdef(pn, params, proc)) =
+let ctfa_def def = 
   let ctfa_param p =
     let bad_param s = raise (ResourceError (p.pos, Printf.sprintf "parameter %s: %s"
                                                                   (string_of_param p)
@@ -146,12 +141,12 @@ let ctfa_def (Processdef(pn, params, proc)) =
                                            )
                             )
     in
-    let n, tor = p.inst in
-    match !tor with
-    | Some t -> if t.inst=Qbit then () else ctfa_type true t
-    | _      -> bad_param "Disaster (typechecked type expected)"
+    let _, tor = p.inst in
+    (match !tor with
+     | Some t -> if t.inst=Qbit then () else ctfa_type true t
+     | _      -> bad_param "Disaster (typechecked type expected)"
+    )
   in
-  
   let rec ctfa_proc proc =
     match proc.inst with
     | Terminate                  -> ()
@@ -216,7 +211,9 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | EMinus     e          
     | ENot       e          -> ctfa_expr e
     | ETuple     es         -> List.iter ctfa_expr es
-    | EMatch     (e,ems)    -> ctfa_expr e; List.iter (function pat,e -> ctfa_pat "pattern" pat; ctfa_expr e) ems
+    | EMatch     (e,ems)    -> ctfa_expr e; 
+                               (* we don't apply the pattern restriction in expressions, because they don't matter IMHO *)
+                               List.iter (function pat,e -> (* ctfa_pat "pattern" pat; *) ctfa_expr e) ems
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
                                 raise (ResourceError (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
@@ -266,10 +263,17 @@ let ctfa_def (Processdef(pn, params, proc)) =
     | PatTuple    ps      -> List.iter (ctfa_pat s) ps
 
   in
-  List.iter ctfa_param params;
-  ctfa_proc proc
+  match def with
+  | Processdef(pn, params, proc) ->
+      List.iter ctfa_param params; ctfa_proc proc
+  | Functiondef(fn, fparams, expr) ->
+      ctfa_expr expr; ctfa_type true (type_of_expr expr)
   
 (* *************** phase 2: resource check (rck_...) *************************** *)
+
+(* with the new restrictions on process arguments, qbit-valued conditionals, bindings, 
+   all this can be done _very_ simply. And will be done, when I get round to it.
+ *)
 
 type resource =
   | RNull
@@ -304,12 +308,27 @@ module State = MyMap.Make(OrderedRid) (* to tell if qbits have been sent away *)
 let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
 
+let (<@>)  env n     = try NameMap.find n env 
+                       with Not_found -> raise (ResourceError (dummy_spos, Printf.sprintf "looking for %s in %s"
+                                                                              (string_of_name n)
+                                                                              (string_of_env env)
+                                                              )
+                                               )      
+let (<@+>) env (n,r) = NameMap.add n r env      
+let (<@->) env n     = try NameMap.remove n env 
+                       with Not_found -> raise (ResourceError (dummy_spos, Printf.sprintf "removing %s from %s"
+                                                                              (string_of_name n)
+                                                                              (string_of_env env)
+                                                              )
+                                               )
+let (<@?>) env n     = NameMap.mem n env        
+
 let newqid rid state = 
   let q = rid in
   State.add q true state, q
   
 let rec resource_of_type rid state t = (* makes new resource: for use in parameter bindings *)
-  if !verbose || !verbose_resource then
+  if !verbose then
     Printf.printf "resource_of_type %s %s %s\n" (string_of_resourceid rid) (string_of_state state) (string_of_type t);
   match t.inst with
   | Int
@@ -393,7 +412,7 @@ let rec rck_pat contn state env pat resopt =
                                        )
                 )
   in
-  if !verbose || !verbose_resource then 
+  if !verbose then 
     Printf.printf "rck_pat %s %s %s %s\n" (string_of_state state)
                                           (string_of_env env)
                                           (string_of_pattern pat)
@@ -566,7 +585,7 @@ let rec rck_proc state env proc =
           )
   in
   let rec rp state env proc =
-    if !verbose || !verbose_resource then 
+    if !verbose then 
       Printf.printf "rp %s %s %s\n" (string_of_env env)
                                     (string_of_state state)
                                     (short_string_of_process proc);
@@ -654,22 +673,36 @@ let rec rck_proc state env proc =
                                    )
       )
     in
-    if !verbose || !verbose_resource then 
+    if !verbose then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
     r
   in
   rp state env proc
   
-let rck_def env (Processdef(pn, params, proc)) = 
-  let state, rparams = resource_of_params State.empty params in
-  if !verbose || !verbose_resource then
-    Printf.printf "\ndef %s params %s resource %s\n" 
-                  (string_of_name pn.inst)
-                  (bracketed_string_of_list string_of_param params)
-                  (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
-  (* here we go with the symbolic execution *)
-  let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
-  ()
+let rck_def env def =
+  if !verbose then 
+    Printf.printf "\nrck_def %s %s\n"
+                  (string_of_env env)
+                  (string_of_def def);
+  match def with
+  | Processdef(pn, params, proc) -> 
+      let state, rparams = resource_of_params State.empty params in
+      if !verbose then
+        Printf.printf "\ndef %s params %s resource %s\n" 
+                      (string_of_name pn.inst)
+                      (bracketed_string_of_list string_of_param params)
+                      (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
+      (* here we go with the symbolic execution *)
+      let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
+      ()
+  | Functiondef(fn, fparams, expr) -> 
+      (* this works because we only have bpats as params *)
+      let pos = pos_of_instances fparams in
+      ignore (rck_pat (fun state env -> resources_of_expr state env expr) 
+                      State.empty env 
+                      (adorn pos (pwrap None (PatTuple fparams))) (* not in the tree, so nobody should notice *)
+                      None
+             )
 
 (* *************** main function: trigger the phases *************************** *)
 
@@ -680,18 +713,25 @@ let resourcecheck defs =
      applications must have nothing to do with qbits.
    *)
   
-  if !verbose || !verbose_resource then Printf.printf "about to ctfa\n";
-  List.iter ctfa_def defs;
+  push_verbose !verbose_resource (fun () ->
+    List.iter ctfa_def defs;
   
-  if !verbose || !verbose_resource then Printf.printf "about to build sysenv\n";
-  let knownassoc = 
-    List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
-                             n, r
-             ) 
-             !Interpret.knowns 
-  in
-  let env = NameMap.of_assoc knownassoc in
-  let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
+    let knownassoc = 
+      List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
+                               n, r
+               ) 
+               !Interpret.knowns 
+    in
+    let env = NameMap.of_assoc knownassoc in
+    let do_def env def =
+      let n = match def with
+              | Processdef  (pn, _, _) -> pn.inst
+              | Functiondef (fn, _, _) -> fn.inst
+      in
+      env <@+> (n,RNull)
+    in
+    let env = List.fold_left do_def env defs in
+    let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
 
-  if !verbose || !verbose_resource then Printf.printf "about to rck\n";
-  List.iter (rck_def env) defs
+    List.iter (rck_def env) defs
+  )

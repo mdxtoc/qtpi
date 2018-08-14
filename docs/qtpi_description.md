@@ -149,7 +149,9 @@ It is impossible to branch according to the state or identity of a qbit. (In uns
   	
   			if a=0 then q1 else q2 fi >> _H
 
-  * **`let`, and patterns, can only bind classical values**.
+  * **`let`, and pattern-matching in processes, can only bind classical values**.
+  
+  	Pattern-matching in expressions seems to be ok. Will know when we have a Coq proof.
   
   * **A function application can only deliver a classical value**.
 

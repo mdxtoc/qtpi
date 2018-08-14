@@ -272,12 +272,17 @@ let evalcxt cxt =
   let tmap = NameMap.map (evaltype cxt) cxt.tmap in
   {tpushes=tpushes; tmap=tmap}
 
-let string_of_evalcxt = string_of_typecxt <.> evalcxt
+let short_string_of_typecxt cxt = 
+  let cxt = evalcxt cxt in
+  let tmap = NameMap.filter (fun n t -> not (Stringutils.starts_with n "?")) cxt.tmap in
+  string_of_typecxt {cxt with tmap=tmap}
+
+(* *************************** typechecker starts here ********************************* *)
 
 let rec typecheck_pats tc cxt t pxs =
    if !verbose then 
      Printf.printf "typecheck_pats ... %s (%s) %s\n\n"
-                   (string_of_typecxt cxt)
+                   (short_string_of_typecxt cxt)
                    (string_of_type t)
                    (bracketed_string_of_list (string_of_pair string_of_pattern (fun _ -> "") "") pxs);
    List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
@@ -285,7 +290,7 @@ let rec typecheck_pats tc cxt t pxs =
 and assigntype_pat contn cxt t p =
   if !verbose then
     Printf.printf "assigntype_pat ... %s (%s) (%s)\n\n"
-                  (string_of_typecxt cxt)
+                  (short_string_of_typecxt cxt)
                   (string_of_type t)
                   (string_of_pattern p);
   let cxt = match !(p.inst.ptype) with
@@ -351,7 +356,7 @@ let rec assign_name_type pos cxt t n =
 and assigntype_expr cxt t e =
   if !verbose then
     Printf.printf "assigntype_expr %s (%s) (%s)\n\n"
-                  (string_of_typecxt cxt)
+                  (short_string_of_typecxt cxt)
                   (string_of_type (evaltype cxt t))
                   (string_of_expr e);
   e.inst.etype := Some t; (* for rewriting later *)
@@ -481,10 +486,10 @@ let check_distinct params =
 
 let strip_procparams s cxt params = 
   if !verbose then
-    Printf.printf "before strip_procparams %s (%s)\n%s\n" s (string_of_params params) (string_of_typecxt cxt);
+    Printf.printf "before strip_procparams %s (%s)\n%s\n\n" s (string_of_params params) (short_string_of_typecxt cxt);
   let cxt = List.fold_left (fun cxt p -> cxt<@-->(strip_param p)) cxt (List.rev params) in
   if !verbose then
-    Printf.printf "after strip_procparams %s\n" (string_of_typecxt cxt); 
+    Printf.printf "after strip_procparams %s\n\n" (short_string_of_typecxt cxt); 
   cxt
 
 let rec do_procparams s cxt params proc =
@@ -619,7 +624,7 @@ let typecheck_processdef cxt (Processdef (pn,params,proc) as def) =
     (rewrite_processdef cxt def;
      Printf.printf "after typecheck_processdef, def = %s\n\ncxt = %s\n\n" 
                    (string_of_processdef def) 
-                   (string_of_typecxt cxt)
+                   (short_string_of_typecxt cxt)
     );
   cxt
 
@@ -665,7 +670,7 @@ let typecheck defs =
         List.iter (rewrite_processdef cxt) defs;
         if !verbose then 
           Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 
-                        (string_of_typecxt cxt)
+                        (short_string_of_typecxt cxt)
                         (string_of_list string_of_processdef "\n\n" defs)
         else
         if !typereport then 

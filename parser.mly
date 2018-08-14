@@ -24,7 +24,7 @@
 %{
 
   open Program
-  open Processdef
+  open Def
   open Process
   open Step
   open Type
@@ -68,6 +68,7 @@
 %token <char> CHAR 
 
 %token EOP 
+%token LETR
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
@@ -100,25 +101,32 @@
 %start readtype
 %start readexpr
 
-%type  <Processdef.processdef list> program
+%type  <Def.def list> program
 %type  <Type._type> readtype
 %type  <Expr.expr> readexpr
 
 %%
-program: processdefs EOP                {$1}
+program: defs EOP                       {$1}
                                         
-processdefs:
-  | processdef                          {[$1]}
-  | processdef processdefs              {$1::$2}
+defs:
+  | def                                 {[$1]}
+  | def defs                            {$1::$2}
 
+def:
+  | processdef                          {$1}
+  | functiondef                         {$1}
+  
 processdef:
-  procname LPAR params RPAR EQUALS process  
+  procname LPAR procparams RPAR EQUALS process  
                                         {Processdef($1,$3,$6)}
 
+functiondef:
+  LETR funname fparams EQUALS expr DOT  {Functiondef($2,$3,$5)} /* oh dear, oh dear. DOT! */
+  
 procname:
   | name                                {adorn $1}
 
-params:
+procparams:
   |                                     {[]}
   | paramseq                            {$1}
   
@@ -130,6 +138,18 @@ param:
   | name COLON typespec                 {adorn ($1,ref (Some $3))}
   | name                                {adorn ($1,ref None)}
 
+funname:
+  name                                  {adorn $1}
+  
+fparam:
+  | name                                {padorn (PatName $1)}
+  | UNDERSCORE                          {padorn PatAny}
+  | LPAR bpattern RPAR                  {$2}
+  
+fparams:
+  | fparam                              {[$1]}
+  | fparam fparams                      {$1::$2}
+    
 name:
   NAME                                  {$1}
   

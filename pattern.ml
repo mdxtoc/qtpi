@@ -91,7 +91,13 @@ let mbn = mustbracket_nonassoc
 
 let rec string_of_pattern p =
   let rec sp p =
-    match p.inst.pnode with
+    let {pnode=pn; ptype=tor} = p.inst in
+    match !tor, pn with 
+    | Some t, PatCons  _
+    | Some t, PatTuple _ -> "(" ^ spnode pn ^ "):" ^ string_of_type t
+    | Some t, _          -> spnode pn ^ ":" ^ string_of_type t
+    | None  , _          -> spnode pn
+  and spnode = function
     | PatAny            -> "_"
     | PatName   n       -> string_of_name n
     | PatCons   (ph,pt) -> Printf.sprintf "%s::%s" (spb (mbl listprio) ph) (spb (mbr listprio) pt)

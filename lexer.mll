@@ -124,6 +124,8 @@ rule make_token = parse
   | "match"     {MATCH}
   | "hctam"     {HCTAM}
   
+  | "letr"      {LETR}
+  
   | '?'         {QUERY}
   | '!'         {BANG}
   | "=?"        {MEASURE}

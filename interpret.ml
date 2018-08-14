@@ -468,7 +468,9 @@ let rec interp sysenv proc =
   let addrunner runner = PQueue.push runners runner in
   let rec step () =
     if PQueue.is_empty runners then 
-      if !verbose || !verbose_interpret || !verbose_qsim || !show_final then
+      if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
+         not (ChanSet.is_empty !stuck_chans)
+      then
         Printf.printf "All stuck!\n channels=%s\n %s\n\n"
                       (string_of_stuck_chans ())
                       (String.concat "\n " (strings_of_qsystem ()))

@@ -48,7 +48,7 @@ module Make (Ord : OrderedType) = struct
   
   let to_assoc = bindings
   let of_assoc assoc = 
-    List.fold_left (fun map (key,alpha) -> add key alpha map) empty assoc
+    List.fold_left (fun map (key,alpha) -> add key alpha map) empty (List.rev assoc) (* whoops: assocs must be added tail first *)
     
   let to_string string_of_target map =
     Printf.sprintf "{%s}" (Listutils.string_of_assoc Ord.to_string string_of_target "->" ";" (bindings map))

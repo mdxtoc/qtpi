@@ -55,7 +55,7 @@ let parse_exprstring s = Settings.filename := ""; parse_string Parser.readexpr s
 
 let parse_program filename =
   Settings.filename := filename; 
-  let in_channel = open_in filename in
+  let in_channel = try open_in filename with Sys_error s -> raise (Error ("** " ^ s)) in
   let lexbuf = Lexing.from_channel in_channel in
   try
     let result = Parser.program Lexer.make_token lexbuf in

@@ -146,6 +146,7 @@ funname:
 fparam:
   | name                                {padorn (PatName $1)}
   | UNDERSCORE                          {padorn PatAny}
+  | LPAR RPAR                           {padorn PatUnit}
   | LPAR bpattern RPAR                  {$2}
   
 fparams:
@@ -353,6 +354,7 @@ bpatterns:
   
 simplebpattern:
   | UNDERSCORE                          {padorn PatAny}
+  | LPAR RPAR                           {padorn PatUnit}
   | name                                {padorn (PatName $1)}
   | LPAR bpattern RPAR                  {$2}
   | simplebpattern COLON typespec       {adorn (pwrap (Some $3) $1.inst.pnode)}

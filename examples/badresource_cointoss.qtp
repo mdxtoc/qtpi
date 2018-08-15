@@ -4,18 +4,18 @@
    -- i.e. an unfair coin.
  *)
 
-P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
+proc P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
                             | fromQ?(y) . y>>_X . toQ!y . _0
                      
-Q(x: qbit, toP:^qbit, fromP:^qbit) = 
+proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>_H . toP!x . fromP?(z) . x>>_H . _0 
 
-System() = (let bv = read_string "basis (0,1,+,-)")
-           (newq x = if   bv="0" then |0> 
-                     elif bv="1" then |1> 
-                     elif bv="+" then |+>
-                     elif bv="-" then |->
-                     else abandon "bad basis"
-                     fi) 
-           (new s:^qbit, r:^qbit) 
-           (P(s,r) | Q(x,s,r))
+proc System() = (let bv = read_string "basis (0,1,+,-)")
+                (newq x = if   bv="0" then |0> 
+                          elif bv="1" then |1> 
+                          elif bv="+" then |+>
+                          elif bv="-" then |->
+                          else abandon "bad basis"
+                          fi) 
+                (new s:^qbit, r:^qbit) 
+                (P(s,r) | Q(x,s,r))

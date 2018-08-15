@@ -1,5 +1,5 @@
 (* a naive eavesdropper. Sees Alice's bits but messes with them. Doesn't know 'n' *)
-Eve (qA, qB, bsA, bsB, report) =
+proc Eve (qA, qB, bsA, bsB, report) =
     (new done) (  CopyBits([],qA,qB,bsA,done)
                 | done?(bs)      .
                   done?(vs)      .
@@ -17,7 +17,7 @@ Eve (qA, qB, bsA, bsB, report) =
                   _0
                )
   
-CopyBits (bvs, qA, qB, bsA, result) =
+proc CopyBits (bvs, qA, qB, bsA, result) =
         qA?(q)          . (let b = randbit ())
                           q=?[if b=0 then _I else _H fi](v) . 
                           qB!q                              . 

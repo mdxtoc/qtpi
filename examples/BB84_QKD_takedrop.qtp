@@ -1,5 +1,5 @@
 
-Alice(n:int, r:^bit, qB, bsB) = 
+proc Alice(n:int, r:^bit, qB, bsB) = 
   (new chosen) (  AliceChoose (n,[],r,chosen)
                 | chosen?(bvs) . 
                   {print_strings ["Alice chose "; string_of_value bvs; "\n"]} .
@@ -7,18 +7,18 @@ Alice(n:int, r:^bit, qB, bsB) =
                )
 
 (* choose n basis,bit pairs *)
-AliceChoose(n, bvs, r, chosen) =
+proc AliceChoose(n, bvs, r, chosen) =
     if n=0 then chosen!bvs . _0
            else r?(b) . r?(v) . AliceChoose(n-1,(b,v)::bvs,r,chosen)
     fi
 
-AliceSend(bvs, qB, bsB) =
+proc AliceSend(bvs, qB, bsB) =
     (new done) (  AliceSendBits (bvs,qB,done)
                 | done?(s) . AliceNegotiate (bvs,bsB)
                )
 
 (* send encoded bits down channel qB *)
-AliceSendBits (bvs,qB,done) =   
+proc AliceSendBits (bvs,qB,done) =   
     match bvs .
         []         . done!() . _0
     <+> (b,v)::bvs . (newq q = match b,v .
@@ -32,7 +32,7 @@ AliceSendBits (bvs,qB,done) =
                      AliceSendBits(bvs,qB,done)
     hctam
 
-AliceNegotiate (bvs,bsB) =
+proc AliceNegotiate (bvs,bsB) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     {print_strings ["Bob sent bases "; string_of_value bBs; "\n"]} .
@@ -46,26 +46,26 @@ AliceNegotiate (bvs,bsB) =
                              )
                )
     
-AliceCheck (vBs, vs, done) =
+proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
       []    , _       . done!() . _0
   <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
   <+> _               . Bad ()
   hctam
 
-Reconcile (bBs,bvs,vs,done) =
+proc Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
    <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
    <+> _                   . Stop (["Reconcile failure"])
    hctam
   
-Stop (ss) = {print_strings (ss @ ["\n"])} . _0
+proc Stop (ss) = {print_strings (ss @ ["\n"])} . _0
 
-Bad () = Stop (["interference detected -- everything stops"])
-Good (vs) = Stop (["Alice's code is "; string_of_value vs])
+proc Bad () = Stop (["interference detected -- everything stops"])
+proc Good (vs) = Stop (["Alice's code is "; string_of_value vs])
 
-Bob(n:int, r:^bit, qA, bsA) = 
+proc Bob(n:int, r:^bit, qA, bsA) = 
     (new done) (  BobReceive(n,[],qA,r,done)
                 | done?(bvs)      . (* bvs is what I saw *)
                   {print_strings ["Bob saw "; string_of_value bvs; "\n"]} .
@@ -84,7 +84,7 @@ Bob(n:int, r:^bit, qA, bsA) =
                )
 
 (* receive qbits down qA, measure them, record the results *)
-BobReceive(n,bvs,qA,r,done) =
+proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(basis) .
@@ -94,8 +94,8 @@ BobReceive(n,bvs,qA,r,done) =
     fi
        
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
-System() = (let n = read_int "number of qbits")
-           (new r,qc,bsc)
-           (Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | (newq q = |0>) Random(q,r))
+proc System() = (let n = read_int "number of qbits")
+                (new r,qc,bsc)
+                (Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | (newq q = |0>) Random(q,r))

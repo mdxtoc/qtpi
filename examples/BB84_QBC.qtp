@@ -1,5 +1,5 @@
 
-Alice(n:int, r:^bit, qB, vB, report) = 
+proc Alice(n:int, r:^bit, qB, vB, report) = 
     r?(basis) .
     (let vs = randbits n)
     report![basis] .
@@ -9,7 +9,7 @@ Alice(n:int, r:^bit, qB, vB, report) =
                )
 
 (* send bits encoded in basis down channel qB *)
-AliceSendBits (vs,basis,qB,done) =   
+proc AliceSendBits (vs,basis,qB,done) =   
     match vs .
         []    . done!() . _0
     <+> v::vs . (newq q = match basis,v .
@@ -23,7 +23,7 @@ AliceSendBits (vs,basis,qB,done) =
                 AliceSendBits(vs,basis,qB,done)
     hctam
 
-Bob(n:int, r:^bit, qA, vA, report) = 
+proc Bob(n:int, r:^bit, qA, vA, report) = 
   (new done,verified) 
   (  BobReceive(n,[],qA,r,done)
    | done?(bvs) . 
@@ -39,7 +39,7 @@ Bob(n:int, r:^bit, qA, vA, report) =
   )
 
 (* receive qbits down qA, measure them, record the results *)
-BobReceive(n,bvs,qA,r,done) =
+proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
@@ -49,7 +49,7 @@ BobReceive(n,bvs,qA,r,done) =
     fi
 
 (* verify Alice's story *)
-BobVerify (basis,vs,bvs,done) =
+proc BobVerify (basis,vs,bvs,done) =
   match vs, bvs .
       []   , []           . Honest (done)
   <+> []   , _            . Liar (done)
@@ -60,13 +60,13 @@ BobVerify (basis,vs,bvs,done) =
                             fi
   hctam
   
-Liar   (done) = done!false . _0
-Honest (done) = done!true  . _0
+proc Liar   (done) = done!false . _0
+proc Honest (done) = done!true  . _0
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
-System() = (let k = read_int "number of trials")
+proc System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            (new r)
@@ -74,9 +74,9 @@ System() = (let k = read_int "number of trials")
             | (newq q = |0>) Random(q,r)
            )
            
-Report (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
+proc Report (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
-Control (k, i, verbose, nA, nB, nH, n, r) =
+proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
     {print_strings ["\n\nAll over: "; string_of_value nA; " Alice; ";
                                       string_of_value nB; " Bob; ";

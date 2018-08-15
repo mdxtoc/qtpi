@@ -1,7 +1,7 @@
 
-Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
+proc Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
 
-Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB) = 
+proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB) = 
   if i=0 then {print_strings ["all done: "; 
                               string_of_value nGood; " Eve's; ";
                               string_of_value nBad; " Alice's; ";
@@ -30,16 +30,16 @@ Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB)
   fi
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
-AliceChoose(n, bvs, r, chosen) =
+proc AliceChoose(n, bvs, r, chosen) =
     (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
-AliceSend(verbose, bvs, qB, bsB, again) =
+proc AliceSend(verbose, bvs, qB, bsB, again) =
     (new done) (  AliceSendBits (bvs,qB,done)
                 | done?(s) . AliceNegotiate (verbose, bvs, bsB, again)
                )
 
 (* send encoded bits down channel qB *)
-AliceSendBits (bvs,qB,done) =   
+proc AliceSendBits (bvs,qB,done) =   
     match bvs .
         []         . done!() . _0
     <+> (b,v)::bvs . (newq q = match b,v .
@@ -53,7 +53,7 @@ AliceSendBits (bvs,qB,done) =
                      AliceSendBits(bvs,qB,done)
     hctam
 
-AliceNegotiate (verbose,bvs,bsB,again) =
+proc AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
@@ -78,14 +78,14 @@ AliceNegotiate (verbose,bvs,bsB,again) =
                              )
                )
     
-AliceCheck (vBs, vs, done) =
+proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
       []    , _       . done!true . _0
   <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0 fi
   <+> _               . done!false . _0
   hctam
 
-Reconcile (bBs,bvs,vs,done) =
+proc Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
    <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
@@ -93,7 +93,7 @@ Reconcile (bBs,bvs,vs,done) =
    hctam
   
 
-Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
+proc Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
   if k=0 then _0
   else
     (new done) (  BobReceive(n,[],qA,r,done)
@@ -115,7 +115,7 @@ Bob(k, verbose, n:int, r:^bit, qA, bsA) =
   fi
   
 (* receive qbits down qA, measure them, record the results *)
-BobReceive(n,bvs,qA,r,done) =
+proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
@@ -125,7 +125,7 @@ BobReceive(n,bvs,qA,r,done) =
     fi
        
 (* a very naive eavesdropper. Sees Alice's bits but messes with them. Knows 'n', somehow *)
-Eve (k, verbose, n, r:^bit, qA, qB) =
+proc Eve (k, verbose, n, r:^bit, qA, qB) =
   if k=0 then _0
   else
     (new done) (  EvesDrop(n,[],r,qA,qB,done)
@@ -135,7 +135,7 @@ Eve (k, verbose, n, r:^bit, qA, qB) =
                )
   fi
   
-EvesDrop (n, bvs, r:^bit, qA, qB, done) =
+proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(b) .
@@ -145,11 +145,15 @@ EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     fi
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
-System() = (let k = read_int "number of trials")
-           (let n = read_int "number of qbits")
-           (let s = read_string "with commentary (y/n)")
-           (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
-           (new r,qc1,qc2,bsc)
-           (Alice(k,verbose,n,r,qc1,bsc) | Bob(k,verbose,n,r,qc2,bsc) | Eve (k,verbose,n,r,qc1,qc2) | (newq q = |0>) Random(q,r))
+proc System() = (let k = read_int "number of trials")
+                (let n = read_int "number of qbits")
+                (let s = read_string "with commentary (y/n)")
+                (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon "pardon?" hctam)
+                (new r,qc1,qc2,bsc)
+                (  Alice(k,verbose,n,r,qc1,bsc) 
+                 | Bob(k,verbose,n,r,qc2,bsc) 
+                 | Eve (k,verbose,n,r,qc1,qc2) 
+                 | (newq q = |0>) Random(q,r)
+                )

@@ -1,4 +1,4 @@
-Alice(n:int, qB, bsB, report) = 
+proc Alice(n:int, qB, bsB, report) = 
   (new chosen) 
   (  Choose (n,[],chosen)
    | chosen?(bvs) . 
@@ -12,11 +12,11 @@ Alice(n:int, qB, bsB, report) =
   )
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
-Choose(n, bvs, chosen) =
+proc Choose(n, bvs, chosen) =
     (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
 (* send encoded bits down channel qB *)
-SendBits (bvs,qB,sent) =   
+proc SendBits (bvs,qB,sent) =   
     match bvs .
         []         . sent!() . _0
     <+> (b,v)::bvs . (newq q = match b,v .
@@ -30,7 +30,7 @@ SendBits (bvs,qB,sent) =
                      SendBits(bvs,qB,sent)
     hctam
 
-Negotiate (bvs,bsB,report) =
+proc Negotiate (bvs,bsB,report) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     report!bBs      .

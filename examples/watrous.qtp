@@ -1,6 +1,6 @@
-System() = (new cq:^Qbit, cc:^Bit*Bit, r:^Bit)( Alice(cq,cc,r) | Bob(cq,cc) | (qbit q){_measure q}.Random(q,r))
+proc System() = (new cq:^Qbit, cc:^Bit*Bit, r:^Bit)( Alice(cq,cc,r) | Bob(cq,cc) | (qbit q){_measure q}.Random(q,r))
 
-Alice(cq:^Qbit, cc:^Bit*Bit) =
+proc Alice(cq:^Qbit, cc:^Bit*Bit) =
     (qbit qx)
     r?(value:Bit)
     {if value=0b1 then qx >> _Phi(1) else () fi}.
@@ -10,12 +10,12 @@ Alice(cq:^Qbit, cc:^Bit*Bit) =
     cc!(value,basis).
     _0
         
-Bob(cq:^Qbit, cc:^Bit*Bit) =
+proc Bob(cq:^Qbit, cc:^Bit*Bit) =
     cq?(qx:Qbit).
     cc?((value,basis):Bit*Bit).
     {if basis=0b1 then qx >> _H else () fi}.
     {if _measure qx = value then True() else False()}.
     _0
     
-Random(q:Qbit, r:^Bit) = {q >> _H}.r!(_measure q).Random(q,r)
+proc Random(q:Qbit, r:^Bit) = {q >> _H}.r!(_measure q).Random(q,r)
     

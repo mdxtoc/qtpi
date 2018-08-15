@@ -1,17 +1,17 @@
 
-Alice (x:qbit, c:^0..3, z:qbit, report) = 
+proc Alice (x:qbit, c:^0..3, z:qbit, report) = 
     {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "\n"} .
     z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz++vx . 
     dispose!x . dispose!z .
     report!() . _0 
 
-Bob(y:qbit, c:^0..3, report) = 
+proc Bob(y:qbit, c:^0..3, report) = 
     c?(n) . y>>_Phi(n) . 
     {print_string "finally Bob's y is "} . {print_qbit y} . {print_string "\n"} .
     dispose!y .
     report!() . _0 
 
-System () = 
+proc System () = 
   (let k = read_int "number of trials")
   (let standard = read_bool "standard initial state or random" "s" "r")
   {if standard then ()
@@ -21,7 +21,7 @@ System () =
   {print_string "See output for results -- can print but can't examine qbit state\n"} .
   Report (k, standard, 0)
 
-Report (k, standard, i) =
+proc Report (k, standard, i) =
   if i=k then {print_strings [string_of_value k; " trials\n"]} . _0
   else (new report)
        (  if standard then (newq x=|0>, y=|0>) Experiment (x, y, report)
@@ -32,7 +32,7 @@ Report (k, standard, i) =
        )
   fi
   
-Experiment (x, y, report) =
+proc Experiment (x, y, report) =
   x>>_H . x,y>>_CNot . 
   (new c:^0..3)
   (newq z)

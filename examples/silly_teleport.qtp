@@ -1,12 +1,12 @@
 
-Alice (x:qbit, c:^0..3, z:qbit) = 
+proc Alice (x:qbit, c:^0..3, z:qbit) = 
     {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "; "} .
 	z,x>>_CNot . x=?[_H](vz) . z=?(vx) . c!vz++vx . _0 
 
-Bob(y:qbit, c:^0..3) = 
+proc Bob(y:qbit, c:^0..3) = 
   	c?(n) . y>>_Phi(n) . 
     {print_string "finally Bob's y is "} .  {print_qbit y} . {print_string "\n"} .
   	_0
 
-System () = 
+proc System () = 
   	(newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^0..3) (Alice(x,c,z) | Bob(y,c))

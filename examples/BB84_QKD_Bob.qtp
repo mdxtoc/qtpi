@@ -1,4 +1,4 @@
-Bob(n:int, qA, bsA, report) = 
+proc Bob(n:int, qA, bsA, report) = 
     (new received, reconciled) 
     (  ReceiveBits(n,[],qA,received)
      | received?(bvs)     . (* bvs is what I saw *)
@@ -26,7 +26,7 @@ Bob(n:int, qA, bsA, report) =
     )
   
 (* receive qbits, measure them, record the results *)
-ReceiveBits(n,bvs,qA,result) =
+proc ReceiveBits(n,bvs,qA,result) =
     if n=0 then result!rev bvs . _0
     else qA?(q).
          (let basis = randbit ())

@@ -1,5 +1,5 @@
 
-System () = (newq q) 
+proc System () = (newq q) 
 			{print_string "initially "} . {print_qbit q} . {print_string "; "} .
 			q>>_H . 
 			q>>_H . 

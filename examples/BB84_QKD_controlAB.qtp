@@ -1,16 +1,16 @@
-Experiment (n,reportA,reportB) = (new qc,bsc)
+proc Experiment (n,reportA,reportB) = (new qc,bsc)
                                  (  Alice (n,qc,bsc,reportA) 
                                   | Bob   (n,qc,bsc,reportB)
                                  )
     
-System() = (let k = read_int "number of trials")
+proc System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            Report (k, verbose, n)
            
-Report (k, verbose, n) = Controller (k, 0, verbose, 0, 0, -1, n)
+proc Report (k, verbose, n) = Controller (k, 0, verbose, 0, 0, -1, n)
 
-Controller (k, i, verbose, nOk, sumChecks, minChecks, n) =
+proc Controller (k, i, verbose, nOk, sumChecks, minChecks, n) =
   if i<k then {print_strings ["trial number "; string_of_value (i+1); if verbose then "\n" else " " fi]} .
               (new reportA,reportB)
               (  Experiment (n,reportA,reportB) 

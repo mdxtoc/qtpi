@@ -31,23 +31,19 @@ proc SendBits (bvs,qB,sent) =
     hctam
 
 proc Negotiate (bvs,bsB,report) =
-    bsB!map fst bvs . (* send him my bases *)
-    bsB?(bBs)       . (* receive his bases *)
-    report!bBs      .
-    (new reconciled) 
-    (  Reconcile (bBs, bvs, [], reconciled)
-     | reconciled?(rvs)  . (* rvs are the values we should agree upon *)
-       report!rvs        . 
-       bsB?(mask)        . (* A mask of rvs: 0b1 if sampled *)
-       report!mask       .
-       bsB?(sample)      . (* the corresponding bits from vs *)
-       report!sample     .
-       (let b = test_checkbits mask sample rvs)
-       (new filtered)
-       (let code = masked_filter mask rvs [])
-       report!if b then 0b1 else 0b0 fi::code . 
-       bsB?(codedvs)     .
-       report!codedvs    .
-       report!(xor_mask code codedvs) .
-       _0
-    )
+    bsB!map fst bvs   . (* send him my bases *)
+    bsB?(bBs)         . (* receive his bases *)
+    report!bBs        . (* report his bases *)
+    (let rvs = reconcile bBs bvs)
+    report!rvs        . (* report my reconciliation *)
+    bsB?(mask)        . (* A mask of rvs: 0b1 if sampled *)
+    report!mask       . (* report his mask *)
+    bsB?(sample)      . (* the corresponding bits from vs *)
+    report!sample     . (* report his sample *)
+    (let ok = test_checkbits mask sample rvs)
+    (let code = mask_filter 0b0 mask rvs)
+    report!if ok then 0b0 else 0b1 fi::code . 
+    bsB?(codedvs)     .
+    report!codedvs    .
+    report!(xor_mask code codedvs) .
+    _0

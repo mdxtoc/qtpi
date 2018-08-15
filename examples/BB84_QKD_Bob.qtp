@@ -1,5 +1,5 @@
 proc Bob(n:int, qA, bsA, report) = 
-    (new received, reconciled) 
+    (new received) 
     (  ReceiveBits(n,[],qA,received)
      | received?(bvs)     . (* bvs is what I saw *)
        report!map fst bvs .
@@ -7,22 +7,22 @@ proc Bob(n:int, qA, bsA, report) =
        bsA?(bAs)          . (* receive her bases *)
        report!bAs         .
        bsA!map fst bvs    . (* send my bases *)
-       Reconcile (bAs,bvs,[],reconciled)
-     | reconciled?(rvs) . (* the bits we should agree on *)
+       (let rvs = reconcile bAs bvs) (* the bits we should agree on *)
        report!rvs       .
-       (new sampled)
-       (  Sample (rvs, [], [], sampled)
-        | sampled?(mask)   .
-          sampled?(sample) .
-          bsA!mask         . (* send her the mask *)
-          bsA!sample       . (* send her the sample *)
-          (let code = masked_filter mask rvs [])
-           report!code    .
-           (let message = randbits (length code))
-           report!message .
-           bsA!(xor_mask code message) .
-           _0
+       (let mask = tabulate (length rvs) quarter
+                     where quarter = lam _ . if randbit()=0b1 && randbit()=0b1 
+                                             then 0b1 else 0b0 
+                                             fi
        )
+       (let checkbits = mask_filter 0b1 mask rvs)
+       bsA!mask         . (* send her the mask *)
+       bsA!checkbits    . (* send her the checkbits *)
+       (let code = mask_filter 0b0 mask rvs)
+       report!code      .
+       (let message = randbits (length code))
+       report!message   .
+       bsA!(xor_mask code message) .
+       _0
     )
   
 (* receive qbits, measure them, record the results *)

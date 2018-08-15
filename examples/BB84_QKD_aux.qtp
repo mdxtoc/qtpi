@@ -1,32 +1,17 @@
 (* check that masked bits in vs match check bits *)
 fun test_checkbits mask checks vs =
-  forall f mcvs where f ((mb,cb),vb) = mb<>0b1 || cb=vb
-                where mcs = zip mask checks
-                where mcvs = zip mcs vs
+  forall (lam (cb,vb) . cb=vb) 
+         (zip checks (mask_filter 0b1 mask vs)) 
 
 (* pick out the bits that are in the same bases *)
-proc Reconcile (bs,bvs,vs,result) =
-  match bs, bvs .
-       []    , []         . result!rev vs . _0
-   <+> b'::bs, (b,v)::bvs . Reconcile (bs, bvs, if b'=b then v::vs else vs fi, result)
-   <+> _                  . {abandon "Reconcile failure"} . _0
-   hctam
-  
+fun reconcile bs bvs =
+  mask_filter 0b0 (xor_mask bs bbs) vs
+    where bbs,vs = unzip bvs
+    
 (* filter out masked bits *)
-fun masked_filter mask vs filtered =
-  snd (unzip (filter f (zip mask vs)) where f (b,v) = b=0b0
+fun mask_filter (m:'a) (mask:'a list) (vs:'b list) : 'b list =
+  vs where _, vs = unzip mvs
+     where mvs = filter (lam (me,_) . me=m) (zip mask vs)
 
-fun xor_mask code message = map (uncurry2 xor_bits) (zip code message)
-
-(* sample bits at random: take a quarter for check bits *)
-proc Sample (vs, mask, sample, result) =
-  match vs .
-      []    . result!rev mask . result!rev sample . _0
-  <+> v::vs . (let b1, b2 = randbit(), randbit()) 
-              if b1=0b0 && b2=0b0 then 
-                Sample (vs, 0b1::mask, v::sample, result)
-              else
-                Sample (vs, 0b0::mask, sample, result)
-              fi
-  hctam
-
+fun xor_mask code message = 
+  map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)

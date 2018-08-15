@@ -11,7 +11,10 @@ proc System() = (let k = read_int "number of trials")
 proc Report (k, verbose, n) = Controller (k, 0, verbose, 0, 0, -1, n)
 
 proc Controller (k, i, verbose, nOk, sumChecks, minChecks, n) =
-  if i<k then {print_strings ["trial number "; string_of_value (i+1); if verbose then "\n" else " " fi]} .
+  if i<k then {if k<>1 then print_strings ["trial number "; string_of_value (i+1); 
+                                           if verbose then "\n" else " " fi] 
+                       else () fi
+              } .
               (new reportA,reportB)
               (  Experiment (n,reportA,reportB) 
                | reportA?(bsA)   .

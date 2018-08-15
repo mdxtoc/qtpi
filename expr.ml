@@ -52,15 +52,17 @@ and enode =
   | EMinus of expr
   | ENot of expr
   | ETuple of expr list
-  | ECons of expr * expr
   | ENil
+  | ECons of expr * expr
+  | EAppend of expr * expr
   | ECond of expr * expr * expr
   | EMatch of expr * ematch list
   | EApp of expr * expr
   | EArith of expr * arithop * expr
   | ECompare of expr * compareop * expr
   | EBoolArith of expr * boolop * expr
-  | EAppend of expr * expr
+  | ELambda of pattern list * expr
+  | EWhere of expr * pattern * expr
 
 and ugate = ugnode instance
 
@@ -130,9 +132,11 @@ let arithprio = function
 
 let consprio                =  Right,    300
 let unaryprio               =  NonAssoc, 400
-let appprio                 =  Left,     500
-let primaryprio             =  NonAssoc, 1000
+let lambdaprio              =  NonAssoc, 500
+let appprio                 =  Left    , 600
+let whereprio               =  Left    , 700
 let abitlessthanprimaryprio =  NonAssoc, 900
+let primaryprio             =  NonAssoc, 1000
 
 (* let string_of_prio = bracketed_string_of_pair string_of_prioritydir string_of_int *)
 
@@ -159,6 +163,8 @@ let rec exprprio e =
   | EBoolArith  (_,op,_)    -> boolprio op
   | EAppend     _           -> Left, 150    (* a temporary guess *)
   | ETuple      _           -> tupleprio
+  | ELambda     _           -> lambdaprio
+  | EWhere      _           -> whereprio
 
 let is_primary e = exprprio e = primaryprio
 
@@ -220,7 +226,7 @@ and string_of_expr e =
   | EString     _ 
   | ECond       _                   
   | EMatch      _                   -> string_of_primary e
-  | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 (if exprprio e2 = primaryprio then " " else "") appprio
+  | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
   | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
   | ENot   e                        -> Printf.sprintf "not %s" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
@@ -230,6 +236,8 @@ and string_of_expr e =
   | ECompare    (left, op, right)   -> string_of_binary_expr left right (string_of_compareop op) (compprio op)
   | EBoolArith  (left, op, right)   -> string_of_binary_expr left right (string_of_boolop    op) (boolprio op)
   | EAppend     (left, right)       -> string_of_binary_expr left right "@"                      (exprprio e)
+  | ELambda     (pats, expr)        -> Printf.sprintf "lam %s.%s" (string_of_list string_of_fparam " " pats) (string_of_expr expr)
+  | EWhere      (e,pat,e')          -> Printf.sprintf "%s where %s=%s" (string_of_expr e) (string_of_pattern pat) (string_of_expr e')
 
 and string_of_arithop = function
   | Plus    -> "+"

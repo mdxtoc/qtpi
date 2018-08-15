@@ -127,6 +127,14 @@ and string_of_gatepat g =
   | PatCnot     -> "_Cnot"
   | PatPhi p    -> Printf.sprintf "_Phi(%s)" (string_of_pattern p)
   
+let string_of_fparam pat =
+  let {pnode=pn; ptype=tor} = pat.inst in
+  match pn, !tor with
+  | PatUnit   , None
+  | PatName _ , None
+  | PatAny    , None -> string_of_pattern pat
+  | _                -> "(" ^ string_of_pattern pat ^ ")"
+
 let delist = function
   | []      -> PatUnit
   | [p]     -> p.inst.pnode

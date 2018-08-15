@@ -377,6 +377,10 @@ let rec evale env e =
                                       | Iff       -> v1 = v2
                                    )
   | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
+  | ELambda (pats, e)       -> fun_of e env pats
+  | EWhere  (e,pat,e')      -> let v = evale env e' in
+                               let env = bmatch env pat v in
+                               evale env e
                  
 and fun_of expr env pats =
   match pats with
@@ -621,22 +625,6 @@ let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
-(* a global function gets its environment from the stored_sysenv *)
-
-let stored_sysenv = ref []
-
-let rec fun_of expr env pats =
-  match pats with
-  | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
-  | []        -> evale env expr
-
-let bind_def = function
-  | Processdef  (n,params,p)     -> (n.inst, VProcess (strip_params params, p))
-  | Functiondef (n,fparams,expr) -> let f v = 
-                                      let env = !stored_sysenv in
-                                      fun_of expr (bmatch env (List.hd fparams) v) (List.tl fparams)
-                                    in
-                                    (n.inst, VFun f)
 let bind_def er = function
   | Processdef  (n,params,p)    -> (n.inst, VProcess (strip_params params, p))
   | Functiondef (n,pats,_,expr) -> let f v = 
@@ -649,7 +637,6 @@ let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let defassoc = List.map bind_def defs in
   let stored_sysenv = ref [] in
   let defassoc = List.map (bind_def stored_sysenv) defs in
   let sysenv = defassoc @ knownassoc in
@@ -657,7 +644,6 @@ let interpret defs =
   stored_sysenv := sysenv;
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
-  stored_sysenv := sysenv;
   let sysv = try sysenv <@> "System"
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 

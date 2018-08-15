@@ -239,6 +239,9 @@ let ctfa_def def =
                                       )
                                else ();
                                List.iter ctfa_expr [e1;e2]
+    | ELambda     (pats,e)  -> ctfa_expr e (* don't check the type: will be checked on use *)
+    | EWhere      (e,pat,e')-> ctfa_expr e; ctfa_pat "where" pat; ctfa_expr e'
+
     
   and ctfa_pat s pat = (* check binding restriction *)
     match pat.inst.pnode with
@@ -265,8 +268,6 @@ let ctfa_def def =
   match def with
   | Processdef(pn, params, proc) ->
       List.iter ctfa_param params; ctfa_proc proc
-  | Functiondef(fn, fparams, expr) ->
-      ctfa_expr expr; ctfa_type true (type_of_expr expr)
   | Functiondef(fn, pats, _, expr) ->
       ctfa_expr expr (* don't check the type: will be checked on use *)
   
@@ -463,7 +464,7 @@ and rck_pats rck state env reopt pxs =
     
 ;; (* to give rck_pat and rck_pats a universal type *)
 
-let r_o_e disjoint state env e =
+let rec r_o_e disjoint state env e =
   let rec re_env use env e =
     let rec re use e =
       let do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
@@ -559,14 +560,26 @@ let r_o_e disjoint state env e =
                                  let _, used2 = re use e2 in
                                  (* EAppend and EApp don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
+      | ELambda     (pats,e)  -> rck_fun state env pats e
+      | EWhere      (e,pat,e')-> let r', used' = re use e' in
+                                 let r, used = rck_pat (fun state env -> resources_of_expr state env e) state env pat (Some r') in
+                                 r, ResourceSet.union used used'
     in re use e
   in
   re_env Uok env e
   
-let resources_of_expr = r_o_e false
-let disjoint_resources_of_expr = r_o_e true
+and rck_fun state env pats expr =
+  (* this works because we only have bpats as params *)
+  let pos = pos_of_instances pats in
+  rck_pat (fun state env -> resources_of_expr state env expr) 
+          state env 
+          (adorn pos (pwrap None (PatTuple pats))) (* not in the tree, so nobody should notice *)
+          None
+  
+and resources_of_expr e = r_o_e false e
+and disjoint_resources_of_expr e = r_o_e true e
 
-let resource_of_params state params = 
+and resource_of_params state params = 
   List.fold_right (fun param (state, nrs) ->
                      let n, toptr = param.inst in
                      let state, r = resource_of_type (param.pos,n) state (_The !toptr) in
@@ -575,7 +588,7 @@ let resource_of_params state params =
                   params
                   (state,[])
 
-let rec rck_proc state env proc = 
+and rck_proc state env proc = 
   let badproc s =
     raise (ResourceError (proc.pos,
                           Printf.sprintf "checking %s: %s"
@@ -695,14 +708,8 @@ let rck_def env def =
       (* here we go with the symbolic execution *)
       let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
       ()
-  | Functiondef(fn, fparams, expr) -> 
-      (* this works because we only have bpats as params *)
-      let pos = pos_of_instances fparams in
-      ignore (rck_pat (fun state env -> resources_of_expr state env expr) 
-                      State.empty env 
-                      (adorn pos (pwrap None (PatTuple fparams))) (* not in the tree, so nobody should notice *)
-                      None
-             )
+  | Functiondef(fn, pats, _, expr) -> 
+      ignore (rck_fun State.empty env pats expr)
 
 (* *************** main function: trigger the phases *************************** *)
 
@@ -725,8 +732,8 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       let n = match def with
-              | Processdef  (pn, _, _) -> pn.inst
-              | Functiondef (fn, _, _) -> fn.inst
+              | Processdef  (pn, _, _)    -> pn.inst
+              | Functiondef (fn, _, _, _) -> fn.inst
       in
       env <@+> (n,RNull)
     in

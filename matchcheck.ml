@@ -430,6 +430,8 @@ let rec matchcheck_expr e =
   | ECons       (e1,e2)
   | EApp        (e1,e2)
   | EAppend     (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
+  | ELambda     (pats,e)    -> matchcheck_expr e
+  | EWhere      (e,pat,e')  -> matchcheck_expr e; matchcheck_expr e'
 
 let rec matchcheck_proc proc =
   if !verbose then 
@@ -475,7 +477,6 @@ let matchcheck_def def =
     Printf.printf "\nmatchcheck_def %s\n" (string_of_def def);
   match def with
   | Processdef  (pn, params, proc)  -> matchcheck_proc proc
-  | Functiondef (fn, fparams, expr) -> matchcheck_expr expr
   | Functiondef (fn, pats, _, expr) -> matchcheck_expr expr
 
 let matchcheck defs = push_verbose !verbose_matchcheck (fun () -> List.iter matchcheck_def defs)

@@ -86,6 +86,9 @@
 %token FORALL PROCESS
 
 /* remember %left %right %nonassoc and increasing priority */
+%left WHERE
+%nonassoc LAMBDA
+%nonassoc COMMA
 %right CONS
 %left AND OR
 %right NOT
@@ -121,7 +124,6 @@ processdef:
                                         {Processdef($2,$4,$7)}
 
 functiondef:
-  FUN funname fparams EQUALS expr       {Functiondef($2,$3,$5)}
   FUN funname fparams frestypeopt EQUALS expr       
                                         {Functiondef($2,$3,$4,$6)}
   
@@ -342,7 +344,6 @@ patterns:
   | pattern                             {[$1]}
   | pattern COMMA patterns              {$1::$3}
   
-/* simpler form of pattern for lets, reads. Can't fail to match */
 /* simpler form of pattern for lets, reads, and (for now) function defs. Can't fail to match */
 bpattern:
   | simplebpattern                      {$1}                
@@ -394,6 +395,10 @@ ematch:
   | pattern DOT expr                    {$1,$3}
   
 expr:
+  | nwexpr                              {$1}
+  | expr WHERE bpattern EQUALS nwexpr   {eadorn (EWhere ($1,$3,$5))}
+
+nwexpr:  
   | ntexpr                              {$1}
   | ntexpr COMMA ntexprs                {eadorn (ETuple ($1::$3))}
 
@@ -414,6 +419,7 @@ ntlexpr: /* neither tuple nor cons */
   | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in eadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in eadorn (EBoolArith (e1,op,e2))}
+  | LAMBDA fparams DOT expr             {eadorn (ELambda ($2,$4))} /* oh dear expr not ntexpr? */
 
 app:
   | primary primary                     {eadorn (EApp ($1,$2))}

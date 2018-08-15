@@ -214,6 +214,8 @@ let rewrite_def cxt = function
       rewrite_params cxt params; rewrite_process cxt proc
   | Functiondef (n, fparams, expr) ->
       rewrite_fparams cxt fparams; rewrite_expr cxt expr
+  | Functiondef (n, pats, _, expr) ->
+      rewrite_fparams cxt pats; rewrite_expr cxt expr
   
 (* useful in error messages *)
 let pickdiff cxt t t1 t2 = 
@@ -499,6 +501,32 @@ with
                                             )
                                      )
   
+and check_distinct_fparams pats =
+  let rec cdfp set pat =
+    match pat.inst.pnode with
+    | PatName   n -> if NameSet.mem n set then
+                       raise (Error (pat.pos,
+                                     Printf.sprintf "repeated parameter %s" n
+                                    )
+                             )
+                     else NameSet.add n set
+    | PatAny      
+    | PatUnit     -> set
+    | PatTuple ps -> List.fold_left cdfp set ps
+    | _           -> raise (Can'tHappen (Printf.sprintf "check_distinct_fparams %s" (string_of_pattern pat)))
+  in
+  ignore (List.fold_left cdfp NameSet.empty pats)
+  
+and assigntype_fun cxt t pats e =
+  match pats with
+  | pat::pats'  -> let ta = ntv pat.pos in
+                   let tr = ntv (pos_of_instances pats') in
+                   let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
+                   let cxt = unifytypes cxt t tf in
+                   let contn cxt () = assigntype_fun cxt tr pats' e in
+                   typecheck_pats contn cxt ta [pat,()]
+  | []          -> assigntype_expr cxt t e
+  
 and ok_procname n = 
   let c = Stringutils.first n.inst in
   if not ('A' <= c && c <= 'Z') then raise (Error (n.pos, "process name " ^ string_of_name n.inst ^ " should start with upper case"))
@@ -666,9 +694,13 @@ and typecheck_def cxt def =
           let tps = zip env_types params in
           List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytype cxt t (_The !rt)) cxt tps
       | Functiondef (fn,pats,expr) -> 
+          List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytypes cxt t (_The !rt)) cxt tps
+      | Functiondef (fn,pats,topt,expr) -> 
           let env_type = let t = cxt<@>fn.inst in
                          match t.inst with
                          | Fun _ -> t
+                         | Fun  _
+                         | Univ _ -> t
                          | _     -> raise (Can'tHappen (Printf.sprintf "%s not a function name"
                                                                        (string_of_name fn.inst)
                                                        )
@@ -712,6 +744,15 @@ and typecheck_def cxt def =
                        (short_string_of_typecxt cxt)
         );
        cxt
+          evalcxt (assigntype_fun cxt (Type.instantiate env_type) pats expr)
+  in
+  if !verbose then
+    (rewrite_def cxt def;
+     Printf.printf "after typecheck_def, def = %s\n\ncxt = %s\n\n" 
+                   (string_of_def def) 
+                   (short_string_of_typecxt cxt)
+    );
+   cxt
       
 let make_library_cxt () =
   let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
@@ -747,6 +788,7 @@ let typecheck defs =
                          )
               else cxt <@+> (pn.inst, (adorn pn.pos (Process (process_params ps))))
           | Functiondef (fn,ps,e) ->
+          | Functiondef (fn,pats,topt,e) ->
               ok_funname fn;
               let rec check_distinct set pat =
                 match pat.inst.pnode with
@@ -771,9 +813,33 @@ let typecheck defs =
                 match pts with
                 | pt::pts' -> adorn (pos_of_instances pts) (Fun (pt, ftype rt pts'))
                 | []       -> rt
+              check_distinct_fparams pats;
+              let rec inventtype_fun set = function
+                | pat::pats'  -> let set, ta = inventtype_pat set pat in
+                                 let set, tr = inventtype_fun set pats' in
+                                 set, adorn (pos_of_instances pats) (Fun (ta,tr))
+                | []          -> (match topt with 
+                                  | None   -> set, ntv e.pos 
+                                  | Some t -> NameSet.union set (Type.frees t), t
+                                 )
+              and inventtype_pat set pat =
+                match !(pat.inst.ptype) with
+                  | Some t -> NameSet.union set (Type.frees t), t
+                  | None   -> match pat.inst.pnode with
+                              | PatName _ 
+                              | PatAny          -> set, ntv pat.pos
+                              | PatUnit         -> set, adorn pat.pos Unit
+                              | PatTuple pats   -> let itp (set, ts) pat = 
+                                                     let set, t = inventtype_pat set pat in
+                                                     set, t::ts
+                                                   in
+                                                   let set, ts = List.fold_left itp (set,[]) pats in
+                                                   set, adorn pat.pos (Tuple (List.rev ts))
+                              | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
               in
-              cxt <@+> (fn.inst, ftype (ntv e.pos) ts)
-              
+              let set, t = inventtype_fun NameSet.empty pats in
+              let t = if NameSet.is_empty set then t else adorn t.pos (Univ (NameSet.elements set, t)) in
+              cxt <@+> (fn.inst, t)
         in
         let cxt = List.fold_left header_type cxt defs in
         let cxt = List.fold_left typecheck_def cxt defs in

@@ -378,6 +378,11 @@ let rec evale env e =
                                    )
   | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
                  
+and fun_of expr env pats =
+  match pats with
+  | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
+  | []        -> evale env expr
+
 and unitev env e =
   match evale env e with
   | VUnit -> ()
@@ -632,14 +637,24 @@ let bind_def = function
                                       fun_of expr (bmatch env (List.hd fparams) v) (List.tl fparams)
                                     in
                                     (n.inst, VFun f)
+let bind_def er = function
+  | Processdef  (n,params,p)    -> (n.inst, VProcess (strip_params params, p))
+  | Functiondef (n,pats,_,expr) -> let f v = 
+                                     let env = !er in
+                                     fun_of expr (bmatch env (List.hd pats) v) (List.tl pats)
+                                   in
+                                   (n.inst, VFun f)
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let defassoc = List.map bind_def defs in
+  let stored_sysenv = ref [] in
+  let defassoc = List.map (bind_def stored_sysenv) defs in
   let sysenv = defassoc @ knownassoc in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
+  stored_sysenv := sysenv;
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   stored_sysenv := sysenv;

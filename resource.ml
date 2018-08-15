@@ -267,6 +267,8 @@ let ctfa_def def =
       List.iter ctfa_param params; ctfa_proc proc
   | Functiondef(fn, fparams, expr) ->
       ctfa_expr expr; ctfa_type true (type_of_expr expr)
+  | Functiondef(fn, pats, _, expr) ->
+      ctfa_expr expr (* don't check the type: will be checked on use *)
   
 (* *************** phase 2: resource check (rck_...) *************************** *)
 

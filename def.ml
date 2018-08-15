@@ -26,25 +26,22 @@ open Process
 open Expr
 open Pattern
 open Param
+open Type
 
 type def = 
   | Processdef of name instance * param list * process
-  | Functiondef of name instance * pattern list * expr 
+  | Functiondef of name instance * pattern list * _type option * expr 
 
 let rec string_of_def = function
-  | Processdef  (pn,params,proc) -> Printf.sprintf "proc %s(%s) = %s"
+  | Processdef  (pn,params,proc)    -> Printf.sprintf "proc %s(%s) = %s"
                                        (string_of_name pn.inst)
                                        (String.concat "," (List.map string_of_param params))
                                        (string_of_process proc)
-  | Functiondef (fn,params,expr) -> Printf.sprintf "fun %s %s = %s"
+  | Functiondef (fn,pats,topt,expr) -> Printf.sprintf "fun %s %s%s = %s"
                                        (string_of_name fn.inst)
-                                       (String.concat " " (List.map string_of_fparam params))
+                                       (String.concat " " (List.map string_of_fparam pats))
+                                       (match topt with
+                                        | Some t -> Printf.sprintf " :%s" (string_of_type t)
+                                        | None   -> ""
+                                       )
                                        (string_of_expr expr)
-
-and string_of_fparam pat =
-  let {pnode=pn; ptype=tor} = pat.inst in
-  match pn, !tor with
-  | PatName _ , None
-  | PatAny    , None -> string_of_pattern pat
-  | _                -> "(" ^ string_of_pattern pat ^ ")"
-  

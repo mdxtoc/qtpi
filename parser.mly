@@ -122,6 +122,8 @@ processdef:
 
 functiondef:
   FUN funname fparams EQUALS expr       {Functiondef($2,$3,$5)}
+  FUN funname fparams frestypeopt EQUALS expr       
+                                        {Functiondef($2,$3,$4,$6)}
   
 procname:
   | name                                {adorn $1}
@@ -150,6 +152,10 @@ fparams:
   | fparam                              {[$1]}
   | fparam fparams                      {$1::$2}
     
+frestypeopt:
+  |                                     {None}
+  | COLON typespec                      {Some $2}
+
 name:
   NAME                                  {$1}
   
@@ -336,6 +342,7 @@ patterns:
   | pattern COMMA patterns              {$1::$3}
   
 /* simpler form of pattern for lets, reads. Can't fail to match */
+/* simpler form of pattern for lets, reads, and (for now) function defs. Can't fail to match */
 bpattern:
   | simplebpattern                      {$1}                
   | simplebpattern COMMA bpatterns      {padorn (Pattern.delist ($1::$3))}

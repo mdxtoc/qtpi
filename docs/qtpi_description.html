@@ -199,6 +199,11 @@
 <li><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>const</em>: <em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em></li>
 <li><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>exists</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>bool</em></li>
+<li><em>filter</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>foldl</em>: (<em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em>) -&gt; <em>'a</em> -&gt; <em>'b list</em> -&gt; <em>'a</em></li>
+<li><em>foldl</em>: (<em>'a</em> -&gt; <em>'b</em> -&gt; <em>'b</em>) -&gt; <em>'b</em> -&gt; <em>'a list</em> -&gt; <em>'b</em></li>
+<li><em>forall</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>fst</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'a</em></li>
 <li><em>hd</em>: <em>'a list</em> -&gt; <em>'a</em>
 <ul>
@@ -227,30 +232,24 @@
 <li>raises an exception if applied to lists of differing lengths</li>
 </ul>
 </li>
-</ul>
-<p>I/O functions.</p>
+<li><em>read_bool</em>: <em>string</em> -&gt; <em>string</em> -&gt; <em>string</em> -&gt; <em>bool</em>
 <ul>
-<li>
-<p><em>read_int</em>: <em>string</em> -&gt; <em>int</em></p>
+<li>prompt, true_response, false_response</li>
+</ul>
 </li>
-<li>
-<p><em>read_string</em>: <em>string</em> -&gt; <em>string</em></p>
+<li><em>read_int</em>: <em>string</em> -&gt; <em>int</em></li>
+<li><em>read_string</em>: <em>string</em> -&gt; <em>string</em>
 <ul>
 <li><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</li>
 </ul>
 </li>
-<li>
-<p><em>print_qbit</em>: <em>qbit</em> -&gt; <em>unit</em></p>
+<li><em>print_qbit</em>: <em>qbit</em> -&gt; <em>unit</em>
 <ul>
 <li>prints a string <em>q</em><code>(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector in the computational basis. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <code>[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</li>
 </ul>
 </li>
-<li>
-<p><em>print_string</em>: <em>string</em> -&gt; <em>unit</em></p>
-</li>
-<li>
-<p><em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></p>
-</li>
+<li><em>print_string</em>: <em>string</em> -&gt; <em>unit</em></li>
+<li><em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></li>
 </ul>
 </li>
 </ul>

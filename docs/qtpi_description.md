@@ -191,6 +191,11 @@ A program is a sequence of process definitions. One of the process descriptions 
 	* *append*: *'a list* -> *'a list* -> *'a list*
 	* *const*: *'a* -> *'b* -> *'a*
 	* *drop*: *int* -> *'a list* -> *'a list*
+	* *exists*: (*'a* -> *bool*) -> *'a list* -> *bool*
+	* *filter*: (*'a* -> *bool*) -> *'a list* -> *'a list*
+	* *foldl*: (*'a* -> *'b* -> *'a*) -> *'a* -> *'b list* -> *'a*
+	* *foldl*: (*'a* -> *'b* -> *'b*) -> *'b* -> *'a list* -> *'b*
+	* *forall*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 	* *fst*: *'a*\**'b* -> *'a*  
 	* *hd*: *'a list* -> *'a*  
 		* raises an exception if applied to `[]`  
@@ -207,13 +212,11 @@ A program is a sequence of process definitions. One of the process descriptions 
 	* *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
 	* *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
 		* raises an exception if applied to lists of differing lengths 
-	
-	I/O functions.
-
+	* *read_bool*: *string* -> *string* -> *string* -> *bool*
+		* prompt, true\_response, false\_response
 	* *read_int*: *string* -> *int*
 	* *read_string*: *string* -> *string*
 		* *read_int* and *read_string* take a prompt-string argument.  
-
 	* *print_qbit*: *qbit* -> *unit*
 		* prints a string *q*`(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector in the computational basis. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like `[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `[0,1](h|00>+h|01>)`. And so on for larger entanglements.
 	* *print_string*: *string* -> *unit*

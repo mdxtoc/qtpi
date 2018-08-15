@@ -35,6 +35,8 @@ open Interpret
 let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
 let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
+let funv2 f = funv <.> funv f
+
 let v_hd vs =
   let vs = listv vs in
   try List.hd vs with _ -> raise (LibraryError "hd []")
@@ -48,37 +50,51 @@ let v_append xs ys =
   let ys = listv ys in
   vlist (List.append xs ys)
   
-let v_iter f xs =
+let v_fxs cf vf v2cf f xs =
   let f = funv f in
   let xs = listv xs in
-  vunit (List.iter (fun v -> ignore (f v)) xs)
+  vf (cf (v2cf <.> f) xs)
+;;
 
-let v_map f xs =
-  let f = funv f in
+let v_iter = v_fxs List.iter vunit ignore
+
+let v_map = v_fxs List.map vlist id
+
+let v_filter = v_fxs List.filter vlist boolv
+
+let v_exists = v_fxs List.exists vbool boolv
+
+let v_forall = v_fxs List.for_all vbool boolv
+
+let v_foldl f a xs = 
+  let f = funv2 f in
   let xs = listv xs in
-  vlist (List.map f xs)
+  List.fold_left f a xs
+  
+let v_foldr f a xs = 
+  let f = funv2 f in
+  let xs = listv xs in
+  List.fold_right f xs a
 
 let v_take n xs =
   let n = intv n in
   let xs = listv xs in
-  let rec take rs n xs =
-    match n, xs with
-    | 0, _
-    | _, []     -> vlist (List.rev rs)
-    | _, x::xs  -> take (x::rs) (n-1) xs
-  in
-  take [] n xs
+  vlist (Listutils.take n xs)
+  
+let v_takewhile p xs =
+  let p = boolv <.> funv p in
+  let xs = listv xs in
+  vlist (Listutils.takewhile p xs)
   
 let v_drop n xs =
   let n = intv n in
   let xs = listv xs in
-  let rec drop n xs =
-    match n, xs with
-    | 0, _
-    | _, []     -> vlist xs
-    | _, x::xs  -> drop (n-1) xs
-  in
-  drop n xs
+  vlist (Listutils.drop n xs)
+
+let rec v_dropwhile p xs =
+  let p = boolv <.> funv p in
+  let xs = listv xs in
+  vlist (Listutils.dropwhile p xs)
 
 let v_randbits n =
   let n = intv n in
@@ -102,22 +118,33 @@ exception Abandon of string
 let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
                   vpair (vlist xs, vlist ys)
 
-let _ = Interpret.know ("length"  , "'a list -> int"                    , vfun (vint <.> List.length <.> listv))
+let _ = Interpret.know ("length"   , "'a list -> int                        ", vfun (vint <.> List.length <.> listv))
 
-let _ = Interpret.know ("hd"      , "'a list -> 'a"                     , vfun v_hd)
-let _ = Interpret.know ("tl"      , "'a list -> 'a list"                , vfun v_tl)
+let _ = Interpret.know ("hd"       , "'a list -> 'a                         ", vfun v_hd)
+let _ = Interpret.know ("tl"       , "'a list -> 'a list                    ", vfun v_tl)
 
-let _ = Interpret.know ("rev"     , "'a list -> 'a list"                , vfun (vlist <.> List.rev <.> listv))
-let _ = Interpret.know ("append"  , "'a list -> 'a list -> 'a list"     , vfun2 v_append)
+let _ = Interpret.know ("rev"      , "'a list -> 'a list                    ", vfun (vlist <.> List.rev <.> listv))
+let _ = Interpret.know ("append"   , "'a list -> 'a list -> 'a list         ", vfun2 v_append)
 
-let _ = Interpret.know ("iter"    , "('a -> unit) -> 'a list -> unit"   , vfun2 v_iter)
-let _ = Interpret.know ("map"     , "('a -> 'b) -> 'a list -> 'b list"  , vfun2 v_map)
+let _ = Interpret.know ("iter"     , "('a -> unit) -> 'a list -> unit       ", vfun2 v_iter)
+let _ = Interpret.know ("map"      , "('a -> 'b) -> 'a list -> 'b list      ", vfun2 v_map)
 
-let _ = Interpret.know ("take"    , "int -> 'a list -> 'a list"         , vfun2 v_take)
-let _ = Interpret.know ("drop"    , "int -> 'a list -> 'a list"         , vfun2 v_drop)
+let _ = Interpret.know ("take"     , "int -> 'a list -> 'a list             ", vfun2 v_take)
+let _ = Interpret.know ("drop"     , "int -> 'a list -> 'a list             ", vfun2 v_drop)
 
-let _ = Interpret.know ("zip"     , "'a list -> 'b list -> ('a*'b) list", vfun2 v_zip)
-let _ = Interpret.know ("unzip"   , "('a*'b) list -> 'a list * 'b list" , vfun v_unzip)
+let _ = Interpret.know ("takewhile", "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_takewhile)
+let _ = Interpret.know ("dropwhile", "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_dropwhile)
+
+let _ = Interpret.know ("zip"      , "'a list -> 'b list -> ('a*'b) list    ", vfun2 v_zip)
+let _ = Interpret.know ("unzip"    , "('a*'b) list -> 'a list * 'b list     ", vfun v_unzip)
+
+let _ = Interpret.know ("filter"   , "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_filter)
+
+let _ = Interpret.know ("exists"   , "('a -> bool) -> 'a list -> bool       ", vfun2 v_exists)
+let _ = Interpret.know ("forall"   , "('a -> bool) -> 'a list -> bool       ", vfun2 v_forall)
+
+let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> 'b list -> 'a", vfun3 v_foldl)
+let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> 'a list -> 'b", vfun3 v_foldr)
 
 let v_tabulate n f =
   let n = intv n in
@@ -135,9 +162,6 @@ let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (
 
 let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
-
-let xor_bits b1 b2 = vbit (bitv b1 lxor bitv b2)
-let _ = Interpret.know ("xor_bits", "bit -> bit -> bit"                 , vfun2 xor_bits)
 
 let read_int s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"                     , vfun (vint <.> read_int <.> stringv))
@@ -167,9 +191,3 @@ let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (
 let _ = Interpret.know ("print_qbit"   , "qbit -> unit"         , vfun print_qbit)
 
 let _ = Interpret.know ("string_of_value", "'a -> string", vfun (vstring <.> string_of_value))
-
-let uncurry2 f ab = let a,b = pairv ab in
-                        let f = funv f in
-                        (funv (f a)) b
-let _ = Interpret.know ("uncurry2", "('a -> 'b -> 'c) -> ('a*'b) -> 'c", vfun2 uncurry2)
-

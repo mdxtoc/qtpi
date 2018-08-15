@@ -113,7 +113,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples.  
     * `::` (cons) is now included.  
-    * `++` combines bits: *a*`++`*b* is *a* times 2 plus *b*. Included because it helps with range typing.
 
 * Process name *N*
 

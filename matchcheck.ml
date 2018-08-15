@@ -429,8 +429,7 @@ let rec matchcheck_expr e =
   | EBoolArith  (e1,_,e2)   -> matchcheck_expr e1; matchcheck_expr e2
   | ECons       (e1,e2)
   | EApp        (e1,e2)
-  | EAppend     (e1,e2)
-  | EBitCombine (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
+  | EAppend     (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
 
 let rec matchcheck_proc proc =
   if !verbose then 

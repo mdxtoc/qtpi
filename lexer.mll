@@ -124,9 +124,11 @@ rule make_token = parse
   | "match"     {MATCH}
   | "hctam"     {HCTAM}
   
-  | "letr"      {LETR}
   | "fun"       {FUN}
   | "proc"      {PROC}
+  | "where"     {WHERE}
+  | "and"       {ANDWHERE}
+  | "lam"       {LAMBDA}
   
   | '?'         {QUERY}
   | '!'         {BANG}
@@ -136,7 +138,6 @@ rule make_token = parse
   | ','         {COMMA}
   | ';'         {SEMICOLON}
   
-  | "++"        {PLUSPLUS}
   | '+'         {PLUS}
   | '-'         {MINUS}
   | '/'         {DIV}

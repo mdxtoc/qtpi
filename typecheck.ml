@@ -130,8 +130,7 @@ let rec rewrite_expr cxt e =
                                    List.iter (fun (pat,e) -> rewrite_pattern cxt pat; rewrite_expr cxt e) ems
        | ECons       (e1,e2)
        | EApp        (e1,e2)     
-       | EAppend     (e1,e2)
-       | EBitCombine (e1,e2)    -> List.iter (rewrite_expr cxt) [e1;e2]
+       | EAppend     (e1,e2)    -> List.iter (rewrite_expr cxt) [e1;e2]
        | EArith      (e1,_,e2)   
        | ECompare    (e1,_,e2)   
        | EBoolArith  (e1,_,e2)  -> List.iter (rewrite_expr cxt) [e1;e2]
@@ -450,20 +449,6 @@ and assigntype_expr cxt t e =
                                let cxt = assigntype_expr cxt t' e1 in
                                let cxt = assigntype_expr cxt t' e2 in
                                unifytype cxt t t'
-     | EBitCombine (e1, e2) -> let t' = ntv e.pos in
-                               let cxt = assigntype_expr cxt t' e1 in
-                               let cxt = assigntype_expr cxt (adorn_x e2 Bit) e2 in
-                               (* if e1 is a Bit, an Int or a Range then we know what to do. 
-                                * Otherwise force Int
-                                *)
-                               let t' = evaltype cxt t' in
-                               (match t'.inst with
-                                | Int         -> unifytype cxt t t'
-                                | Bit         -> unifytype cxt t (adorn_x e (Range (0,3)))
-                                | Range (j,k) -> unifytype cxt t (adorn_x e (Range (2*j, 2*k+1)))
-                                | t1          -> let cxt = unifytype cxt t' (adorn_x e Int) in
-                                                 unifytype cxt t (adorn_x e Int)
-                               )
 with 
   | TypeUnifyError (t1,t2)  -> raise (Error (e.pos,
                                              Printf.sprintf "%s appears to be type %s, but in context should be %s"

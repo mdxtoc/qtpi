@@ -231,8 +231,7 @@ let ctfa_def def =
     | EArith      (e1,_,e2)
     | ECompare    (e1,_,e2)
     | EBoolArith  (e1,_,e2) -> List.iter ctfa_expr [e1;e2]
-    | ECons       (e1,e2)    
-    | EBitCombine (e1,e2)   -> List.iter ctfa_expr [e1;e2]
+    | ECons       (e1,e2)   -> List.iter ctfa_expr [e1;e2]
     | EAppend     (e1,e2)   -> if is_resource_type (type_of_expr e) then
                                 raise (ResourceError (e.pos,
                                                       "list append may not be applied to lists including qbits"
@@ -558,7 +557,6 @@ let r_o_e disjoint state env e =
                                  let _, used2 = re use e2 in
                                  (* EAppend and EApp don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
-      | EBitCombine (e1,e2)   -> let _, used = do_list Uarith   [e1;e2] in RNull, used
     in re use e
   in
   re_env Uok env e

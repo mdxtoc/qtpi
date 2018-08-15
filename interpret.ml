@@ -377,9 +377,6 @@ let rec evale env e =
                                       | Iff       -> v1 = v2
                                    )
   | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
-  | EBitCombine (e1, e2)    -> let v1 = intev env e1 in
-                               let v2 = intev env e2 in
-                               VInt (v1*2+v2)
                  
 and unitev env e =
   match evale env e with

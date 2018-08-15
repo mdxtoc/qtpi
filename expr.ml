@@ -61,7 +61,6 @@ and enode =
   | ECompare of expr * compareop * expr
   | EBoolArith of expr * boolop * expr
   | EAppend of expr * expr
-  | EBitCombine of expr * expr
 
 and ugate = ugnode instance
 
@@ -159,7 +158,6 @@ let rec exprprio e =
   | ECompare    (_,op,_)    -> compprio op
   | EBoolArith  (_,op,_)    -> boolprio op
   | EAppend     _           -> Left, 150    (* a temporary guess *)
-  | EBitCombine     _       -> Left, 155    (* a temporary guess *)
   | ETuple      _           -> tupleprio
 
 let is_primary e = exprprio e = primaryprio
@@ -232,7 +230,6 @@ and string_of_expr e =
   | ECompare    (left, op, right)   -> string_of_binary_expr left right (string_of_compareop op) (compprio op)
   | EBoolArith  (left, op, right)   -> string_of_binary_expr left right (string_of_boolop    op) (boolprio op)
   | EAppend     (left, right)       -> string_of_binary_expr left right "@"                      (exprprio e)
-  | EBitCombine (left, right)       -> string_of_binary_expr left right "++"                     (exprprio e)
 
 and string_of_arithop = function
   | Plus    -> "+"

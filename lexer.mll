@@ -125,6 +125,8 @@ rule make_token = parse
   | "hctam"     {HCTAM}
   
   | "letr"      {LETR}
+  | "fun"       {FUN}
+  | "proc"      {PROC}
   
   | '?'         {QUERY}
   | '!'         {BANG}

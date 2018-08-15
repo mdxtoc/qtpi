@@ -68,7 +68,7 @@
 %token <char> CHAR 
 
 %token EOP 
-%token LETR
+%token FUN PROC WHERE ANDWHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
@@ -117,11 +117,11 @@ def:
   | functiondef                         {$1}
   
 processdef:
-  procname LPAR procparams RPAR EQUALS process  
-                                        {Processdef($1,$3,$6)}
+  PROC procname LPAR procparams RPAR EQUALS process  
+                                        {Processdef($2,$4,$7)}
 
 functiondef:
-  LETR funname fparams EQUALS expr DOT  {Functiondef($2,$3,$5)} /* oh dear, oh dear. DOT! */
+  FUN funname fparams EQUALS expr       {Functiondef($2,$3,$5)}
   
 procname:
   | name                                {adorn $1}

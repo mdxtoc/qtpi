@@ -1,0 +1,13 @@
+
+proc ReportEve (verbose, report, done) =
+    report?(bs)         .
+    report?(vs)         .
+    {if verbose then print_strings ["Eve saw "; string_of_value (zip bs vs); "\n"] else () fi} .
+    report?(encrypted)  .
+    {if verbose then print_strings ["Eve sees encrypted "; string_of_value encrypted; "\n"] else () fi} .
+    report?(boolbits)   .
+    (let decoded = bit2bool (hd boolbits))
+    report?(message)   .
+    {if verbose && decoded then print_strings ["Eve decodes message "; string_of_value message; "\n"] else () fi} .
+    done!decoded, message .
+    _0

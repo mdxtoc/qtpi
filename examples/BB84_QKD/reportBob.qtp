@@ -1,0 +1,22 @@
+proc ReportBob (verbose, report, done) =
+    report?(bs) .
+    report?(vs) .
+    {if verbose then print_strings ["Bob saw "; string_of_value (zip bs vs); "\n"] else () fi} .
+    report?(bAs)  .
+    {if verbose then print_strings ["Bob received bases "; string_of_value bAs; "\n"] else () fi} .
+    report?(bBs)  .
+    {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
+    report?(rvs) .
+    {if verbose then print_strings ["Bob reconciled "; string_of_value rvs; "\n"] else () fi} .
+    report?(mask) .
+    {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
+    report?(cs)  .
+    {if verbose then print_strings ["Bob sent check bits "; string_of_value cs; "\n"] else () fi} .
+    report?(encrypted) .
+    {if verbose then print_strings ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
+    report?(code) .
+    {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .
+    report?(M') .
+    {if verbose then print_strings ["Bob decodes message "; string_of_value M'; "\n"] else () fi} . 
+    done!M' .
+    _0

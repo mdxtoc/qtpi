@@ -1,0 +1,52 @@
+proc Alice(M, qB, bsB, report) = 
+  (let n = length M * 3)
+  (let bs = randbits n) 
+  (let vs = randbits n)
+            report!bs                   .  
+            report!vs                   .
+  (new sent)
+  (  SendBits (zip bs vs, qB, sent)
+   | sent?(_)                           .
+     bsB!bs                             . (* send Bob my bases *)
+            report!bs                   . 
+     bsB?(bBs)                          . (* receive his bases *)
+            report!bBs                  . 
+     (let rvs = reconcile bBs bs vs)
+            report!rvs                  . 
+     bsB?(mask)                         . (* A mask of rvs: 0b1 if sampled *)
+     bsB?(sampleB)                      . (* the corresponding bits from rvs *)
+            report!mask                 . 
+            report!sampleB              . 
+     (let sample = mask_filter 0b1 mask rvs)
+     (let check = forall (lam (cb,vb) . cb=vb) (zip sampleB sample))
+     (let codebits = mask_filter 0b0 mask rvs)
+     (let ok = check && length codebits>=length M)
+            report![bool2bit check; bool2bit ok]        
+                                        . 
+     if ok then
+       (let code = take (length M) codebits)
+       (let encryptedM = xor_mask code M)
+       bsB!encryptedM                   . (* send the encrypted message *)
+            report!code                 . 
+            report!encryptedM           . 
+       _0
+     else
+       bsB![]                           . (* don't reveal the message *)
+       _0
+     fi
+  )
+  
+(* send encoded bits down channel qB *)
+proc SendBits (bvs,qB,sent) =   
+    match bvs .
+        []         . sent!() . _0
+    <+> (b,v)::bvs . (newq q = match b,v .
+                                   0b0,0b0 . |0> 
+                               <+> 0b0,0b1 . |1> 
+                               <+> 0b1,0b0 . |+> 
+                               <+> 0b1,0b1 . |-> 
+                               hctam
+                     )
+                     qB!q.
+                     SendBits(bvs,qB,sent)
+    hctam

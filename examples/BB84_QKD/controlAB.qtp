@@ -1,0 +1,40 @@
+proc Experiment (M,reportA,reportB) = (new qc,bsc)
+                                 (  Alice (M,qc,bsc,reportA) 
+                                  | Bob   (qc,bsc,reportB)
+                                 )
+    
+proc System() = (let n = read_int "length of message")
+                (let k = read_int "number of trials")
+                (let verbose = read_bool "with commentary" "y" "n")
+                Report (k, verbose, n)
+           
+proc Report (k, verbose, n) = Controller (k, 0, verbose, 0, 0, 0, -1, n)
+
+proc Controller (k, i, verbose, nOk, nIntf, sumChecks, minChecks, n) =
+  if i<k then {if k<>1 then print_strings ["trial number "; string_of_value (i+1); 
+                                           if verbose then "\n" else " " fi] 
+                       else () fi
+              } .
+              (let M = randbits n)
+              {if verbose then print_strings ["message is "; string_of_value M; "\n"] else () fi} .
+              (new reportA,reportB,doneA,doneB)
+              (  Experiment (M,reportA,reportB) 
+               | ReportAlice (verbose, reportA, doneA)
+               | ReportBob (verbose, reportB, doneB)
+               | doneA?(intf_seen,nc)   .
+                 doneB?(messageB)       .
+                 (let nIntf = if intf_seen then nIntf+1 else nIntf fi)
+                 (let nOk = if not intf_seen && messageB=M then nOk+1 else nOk fi)
+                 (let minChecks = if minChecks<0 then nc elif nc<minChecks then nc else minChecks fi)
+                 Controller (k, i+1, verbose, nOk, nIntf, sumChecks+nc, minChecks, n)
+              )
+  else {print_strings ["all done: "; 
+                       string_of_value nIntf;          " interfered with; ";
+                       string_of_value nOk;            " exchanges succeeded; ";
+                       string_of_value (k-nOk);        " failed; ";
+                       "average check bits " ; string_of_value (sumChecks/k); 
+                       " minimum check bits "; string_of_value minChecks; "\n"
+                      ]
+       } . 
+       _0 
+  fi

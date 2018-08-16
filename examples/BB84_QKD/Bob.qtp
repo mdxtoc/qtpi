@@ -1,0 +1,44 @@
+proc Bob(qA, bsA, report) = 
+    (new received) 
+    (  ReceiveBits(qA,bsA,[],received)
+     | received?(bs)                . (* bs, vs is what I saw *)
+       received?(vs)                .
+            report!bs               .
+            report!vs               .
+       received?(bAs)               . (* receive her bases *)
+            report!bAs              .
+       bsA!bs                       . (* send my bases *)
+            report!bs               .
+       (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
+            report!rvs              .
+       (let mask = tabulate (length rvs) quarter
+                     where quarter = lam _ . if randbit()=0b1 && randbit()=0b1 
+                                             then 0b1 else 0b0 
+                                             fi
+       )
+       (let checkbits = mask_filter 0b1 mask rvs)
+       bsA!mask                     . (* send her the mask *)
+       bsA!checkbits                . (* send her the checkbits *)
+            report!mask             .
+            report!checkbits        .
+       (let codebits = mask_filter 0b0 mask rvs)
+       bsA?(encryptedM)             .
+       (let code = take (length encryptedM) codebits)
+       (let M = xor_mask encryptedM code)
+            report!encryptedM       .
+            report!code             .
+            report!M                .
+       _0
+    )
+  
+(* receive qbits, measure them, report the results when you see her bases *)
+proc ReceiveBits(qA,bsA,bvs,results) =
+      bsA?(bases) . (let bvs = rev bvs)
+                    results!map fst bvs . 
+                    results!map snd bvs . 
+                    results!bases       .
+                    _0
+  <+> qA?(q)      . (let basis = randbit ())
+                    q =?[if basis=0b1 then _H else _I fi] (value) .
+                          dispose!q                               .
+                    ReceiveBits(qA,bsA,(basis,value)::bvs,results)

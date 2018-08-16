@@ -4,9 +4,8 @@ fun test_checkbits mask checks vs =
          (zip checks (mask_filter 0b1 mask vs)) 
 
 (* pick out the bits that are in the same bases *)
-fun reconcile bs bvs =
-  mask_filter 0b0 (xor_mask bs bbs) vs
-    where bbs,vs = unzip bvs
+fun reconcile b1s b2s vs =
+  mask_filter 0b0 (xor_mask b1s b2s) vs
     
 (* filter out masked bits *)
 fun mask_filter (m:'a) (mask:'a list) (vs:'b list) : 'b list =
@@ -15,3 +14,6 @@ fun mask_filter (m:'a) (mask:'a list) (vs:'b list) : 'b list =
 
 fun xor_mask code message = 
   map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
+
+fun bit2bool b = b=0b1
+fun bool2bit b = if b then 0b1 else 0b0 fi

@@ -1,0 +1,35 @@
+
+proc ReportAlice (verbose, report, done) =
+    report?(bs)   .
+    report?(vs)   .
+    {if verbose then print_strings ["Alice chose "; string_of_value (zip bs vs); "\n"] else () fi} .
+    report?(bAs)         .
+    {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
+    report?(bBs)  .
+    {if verbose then print_strings ["Alice received bases "; string_of_value bBs; "\n"] else () fi} .
+    report?(rvs)   . 
+    {if verbose then print_strings ["Alice reconciled "; string_of_value rvs; "\n"] else () fi} .
+    report?(mask) .
+    {if verbose then print_strings ["Alice received check-bit mask "; string_of_value mask; "\n"] else () fi} .
+    report?(cs)  .
+    {if verbose then print_strings ["Alice received check bits "; string_of_value cs; "\n"] else () fi} .
+    report?(boolbits) .
+    (let intf_seen, proceed = not (bit2bool (hd boolbits)), bit2bool (hd (tl boolbits)))
+    (let nc = length cs)
+    {print_strings if   intf_seen then ["interference detected -- "; string_of_value nc; " check bits\n"]
+                   elif verbose then   []
+                   else                ["\n"]
+                   fi
+    } .
+    if proceed then
+      report?(code) .
+      {if verbose then print_strings ["Alice's code is "; string_of_value code; "\n"] else () fi} .
+      report?(encrypted) .
+      {if verbose then print_strings ["Alice sent encrypted "; string_of_value encrypted; "\n"] else () fi} .
+      done!intf_seen,nc .
+      _0
+    else
+      done!intf_seen,nc .
+      _0
+    fi
+  

@@ -4,6 +4,19 @@
 <p>Processes <em>P</em>, input-output steps <em>IO</em>, quantum steps <em>Q</em>, expressions <em>E</em>, types <em>T</em>, process names <em>N</em>, variable names <em>x</em>, parameters <em>par</em>, patterns <em>pat</em>, gate expressions <em>G</em>. Square brackets surround optional elements.</p>
 <ul>
 <li>
+<p>Program description</p>
+<p>A program is a sequence of process and function definitions. One of the process descriptions must be <code>System</code>, which must have no parameters. (And soon we will have user-defined functions.)</p>
+<p>| <code>proc</code> <em>N</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em><br />
+| <code>fun</code> <em>x</em> <em>pat</em> ... <em>pat</em>  = <em>E</em><br />
+| <code>fun</code> <em>x</em> <em>pat</em> ... <em>pat</em> <code>:</code> <em>T</em> = <em>E</em></p>
+<ul>
+<li>Types are optional in process parameters, but it seems to be pragmatic to include them.</li>
+<li>None of the process parameters can be a process.</li>
+<li>As with <code>let</code> and with reads <code>E?(pat)</code>, function parameters are bullet-proof patterns: no constants, no lists.</li>
+<li>Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like <code>bit list -&gt; 'a list -&gt; 'a list</code>.</li>
+</ul>
+</li>
+<li>
 <p>Process <em>P</em></p>
 <p>| <em>Q</em> <code>.</code> <em>P</em><br />
 | <em>IO</em> <code>.</code> <em>P</em> <code>&lt;+&gt;</code> ... <code>&lt;+&gt;</code> <em>IO</em> <code>.</code> <em>P</em><br />
@@ -97,6 +110,7 @@
 | <code>(</code> <em>pat</em> <code>)</code></p>
 <ul>
 <li>typed patterns may need bracketing (of course).</li>
+<li><code>let</code>, <code>E?..</code> and function definitions use a restricted form of pattern: only <code>x</code>, <code>_</code>, <code>()</code> and tuples thereof -- i.e. patterns which can't fail to match.</li>
 </ul>
 </li>
 <li>
@@ -139,10 +153,11 @@
 <p>Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and then waits for the next one. Garbage collection might be possible, but it would have to understand the central quantum state which deals with every qbit ever created and, in particular, deals with entanglements.</p>
 <p>Learning from my experience of separation logic, I implemented a <em>dispose</em> channel of qbits. Send a qbit down the <em>dispose</em> channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see <a href="./ownership.html">the resourcing document</a> for explanation).</p>
 <p>Because I didn't know how to add one-way channels to the language, if you read from the <em>dispose</em> channel you get a new qbit. Ho ho?</p>
+<p><a name="restrictions"></a></p>
 <h2>Restrictions</h2>
-<p>Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although you could reasonably expect to be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols you cannot. This also massively simplifies <em>resourcing</em>: see <a href="./ownership.html">the resourcing document</a> for explanation.</p>
-<p>The qbit world is further separated from the classical world by restrictions on bindings and functions. The binding restriction simplifies resource-checking, but it's really there for aesthetic reasons.</p>
-<p>It is impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...)</p>
+<p>Qbits are big fragile things. They are measured, sent through gates, transmitted through channels. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although you are able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols, because of these restrictions you cannot do anything with them. This also massively simplifies <em>resourcing</em>: see <a href="./ownership.html">the resourcing document</a> for explanation.</p>
+<p>These restrictions, then, attempt to give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's really there for aesthetic reasons.</p>
+<p>It is also impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...)</p>
 <ul>
 <li>
 <p><strong>A channel is either <code>^qbit</code> or <code>^classical</code></strong>.</p>
@@ -174,19 +189,7 @@
 <p>This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.</p>
 </li>
 </ul>
-<h2>Program description</h2>
-<p>A program is a sequence of process definitions. One of the process descriptions must be <code>System</code>, which must have no parameters. (And soon we will have user-defined functions.)</p>
-<ul>
-<li>
-<p>Process definition</p>
-<p>| <em>N</em> <code>(</code>  <em>par</em>  <code>,</code>  ... <code>,</code> <em>par</em> <code>)</code> = <em>P</em></p>
-<ul>
-<li>Types are optional in the parameters, but it seems to be pragmatic to include them.</li>
-<li>None of the parameters can be a process.</li>
-</ul>
-</li>
-<li>
-<p>Interface functions</p>
+<h2>Interface functions</h2>
 <p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
 <p><strong>But</strong>, <em>but</em>, but. Functions can't deliver qbits or values containing qbits. See restrictions above.</p>
 <p>Mostly inspired by Miranda and/or Bird &amp; Wadler's &quot;Introduction to Functional Programming&quot;. Easy to add more (see the file library.ml). The list and pair functions do what you'd expect (but you can't use them to deliver qbits: see restriction above). Note the restriction on revealing state above.</p>
@@ -250,6 +253,4 @@
 </li>
 <li><em>print_string</em>: <em>string</em> -&gt; <em>unit</em></li>
 <li><em>print_strings</em>: <em>string list</em> -&gt; <em>unit</em></li>
-</ul>
-</li>
 </ul>

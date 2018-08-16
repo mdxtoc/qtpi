@@ -331,11 +331,13 @@ and assigntype_pat contn cxt t p =
                            in
                            let cxt = unifytypes cxt t lt in
                            assigntype_pat cf cxt vt ph
-      | PatTuple ps     -> let rec tc cxt = function
-                             | p::ps -> assigntype_pat ((revargs tc) ps) cxt (ntv p.pos) p
-                             | []    -> contn cxt
+      | PatTuple ps     -> let ts = List.map (fun p -> ntv p.pos) ps in
+                           let cxt = unifytypes cxt t (adorn p.pos (Tuple ts)) in
+                           let rec tc cxt = function
+                             | (p,t)::pts -> assigntype_pat ((revargs tc) pts) cxt t p
+                             | []         -> contn cxt
                            in
-                           tc cxt ps
+                           tc cxt (zip ps ts)
   with TypeUnifyError _ -> raise (Error (p.pos,
                                          Printf.sprintf "cannot assign type %s to pattern %s"
                                                         (string_of_type (evaltype cxt t))

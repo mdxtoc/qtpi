@@ -163,6 +163,21 @@ let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (
 let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "int -> bit list"                   , vfun v_randbits)
 
+let v_max a b =
+  let a = intv a in
+  let b = intv b in
+  vint (if a>b then a else b)
+  
+let v_min a b =
+  let a = intv a in
+  let b = intv b in
+  vint (if a<b then a else b)
+
+let _ = Interpret.know ("max", "int -> int -> int", vfun2 v_max)
+let _ = Interpret.know ("min", "int -> int -> int", vfun2 v_min)
+
+(* ********************* I/O ************************ *)
+
 let read_int s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_int ()
 let _ = Interpret.know ("read_int", "string -> int"                     , vfun (vint <.> read_int <.> stringv))
 

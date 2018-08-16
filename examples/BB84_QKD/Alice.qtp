@@ -1,5 +1,5 @@
 proc Alice(M, qB, bsB, report) = 
-  (let n = length M * 3)
+  (let n = max 512 (length M * 4))
   (let bs = randbits n) 
   (let vs = randbits n)
             report!bs                   .  
@@ -50,3 +50,4 @@ proc SendBits (bvs,qB,sent) =
                      qB!q.
                      SendBits(bvs,qB,sent)
     hctam
+

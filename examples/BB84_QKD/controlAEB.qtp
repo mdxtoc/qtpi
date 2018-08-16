@@ -1,8 +1,9 @@
-proc Experiment (M,reportA,reportE,reportB) = (new qc1,qc2,bsc1,bsc2)
-                                              (  Alice (M,qc1,bsc1,reportA) 
-                                               | Eve   (qc1,qc2,bsc1,bsc2,reportE) 
-                                               | Bob   (qc2,bsc2,reportB)
-                                              )
+proc Experiment (M,reportA,reportE,reportB) = 
+  (new qcAE,qcEB,bscAE,bscEB,againAE,againEB)
+  (  Alice (M,qcAE,bscAE,againAE,reportA) 
+   | Eve   (qcAE,qcEB,bscAE,bscEB,againAE,againEB,reportE) 
+   | Bob   (qcEB,bscEB,againEB,reportB)
+  )
 
 proc System() = (let n = read_int "length of message")
                 (let k = read_int "number of trials")

@@ -28,8 +28,11 @@ proc ReportAlice (verbose, report, done) =
       {if verbose then print_strings ["Alice sent encrypted "; string_of_value encrypted; "\n"] else () fi} .
       done!intf_seen,nc .
       _0
-    else
+    elif intf_seen then
       done!intf_seen,nc .
       _0
+    else
+      {print_string "Alice goes round again\n"} .
+      ReportAlice (verbose, report, done)   
     fi
   

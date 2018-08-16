@@ -1,4 +1,4 @@
-proc Bob(qA, bsA, report) = 
+proc Bob (qA, bsA, againA, report) = 
     (new received) 
     (  ReceiveBits(qA,bsA,[],received)
      | received?(bs)                . (* bs, vs is what I saw *)
@@ -22,13 +22,16 @@ proc Bob(qA, bsA, report) =
             report!mask             .
             report!checkbits        .
        (let codebits = mask_filter 0b0 mask rvs)
-       bsA?(encryptedM)             .
-       (let code = take (length encryptedM) codebits)
-       (let M = xor_mask encryptedM code)
-            report!encryptedM       .
-            report!code             .
-            report!M                .
-       _0
+       (    againA?(_)       .      report![bool2bit true]  .
+                               Bob (qA, bsA, againA, report)
+        <+> bsA?(encryptedM) .      report![bool2bit false] .
+                               (let code = take (length encryptedM) codebits)
+                               (let M = xor_mask encryptedM code)
+                                    report!encryptedM       .
+                                    report!code             .
+                                    report!M                .
+                               _0
+       )
     )
   
 (* receive qbits, measure them, report the results when you see her bases *)

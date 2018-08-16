@@ -1,7 +1,7 @@
-proc Experiment (M,reportA,reportB) = (new qc,bsc)
-                                 (  Alice (M,qc,bsc,reportA) 
-                                  | Bob   (qc,bsc,reportB)
-                                 )
+proc Experiment (M,reportA,reportB) = (new qc,bsc,again)
+                                      (  Alice (M,qc,bsc,again,reportA) 
+                                       | Bob   (qc,bsc,again,reportB)
+                                      )
     
 proc System() = (let n = read_int "length of message")
                 (let k = read_int "number of trials")
@@ -17,8 +17,8 @@ proc Controller (k, i, verbose, nOk, nIntf, sumChecks, minChecks, n) =
               } .
               (let M = randbits n)
               {if verbose then print_strings ["message is "; string_of_value M; "\n"] else () fi} .
-              (new reportA,reportB,doneA,doneB)
-              (  Experiment (M,reportA,reportB) 
+              (new reportA, reportB, doneA, doneB)
+              (  Experiment (M, reportA, reportB) 
                | ReportAlice (verbose, reportA, doneA)
                | ReportBob (verbose, reportB, doneB)
                | doneA?(intf_seen,nc)   .

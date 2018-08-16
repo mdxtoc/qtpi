@@ -1,5 +1,5 @@
-proc Alice(M, qB, bsB, report) = 
-  (let n = max 512 (length M * 4))
+proc Alice(M, qB, bsB, againB, report) = 
+  (let n = length M * 3)                  (* deliberately not enough *)
   (let bs = randbits n) 
   (let vs = randbits n)
             report!bs                   .  
@@ -30,6 +30,9 @@ proc Alice(M, qB, bsB, report) =
             report!code                 . 
             report!encryptedM           . 
        _0
+     elif check then 
+       againB!()                        . (* we are going to try again *)
+       Alice(M, qB, bsB, againB, report)
      else
        bsB![]                           . (* don't reveal the message *)
        _0

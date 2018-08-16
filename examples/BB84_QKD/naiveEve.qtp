@@ -1,5 +1,5 @@
-(* a naive eavesdropper. Sees Alice's bits but messes with them. Doesn't know 'n' *)
-proc Eve (qA, qB, bsA, bsB, report) =
+(* a naive eavesdropper. Sees Alice's bits but messes with them. *)
+proc Eve (qA, qB, bsA, bsB, againA, againB, report) =
     (new done) 
     (  CopyBits([],qA,qB,bsA,done)
      | done?(bs)                        .   (* bs, vs are what I saw *)
@@ -11,12 +11,16 @@ proc Eve (qA, qB, bsA, bsB, report) =
        bsB?(basesB)    . bsA!basesB     .   (* B->A bases       *)
        bsB?(mask)      . bsA!mask       .   (* B->A mask        *)
        bsB?(cs)        . bsA!cs         .   (* B->A checkbits   *)
-       bsA?(encrypted) . bsB!encrypted  .   (* A->B message     *)
-
-            report!encrypted            . 
-            report![0b0]                .   (* can't decode *)
-            report![]                   .   (* empty message *)
-       _0
+       (    bsA?(encrypted) . bsB!encrypted .   (* A->B message     *)
+                                report![bool2bit false]     .   
+                                report!encrypted            . 
+                                report![0b0]                .   (* can't decode *)
+                                report![]                   .   (* empty message *)
+                              _0
+        <+> againA?(_)      . againB!()                     .   (* round again *)
+                                report![bool2bit true]      .
+                              Eve (qA, qB, bsA, bsB, againA, againB, report)
+       )
     )
   
 proc CopyBits (bvs, qA, qB, bsA, result) =

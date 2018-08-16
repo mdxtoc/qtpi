@@ -12,11 +12,17 @@ proc ReportBob (verbose, report, done) =
     {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
     report?(cs)  .
     {if verbose then print_strings ["Bob sent check bits "; string_of_value cs; "\n"] else () fi} .
-    report?(encrypted) .
-    {if verbose then print_strings ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
-    report?(code) .
-    {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .
-    report?(M') .
-    {if verbose then print_strings ["Bob decodes message "; string_of_value M'; "\n"] else () fi} . 
-    done!M' .
-    _0
+    report?(again) .
+    if bit2bool (hd again) then
+      {print_string "Bob goes round again\n"} .
+      ReportBob (verbose, report, done)
+    else
+      report?(encrypted) .
+      {if verbose then print_strings ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
+      report?(code) .
+      {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .
+      report?(M') .
+      {if verbose then print_strings ["Bob decodes message "; string_of_value M'; "\n"] else () fi} . 
+      done!M' .
+      _0
+    fi

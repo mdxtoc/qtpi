@@ -1,35 +1,37 @@
 (* a sophisticated eavesdropper. Plays Bob to Alice, Alice to Bob *)
 
-proc Eve (qA, qB, bsA, bsB, againA, againB, report) =
+proc Eve (qcA, qcB, bcA, bcB, againA, againB, report) =
     (new copied) 
-    (  CopyBits([],qA,qB,bsA,copied)
+    (  CopyBits([],qcA,qcB,bcA,copied)
      | copied?(bs)                      .   (* bs, vs are what I _sent_ *)
        copied?(vs)                      .
             report!bs                   .
             report!vs                   .
       
-       copied?(basesA) . bsA!bs         .   (* send my bases to Alice *)
+       copied?(basesA) . bcA!bs         .   (* send my bases to Alice *)
         
-       EveLoop (qA, qB, bsA, bsB, againA, againB, bs, vs, bs, vs, basesA, report)
+       EveLoop (qcA, qcB, bcA, bcB, againA, againB, bs, vs, bs, vs, basesA, report)
     )
        
-proc EveLoop (qA, qB, bsA, bsB, againA, againB, bsA, vsA, bsB, vsB, basesA, report) =
-   bsB!bsB . bsB?(basesB)               .   (* send my bases to Bob; receive his in return *)
+proc EveLoop (qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bsB, vsB, basesA, report) =
+   bcB!bsB . bcB?(basesB)               .   (* send my bases to Bob; receive his in return *)
    (let rvsB = reconcile basesB bsB vsB)
-   bsB?(maskB) . bsB?(_)                .   (* receive Bob's mask, ignore his checkbits *)
+   bcB?(maskB) . bcB?(checkbitsB)       .   (* receive Bob's mask and check bits *)
+                                            (* but ignore his check bits *)
+                report!checkbitsB       .
    (let codeB = mask_filter 0b0 maskB rvsB)
    (* now, can we fake it with Alice to make a code the right length? *)
    (let rvsA = reconcile bsA basesA vsA)
    (let diff = length rvsA - length codeB)
    if diff>=0 then
      (let maskA = tabulate diff (const 0b1) @ tabulate (length codeB) (const 0b0))
-     bsA!maskA                          .   (* send Alice the mask and checkbits *)
-     bsA!mask_filter 0b1 maskA rvsA     .
+     bcA!maskA                          .   (* send Alice the mask and checkbits *)
+     bcA!mask_filter 0b1 maskA rvsA     .
      (    againA?(_)                    .   (* Alice didn't get enough code bits *)
             againB!()                   .   (* round again, Bob *)
                 report![bool2bit true]  .
-            Eve (qA, qB, bsA, bsB, againA, againB, report)
-      <+> bsA?(encrypted)               .   (* receive her coded message *)
+            Eve (qcA, qcB, bcA, bcB, againA, againB, report)
+      <+> bcA?(encrypted)               .   (* receive her coded message *)
                 report![bool2bit false] .
                 report!encrypted        .
             (let codeA = mask_filter 0b0 maskA rvsA)
@@ -37,7 +39,7 @@ proc EveLoop (qA, qB, bsA, bsB, againA, againB, bsA, vsA, bsB, vsB, basesA, repo
                                                  (* decode as Bob would *)
                  report![bool2bit true] .   (* If ok, I got the message *)
                  report!message         .
-            bsB!xor_mask (take (length message) codeB) message       
+            bcB!xor_mask (take (length message) codeB) message       
                                         .   (* encode for Bob as Alice would and send it to him *)
             _0
      )
@@ -48,21 +50,21 @@ proc EveLoop (qA, qB, bsA, bsB, againA, againB, bsA, vsA, bsB, vsB, basesA, repo
       (let bs = randbits (length bsB))
       (let vs = randbits (length bsB))
       (new sent)
-      (  SendBits (zip bs vs, qB, sent)
+      (  SendBits (zip bs vs, qcB, sent)
        | sent?(_)                       .
             report!bs                   .  
             report!vs                   .
-         EveLoop (qA, qB, bsA, bsB, againA, againB, bsA, vsA, bs, vs, basesA, report)
+         EveLoop (qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs, vs, basesA, report)
       )
    fi
   
-proc CopyBits (bvs, qA, qB, bsA, result) =
-        qA?(q)                                  . 
+proc CopyBits (bvs, qcA, qcB, bcA, result) =
+        qcA?(q)                                  . 
             (let b = randbit ())
             q=?[if b=0 then _I else _H fi](v)   . 
-            qB!q                                . 
-                          CopyBits ((b,v)::bvs, qA, qB, bsA, result)
-    <+> bsA?(basesA)                            . 
+            qcB!q                                . 
+                          CopyBits ((b,v)::bvs, qcA, qcB, bcA, result)
+    <+> bcA?(basesA)                            . 
             (let bvs = rev bvs)
             result!map fst bvs                  . 
             result!map snd bvs                  . 

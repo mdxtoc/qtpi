@@ -17,3 +17,15 @@ fun xor_mask code message =
 
 fun bit2bool b = b=0b1
 fun bool2bit b = if b then 0b1 else 0b0 fi
+
+fun read_min_int m s =
+  k where k = if j>=m then j 
+              else semicolon (lam _ . print_strings ["pardon? at least "; string_of_value m; "\n"])
+                             (lam _ . read_min_int m s)
+                             ()
+              fi
+    where j = read_int s
+    
+fun compose f g v = f (g v)
+
+fun semicolon f g = compose g f

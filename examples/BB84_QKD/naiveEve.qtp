@@ -11,18 +11,24 @@ proc Eve (qA, qB, bsA, bsB, againA, againB, report) =
        bsB?(basesB)    . bsA!basesB     .   (* B->A bases       *)
        bsB?(mask)      . bsA!mask       .   (* B->A mask        *)
        bsB?(cs)        . bsA!cs         .   (* B->A checkbits   *)
-       (    bsA?(encrypted) . bsB!encrypted .   (* A->B message     *)
+            report!cs                   .
+       (    bsA?(encrypted)             .   (* A->B message     *)
+                              bsB!encrypted                 .   
                                 report![bool2bit false]     .   
                                 report!encrypted            . 
                                 report![0b0]                .   (* can't decode *)
                                 report![]                   .   (* empty message *)
                               _0
-        <+> againA?(_)      . againB!()                     .   (* round again *)
+        <+> againA?(_)                  .    (* round again *)
+                              againB!()                     .
                                 report![bool2bit true]      .
                               Eve (qA, qB, bsA, bsB, againA, againB, report)
        )
     )
-  
+
+(* Read qbits from qA, measure them in a random bases, send the measured bits on qB,
+   return the measurements. Stop when you see a message on bsA, and return that too.
+ *)
 proc CopyBits (bvs, qA, qB, bsA, result) =
         qA?(q)          . (let b = randbit ())
                           q=?[if b=0 then _I else _H fi](v) . 

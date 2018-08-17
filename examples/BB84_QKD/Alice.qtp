@@ -1,45 +1,89 @@
-proc Alice(M, qB, bsB, againB, report) = 
-  (let n = length M * 3)                  (* deliberately not enough *)
+proc Alice(M, nWC, multiplier, qB, bsB, againB, report) = 
+  
+  (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+     plus enough to generate 5 Wegman-Carter hash keys (one for each protocol message). 
+     
+     In this simulation we can make Alice deliberately choose so few that quite often 
+     the retry mechanism (see below) is triggered.
+   *)
+  (let mincb = length M + 5*nWC)
+  (let n = mincb * multiplier)
+  
+  (* choose the basis and value for each qbit at random *)
   (let bs = randbits n) 
   (let vs = randbits n)
-            report!bs                   .  
-            report!vs                   .
+            report!bs                       .  
+            report!vs                       .
+  
+  (* send Bob the qbits I chose, tell me when it's done *)
   (new sent)
   (  SendBits (zip bs vs, qB, sent)
-   | sent?(_)                           .
-     bsB!bs                             . (* send Bob my bases *)
-            report!bs                   . 
-     bsB?(bBs)                          . (* receive his bases *)
-            report!bBs                  . 
-     (let rvs = reconcile bBs bs vs)
-            report!rvs                  . 
-     bsB?(mask)                         . (* A mask of rvs: 0b1 if sampled *)
-     bsB?(sampleB)                      . (* the corresponding bits from rvs *)
-            report!mask                 . 
-            report!sampleB              . 
-     (let sample = mask_filter 0b1 mask rvs)
-     (let check = forall (lam (cb,vb) . cb=vb) (zip sampleB sample))
-     (let codebits = mask_filter 0b0 mask rvs)
-     (let ok = check && length codebits>=length M)
-            report![bool2bit check; bool2bit ok]        
-                                        . 
-     if ok then
-       (let code = take (length M) codebits)
-       (let encryptedM = xor_mask code M)
-       bsB!encryptedM                   . (* send the encrypted message *)
-            report!code                 . 
-            report!encryptedM           . 
-       _0
-     elif check then 
-       againB!()                        . (* we are going to try again *)
-       Alice(M, qB, bsB, againB, report)
+   | sent?(_)                               .
+     
+     (* tell each other the qbit bases we used - me first *)
+     bsB!bs                                 . (* send Bob my bases *)
+     bsB?(bBs)                              . (* receive his bases *)
+            report!bs                       . 
+            report!bBs                      . 
+     
+     (* pick out the values for which our bases agree *)
+     (let rvs = reconcile bBs bs vs)      
+            report!rvs                      . 
+     
+     (* Now we both know the same _number_ of values. Bob sends me a mask of
+        that number of bits, and a list of the values it picks out from his
+        list.
+      *)
+     bsB?(mask)                             . 
+     bsB?(checkbitsB)                       . 
+            report!mask                     . 
+            report!checkbitsB               . 
+     
+     (* test to see if Bob and I agree on the bits selected by his mask *)
+     (let checkbitsA = mask_filter 0b1 mask rvs)
+     (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
+            report![bool2bit (not check)]   .
+     
+     (* If we disagree about the masked bits then interference has been 
+        detected and Alice goes silent. But in this simulation 
+        we send an empty message, to keep Bob alive.
+      *)
+     if not check then
+       bsB![] . _0
      else
-       bsB![]                           . (* don't reveal the message *)
-       _0
+       (* If the number of checkbits Bob chose is enough, then it is very 
+          very (...) likely that we agree on the rest of the values. So the 
+          (secret) code bits are the ones Bob didn't mask. 
+        *)
+       (let codebits = mask_filter 0b0 mask rvs)
+       
+       (* in reality we should pick the number of qbits so large that
+          we almost almost almost almost (...) never have too few code bits to
+          encrypt M. But in this simulation it quite often happens, and when it
+          does we send Bob a signal on a side-channel and try again.
+          In reality trying again would be a security risk, so Alice should
+          pick a lot a lot (...) of qbits so as to make it very very unlikely.
+          
+          Also, we need length M + 5*k code bits, where k is the
+          number of bits in each one-time Wegman-Carter hash key. But that only
+          increases the number of qbits Alice should choose.
+        *)
+       if length codebits>=mincb then
+         (let code = take (length M) codebits)
+         (let encryptedM = xor_mask code M)
+         bsB!encryptedM                     . (* send the encrypted message *)
+            report![bool2bit true]          .
+            report!code                     . 
+            report!encryptedM               . 
+         _0
+       else 
+            report![bool2bit false]         .
+         againB!() . Alice(M, nWC, multiplier, qB, bsB, againB, report)
+       fi
      fi
   )
   
-(* send encoded bits down channel qB *)
+(* send encoded (bit, value) pairs down channel qB *)
 proc SendBits (bvs,qB,sent) =   
     match bvs .
         []         . sent!() . _0

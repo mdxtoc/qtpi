@@ -1,8 +1,9 @@
 
-proc ReportAlice (verbose, report, done) =
+proc ReportAlice (reps, verbose, report, done) =
     report?(bs)   .
     report?(vs)   .
-    {if verbose then print_strings ["Alice chose "; string_of_value (zip bs vs); "\n"] else () fi} .
+    {if verbose then print_strings ["Alice chose "; string_of_value (length bs);
+                                    " pairs: "; string_of_value (zip bs vs); "\n"] else () fi} .
     report?(bAs)         .
     {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
     report?(bBs)  .
@@ -12,27 +13,26 @@ proc ReportAlice (verbose, report, done) =
     report?(mask) .
     {if verbose then print_strings ["Alice received check-bit mask "; string_of_value mask; "\n"] else () fi} .
     report?(cs)  .
+    (let nc = length cs)
     {if verbose then print_strings ["Alice received check bits "; string_of_value cs; "\n"] else () fi} .
     report?(boolbits) .
-    (let intf_seen, proceed = not (bit2bool (hd boolbits)), bit2bool (hd (tl boolbits)))
-    (let nc = length cs)
-    {print_strings if   intf_seen then ["interference detected -- "; string_of_value nc; " check bits\n"]
-                   elif verbose then   []
-                   else                ["\n"]
-                   fi
-    } .
-    if proceed then
-      report?(code) .
-      {if verbose then print_strings ["Alice's code is "; string_of_value code; "\n"] else () fi} .
-      report?(encrypted) .
-      {if verbose then print_strings ["Alice sent encrypted "; string_of_value encrypted; "\n"] else () fi} .
-      done!intf_seen,nc .
-      _0
-    elif intf_seen then
-      done!intf_seen,nc .
+    if bit2bool (hd boolbits) then
+      {print_strings ["interference detected -- "; string_of_value nc; " check bits\n"]} .
+      done!true,nc,reps .
       _0
     else
-      {print_string "Alice goes round again\n"} .
-      ReportAlice (verbose, report, done)   
+      {if not verbose then print_string "\n" else () fi}.
+      report?(boolbits) .
+      if bit2bool (hd boolbits) then
+        report?(code) .
+        {if verbose then print_strings ["Alice's code is "; string_of_value code; "\n"] else () fi} .
+        report?(encrypted) .
+        {if verbose then print_strings ["Alice sent encrypted "; string_of_value encrypted; "\n"] else () fi} .
+        done!false,nc,reps .
+        _0
+      else
+        {print_string "Alice goes round again\n"} .
+        ReportAlice (reps+1, verbose, report, done)   
+      fi
     fi
   

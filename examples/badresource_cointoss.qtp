@@ -10,12 +10,7 @@ proc P(fromQ:^qbit, toQ:^qbit) =   fromQ?(y) . toQ!y . _0
 proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>_H . toP!x . fromP?(z) . x>>_H . _0 
 
-proc System() = (let bv = read_string "basis (0,1,+,-)")
-                (newq x = if   bv="0" then |0> 
-                          elif bv="1" then |1> 
-                          elif bv="+" then |+>
-                          elif bv="-" then |->
-                          else abandon "bad basis"
-                          fi) 
+proc System() = (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
+                (newq x = bv) 
                 (new s:^qbit, r:^qbit) 
                 (P(s,r) | Q(x,s,r))

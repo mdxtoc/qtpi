@@ -16,21 +16,8 @@ proc Q(q: qbit, toP:^qbit, fromP:^qbit, report) =
   report!() . _0 
 
 proc System() = (let k = read_int "number of trials")
-                (let sb = read_string "initial state (0,1,+,-)")
-                (let bv = match sb .
-                      "0" . |0> 
-                  <+> "1" . |1> 
-                  <+> "+" . |+>
-                  <+> "-" . |->
-                  <+> _   . abandon "bad initial state"
-                  hctam
-                )
-                (let verbose = match read_string "with commentary (y/n)" .
-                                   "y" . true
-                               <+> "n" . false
-                               <+> _   . abandon "pardon?"
-                               hctam
-                )
+                (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
+                (let verbose = read_bool "with commentary" "y" "n")
            {print_string "See output for results -- can print but can't examine qbit state\n"} .
            Controller (k, bv, verbose)
 

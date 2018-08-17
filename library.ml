@@ -178,24 +178,30 @@ let _ = Interpret.know ("min", "int -> int -> int", vfun2 v_min)
 
 (* ********************* I/O ************************ *)
 
-let read_int s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_int ()
-let _ = Interpret.know ("read_int", "string -> int"                     , vfun (vint <.> read_int <.> stringv))
+let rec read_int s = flush stdout; prerr_string (stringv s ^"? "); flush stderr; 
+                     try vint (Pervasives.read_int ()) with Failure _ -> print_endline "pardon?"; read_int s
+let _ = Interpret.know ("read_int", "string -> int"                     , vfun read_int)
 
-let read_string s = flush stdout; prerr_string (s ^"? "); flush stderr; Pervasives.read_line ()
-let _ = Interpret.know ("read_string", "string -> string"               , vfun (vstring <.> read_string <.> stringv))
+let rec read_string s = flush stdout; prerr_string (stringv s ^"? "); flush stderr; vstring (Pervasives.read_line ()) 
+let _ = Interpret.know ("read_string", "string -> string"               , vfun read_string)
 
-let read_bool prompt y n =
-  let prompt = stringv prompt in
-  let y = stringv y in
-  let n = stringv n in
-  let s = read_string (Printf.sprintf "%s (%s/%s)" prompt y n) in 
-  if s = y then vbool true else
-  if s = n then vbool false else
-  raise (Abandon (Printf.sprintf "read_bool \"%s\" saw %s; should have been %s or %s" prompt s y n))
+let rec read_alternative prompt sep alts =
+  let assoc = List.map (fun v -> let (s,v) = pairv v in stringv s, v) (listv alts) in
+  let promptstring = Printf.sprintf "%s (%s)" 
+                                    (stringv prompt) 
+                                    (String.concat (stringv sep) (List.map fst assoc)) 
+  in
+  let s = read_string (vstring promptstring) in
+  try assoc<@>stringv s 
+  with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
+
+let _ = Interpret.know ("read_alternative", "string -> string -> (string*'a) list -> 'a", vfun3 read_alternative)
+  
+let read_bool prompt y n = read_alternative prompt (vstring "/") (vlist [vpair (y,vbool true); vpair (n,vbool false)])
 let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
 
-let abandon s = raise (Abandon s)
-let _ = Interpret.know ("abandon", "string -> 'a", vfun (abandon <.> stringv))
+let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
+let _ = Interpret.know ("abandon", "string list -> 'a", vfun abandon)
 
 
 let print_string s = vunit (Pervasives.print_string (stringv s); flush stdout)

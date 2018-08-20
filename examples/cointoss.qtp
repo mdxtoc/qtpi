@@ -4,26 +4,26 @@
    -- i.e. an unfair coin IMHO.
  *)
 
-proc P(fromQ:^qbit, toQ:^qbit, report) =     fromQ?(y) . toQ!y .         report!() . _0
+proc P(fromQ:^qbit, toQ:^qbit, log) =     fromQ?(y) . toQ!y .         log!() . _0
                                          <+> fromQ?(y) . y>>_X . 
                                              {print_string "with a flip; "}. 
-                                             toQ!y .                     report!()  . _0
+                                             toQ!y .                     log!()  . _0
                      
-proc Q(q: qbit, toP:^qbit, fromP:^qbit, report) = 
+proc Q(q: qbit, toP:^qbit, fromP:^qbit, log) = 
   {print_string "initially "} . {print_qbit q} . {print_string "; "} .
   q>>_H . toP!q . fromP?(q') . q'>>_H . 
   {print_string "finally "} . {print_qbit q'} . {print_string "\n"} .
-  report!() . _0 
+  log!() . _0 
 
 proc System() = (let k = read_int "number of trials")
                 (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
                 (let verbose = read_bool "with commentary" "y" "n")
            {print_string "See output for results -- can print but can't examine qbit state\n"} .
-           Controller (k, bv, verbose)
+           Logger (k, bv, verbose)
 
-proc Controller (k, bv, verbose) = Report (k, bv, verbose, 0)
+proc Logger (k, bv, verbose) = Run (k, bv, verbose, 0)
 
-proc Report (k, bv, verbose, i) = 
+proc Run (k, bv, verbose, i) = 
   if i=k then {print_strings [string_of_value i; " trials\n"]} . _0
   else
     (newq q = bv) 
@@ -33,6 +33,6 @@ proc Report (k, bv, verbose, i) =
      | Q(q,s,r,reportQ) 
      | reportP?(_) .
        reportQ?(_) .
-       Report (k, bv, verbose, i+1)
+       Run (k, bv, verbose, i+1)
     )
   fi

@@ -1,15 +1,15 @@
 
-proc Alice (x:qbit, c:^0..3, z:qbit, report) = 
+proc Alice (x:qbit, c:^0..3, z:qbit, log) = 
     {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "\n"} .
     z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz++vx . 
     dispose!x . dispose!z .
-    report!() . _0 
+    log!() . _0 
 
-proc Bob(y:qbit, c:^0..3, report) = 
+proc Bob(y:qbit, c:^0..3, log) = 
     c?(n) . y>>_Phi(n) . 
     {print_string "finally Bob's y is "} . {print_qbit y} . {print_string "\n"} .
     dispose!y .
-    report!() . _0 
+    log!() . _0 
 
 proc System () = 
   (let k = read_int "number of trials")
@@ -19,25 +19,25 @@ proc System () =
    fi
   } .
   {print_string "See output for results -- can print but can't examine qbit state\n"} .
-  Report (k, standard, 0)
+  Run (k, standard, 0)
 
-proc Report (k, standard, i) =
+proc Run (k, standard, i) =
   if i=k then {print_strings [string_of_value k; " trials\n"]} . _0
-  else (new report)
-       (  if standard then (newq x=|0>, y=|0>) Experiment (x, y, report)
-                      else (newq x,y)          Experiment (x, y, report)
+  else (new log)
+       (  if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
+                      else (newq x,y)          Experiment (x, y, log)
           fi
-        | report?(_) .
-          Report (k, standard, i+1)
+        | log?(_) .
+          Run (k, standard, i+1)
        )
   fi
   
-proc Experiment (x, y, report) =
+proc Experiment (x, y, log) =
   x>>_H . x,y>>_CNot . 
   (new c:^0..3)
   (newq z)
-  (new reportA, reportB)
-  (  Alice(x,c,z,reportA) 
-   | Bob(y,c,reportB)
-   | reportA?(_) . reportB?(_) . report!() . _0
+  (new logA, logB)
+  (  Alice(x,c,z,logA) 
+   | Bob(y,c,logB)
+   | logA?(_) . logB?(_) . log!() . _0
   )

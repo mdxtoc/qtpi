@@ -241,6 +241,7 @@ ioproc:
   
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
+  | expr QUERY UNDERSCORE               {adorn (Read ($1, padorn PatAny))}
   | expr BANG expr                      {adorn (Write ($1,$3))}
 
 simpleprocess:

@@ -1,22 +1,21 @@
 (* a sophisticated eavesdropper. Plays Bob to Alice, Alice to Bob. Knows that 
    Alice generates more code bits than she needs.
  *)
+(* a mess, because it should use sub-processes *)
 
-proc Eve (qcA, qcB, bcA, bcB, againA, againB, log) =
+proc Eve (qcA, qcB, bcA, bcB, againA, againB, logasB, logasA) =
   (new copied) 
   (  CopyBits([],qcA,qcB,bcA,copied)
-   | copied?(bs)                        .   (* bs, vs are what I _sent_ *)
-     copied?(vs)                        .
-          log!bs                        .
-          log!vs                        .
+   | copied?(bs) . copied?(vs)      . (* bs, vs are what I _sent_ *)
+     logasA!bs   . logasA!vs        .
     
-     copied?(basesA) . bcA!bs           .   (* note Alice's bases; send my bases to her *)
+     copied?(basesA) . bcA!bs       .   (* note Alice's bases; send my bases to her *)
         
-     bcB!bs . bcB?(basesB)              .   (* send my bases to Bob; receive his in return *)
+     bcB!bs . bcB?(basesB)          .   (* send my bases to Bob; receive his in return *)
      (let rvsB = reconcile basesB bs vs)
-     bcB?(maskB) . bcB?(checkbitsB)     .   (* receive Bob's mask and check bits *)
-                                            (* but ignore his check bits *)
-                log!checkbitsB          .   (* -- other than logging them *)
+     bcB?(maskB) . bcB?(checkbitsB) .   (* receive Bob's mask and check bits *)
+                                        (* but ignore his check bits *)
+     logasA!checkbitsB              .   (* -- other than logging them *)
      (let codeB = mask_filter 0b0 maskB rvsB)
    
      (* do a Bob-style calculation of a check mask and check bits *)
@@ -26,32 +25,34 @@ proc Eve (qcA, qcB, bcA, bcB, againA, againB, log) =
      (let codeA = mask_filter 0b0 maskA rvsA)
    
      (* don't worry if Alice doesn't have enough code bits: she will signal if necessary *)
-     bcA!maskA                          .   (* send check bits and mask *)
-     bcA!checkbitsA                     . 
+     bcA!maskA                      .   (* send check bits and mask *)
+     bcA!checkbitsA                 . 
    
      (* see if Alice is ok with that *)
-     (    againA?(_)                    .   (* Alice didn't get enough code bits *)
-            againB!()                   .   (* round again, Bob *)
-                log![bool2bit true]  .
-            Eve (qcA, qcB, bcA, bcB, againA, againB, log)
-      <+> bcA?(encrypted)               .   (* receive her encrypted message *)
-            EveFinish (length bs, qcA, qcB, bcA, bcB, againA, againB, log, codeA, codeB, encrypted)
+     (    againA?(_)                .   (* Alice didn't get enough code bits *)
+            logasB![bool2bit true]  .
+            againB!()               .   (* round again, Bob *)
+            logasA![bool2bit true]  .
+            Eve (qcA, qcB, bcA, bcB, againA, againB, logasB, logasA)
+      <+> bcA?(encrypted)           .   (* receive her encrypted message *)
+            EveFinish (length bs, qcA, qcB, bcA, bcB, againA, againB, logasB, logasA, codeA, codeB, encrypted)
      )
   )          
 
-proc EveFinish (n, qcA, qcB, bcA, bcB, againA, againB, log, codeA, codeB, encrypted) =
+proc EveFinish (n, qcA, qcB, bcA, bcB, againA, againB, logasB, logasA, codeA, codeB, encrypted) =
   (* there is a possibility that Bob may not have enough code bits ... *)
   if length codeB<length encrypted then
-    againB!()                   .   (* round again, Bob (but not Alice) *)
-        log![bool2bit true]     .
-    EveLoop (n,qcA, qcB, bcA, bcB, againA, againB, log, codeA, encrypted)
+    againB!()                       .   (* round again, Bob (but not Alice) *)
+        logasB![bool2bit true]      .
+    EveLoop (n,qcA, qcB, bcA, bcB, againA, againB, logasB, logasA, codeA, encrypted)
   else
     (* decode from Alice as Bob would *)
     (let message = xor_mask (take (length encrypted) codeA) encrypted)
-        log![bool2bit false]    .
-        log!encrypted           .
-        log![bool2bit true]     .   (* I got the message *)
-        log!message             .   (* and here it is *)
+        logasB![bool2bit false]     .   (* Bob isn't going round again *)
+        logasA![bool2bit false]     .   (* and neither is Alice *)
+        logasB!encrypted            .
+        logasA![bool2bit true]      .   (* I got the message *)
+        logasA!message              .   (* and here it is *)
     (* encode for Bob as Alice would *)
     bcB!xor_mask (take (length message) codeB) message       
                                 .   
@@ -59,21 +60,21 @@ proc EveFinish (n, qcA, qcB, bcA, bcB, againA, againB, log, codeA, codeB, encryp
   fi
    
 (* just do the Bob preamble again and then EveFinish *)
-proc EveLoop (n, qcA, qcB, bcA, bcB, againA, againB, log, codeA, encrypted) =
+proc EveLoop (n, qcA, qcB, bcA, bcB, againA, againB, logasB, logasA, codeA, encrypted) =
   (* in case Bob is suspicious, send him new qbits *)
   (let bs = randbits n)
   (let vs = randbits n)
   (new sent)
   (  SendBits (zip bs vs, qcB, sent)            (* just like Alice, ho ho! *)
    | sent?(_)                               .
-        log!bs                              .  
-        log!vs                              .
+        logasA!bs                              .  
+        logasA!vs                              .
      bcB!bs . bcB?(basesB)                  .   
      (let rvsB = reconcile basesB bs vs)
      bcB?(maskB) . bcB?(checkbitsB)         .   
-        log!checkbitsB                      .
+        logasA!checkbitsB                      .
      (let codeB = mask_filter 0b0 maskB rvsB)
-     EveFinish (n, qcA, qcB, bcA, bcB, againA, againB, log, codeA, codeB, encrypted)
+     EveFinish (n, qcA, qcB, bcA, bcB, againA, againB, logasB, logasA, codeA, codeB, encrypted)
   )
   
 proc CopyBits (bvs, qcA, qcB, bcA, result) =

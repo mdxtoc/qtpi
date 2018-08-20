@@ -1,16 +1,16 @@
 (* doesn't work, because it doesn't get qbits in the right entangled state *)
 
 proc Alice (x:qbit, c:^0..3, z:qbit) = 
-    {print_string "initially Alice's z is "} .
+    {print_string  "initially Alice's z is "} .
     {print_qbit z} .
-    {print_string "\n"} .
+    {print_string  "\n"} .
     z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
 
 proc Bob(y:qbit, c:^0..3) = 
     c?(n) . y>>_Phi(n) . 
-    {print_string "finally Bob's y is "} . 
+    {print_string  "finally Bob's y is "} . 
     {print_qbit y} .
-    {print_string "\n"} .
+    {print_string  "\n"} .
     _0 
 
 (* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)

@@ -2,18 +2,18 @@
 proc Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
 
 proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB, bsB) = 
-  if i=0 then {print_strings ["all done: "; 
-                              string_of_value nGood; " Eve's; ";
-                              string_of_value nBad; " Alice's; ";
-                              "average check bits "; string_of_value (sumChecks/k); 
-                              " minimum check bits "; string_of_value minChecks; "\n"
+  if i=0 then {print_strings  ["all done: "; 
+                              nGood; " Eve's; ";
+                              nBad; " Alice's; ";
+                              "average check bits "; (sumChecks/k); 
+                              " minimum check bits "; minChecks; "\n"
                              ]
               } . 
               _0
-         else {print_strings ["trial number "; string_of_value (k-i+1); if verbose then "\n" else " " fi]} .
+         else {print_strings  ["trial number "; (k-i+1); if verbose then "\n" else " " fi]} .
               (new chosen, again) (  AliceChoose (n,[],r,chosen)
                                    | chosen?(bvs) . 
-                                     {if verbose then print_strings ["Alice chose "; string_of_value bvs; "\n"] else () fi} .
+                                     {if verbose then print_strings  ["Alice chose "; bvs; "\n"] else () fi} .
                                      AliceSend (verbose, bvs, qB, bsB, again)
                                    | again?(b,nc) .
                                      Alice1 (k, i-1,
@@ -56,20 +56,20 @@ proc AliceSendBits (bvs,qB,done) =
 proc AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
-    {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob sent bases "; bBs; "\n"] else () fi} .
     (new done) (  Reconcile (bBs, bvs, [], done)
                 | done?(vs) . (* vs are the values we should agree upon *)
-                  {if verbose then print_strings ["Alice reconciled "; string_of_value vs; "\n"] else () fi} .
+                  {if verbose then print_strings  ["Alice reconciled "; vs; "\n"] else () fi} .
                   bsB?(vBs) . (* vBs are the bits to check, from vs *)
-                  {if verbose then print_strings ["Bob sent check bits "; string_of_value vBs; "\n"] else () fi} .
+                  {if verbose then print_strings  ["Bob sent check bits "; vBs; "\n"] else () fi} .
                   (new done) (AliceCheck (vBs, vs, done)
                               | done?(b) . 
-                                {print_strings (if b then if verbose then ["Alice's code is "; 
-                                                                           string_of_value (drop (length vBs) vs); 
+                                {print_strings  (if b then if verbose then ["Alice's code is "; 
+                                                                           (drop (length vBs) vs); 
                                                                            "\n"]
-                                                                     else  ["code -- "; string_of_value (length vBs); " check bits\n"]
+                                                                     else  ["code -- "; (length vBs); " check bits\n"]
                                                           fi
-                                               else ["interference detected -- "; string_of_value (length vBs); " check bits\n"]
+                                               else ["interference detected -- "; (length vBs); " check bits\n"]
                                                fi
                                               )
                                 } .
@@ -89,7 +89,7 @@ proc Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
        []     , []         . (done!rev vs . _0)
    <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <+> _                   . {print_string "Reconcile failure"} . _0
+   <+> _                   . {print_string  "Reconcile failure"} . _0
    hctam
   
 
@@ -98,17 +98,17 @@ proc Bob(k, verbose, n:int, r:^bit, qA, bsA) =
   else
     (new done) (  BobReceive(n,[],qA,r,done)
                 | done?(bvs)      . (* bvs is what I saw *)
-                  {if verbose then print_strings ["Bob saw "; string_of_value bvs; "\n"] else () fi} .
+                  {if verbose then print_strings  ["Bob saw "; bvs; "\n"] else () fi} .
                   bsA?(bAs)       . (* receive her bases *)
-                  {if verbose then print_strings ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
+                  {if verbose then print_strings  ["Alice sent bases "; bAs; "\n"] else () fi} .
                   bsA!map fst bvs . (* send my bases *)
                   (new done) (  Reconcile (bAs,bvs,[],done)
                               | done?(vs) . (* the bits we agree on *)
-                                {if verbose then print_strings ["Bob reconciled "; string_of_value vs; "\n"] else () fi} .
+                                {if verbose then print_strings  ["Bob reconciled "; vs; "\n"] else () fi} .
                                 (let checklength = (length vs)/4)
                                 bsA!take checklength vs . (* send her a sample *)
                                 (let code = drop checklength vs)
-                                {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .                                
+                                {if verbose then print_strings  ["Bob's code is "; code; "\n"] else () fi} .                                
                                 Bob (k-1, verbose, n, r, qA, bsA)
                              )
                )
@@ -130,7 +130,7 @@ proc Eve (k, verbose, n, r:^bit, qA, qB) =
   else
     (new done) (  EvesDrop(n,[],r,qA,qB,done)
                 | done?(bvs) .
-                  {if verbose then print_strings ["Eve saw "; string_of_value bvs; "\n"] else () fi} .
+                  {if verbose then print_strings  ["Eve saw "; bvs; "\n"] else () fi} .
                   Eve (k-1, verbose, n, r, qA, qB)
                )
   fi

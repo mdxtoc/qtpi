@@ -20,10 +20,13 @@ proc EveLoop (qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bsB, vsB, basesA, lo
                                             (* but ignore his check bits *)
                 log!checkbitsB       .
    (let codeB = mask_filter 0b0 maskB rvsB)
-   (* now, can we fake it with Alice to make a code the right length? *)
+   (* if Alice has more code bits than Bob then she might send me a message
+      that I couldn't recrypt. So make sure that doesn't happen.
+    *)
    (let rvsA = reconcile bsA basesA vsA)
    (let diff = length rvsA - length codeB)
    if diff>=0 then
+     (* fake a mask to give Alice the same number of code bits as Bob *)
      (let maskA = tabulate diff (const 0b1) @ tabulate (length codeB) (const 0b0))
      bcA!maskA                          .   (* send Alice the mask and checkbits *)
      bcA!mask_filter 0b1 maskA rvsA     .
@@ -63,7 +66,7 @@ proc CopyBits (bvs, qcA, qcB, bcA, result) =
             (let b = randbit ())
             q=?[if b=0 then _I else _H fi](v)   . 
             qcB!q                                . 
-                          CopyBits ((b,v)::bvs, qcA, qcB, bcA, result)
+            CopyBits ((b,v)::bvs, qcA, qcB, bcA, result)
     <+> bcA?(basesA)                            . 
             (let bvs = rev bvs)
             result!map fst bvs                  . 

@@ -1,28 +1,31 @@
 proc LogBob (reps, verbose, log, done) =
     log?(bs) .
     log?(vs) .
-    {if verbose then print_strings ["Bob saw "; string_of_value (zip bs vs); "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob saw "; string_of_value (length bs);
+                                    " pairs: "; string_of_value (zip bs vs); "\n"] else () fi} .
     log?(bAs)  .
-    {if verbose then print_strings ["Bob received bases "; string_of_value bAs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob received "; string_of_value (length bAs);
+                                    " bases "; string_of_value bAs; "\n"] else () fi} .
     log?(bBs)  .
-    {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob sent "; string_of_value (length bBs);
+                                    " bases "; string_of_value bBs; "\n"] else () fi} .
     log?(rvs) .
-    {if verbose then print_strings ["Bob reconciled "; string_of_value rvs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob reconciled "; string_of_value rvs; "\n"] else () fi} .
     log?(mask) .
-    {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
     log?(cs)  .
-    {if verbose then print_strings ["Bob sent check bits "; string_of_value cs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Bob sent check bits "; string_of_value cs; "\n"] else () fi} .
     log?(again) .
     if bit2bool (hd again) then
-      {print_string "Bob goes round again\n"} .
+      {print_string  "Bob goes round again\n"} .
       LogBob (reps+1, verbose, log, done)
     else
       log?(encrypted) .
-      {if verbose then print_strings ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
+      {if verbose then print_strings  ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
       log?(code) .
-      {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .
-      log?(M') .
-      {if verbose then print_strings ["Bob decodes message "; string_of_value M'; "\n"] else () fi} . 
-      done!length cs, M', reps .
+      {if verbose then print_strings  ["Bob's code is "; string_of_value code; "\n"] else () fi} .
+      log?(M) .
+      {if verbose then print_strings  ["Bob decodes message "; string_of_value M; "\n"] else () fi} . 
+      done!length cs, M, reps .
       _0
     fi

@@ -13,28 +13,28 @@ proc System() = (let n = read_min_int 1 "length of message")
 proc Run (k, verbose, n, nWC, nSigma) = Logger (k, 0, verbose, 0, 0, 0, [], n, nWC, nSigma)
 
 proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, nWC, nSigma) =
-  if i<k then {if k<>1 then print_strings ["trial number "; string_of_value (i+1); 
+  if i<k then {if k<>1 then print_strings  ["trial number "; string_of_value (i+1); 
                                            if verbose then "\n" else " " fi] 
                        else () fi
               } .
               (let M = randbits n)
-              {if verbose then print_strings ["message is "; string_of_value M; "\n"] else () fi} .
+              {if verbose then print_strings  ["message is "; string_of_value M; "\n"] else () fi} .
               (new logA, logB, doneA, doneB)
               (  Experiment (M, nWC, nSigma, logA, logB) 
                | LogAlice (0, verbose, logA, doneA)
                | LogBob (0, verbose, logB, doneB)
                | doneA?(intf_seen, nb, ncA, repsA)   .
                  doneB?(_, messageB, _)       .
-                 {if i+1=k then print_strings [string_of_value nb; " qbits";
-                                               if k=1 then "\n" else " per trial\n" fi
-                                              ]
+                 {if i+1=k then print_strings  [string_of_value nb; " qbits";
+                                                if k=1 then "\n" else " per trial\n" fi
+                                               ]
                   else () fi
                  } .
                  (let nIntf = if intf_seen then nIntf+1 else nIntf fi)
                  (let nOk = if not intf_seen && messageB=M then nOk+1 else nOk fi)
                  Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, nWC, nSigma)
               )
-  else {print_strings ["all done: "; 
+  else {print_strings  ["all done: "; 
                        string_of_value nIntf;          " interfered with; ";
                        string_of_value nOk;            " exchanges succeeded; ";
                        string_of_value (k-nOk);        " failed; ";

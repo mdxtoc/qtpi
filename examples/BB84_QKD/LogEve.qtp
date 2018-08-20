@@ -1,21 +1,55 @@
 
-proc LogEve (reps, verbose, log, done) =
-    log?(bs)         .
-    log?(vs)         .
-    log?(cs)         .
-    {if verbose then print_strings ["Eve saw "; string_of_value (length bs); 
-                                    " pairs: "; string_of_value (zip bs vs); "\n"] else () fi} .
-    log?(again)      .
-    if bit2bool (hd again) then
-      {print_string "Eve goes round again\n"} .
-      LogEve (reps+1, verbose, log, done)
-    else
-      log?(encrypted)  .
-      {if verbose then print_strings ["Eve sees encrypted "; string_of_value encrypted; "\n"] else () fi} .
-      log?(decoded)    .
-      (let decoded = bit2bool (hd decoded))
-      log?(message)    .
-      {if verbose && decoded then print_strings ["Eve decodes message "; string_of_value message; "\n"] else () fi} .
-      done!decoded, message, length cs, reps .
-      _0
-    fi
+proc LogEve (verbose, logAE, logEB, done) =
+  (new doneAE, doneEB)
+  (  LogAliceEve (verbose, logAE, doneAE)
+   | LogEveBob (0, verbose, logEB, doneEB)
+   | doneAE?_           .
+     doneEB?(result)    .
+     done!result        .
+     _0
+  )
+  
+proc LogAliceEve (verbose, log, done) = 
+  log?(again)            .
+  if bit2bool (hd again) then
+    {print_string  "Alice sends Eve round again\n"} .
+    LogAliceEve (verbose, log, done)
+  else
+    log?(encrypted)     .
+    {if verbose then 
+       print_strings  ["Eve (as Bob) sees encrypted "; string_of_value encrypted; "\n"] 
+     else () fi
+    }                   .
+    done!()             .
+    _0
+  fi
+
+proc LogEveBob (reps, verbose, log, done) = 
+  log?(bs)              .
+  log?(vs)              .
+  {if verbose then 
+     print_strings  ["Eve (as Alice) sent "; string_of_value (length bs); 
+                    " pairs: "; string_of_value (zip bs vs); "\n"] 
+     else () fi
+  }                     .
+  log?(cs)              .
+  {if verbose then 
+     print_strings  ["Eve (as Alice) saw "; string_of_value (length cs); 
+                    " checkbits from Bob: "; string_of_value cs; "\n"] 
+     else () fi
+  }                     .
+  log?(again)           .
+  if bit2bool (hd again) then
+    {print_string  "Eve (as Alice) sends Bob round again\n"} .
+    LogEveBob (reps+1, verbose, log, done)
+  else
+    log?(decoded)          .
+    (let decoded = bit2bool (hd decoded))
+    log?(message)       .
+    {if verbose && decoded then 
+       print_strings  ["Eve decodes message "; string_of_value message; "\n"] 
+     else () fi
+    } .
+    done!decoded, message, length cs, reps .
+    _0
+  fi

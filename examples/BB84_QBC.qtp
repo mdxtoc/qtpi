@@ -78,14 +78,14 @@ proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
-    {print_strings ["\n\nAll over: "; string_of_value nA; " Alice; ";
-                                      string_of_value nB; " Bob; ";
-                                      string_of_value nH; " honest\n"
+    {print_strings  ["\n\nAll over: "; nA; " Alice; ";
+                                      nB; " Bob; ";
+                                      nH; " honest\n"
                    ]
     } . 
     _0
   else
-    {print_strings ["trial number "; string_of_value (i+1);
+    {print_strings  ["trial number "; (i+1);
                     if verbose then ": " else "\n" fi
                    ]
     } .
@@ -95,8 +95,8 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
      | logA?(bases) .
        (let basis = hd bases)
        logA?(vs) .
-       {if verbose then print_strings ["Alice chose basis "; string_of_value basis;
-                                       " and values "; string_of_value vs; "\n"
+       {if verbose then print_strings  ["Alice chose basis "; basis;
+                                       " and values "; vs; "\n"
                                       ]
         else ()
         fi
@@ -106,21 +106,21 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
        (let bvs = zip bs vs)
        logB?(guesses) .
        (let guess = hd guesses)
-       {if verbose then print_strings ["Bob received "; string_of_value bvs;
-                                       " and guessed "; string_of_value guess; "\n"
+       {if verbose then print_strings  ["Bob received "; bvs;
+                                       " and guessed "; guess; "\n"
                                       ]
         else ()
         fi
        } .
        logB?(honests) .
        (let honest = hd honests = 0b1)
-       {print_strings ["Bob says Alice ";
+       {print_strings  ["Bob says Alice ";
                        if honest then "was honest" else "lied" fi;
                        "\n"
                       ]} .
        (let nH = if honest then nH+1 else nH fi)
        (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
-       {print_string if guess=basis then "Bob wins\n"
+       {print_string  if guess=basis then "Bob wins\n"
                                     else "Alice wins\n"
                      fi
        } . 

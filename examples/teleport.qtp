@@ -1,13 +1,13 @@
 
 proc Alice (x:qbit, c:^0..3, z:qbit, log) = 
-    {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "\n"} .
+    {print_string  "initially Alice's z is "} . {print_qbit z} . {print_string  "\n"} .
     z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz++vx . 
     dispose!x . dispose!z .
     log!() . _0 
 
 proc Bob(y:qbit, c:^0..3, log) = 
     c?(n) . y>>_Phi(n) . 
-    {print_string "finally Bob's y is "} . {print_qbit y} . {print_string "\n"} .
+    {print_string  "finally Bob's y is "} . {print_qbit y} . {print_string  "\n"} .
     dispose!y .
     log!() . _0 
 
@@ -15,14 +15,14 @@ proc System () =
   (let k = read_int "number of trials")
   (let standard = read_bool "standard initial state or random" "s" "r")
   {if standard then ()
-   else print_string "\nThat, as you will see, is a step too far for the symbolic quantum simulator\n\n"
+   else print_string  "\nThat, as you will see, is a step too far for the symbolic quantum simulator\n\n"
    fi
   } .
-  {print_string "See output for results -- can print but can't examine qbit state\n"} .
+  {print_string  "See output for results -- can print but can't examine qbit state\n"} .
   Run (k, standard, 0)
 
 proc Run (k, standard, i) =
-  if i=k then {print_strings [string_of_value k; " trials\n"]} . _0
+  if i=k then {print_strings  [k; " trials\n"]} . _0
   else (new log)
        (  if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
                       else (newq x,y)          Experiment (x, y, log)

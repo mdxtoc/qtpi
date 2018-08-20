@@ -1,11 +1,11 @@
 
 proc Alice (x:qbit, c:^0..3, z:qbit) = 
-    {print_string "initially Alice's z is "} . {print_qbit z} . {print_string "; "} .
+    {print_string  "initially Alice's z is "} . {print_qbit z} . {print_string  "; "} .
 	z,x>>_CNot . x=?[_H](vz) . z=?(vx) . c!vz++vx . _0 
 
 proc Bob(y:qbit, c:^0..3) = 
   	c?(n) . y>>_Phi(n) . 
-    {print_string "finally Bob's y is "} .  {print_qbit y} . {print_string "\n"} .
+    {print_string  "finally Bob's y is "} .  {print_qbit y} . {print_string  "\n"} .
   	_0
 
 proc System () = 

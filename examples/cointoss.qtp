@@ -6,25 +6,25 @@
 
 proc P(fromQ:^qbit, toQ:^qbit, log) =     fromQ?(y) . toQ!y .         log!() . _0
                                          <+> fromQ?(y) . y>>_X . 
-                                             {print_string "with a flip; "}. 
+                                             {print_string  "with a flip; "}. 
                                              toQ!y .                     log!()  . _0
                      
 proc Q(q: qbit, toP:^qbit, fromP:^qbit, log) = 
-  {print_string "initially "} . {print_qbit q} . {print_string "; "} .
+  {print_string  "initially "} . {print_qbit q} . {print_string  "; "} .
   q>>_H . toP!q . fromP?(q') . q'>>_H . 
-  {print_string "finally "} . {print_qbit q'} . {print_string "\n"} .
+  {print_string  "finally "} . {print_qbit q'} . {print_string  "\n"} .
   log!() . _0 
 
 proc System() = (let k = read_int "number of trials")
                 (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
                 (let verbose = read_bool "with commentary" "y" "n")
-           {print_string "See output for results -- can print but can't examine qbit state\n"} .
+           {print_string  "See output for results -- can print but can't examine qbit state\n"} .
            Logger (k, bv, verbose)
 
 proc Logger (k, bv, verbose) = Run (k, bv, verbose, 0)
 
 proc Run (k, bv, verbose, i) = 
-  if i=k then {print_strings [string_of_value i; " trials\n"]} . _0
+  if i=k then {print_strings  [i; " trials\n"]} . _0
   else
     (newq q = bv) 
     (new s:^qbit, r:^qbit)

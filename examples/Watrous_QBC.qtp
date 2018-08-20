@@ -15,7 +15,7 @@ proc Bob(cq:^qbit, cc:^bit*bit) =
     cc?(value,basis).
     qx >> if basis=0b1 then _H else _I fi.
     qx=?(measure).
-    (let n = print_string if measure = value then "honest\n" else "liar!!\n" fi)
+    (let n = print_string  if measure = value then "honest\n" else "liar!!\n" fi)
     _0
     
 proc Random(q:qbit, r:^bit) =

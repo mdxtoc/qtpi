@@ -157,6 +157,9 @@ let v_const a b = a
 let _ = Interpret.know ("tabulate", "int -> (int -> 'a) -> 'a list"    , vfun2 v_tabulate)
 let _ = Interpret.know ("const"   , "'a -> 'b -> 'a"                   , vfun2 v_const)
 
+let v_sort vs = vlist (List.sort (fun a b -> ~- (Pervasives.compare a b)) (listv vs))
+let _ = Interpret.know ("sort"    , "'a list -> 'a list"                , vfun v_sort)
+
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
@@ -177,22 +180,35 @@ let _ = Interpret.know ("max", "int -> int -> int", vfun2 v_max)
 let _ = Interpret.know ("min", "int -> int -> int", vfun2 v_min)
 
 (* ********************* I/O ************************ *)
+(* I'm ashamed to say that all these read_.. functions are hacked to deal with BBEdit's weird shell worksheet
+   input mechanism. Sorry.
+ *)
 
-let rec read_int s = flush stdout; prerr_string (stringv s ^"? "); flush stderr; 
-                     try vint (Pervasives.read_int ()) with Failure _ -> print_endline "pardon?"; read_int s
+let rec get_string s = 
+  flush stdout; 
+  let prompt = stringv s ^"? " in
+  prerr_string prompt; flush stderr; 
+  let input = Pervasives.read_line () in
+  let plength = String.length prompt in
+  let ilength = String.length input in
+  if plength<ilength && Stringutils.starts_with input prompt 
+  then String.sub input plength (ilength - plength)
+  else input
+  
+let rec read_int s = try vint (int_of_string (get_string s)) with Failure _ -> print_endline "pardon?"; read_int s
 let _ = Interpret.know ("read_int", "string -> int"                     , vfun read_int)
 
-let rec read_string s = flush stdout; prerr_string (stringv s ^"? "); flush stderr; vstring (Pervasives.read_line ()) 
+let rec read_string s = vstring (get_string s) 
 let _ = Interpret.know ("read_string", "string -> string"               , vfun read_string)
 
 let rec read_alternative prompt sep alts =
-  let assoc = List.map (fun v -> let (s,v) = pairv v in stringv s, v) (listv alts) in
+  let assoc = List.map pairv (listv alts) in
   let promptstring = Printf.sprintf "%s (%s)" 
                                     (stringv prompt) 
-                                    (String.concat (stringv sep) (List.map fst assoc)) 
+                                    (String.concat (stringv sep) (List.map (stringv <.> fst) assoc)) 
   in
   let s = read_string (vstring promptstring) in
-  try assoc<@>stringv s 
+  try List.assoc s assoc
   with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
 
 let _ = Interpret.know ("read_alternative", "string -> string -> (string*'a) list -> 'a", vfun3 read_alternative)

@@ -1,40 +1,36 @@
-proc Bob (qA, bsA, againA, report) = 
+proc Bob (qA, bsA, againA, log) = 
     (new received) 
     (  ReceiveBits(qA,bsA,[],received)
      | received?(bs)                . (* bs, vs is what I saw *)
        received?(vs)                .
-            report!bs               .
-            report!vs               .
+            log!bs               .
+            log!vs               .
        received?(bAs)               . (* receive her bases *)
-            report!bAs              .
+            log!bAs              .
        bsA!bs                       . (* send my bases *)
-            report!bs               .
+            log!bs               .
        (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
-            report!rvs              .
-       (let mask = tabulate (length rvs) quarter
-                     where quarter = lam _ . if randbit()=0b1 && randbit()=0b1 
-                                             then 0b1 else 0b0 
-                                             fi
-       )
+            log!rvs              .
+       (let mask = tabulate (length rvs) cb_choose)
        (let checkbits = mask_filter 0b1 mask rvs)
        bsA!mask                     . (* send her the mask *)
        bsA!checkbits                . (* send her the checkbits *)
-            report!mask             .
-            report!checkbits        .
+            log!mask             .
+            log!checkbits        .
        (let codebits = mask_filter 0b0 mask rvs)
-       (    againA?(_)       .      report![bool2bit true]  .
-                               Bob (qA, bsA, againA, report)
-        <+> bsA?(encryptedM) .      report![bool2bit false] .
+       (    againA?(_)       .      log![bool2bit true]  .
+                               Bob (qA, bsA, againA, log)
+        <+> bsA?(encryptedM) .      log![bool2bit false] .
                                (let code = take (length encryptedM) codebits)
                                (let M = xor_mask encryptedM code)
-                                    report!encryptedM       .
-                                    report!code             .
-                                    report!M                .
+                                    log!encryptedM       .
+                                    log!code             .
+                                    log!M                .
                                _0
        )
     )
   
-(* receive qbits, measure them, report the results when you see her bases *)
+(* receive qbits, measure them, log the results when you see her bases *)
 proc ReceiveBits(qA,bsA,bvs,results) =
       bsA?(bases) . (let bvs = rev bvs)
                     results!map fst bvs . 

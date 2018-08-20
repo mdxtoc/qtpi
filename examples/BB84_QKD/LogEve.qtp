@@ -1,0 +1,21 @@
+
+proc LogEve (reps, verbose, log, done) =
+    log?(bs)         .
+    log?(vs)         .
+    log?(cs)         .
+    {if verbose then print_strings ["Eve saw "; string_of_value (length bs); 
+                                    " pairs: "; string_of_value (zip bs vs); "\n"] else () fi} .
+    log?(again)      .
+    if bit2bool (hd again) then
+      {print_string "Eve goes round again\n"} .
+      LogEve (reps+1, verbose, log, done)
+    else
+      log?(encrypted)  .
+      {if verbose then print_strings ["Eve sees encrypted "; string_of_value encrypted; "\n"] else () fi} .
+      log?(decoded)    .
+      (let decoded = bit2bool (hd decoded))
+      log?(message)    .
+      {if verbose && decoded then print_strings ["Eve decodes message "; string_of_value message; "\n"] else () fi} .
+      done!decoded, message, length cs, reps .
+      _0
+    fi

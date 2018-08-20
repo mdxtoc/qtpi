@@ -1,9 +1,9 @@
 
-proc Alice(n:int, r:^bit, qB, vB, report) = 
+proc Alice(n:int, r:^bit, qB, vB, log) = 
     r?(basis) .
     (let vs = randbits n)
-    report![basis] .
-    report!vs .
+    log![basis] .
+    log!vs .
     (new done) (  AliceSendBits (vs,basis,qB,done)
                 | done?(_) . vB!basis,vs . _0
                )
@@ -23,18 +23,18 @@ proc AliceSendBits (vs,basis,qB,done) =
                 AliceSendBits(vs,basis,qB,done)
     hctam
 
-proc Bob(n:int, r:^bit, qA, vA, report) = 
+proc Bob(n:int, r:^bit, qA, vA, log) = 
   (new done,verified) 
   (  BobReceive(n,[],qA,r,done)
    | done?(bvs) . 
-     report!(map fst bvs) .
-     report!(map snd bvs) .
+     log!(map fst bvs) .
+     log!(map snd bvs) .
      r?(guess) .
-     report![guess] .
+     log![guess] .
      vA?(basis:bit, vs:bit list) .
      BobVerify (basis,vs,bvs,verified)
    | verified?(honest) .
-     report![if honest then 0b1 else 0b0 fi] .
+     log![if honest then 0b1 else 0b0 fi] .
      _0
   )
 
@@ -70,11 +70,11 @@ proc System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            (new r)
-           (   Report (k, verbose, n, r)
+           (   Run (k, verbose, n, r)
             | (newq q = |0>) Random(q,r)
            )
            
-proc Report (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
+proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
@@ -89,22 +89,22 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
                     if verbose then ": " else "\n" fi
                    ]
     } .
-    (new qc, vc, reportA, reportB)
-    (  Alice(n,r,qc,vc,reportA) 
-     | Bob(n,r,qc,vc,reportB)
-     | reportA?(bases) .
+    (new qc, vc, logA, logB)
+    (  Alice(n,r,qc,vc,logA) 
+     | Bob(n,r,qc,vc,logB)
+     | logA?(bases) .
        (let basis = hd bases)
-       reportA?(vs) .
+       logA?(vs) .
        {if verbose then print_strings ["Alice chose basis "; string_of_value basis;
                                        " and values "; string_of_value vs; "\n"
                                       ]
         else ()
         fi
        } .
-       reportB?(bs) .
-       reportB?(vs) .
+       logB?(bs) .
+       logB?(vs) .
        (let bvs = zip bs vs)
-       reportB?(guesses) .
+       logB?(guesses) .
        (let guess = hd guesses)
        {if verbose then print_strings ["Bob received "; string_of_value bvs;
                                        " and guessed "; string_of_value guess; "\n"
@@ -112,7 +112,7 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
         else ()
         fi
        } .
-       reportB?(honests) .
+       logB?(honests) .
        (let honest = hd honests = 0b1)
        {print_strings ["Bob says Alice ";
                        if honest then "was honest" else "lied" fi;

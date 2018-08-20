@@ -1,28 +1,28 @@
-proc ReportBob (verbose, report, done) =
-    report?(bs) .
-    report?(vs) .
+proc LogBob (reps, verbose, log, done) =
+    log?(bs) .
+    log?(vs) .
     {if verbose then print_strings ["Bob saw "; string_of_value (zip bs vs); "\n"] else () fi} .
-    report?(bAs)  .
+    log?(bAs)  .
     {if verbose then print_strings ["Bob received bases "; string_of_value bAs; "\n"] else () fi} .
-    report?(bBs)  .
+    log?(bBs)  .
     {if verbose then print_strings ["Bob sent bases "; string_of_value bBs; "\n"] else () fi} .
-    report?(rvs) .
+    log?(rvs) .
     {if verbose then print_strings ["Bob reconciled "; string_of_value rvs; "\n"] else () fi} .
-    report?(mask) .
+    log?(mask) .
     {if verbose then print_strings ["Bob sent check-bit mask "; string_of_value mask; "\n"] else () fi} .
-    report?(cs)  .
+    log?(cs)  .
     {if verbose then print_strings ["Bob sent check bits "; string_of_value cs; "\n"] else () fi} .
-    report?(again) .
+    log?(again) .
     if bit2bool (hd again) then
       {print_string "Bob goes round again\n"} .
-      ReportBob (verbose, report, done)
+      LogBob (reps+1, verbose, log, done)
     else
-      report?(encrypted) .
+      log?(encrypted) .
       {if verbose then print_strings ["Bob receives encrypted "; string_of_value encrypted; "\n"] else () fi} . 
-      report?(code) .
+      log?(code) .
       {if verbose then print_strings ["Bob's code is "; string_of_value code; "\n"] else () fi} .
-      report?(M') .
+      log?(M') .
       {if verbose then print_strings ["Bob decodes message "; string_of_value M'; "\n"] else () fi} . 
-      done!M' .
+      done!length cs, M', reps .
       _0
     fi

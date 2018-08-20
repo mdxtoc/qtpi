@@ -12,6 +12,9 @@ fun mask_filter (m:'a) (mask:'a list) (vs:'b list) : 'b list =
   vs where _, vs = unzip mvs
      where mvs = filter (lam (me,_) . me=m) (zip mask vs)
 
+(* select check bits randomly. Use 1/4 probability because it's easy *)
+fun cb_choose _ = if randbit()=0b1 && randbit()=0b1 then 0b1 else 0b0 fi
+
 fun xor_mask code message = 
   map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
 
@@ -29,3 +32,26 @@ fun read_min_int m s =
 fun compose f g v = f (g v)
 
 fun semicolon f g = compose g f
+
+fun int_sqrt n = i_s 0 n
+
+fun i_s k n =
+  if k*k>=n then k 
+  else i_s (k+1) n fi
+  
+fun histogram ns = 
+  histo [] (sort ns)
+
+fun histo buckets ns =
+  match ns .
+      []    . buckets
+  <+> n::ns . histo ((n,length pre+1)::buckets) post
+                where pre = takewhile sameas ns
+                where post = dropwhile sameas ns
+                where sameas = lam k . k=n
+  hctam
+
+fun listsum ns = foldl (lam sum n . sum+n) 0 ns
+
+fun listmin ns = foldl (lam sofar n . min sofar n) (hd ns) (tl ns)
+       

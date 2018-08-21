@@ -1,28 +1,31 @@
 (* a naive eavesdropper. Sees Alice's bits but messes with them. *)
-proc Eve (qA, qB, bsA, bsB, againA, againB, log) =
-    (new done) 
-    (  CopyBits([],qA,qB,bsA,done)
-     | done?(bs)                        .   (* bs, vs are what I saw *)
-       done?(vs)                        .
-            log!bs                   .
-            log!vs                   .
+proc Eve (qA, qB, bsA, bsB, againA, againB, logAE,logEB) =
+    (new measured) 
+    (  CopyBits([],qA,qB,bsA,measured)
+     | measured?(bs)                    .   (* bs, vs are what I think I saw *)
+       measured?(vs)                    .
+       logEB!bs                         .
+       logEB!vs                         .
       
-       done?(basesA)   . bsB!basesA     .   (* A->B bases       *)
-       bsB?(basesB)    . bsA!basesB     .   (* B->A bases       *)
-       bsB?(mask)      . bsA!mask       .   (* B->A mask        *)
-       bsB?(cs)        . bsA!cs         .   (* B->A checkbits   *)
-            log!cs                   .
-       (    bsA?(encrypted)             .   (* A->B message     *)
-                              bsB!encrypted                 .   
-                                log![bool2bit false]     .   
-                                log!encrypted            . 
-                                log![0b0]                .   (* can't decode *)
-                                log![]                   .   (* empty message *)
-                              _0
-        <+> againA?(_)                  .    (* round again *)
-                              againB!()                     .
-                                log![bool2bit true]      .
-                              Eve (qA, qB, bsA, bsB, againA, againB, log)
+       measured?(basesA) . bsB!basesA   .   (* bases A->B       *)
+       bsB?(basesB)      . bsA!basesB   .   (* bases B->A       *)
+       bsB?(mask)        . bsA!mask     .   (* mask B->A        *)
+       bsB?(cs)          . bsA!cs       .   (* checkbits B->A   *)
+       logEB!cs                         .
+       
+       (    bsA?(encrypted)             .   (* encrypted message A->B *)
+              bsB!encrypted             .   
+              logAE![bool2bit false]    .   (* not going round *) 
+              logEB![bool2bit false]    .   (* either of us    *)   
+              logAE!encrypted           . 
+              logEB![bool2bit false]    .   (* can't decrypt *)
+              logEB![]                  .   (* empty message *)
+              _0
+        <+> againA?(_)                  .   (* round again, both sides *)
+              againB!()                 .
+              logAE![bool2bit true]     .
+              logEB![bool2bit true]     .
+              Eve (qA, qB, bsA, bsB, againA, againB, logAE,logEB)
        )
     )
 

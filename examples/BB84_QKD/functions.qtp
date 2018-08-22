@@ -23,7 +23,7 @@ fun bool2bit b = if b then 0b1 else 0b0 fi
 
 fun read_min_int m s =
   k where k = if j>=m then j 
-              else semicolon (lam _ . print_strings  ["pardon? at least "; show m; "\n"])
+              else semicolon (lam _ . print_strings ["pardon? at least "; show m; "\n"])
                              (lam _ . read_min_int m s)
                              ()
               fi

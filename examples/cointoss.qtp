@@ -24,7 +24,7 @@ proc System() = (let k = read_int "number of trials")
 proc Logger (k, bv, verbose) = Run (k, bv, verbose, 0)
 
 proc Run (k, bv, verbose, i) = 
-  if i=k then {print_strings  [i; " trials\n"]} . _0
+  if i=k then {print_strings [show i; " trials\n"]} . _0
   else
     (newq q = bv) 
     (new s:^qbit, r:^qbit)

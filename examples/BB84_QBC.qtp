@@ -78,14 +78,14 @@ proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
-    {print_strings  ["\n\nAll over: "; nA; " Alice; ";
-                                      nB; " Bob; ";
-                                      nH; " honest\n"
+    {print_strings ["\n\nAll over: "; show nA; " Alice; ";
+                                      show nB; " Bob; ";
+                                      show nH; " honest\n"
                    ]
     } . 
     _0
   else
-    {print_strings  ["trial number "; (i+1);
+    {print_strings ["trial number "; show (i+1);
                     if verbose then ": " else "\n" fi
                    ]
     } .
@@ -95,8 +95,8 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
      | logA?(bases) .
        (let basis = hd bases)
        logA?(vs) .
-       {if verbose then print_strings  ["Alice chose basis "; basis;
-                                       " and values "; vs; "\n"
+       {if verbose then print_strings ["Alice chose basis "; show basis;
+                                       " and values "; show vs; "\n"
                                       ]
         else ()
         fi
@@ -106,15 +106,15 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
        (let bvs = zip bs vs)
        logB?(guesses) .
        (let guess = hd guesses)
-       {if verbose then print_strings  ["Bob received "; bvs;
-                                       " and guessed "; guess; "\n"
+       {if verbose then print_strings ["Bob received "; show bvs;
+                                       " and guessed "; show guess; "\n"
                                       ]
         else ()
         fi
        } .
        logB?(honests) .
        (let honest = hd honests = 0b1)
-       {print_strings  ["Bob says Alice ";
+       {print_strings ["Bob says Alice ";
                        if honest then "was honest" else "lied" fi;
                        "\n"
                       ]} .

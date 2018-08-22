@@ -17,7 +17,7 @@ proc LogAliceEve (verbose, log, done) =
   else
     log?(encrypted)     .
     {if verbose then 
-       print_strings  ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
+       print_strings ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
      else () fi
     }                   .
     done!()             .
@@ -28,13 +28,13 @@ proc LogEveBob (reps, verbose, log, done) =
   log?(bs)              .
   log?(vs)              .
   {if verbose then 
-     print_strings  ["Eve (as Alice) sent "; show (length bs); 
+     print_strings ["Eve (as Alice) sent "; show (length bs); 
                     " pairs: "; show (zip bs vs); "\n"] 
      else () fi
   }                     .
   log?(cs)              .
   {if verbose then 
-     print_strings  ["Eve (as Alice) saw "; show (length cs); 
+     print_strings ["Eve (as Alice) saw "; show (length cs); 
                     " checkbits from Bob: "; show cs; "\n"] 
      else () fi
   }                     .
@@ -47,7 +47,7 @@ proc LogEveBob (reps, verbose, log, done) =
     (let decoded = bit2bool (hd decoded))
     log?(message)       .
     {if verbose && decoded then 
-       print_strings  ["Eve decodes message "; show message; "\n"] 
+       print_strings ["Eve decodes message "; show message; "\n"] 
      else () fi
     } .
     done!decoded, message, length cs, reps .

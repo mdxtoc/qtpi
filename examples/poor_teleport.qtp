@@ -1,13 +1,18 @@
 (* doesn't work, because it doesn't get qbits in the right entangled state *)
 
-proc Alice (x:qbit, c:^0..3, z:qbit) = 
+proc Alice (x:qbit, c:^bit*bit, z:qbit) = 
     {print_string  "initially Alice's z is "} .
     {print_qbit z} .
     {print_string  "\n"} .
-    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
+    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz,vx . _0 
 
-proc Bob(y:qbit, c:^0..3) = 
-    c?(n) . y>>_Phi(n) . 
+proc Bob(y:qbit, c:^bit*bit) = 
+    c?(b1,b2) . y>>_Phi (match b1,b2 .
+                             0b0,0b0 . 0
+                         <+> 0b0,0b1 . 1
+                         <+> 0b1,0b0 . 2
+                         <+> 0b1,0b1 . 3
+                         hctam) . 
     {print_string  "finally Bob's y is "} . 
     {print_qbit y} .
     {print_string  "\n"} .
@@ -16,4 +21,4 @@ proc Bob(y:qbit, c:^0..3) =
 (* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)
 proc System () = 
   (newq x, y, z) x=?(a) . x>>_H . y=?(b) . x,y>>_CNot . 
-  (new c:^0..3) (Alice(x,c,z) | Bob(y,c))
+  (new c:^bit*bit) (Alice(x,c,z) | Bob(y,c))

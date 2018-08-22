@@ -1,18 +1,23 @@
 
-proc Alice (x:qbit, c:^0..3, z:qbit) = 
+proc Alice (x:qbit, c:^bit*bit, z:qbit) = 
     {print_string  "initially Alice's z is "} . {print_qbit z} . {print_string  "; "} .
-    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz++vx . _0 
+    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz,vx . _0 
 
-proc Bob(y:qbit, c:^0..3) = 
-  	c?(i) . y >> _Phi(i) . 
+proc Bob(y:qbit, c:^bit*bit) = 
+    c?(b1,b2) . y>>_Phi (match b1,b2 .
+                             0b0,0b0 . 0
+                         <+> 0b0,0b1 . 1
+                         <+> 0b1,0b0 . 2
+                         <+> 0b1,0b1 . 3
+                         hctam) . 
     {print_string  "finally Bob's y is "} .  {print_qbit y} . {print_string  "\n"} .
   	_0
   
-proc Alice'(s:^qbit,c:^0..3,z:qbit) = s?(x:qbit) . Alice(x,c,z)
+proc Alice'(s:^qbit,c:^bit*bit,z:qbit) = s?(x:qbit) . Alice(x,c,z)
 
-proc Bob'(t:^qbit,c:^0..3) = t?(y:qbit) . Bob(y,c)
+proc Bob'(t:^qbit,c:^bit*bit) = t?(y:qbit) . Bob(y,c)
 
 proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
 
 proc System() = 
-    (newq z)(new c:^0..3,s:^qbit,t:^qbit) ( Alice'(s,c,z) | Bob'(t,c) | Source(s,t) )
+    (newq z)(new c:^bit*bit,s:^qbit,t:^qbit) ( Alice'(s,c,z) | Bob'(t,c) | Source(s,t) )

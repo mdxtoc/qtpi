@@ -22,12 +22,12 @@ proc Logger (k, i, verbose, nAlice, nEve,
                             nRepsA, nRepsB, 
                             ncAs, ncBs,
                             n, nWC, cMin, nSigma) =
-  if i<k then {if k<>1 then print_strings  ["trial number "; show (i+1); 
+  if i<k then {if k<>1 then print_strings ["trial number "; show (i+1); 
                                            if verbose then "\n" else " " fi]
                        else () fi
               } .
               (let M = randbits n)
-              {if verbose then print_strings  ["message is "; show M; "\n"] else () fi} .
+              {if verbose then print_strings ["message is "; show M; "\n"] else () fi} .
               (new logA,logAE,logEB,logB,doneA,doneB,doneE)
               (  Experiment (M, nWC, cMin, nSigma, logA, logAE,logEB, logB) 
                | LogAlice (0, verbose, logA, doneA)
@@ -37,11 +37,11 @@ proc Logger (k, i, verbose, nAlice, nEve,
                  doneB?(ncB, messageB, repsB)           .
                  doneE?(decodeE, messageE, _, _)        .
                  (let evewins = decodeE && not intf_seen && messageB=messageE && messageE=M)
-                 {print_strings  if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
+                 {print_strings if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
                                            else []
                                 fi
                  } .
-                 {if i+1=k then print_strings  [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
+                 {if i+1=k then print_strings [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
                   else () fi
                  } .
                  (let nAlice, nEve = if   intf_seen then nAlice+1, nEve      (* Alice spotted Eve *)

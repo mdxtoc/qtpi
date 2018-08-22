@@ -197,7 +197,7 @@ Mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Pr
 * *exists*: (*'a* -> *bool*) -> *'a list* -> *bool*
 * *filter*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 * *foldl*: (*'a* -> *'b* -> *'a*) -> *'a* -> *'b list* -> *'a*
-* *foldl*: (*'a* -> *'b* -> *'b*) -> *'b* -> *'a list* -> *'b*
+* *foldr*: (*'a* -> *'b* -> *'b*) -> *'b* -> *'a list* -> *'b*
 * *forall*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 * *fst*: *'a*\**'b* -> *'a*  
 * *hd*: *'a list* -> *'a*  

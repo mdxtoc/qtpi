@@ -2,24 +2,24 @@
 proc LogAlice (reps, verbose, log, done) =
     log?(bs)   .
     log?(vs)   .
-    {if verbose then print_strings  ["Alice chose "; string_of_value (length bs);
-                                     " pairs: "; string_of_value (zip bs vs); "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice chose "; show (length bs);
+                                     " pairs: "; show (zip bs vs); "\n"] else () fi} .
     log?(bAs)         .
-    {if verbose then print_strings  ["Alice sent bases "; string_of_value bAs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice sent bases "; show bAs; "\n"] else () fi} .
     log?(bBs)  .
-    {if verbose then print_strings  ["Alice received bases "; string_of_value bBs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice received bases "; show bBs; "\n"] else () fi} .
     log?(rvs)   . 
-    {if verbose then print_strings  ["Alice reconciled "; string_of_value (length rvs);
-                                    " bits: "; string_of_value rvs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice reconciled "; show (length rvs);
+                                    " bits: "; show rvs; "\n"] else () fi} .
     log?(mask) .
-    {if verbose then print_strings  ["Alice received check-bit mask "; string_of_value mask; "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice received check-bit mask "; show mask; "\n"] else () fi} .
     log?(cs)  .
     (let nc = length cs)
-    {if verbose then print_strings  ["Alice received "; string_of_value nc; 
-                                    " check bits: "; string_of_value cs; "\n"] else () fi} .
+    {if verbose then print_strings  ["Alice received "; show nc; 
+                                    " check bits: "; show cs; "\n"] else () fi} .
     log?(boolbits) .
     if bit2bool (hd boolbits) then
-      {print_strings  ["interference detected -- "; string_of_value nc; " check bits\n"]} .
+      {print_strings  ["interference detected -- "; show nc; " check bits\n"]} .
       done!true,length bs,nc,reps .
       _0
     else
@@ -27,9 +27,9 @@ proc LogAlice (reps, verbose, log, done) =
       log?(boolbits) .
       if bit2bool (hd boolbits) then
         log?(code) .
-        {if verbose then print_strings  ["Alice's code is "; string_of_value code; "\n"] else () fi} .
+        {if verbose then print_strings  ["Alice's code is "; show code; "\n"] else () fi} .
         log?(encrypted) .
-        {if verbose then print_strings  ["Alice sent encrypted "; string_of_value encrypted; "\n"] else () fi} .
+        {if verbose then print_strings  ["Alice sent encrypted "; show encrypted; "\n"] else () fi} .
         done!false,length bs,nc,reps .
         _0
       else

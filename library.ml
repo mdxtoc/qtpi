@@ -227,4 +227,4 @@ let _ = Interpret.know ("print_string" , "string -> unit"       , vfun (print_st
 let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> unit"         , vfun print_qbit)
 
-let _ = Interpret.know ("string_of_value", "'a -> string", vfun (vstring <.> string_of_value))
+let _ = Interpret.know ("show", "'a -> string", vfun (vstring <.> string_of_value))

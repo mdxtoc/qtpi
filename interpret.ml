@@ -99,7 +99,7 @@ let rec string_of_value v =
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
   | VList vs        -> bracketed_string_of_list string_of_value vs
-  | VFun f          -> "(..->..)"
+  | VFun f          -> "<function>"
   | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
                                       (string_of_list string_of_name "," ns)
                                       (string_of_process p)

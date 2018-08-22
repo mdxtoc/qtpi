@@ -1,4 +1,4 @@
-proc Alice(M, nWC, nSigma, qB, bsB, againB, log) = 
+proc Alice(M, nWC, cMin, nSigma, qB, bsB, againB, log) = 
   
   (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
      plus enough to generate 5 Wegman-Carter hash keys (one for each protocol message). 
@@ -13,16 +13,23 @@ proc Alice(M, nWC, nSigma, qB, bsB, againB, log) =
      included in the formula calculation.
    *)
   (let k = length M + 5*nWC)
-  (let qs = (806*nSigma+500)/1000)      (* estimate, rounded *)
+  (let s = nSigma)
+  (let qs = (806*s+500)/1000)      (* estimate, rounded *)
   (let numerator = qs+int_sqrt (qs*qs +(3*k+1)/2))
-  (let rootn = (4*numerator+1)/3)       (* rounded *)
-  (let n = rootn*rootn)                
-  (* {print_strings  [    "k="        ; k; 
-                     "; qs="        ; qs; 
-                     "; numerator=" ; numerator;
-                     "; rootn="     ; rootn;
-                     "; n="         ; n; 
-                     "\n"]
+  (let rootn1 = (4*numerator+1)/3)       (* rounded *)
+  (let n1 = rootn1*rootn1) 
+  (let rootnmin = (s*1225+500)/1000 + int_sqrt ((3*s*s+1)/2+8*cMin))
+  (let nmin = rootnmin*rootnmin)
+  (let n = max n1 nmin)
+  (* {print_strings  [    "k="        ; show k; 
+                       "; qs="        ; show qs; 
+                       "; numerator=" ; show numerator;
+                       "; rootn1="    ; show rootn1;
+                       "; n1="        ; show n1; 
+                       "; rootnmin="  ; show rootnmin; 
+                       "; nmin="      ; show nmin; 
+                       "; n="         ; show n; 
+                       "\n"]
      }                                         .
    *)
   
@@ -85,7 +92,7 @@ proc Alice(M, nWC, nSigma, qB, bsB, againB, log) =
          _0
        else 
             log![bool2bit false]            .
-         againB!() . Alice(M, nWC, nSigma, qB, bsB, againB, log)
+         againB!() . Alice(M, nWC, cMin, nSigma, qB, bsB, againB, log)
        fi
      fi
   )

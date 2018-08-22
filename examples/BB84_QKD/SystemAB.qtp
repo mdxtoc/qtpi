@@ -1,47 +1,49 @@
-proc Experiment (M, nWC, nSigma, logA, logB) = (new qc,bsc,again)
-                                                     (  Alice (M,nWC,nSigma,qc,bsc,again,logA) 
-                                                      | Bob   (qc,bsc,again,logB)
-                                                     )
+proc Experiment (M, nWC, cMin, nSigma, logA, logB) = 
+  (new qc,bsc,again)
+  (  Alice (M,nWC,cMin,nSigma,qc,bsc,again,logA) 
+   | Bob   (qc,bsc,again,logB)
+  )
     
 proc System() = (let n = read_min_int 1 "length of message")
                 (let nWC = read_min_int 0 "length of a hash key")
+                (let cMin = read_min_int 0 "minimum number of checkbits")
                 (let nSigma = read_min_int 0 "number of sigmas")
                 (let k = read_min_int 1 "number of trials")
                 (let verbose = read_bool "with commentary" "y" "n")
-                Run (k, verbose, n, nWC, nSigma)
+                Run (k, verbose, n, nWC, cMin, nSigma)
            
-proc Run (k, verbose, n, nWC, nSigma) = Logger (k, 0, verbose, 0, 0, 0, [], n, nWC, nSigma)
+proc Run (k, verbose, n, nWC, cMin, nSigma) = Logger (k, 0, verbose, 0, 0, 0, [], n, nWC, cMin, nSigma)
 
-proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, nWC, nSigma) =
-  if i<k then {if k<>1 then print_strings  ["trial number "; string_of_value (i+1); 
+proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, nWC, cMin, nSigma) =
+  if i<k then {if k<>1 then print_strings  ["trial number "; show (i+1); 
                                            if verbose then "\n" else " " fi] 
                        else () fi
               } .
               (let M = randbits n)
-              {if verbose then print_strings  ["message is "; string_of_value M; "\n"] else () fi} .
+              {if verbose then print_strings  ["message is "; show M; "\n"] else () fi} .
               (new logA, logB, doneA, doneB)
-              (  Experiment (M, nWC, nSigma, logA, logB) 
+              (  Experiment (M, nWC, cMin, nSigma, logA, logB) 
                | LogAlice (0, verbose, logA, doneA)
                | LogBob (0, verbose, logB, doneB)
                | doneA?(intf_seen, nb, ncA, repsA)   .
                  doneB?(_, messageB, _)       .
-                 {if i+1=k then print_strings  [string_of_value nb; " qbits";
+                 {if i+1=k then print_strings  [show nb; " qbits";
                                                 if k=1 then "\n" else " per trial\n" fi
                                                ]
                   else () fi
                  } .
                  (let nIntf = if intf_seen then nIntf+1 else nIntf fi)
                  (let nOk = if not intf_seen && messageB=M then nOk+1 else nOk fi)
-                 Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, nWC, nSigma)
+                 Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, nWC, cMin, nSigma)
               )
   else {print_strings  ["all done: "; 
-                       string_of_value nIntf;          " interfered with; ";
-                       string_of_value nOk;            " exchanges succeeded; ";
-                       string_of_value (k-nOk);        " failed; ";
-                       string_of_value nReps;          " repetition(s); ";
-                       "average check bits " ; string_of_value (listsum ncAs/k); 
-                       " minimum check bits "; string_of_value (listmin ncAs); "\n";
-                       "histogram of check-bit lengths "; string_of_value (histogram ncAs); "\n"
+                       show nIntf;          " interfered with; ";
+                       show nOk;            " exchanges succeeded; ";
+                       show (k-nOk);        " failed; ";
+                       show nReps;          " repetition(s); ";
+                       "average check bits " ; show (listsum ncAs/k); 
+                       " minimum check bits "; show (listmin ncAs); "\n";
+                       "histogram of check-bit lengths "; show (histogram ncAs); "\n"
                       ]
        } . 
        _0 

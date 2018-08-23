@@ -2,30 +2,34 @@ proc LogBob (reps, verbose, log, done) =
     log?(bs) .
     log?(vs) .
     {if verbose then print_strings ["Bob saw "; show (length bs);
-                                    " pairs: "; show (zip bs vs); "\n"] else () fi} .
-    log?(bAs)  .
+                                    " quantum pairs: "; show (zip bs vs); "\n"] else () fi} .
+    log?(h0) . log?(bAs)  .
     {if verbose then print_strings ["Bob received "; show (length bAs);
-                                    " bases "; show bAs; "\n"] else () fi} .
-    log?(bBs)  .
+                                    " tagged bases "; show (h0,bAs); "\n"] else () fi} .
+    log?(h1) . log?(bBs)  .
     {if verbose then print_strings ["Bob sent "; show (length bBs);
-                                    " bases "; show bBs; "\n"] else () fi} .
+                                    " tagged bases "; show (h1,bBs); "\n"] else () fi} .
     log?(rvs) .
     {if verbose then print_strings ["Bob reconciled "; show rvs; "\n"] else () fi} .
-    log?(mask) .
-    {if verbose then print_strings ["Bob sent check-bit mask "; show mask; "\n"] else () fi} .
-    log?(cs)  .
-    {if verbose then print_strings ["Bob sent check bits "; show cs; "\n"] else () fi} .
+    log?(h2) . log?(mask) .
+    {if verbose then print_strings ["Bob sent tagged check-bit mask "; show (h2,mask); "\n"] else () fi} .
+    log?(h3) . log?(cs)  .
+    {if verbose then print_strings ["Bob sent tagged check bits "; show (h3,cs); "\n"] else () fi} .
     log?(again) .
     if bit2bool (hd again) then
       {print_string  "Bob goes round again\n"} .
       LogBob (reps+1, verbose, log, done)
     else
-      log?(encrypted) .
-      {if verbose then print_strings ["Bob receives encrypted "; show encrypted; "\n"] else () fi} . 
+      log?(h4) . log?(encrypted) .
+      {if verbose then print_strings ["Bob receives tagged encrypted "; show (h4,encrypted); "\n"] else () fi} . 
       log?(code) .
       {if verbose then print_strings ["Bob's code is "; show code; "\n"] else () fi} .
       log?(M) .
-      {if verbose then print_strings ["Bob decodes message "; show M; "\n"] else () fi} . 
-      done!length cs, M, reps .
+      {if verbose then print_strings ["Bob decodes message "; show M; "\n"] else () fi} .
+      log?(intfseen) .
+      (let intfseen = bit2bool (hd intfseen))
+      {print_string if intfseen then "Bob detected classical interference\n" else "" fi} .
+      log?(hks') .
+      done!length cs, M, intfseen, hks', reps .
       _0
     fi

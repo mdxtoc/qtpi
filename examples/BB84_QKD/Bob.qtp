@@ -1,43 +1,56 @@
-proc Bob (qA, bsA, againA, log) = 
+proc Bob (w, hks, qc, bsc, againc, log) = 
     (new received) 
-    (  ReceiveBits([],qA,bsA,received)
-     | received?(bs)                . (* bs, vs is what I saw *)
-       received?(vs)                .
-            log!bs               .
-            log!vs               .
-       received?(bAs)               . (* receive her bases *)
-            log!bAs              .
-       bsA!bs                       . (* send my bases *)
-            log!bs               .
+    (  ReceiveBits([],qc,bsc,received)
+     | received?(bs)                    . (* bs, vs is what I saw *)
+       received?(vs)                    .
+       log!bs                           .
+       log!vs                           .
+       received?(h0) . received?(bAs)   . (* receive her bases *)
+       log!h0 . log!bAs                 .
+       (let h1 = hwc bs hks 1 w)
+       bsc!(h1,bs)                      . (* send my bases *)
+       log!h1 . log!bs                  .
        (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
-            log!rvs              .
+       log!rvs                          .
        (let mask = tabulate (length rvs) cb_choose)
        (let checkbits = mask_filter 0b1 mask rvs)
-       bsA!mask                     . (* send her the mask *)
-       bsA!checkbits                . (* send her the checkbits *)
-            log!mask             .
-            log!checkbits        .
+       (let h2 = hwc mask hks 2 w)
+       bsc!(h2,mask)                    . (* send her the mask *)
+       log!h2 . log!mask                .
+       (let h3 = hwc checkbits hks 3 w)
+       bsc!(h3,checkbits)               . (* send her the checkbits *)
+       log!h3 . log!checkbits           .
        (let codebits = mask_filter 0b0 mask rvs)
-       (    againA?(_)       .      log![bool2bit true]  .
-                               Bob (qA, bsA, againA, log)
-        <+> bsA?(encryptedM) .      log![bool2bit false] .
-                               (let code = take (length encryptedM) codebits)
-                               (let M = xor_mask encryptedM code)
-                                    log!encryptedM       .
-                                    log!code             .
-                                    log!M                .
-                               _0
+       (let hks' = take (5*w) codebits)
+       (let codebits = drop (5*w) codebits)
+       (    againc?(_)                  . 
+              log![bool2bit true]       .
+              Bob (w,hks, qc, bsc, againc, log)
+        <+> bsc?(h4,encryptedM)         .      
+              log![bool2bit false]      .
+              log!h4 . log!encryptedM   .
+              (let code = take (length encryptedM) codebits)
+              (let M = xor_mask encryptedM code)
+              log!code                  .
+              log!M                     .
+              (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
+              log![bool2bit (not c_ok)] .
+              log!hks'                  .
+              _0
        )
     )
   
 (* receive qbits, measure them, log the results when you see her bases *)
-proc ReceiveBits(bvs,qA,bsA,results) =
-      bsA?(bases) . (let bvs = rev bvs)
-                    results!map fst bvs . 
-                    results!map snd bvs . 
-                    results!bases       .
-                    _0
-  <+> qA?(q)      . (let basis = randbit ())
-                    q =?[if basis=0b1 then _H else _I fi] (value) .
-                          dispose!q                               .
-                    ReceiveBits((basis,value)::bvs,qA,bsA,results)
+proc ReceiveBits(bvs,qc,bsc,results) =
+      bsc?(h0,bases)        . 
+        (let bvs = rev bvs)
+        results!map fst bvs . 
+        results!map snd bvs .
+        results!h0          .
+        results!bases       .
+        _0
+  <+> qc?(q)                . 
+        (let basis = randbit ())
+        q =?[if basis=0b1 then _H else _I fi] (value) .
+              dispose!q                               .
+        ReceiveBits((basis,value)::bvs,qc,bsc,results)

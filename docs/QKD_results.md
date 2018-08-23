@@ -74,7 +74,9 @@ The [no Eve trials](#noEve) show how many bits she uses for various values of *k
 <a name="wegmancarter"></a>
 ## Wegman-Carter hash-tagging
 
-Not yet: watch this space. But it won't make a difference: in the simulation Eve can either hack it perfectly ([clever Eve](#cleverEve) and [cleverer Eve](#superEve)) or she doesn't even try ([naive Eve](#naiveEve)).
+For verisimilitude I implement hash tagging. But it doesn't make a difference: in the simulation Eve can either hack it perfectly ([clever Eve](#cleverEve) and [cleverer Eve](#superEve)) or she doesn't even try ([naive Eve](#naiveEve)).
+
+The mechanism is this: for a hash-key size *w* pick a packet size *s* such that *s*&ge;*w* and 2<sup>*s*</sup>-1 is prime (though the simulation doesn't bother with the prime test). Divide the bit sequence to be hashed into packets size 2*s*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*s*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have *s* bits or less, and that's the tag. 
 
 <a name="noEve"></a>
 ## No Eve: just Alice and Bob
@@ -85,6 +87,34 @@ Trials to see if Alice picks enough qbits. Interference never detected because E
 
 Note that in this simulation Bob doesn't know the length of *M*, still less the number of qbits Alice is going to send him. He reads qbits until he sees Alice's first message on the classical channel. Oh, the power of guarded sums!
 
+### With hash tags
+
+  * With Wegman-Carter tagging, the hash calculations (implemented in the qtpi functional language and therefore slowly interpreted) take ages.
+  But it works: Bob and Alice agree that neither is spoofing classical messages.
+  
+        length of message? 4000
+        length of a hash key? 12
+        minimum number of checkbits? 40
+        number of sigmas? 10
+        number of trials? 100
+
+        13456 qbits per trial
+        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1687 minimum check bits 1598
+        histogram of check-bit lengths
+        [(1598,1);(1613,1);(1615,1);(1622,1);(1625,1);(1627,1);(1634,1);(1635,1);(1638,1);(1639,1);(1645,3);(1647,1);(1648,2);(1651,1
+        );(1654,1);(1655,1);(1657,2);(1658,1);(1661,1);(1662,1);(1663,2);(1664,1);(1665,1);(1666,3);(1668,1);(1669,1);(1670,2);(1673,
+        2);(1674,2);(1675,1);(1677,3);(1678,2);(1680,2);(1681,1);(1684,1);(1686,1);(1687,1);(1688,1);(1689,1);(1690,1);(1691,1);(1692
+        ,2);(1694,1);(1696,3);(1698,1);(1701,1);(1703,3);(1705,1);(1707,1);(1709,3);(1710,2);(1711,1);(1713,2);(1715,1);(1717,3);(
+        1718,1);(1719,1);(1720,1);(1722,1);(1723,1);(1724,1);(1727,1);(1729,2);(1736,2);(1737,1);(1738,2);(1741,1);(1749,1);(1754,1);
+        (1758,1);(1761,1);(1790,1)]
+
+        real	1m19.446s
+        user	0m45.455s
+        sys	0m0.525s
+  
+  * That's about 4 seconds for each trial, but it is nevertheless 1.3M qbit measures in 45 seconds. 
+  * In experiments below I mostly choose zero-length keys so as to turn hashing off.
+  
 ### 0 Sigma  
 * Checking the *cmin* &rarr; *nmin* calculation, and the lower-bounding. It works.
 

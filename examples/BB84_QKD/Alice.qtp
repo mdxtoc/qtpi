@@ -1,18 +1,17 @@
-proc Alice(M, nWC, cMin, nSigma, qB, bsB, againB, log) = 
+proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) = 
   
   (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
-     plus enough to generate 5 Wegman-Carter hash keys (one for each protocol message). 
-     We don't want the protocol to fail because we pick too few qbits, and nSigma is
-     the number of standard deviations we want to be away from that possibility.
+     plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
+     message). We don't want the protocol to fail because we pick too few qbits, and 
+     nSigma is the number of standard deviations we want to be away from that possibility.
      
      In this simulation we can set nSigma so that Alice doesn't calculate enough qbits, 
      and when it does Alice sends Bob a signal on a side-channel and tries again.
           
-     Also, we need length M + 5*k code bits, where k is the number of bits in each one-time 
-     Wegman-Carter hash key. And the protocol uses about n/8 checkbits, but that's 
+     The protocol uses about n/8 checkbits, but that's 
      included in the formula calculation.
    *)
-  (let k = length M + 5*nWC)
+  (let k = length M + 5*w)
   (let s = nSigma)
   (let qs = (806*s+500)/1000)      (* estimate, rounded *)
   (let numerator = qs+int_sqrt (qs*qs +(3*k+1)/2))
@@ -37,78 +36,86 @@ proc Alice(M, nWC, cMin, nSigma, qB, bsB, againB, log) =
   (* choose the basis and value for each qbit at random *)
   (let bs = randbits n) 
   (let vs = randbits n)
-            log!bs                          .  
-            log!vs                          .
+  log!bs . log!vs                           .
   
   (* send Bob the qbits I chose, tell me when it's done *)
   (new sent)
-  (  SendBits (zip bs vs, qB, sent)
+  (  SendBits (zip bs vs, qc, sent)
    | sent?(_)                               .
      
      (* tell each other the qbit bases we used - me first *)
-     bsB!bs                                 . (* send Bob my bases *)
-     bsB?(bBs)                              . (* receive his bases *)
-            log!bs                          . 
-            log!bBs                         . 
+     (let h0 = hwc bs hks 0 w)
+     bsc!h0,bs                              . (* send Bob my bases *)
+     bsc?(h1,bBs)                           . (* receive his bases *)
+     log!h0 . log!bs                        . 
+     log!h1 . log!bBs                       . 
      
      (* pick out the values for which our bases agree *)
      (let rvs = reconcile bBs bs vs)      
-            log!rvs                         . 
+     log!rvs                                . 
      
      (* Now we both know the same _number_ of values. Bob sends me a mask of
         that number of bits, and a list of the values it picks out from his
         list.
       *)
-     bsB?(mask)                             . 
-     bsB?(checkbitsB)                       . 
-            log!mask                        . 
-            log!checkbitsB                  . 
+     bsc?(h2,mask)                          . 
+     bsc?(h3,checkbitsB)                    . 
+     log!h2 . log!mask                      . 
+     log!h3 . log!checkbitsB                . 
      
      (* test to see if Bob and I agree on the bits selected by his mask *)
      (let checkbitsA = mask_filter 0b1 mask rvs)
      (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
-            log![bool2bit (not check)]   .
+     log![bool2bit (not check)]   .
      
      (* If we disagree about the masked bits then interference has been 
         detected and Alice goes silent. But in this simulation 
         we send an empty message, to keep Bob alive.
       *)
      if not check then
-       bsB![] . _0
+       bsc![0b0],[]                         . 
+       log!(randbits (5*w))                 . (* random hash keys *) 
+       _0
      else
        (* If the number of checkbits Bob chose is enough, then it is very 
           very (...) likely that we agree on the rest of the values. So the 
           (secret) code bits are the ones Bob didn't mask. 
         *)
        (let codebits = mask_filter 0b0 mask rvs)
+       (let hks' = take (5*w) codebits)
+       (let codebits = drop (5*w) codebits)
        
        if length codebits>=length M then
          (let code = take (length M) codebits)
+         log![bool2bit true]                . (* not going round again *)
+         log!code                           . 
          (let encryptedM = xor_mask code M)
-         bsB!encryptedM                     . (* send the encrypted message *)
-            log![bool2bit true]             .
-            log!code                        . 
-            log!encryptedM                  . 
+         (let h4 = hwc encryptedM hks 4 w)
+         bsc    !h4,encryptedM              . (* send the encrypted message *)
+         log!h4 . log!encryptedM            . 
+         (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
+         log![bool2bit (not c_ok)]          .
+         log!hks'                           .
          _0
        else 
-            log![bool2bit false]            .
-         againB!() . Alice(M, nWC, cMin, nSigma, qB, bsB, againB, log)
+         log![bool2bit false]               .
+         againc!() . Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log)
        fi
      fi
   )
   
-(* send encoded (bit, value) pairs down channel qB *)
-proc SendBits (bvs,qB,sent) =   
+(* send encoded (bit, value) pairs down channel qc *)
+proc SendBits (bvs,qc,sent) =   
     match bvs .
         []         . sent!() . _0
     <+> (b,v)::bvs . (new sentbit)
-                     (  SendBit (b, v, qB, sentbit)
+                     (  SendBit (b, v, qc, sentbit)
                       | sentbit?_ . 
-                        SendBits (bvs,qB,sent)
+                        SendBits (bvs,qc,sent)
                      )
     hctam
                      
-proc SendBit (b,v,qB,sent) =
+proc SendBit (b,v,qc,sent) =
   (newq q = match b,v .
                 0b0,0b0 . |0> 
             <+> 0b0,0b1 . |1> 
@@ -116,7 +123,7 @@ proc SendBit (b,v,qB,sent) =
             <+> 0b1,0b1 . |-> 
             hctam
   )
-  qB!q    .
+  qc!q    .
   sent!() .
   _0
 

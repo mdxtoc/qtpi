@@ -29,9 +29,9 @@ fun read_min_int m s =
               fi
     where j = read_int s
     
-fun compose f g v = f (g v)
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
 
-fun semicolon f g = compose g f
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
 
 fun int_sqrt n = i_s 0 n
 
@@ -54,4 +54,26 @@ fun histo buckets ns =
 fun listsum ns = foldl (lam sum n . sum+n) 0 ns
 
 fun listmin ns = foldl (lam sofar n . min sofar n) (hd ns) (tl ns)
-       
+
+fun hwc message keys i w : bit list = 
+  if w=0 then [0b0] else
+    hwc1 message (nth keys i) (2*s) mask
+      where mask = bits2int (tabulate s (const 0b1)) (* 2^s-1 *)
+      where s = (w+1)/3*4+1 (* odd, at least, and bigger than w *)
+  fi
+  
+fun hwc1 bits (key:int) size mask =
+  match hps .
+      [hash] . hash
+  <+> ps     . hwc1 (concat hps) key size mask
+  hctam
+    where hps = map (lam p . int2bits (bitand mask (key*bits2int p))) ps
+    where ps = packets [] size bits
+  
+fun packets rs (size:int) (bits:bit list) : bit list list=
+  match bits .
+      [] . rs
+  <+> _  . packets (take size bits::rs) size (drop size bits)
+  hctam
+
+fun checkhash hks w (i,(h,m)) = hwc m hks i w = h

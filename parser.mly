@@ -94,11 +94,11 @@
 %right NOT
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS PLUSPLUS
-%left mult_op DIV
+%left mult_op STAR DIV
 %left APPEND
 
 %right TYPEARROW
-%nonassoc STAR
+/* %nonassoc STAR */
 
 %start program             /* Entry point */
 %start readtype
@@ -427,7 +427,7 @@ app:
   | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
-  | ntexpr STAR ntexpr %prec mult_op    {$1,Times,$3}
+  | ntexpr STAR ntexpr                  {$1,Times,$3}
   | ntexpr DIV ntexpr                   {$1,Div,$3}
   | ntexpr PLUS ntexpr                  {$1,Plus,$3}
   | ntexpr MINUS ntexpr                 {$1,Minus,$3}

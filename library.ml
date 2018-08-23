@@ -113,10 +113,10 @@ let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))
                                                           )
                                                    )
 
-exception Abandon of string
-
 let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
                   vpair (vlist xs, vlist ys)
+
+let v_concat xss = vlist (List.concat (List.map listv (listv xss)))
 
 let _ = Interpret.know ("length"   , "'a list -> int                        ", vfun (vint <.> List.length <.> listv))
 
@@ -145,6 +145,8 @@ let _ = Interpret.know ("forall"   , "('a -> bool) -> 'a list -> bool       ", v
 
 let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> 'b list -> 'a", vfun3 v_foldl)
 let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> 'a list -> 'b", vfun3 v_foldr)
+
+let _ = Interpret.know ("concat"   , "'a list list -> 'a list                ", vfun v_concat )
 
 let v_tabulate n f =
   let n = intv n in
@@ -179,9 +181,30 @@ let v_min a b =
 let _ = Interpret.know ("max", "int -> int -> int", vfun2 v_max)
 let _ = Interpret.know ("min", "int -> int -> int", vfun2 v_min)
 
+let v_bitand i j = vint ((intv i) land (intv j))
+let _ = Interpret.know ("bitand", "int -> int -> int", vfun2 v_bitand)
+
+(* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
+
+let v_bits2int bits = vint (List.fold_left (fun sum b -> sum*2+intv b) 0 (listv bits))
+let v_int2bits i = let rec int2bits i = 
+                     let b = vint (i mod 2) in
+                     if i>1 then b::int2bits (i/2) else [b]
+                   in
+                   vlist (int2bits (intv i))
+
+let _ = Interpret.know ("bits2int", "bit list -> int", vfun v_bits2int)
+let _ = Interpret.know ("int2bits", "int -> bit list", vfun v_int2bits)
+
+let v_nth vs i = 
+  try List.nth (listv vs) (intv i)
+  with Failure _ -> raise (LibraryError (Printf.sprintf "nth %s %s" (string_of_value vs) (string_of_value i)))
+let _ = Interpret.know ("nth", "'a list -> int -> 'a", vfun2 v_nth)
+
 (* ********************* I/O ************************ *)
+
 (* I'm ashamed to say that all these read_.. functions are hacked to deal with BBEdit's weird shell worksheet
-   input mechanism. Sorry.
+   input mechanism: if the line they read starts with the prompt then they strip it off. Sorry.
  *)
 
 let rec get_string s = 
@@ -215,6 +238,8 @@ let _ = Interpret.know ("read_alternative", "string -> string -> (string*'a) lis
   
 let read_bool prompt y n = read_alternative prompt (vstring "/") (vlist [vpair (y,vbool true); vpair (n,vbool false)])
 let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
+
+exception Abandon of string
 
 let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
 let _ = Interpret.know ("abandon", "string list -> 'a", vfun abandon)

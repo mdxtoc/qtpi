@@ -378,15 +378,30 @@ let rec evale env e =
                                    )
   | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
   | ELambda (pats, e)       -> fun_of e env pats
-  | EWhere  (e,pat,e')      -> let v = evale env e' in
-                               let env = bmatch env pat v in
-                               evale env e
+  | EWhere  ed              -> (match ed with
+                                | EDPat (e,wpat,_,we) ->
+                                    let v = evale env we in
+                                    let env = bmatch env wpat v in
+                                    evale env e
+                                | EDFun (e,wfn,wfpats,_, we) ->
+                                    let stored_env = ref env in
+                                    let env = env <@+> bind_fun stored_env wfn.inst wfpats we in
+                                    stored_env := env;
+                                    evale env e
+                               )
                  
 and fun_of expr env pats =
   match pats with
   | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
   | []        -> evale env expr
 
+and bind_fun er n pats expr =
+  let f v = 
+     let env = !er in
+     fun_of expr (bmatch env (List.hd pats) v) (List.tl pats)
+   in
+   (n, VFun f)
+   
 and unitev env e =
   match evale env e with
   | VUnit -> ()
@@ -627,11 +642,7 @@ let know dec = knowns := dec :: !knowns
 
 let bind_def er = function
   | Processdef  (n,params,p)    -> (n.inst, VProcess (strip_params params, p))
-  | Functiondef (n,pats,_,expr) -> let f v = 
-                                     let env = !er in
-                                     fun_of expr (bmatch env (List.hd pats) v) (List.tl pats)
-                                   in
-                                   (n.inst, VFun f)
+  | Functiondef (n,pats,_,expr) -> bind_fun er n.inst pats expr
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)

@@ -135,13 +135,19 @@ let rec rewrite_expr cxt e =
        | ECompare    (e1,_,e2)   
        | EBoolArith  (e1,_,e2)  -> List.iter (rewrite_expr cxt) [e1;e2]
        | ELambda     (pats, e)  -> List.iter (rewrite_pattern cxt) pats; rewrite_expr cxt e
-       | EWhere      (e,pat,e') -> rewrite_expr cxt e; rewrite_pattern cxt pat; rewrite_expr cxt e'
+       | EWhere      ed         -> rewrite_edecl cxt ed
       )
   | None   -> raise (Error (e.pos,
                             Printf.sprintf "** Disaster: typecheck didn't mark %s"
                                            (string_of_expr e)
                            )
                     )
+
+and rewrite_edecl cxt = function
+  | EDPat (e,wpat,_,we)        -> rewrite_expr cxt e; rewrite_pattern cxt wpat; rewrite_expr cxt we
+  | EDFun (e,wfn,wfpats,_, we) -> rewrite_expr cxt e; rewrite_fparams cxt wfpats; rewrite_expr cxt we
+
+and rewrite_fparams cxt = List.iter (rewrite_pattern cxt)
 
 and rewrite_pattern cxt p =
   match !(p.inst.ptype) with
@@ -175,8 +181,6 @@ let rewrite_param cxt {inst=n,rt} =
   | _      -> ()
   
 let rewrite_params cxt = List.iter (rewrite_param cxt)
-
-let rewrite_fparams cxt = List.iter (rewrite_pattern cxt)
 
 let rewrite_qstep cxt qstep = 
   match qstep.inst with
@@ -457,9 +461,7 @@ and assigntype_expr cxt t e =
                                let cxt = assigntype_expr cxt t' e2 in
                                unifytypes cxt t t'
      | ELambda (pats, e)    -> check_distinct_fparams pats; assigntype_fun cxt t pats e
-     | EWhere (e,pat,e')    -> let t' = ntv e'.pos in
-                               let cxt = assigntype_expr cxt t' e' in
-                               assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt t' pat
+     | EWhere  ed           -> assigntype_edecl cxt t ed
   with 
   | TypeUnifyError (t1,t2)  -> raise (Error (e.pos,
                                              Printf.sprintf "%s appears to be type %s, but in context should be %s"
@@ -468,6 +470,45 @@ and assigntype_expr cxt t e =
                                                             (string_of_type (evaltype cxt t1))
                                             )
                                      )
+  
+and assigntype_edecl cxt t = function
+  | EDPat (e,wpat,wtopt,we)        -> let wt = ntv we.pos in
+                                      let cxt = assigntype_expr cxt wt we in
+                                      assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
+  | EDFun (e,wfn,wfpats,wtopt, we) -> ok_funname wfn;
+                                      check_distinct_fparams wfpats;
+                                      let tf = inventtype_fun wfpats wtopt we in
+                                      let cxt = cxt <@++> (wfn.inst,tf) in
+                                      let cxt = assigntype_fun cxt tf wfpats we in
+                                      let cxt = assigntype_expr cxt t e in
+                                      cxt <@--> wfn.inst
+
+and inventtype_fun pats topt e = 
+  let rec itf set = function
+  | pat::pats'  -> let set, ta = inventtype_pat set pat in
+                   let set, tr = itf set pats' in
+                   set, adorn (pos_of_instances pats) (Fun (ta,tr))
+  | []          -> (match topt with 
+                    | None   -> set, ntv e.pos 
+                    | Some t -> NameSet.union set (Type.frees t), t
+                   )
+  and inventtype_pat set pat =
+    match !(pat.inst.ptype) with
+      | Some t -> NameSet.union set (Type.frees t), t
+      | None   -> match pat.inst.pnode with
+                  | PatName _ 
+                  | PatAny          -> set, ntv pat.pos
+                  | PatUnit         -> set, adorn pat.pos Unit
+                  | PatTuple pats   -> let itp (set, ts) pat = 
+                                         let set, t = inventtype_pat set pat in
+                                         set, t::ts
+                                       in
+                                       let set, ts = List.fold_left itp (set,[]) pats in
+                                       set, adorn pat.pos (Tuple (List.rev ts))
+                  | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
+  in 
+  let set, t = itf NameSet.empty pats in
+  if NameSet.is_empty set then t else adorn t.pos (Univ (NameSet.elements set, t))
   
 and check_distinct_fparams pats =
   let rec cdfp set pat =
@@ -714,31 +755,7 @@ let typecheck defs =
           | Functiondef (fn,pats,topt,e) ->
               ok_funname fn;
               check_distinct_fparams pats;
-              let rec inventtype_fun set = function
-                | pat::pats'  -> let set, ta = inventtype_pat set pat in
-                                 let set, tr = inventtype_fun set pats' in
-                                 set, adorn (pos_of_instances pats) (Fun (ta,tr))
-                | []          -> (match topt with 
-                                  | None   -> set, ntv e.pos 
-                                  | Some t -> NameSet.union set (Type.frees t), t
-                                 )
-              and inventtype_pat set pat =
-                match !(pat.inst.ptype) with
-                  | Some t -> NameSet.union set (Type.frees t), t
-                  | None   -> match pat.inst.pnode with
-                              | PatName _ 
-                              | PatAny          -> set, ntv pat.pos
-                              | PatUnit         -> set, adorn pat.pos Unit
-                              | PatTuple pats   -> let itp (set, ts) pat = 
-                                                     let set, t = inventtype_pat set pat in
-                                                     set, t::ts
-                                                   in
-                                                   let set, ts = List.fold_left itp (set,[]) pats in
-                                                   set, adorn pat.pos (Tuple (List.rev ts))
-                              | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
-              in
-              let set, t = inventtype_fun NameSet.empty pats in
-              let t = if NameSet.is_empty set then t else adorn t.pos (Univ (NameSet.elements set, t)) in
+              let t = inventtype_fun pats topt e in
               cxt <@+> (fn.inst, t)
         in
         let cxt = List.fold_left header_type cxt defs in

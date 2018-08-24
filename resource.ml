@@ -239,9 +239,12 @@ let ctfa_def def =
                                       )
                                else ();
                                List.iter ctfa_expr [e1;e2]
-    | ELambda     (pats,e)  -> ctfa_expr e (* don't check the type: will be checked on use *)
-    | EWhere      (e,pat,e')-> ctfa_expr e; ctfa_pat "where" pat; ctfa_expr e'
-
+    | ELambda     (pats,e)  -> ctfa_expr e (* in expressions 'lambda' can bind what it likes *)
+    | EWhere      ed        -> ctfa_edecl ed
+    
+  and ctfa_edecl = function
+  | EDPat (e,wpat,_,we)        -> ctfa_expr e; ctfa_expr we (* in expressions 'where' can bind what it likes *)
+  | EDFun (e,wfn,wfpats,_, we) -> ctfa_expr e; ctfa_expr we (* function parameters can bind whatever they like *)
     
   and ctfa_pat s pat = (* check binding restriction *)
     match pat.inst.pnode with
@@ -561,9 +564,16 @@ let rec r_o_e disjoint state env e =
                                  (* EAppend and EApp don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
       | ELambda     (pats,e)  -> rck_fun state env pats e
-      | EWhere      (e,pat,e')-> let r', used' = re use e' in
-                                 let r, used = rck_pat (fun state env -> resources_of_expr state env e) state env pat (Some r') in
-                                 r, ResourceSet.union used used'
+      | EWhere      ed        -> rck_edecl state env ed
+    
+    and rck_edecl state env = function
+      | EDPat (e,wpat,_,we)        -> let wr, wused = re use we in
+                                      let r, used = rck_pat (fun state env -> resources_of_expr state env we) state env wpat (Some wr) in
+                                      r, ResourceSet.union used wused
+      | EDFun (e,wfn,wfpats,_, we) -> let wr, wused = rck_fun state env wfpats we in
+                                      let r, used = resources_of_expr state (env <@+> (wfn.inst,wr)) we in
+                                      r, ResourceSet.union used wused
+
     in re use e
   in
   re_env Uok env e

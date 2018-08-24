@@ -124,7 +124,7 @@ processdef:
                                         {Processdef($2,$4,$7)}
 
 functiondef:
-  FUN funname fparams frestypeopt EQUALS expr       
+  FUN funname fparams restypeopt EQUALS expr       
                                         {Functiondef($2,$3,$4,$6)}
   
 procname:
@@ -155,7 +155,7 @@ fparams:
   | fparam                              {[$1]}
   | fparam fparams                      {$1::$2}
     
-frestypeopt:
+restypeopt:
   |                                     {None}
   | COLON typespec                      {Some $2}
 
@@ -380,7 +380,7 @@ primary:
   | basisv                              {eadorn (EBasisv $1) }
   | ugate                               {eadorn (EGate $1)}
   | LSQPAR exprlist RSQPAR              {$2}
-  | LPAR ntexprs RPAR                   {eadorn (Expr.delist $2)}
+  | LPAR expr RPAR                      {eadorn (Expr.delist (Expr.relist $2))}
   | IF eif FI                           {eadorn($2.inst.enode)}
   | MATCH expr DOT ematches HCTAM       {eadorn (EMatch ($2,$4))}
   
@@ -397,7 +397,10 @@ ematch:
   
 expr:
   | nwexpr                              {$1}
-  | expr WHERE bpattern EQUALS nwexpr   {eadorn (EWhere ($1,$3,$5))}
+  | expr WHERE bpattern EQUALS restypeopt nwexpr   
+                                        {eadorn (EWhere (EDPat($1,$3,$5,$6)))}
+  | expr WHERE funname fparams restypeopt EQUALS nwexpr   
+                                        {eadorn (EWhere (EDFun($1,$3,$4,$5,$7)))}
 
 nwexpr:  
   | ntexpr                              {$1}

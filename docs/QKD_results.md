@@ -76,7 +76,7 @@ The [no Eve trials](#noEve) show how many bits she uses for various values of *k
 
 For verisimilitude I implement hash tagging. But it doesn't make a difference: in the simulation Eve can either hack it perfectly ([clever Eve](#cleverEve) and [cleverer Eve](#superEve)) or she doesn't even try ([naive Eve](#naiveEve)).
 
-The mechanism is this: for a hash-key size *w* pick a packet size *s* such that *s*&ge;*w* and 2<sup>*s*</sup>-1 is prime (though the simulation doesn't bother with the prime test). Divide the bit sequence to be hashed into packets size 2*s*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*s*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have *s* bits or less, and that's the tag. 
+The mechanism is this: for a hash-key size *w* pick a packet size *s* such that *s*&ge;*w* and 2<sup>*s*</sup>-1 is prime (though the simulation doesn't bother with the prime test). Divide the bit sequence to be hashed into packets size 2*s*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*s*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than *s* bits, and that's the tag. 
 
 <a name="noEve"></a>
 ## No Eve: just Alice and Bob
@@ -89,8 +89,8 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
 
 ### With hash tags
 
-  * With Wegman-Carter tagging, the hash calculations (implemented in the qtpi functional language and therefore slowly interpreted) take ages.
-  But it works: Bob and Alice agree that neither is spoofing classical messages.
+  * With Wegman-Carter tagging, the hash calculations are implemented in the qtpi functional language and therefore slowly interpreted.
+  But it works: Bob and Alice each agree that the other isn't spoofing classical messages.
   
         length of message? 4000
         length of a hash key? 12
@@ -112,8 +112,28 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         user	0m45.455s
         sys	0m0.525s
   
-  * That's about 4 seconds for each trial, but it is nevertheless 1.3M qbit measures in 45 seconds. 
-  * In experiments below I mostly choose zero-length keys so as to turn hashing off.
+  * That's about 4 seconds for each trial, but it is 13M qbits in 45 seconds. It is a quarter faster without hash tagging (zero-length keys turn it off) or, if you like, a third slower with hash tagging.
+
+        length of message? 4000
+        length of a hash key? 0
+        minimum number of checkbits? 40
+        number of sigmas? 10
+        number of trials? 100
+
+        13225 qbits per trial
+        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1651 minimum check bits 1570
+        histogram of check-bit lengths
+        [(1570,1);(1583,2);(1592,1);(1593,3);(1595,2);(1600,1);(1603,1);(1605,1);(1606,1);(1608,3);(1609,1);(1612,1);(1613,2);(1615,1
+        );(1618,1);(1619,3);(1620,1);(1621,1);(1625,1);(1626,1);(1630,1);(1631,3);(1633,1);(1636,2);(1638,1);(1639,2);(1640,1);(1641,
+        1);(1642,2);(1643,2);(1646,3);(1647,1);(1652,1);(1655,4);(1656,1);(1657,1);(1659,2);(1661,2);(1662,1);(1664,2);(1665,2);(1667
+        ,1);(1669,1);(1670,2);(1671,1);(1673,1);(1674,2);(1675,1);(1683,1);(1684,1);(1685,1);(1686,2);(1688,2);(1690,3);(1691,1);(
+        1693,2);(1694,1);(1695,1);(1697,1);(1702,1);(1703,2);(1705,1);(1708,1);(1714,1);(1716,1);(1732,1);(1733,1);(1743,1)]
+
+        real	1m11.076s
+        user	0m37.433s
+        sys	0m0.440s
+
+  * Even though the hash tagging mechanism is affordable it's turned off in most of the experiments below.
   
 ### 0 Sigma  
 * Checking the *cmin* &rarr; *nmin* calculation, and the lower-bounding. It works.

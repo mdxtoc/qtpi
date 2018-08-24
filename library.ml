@@ -187,11 +187,11 @@ let _ = Interpret.know ("bitand", "int -> int -> int", vfun2 v_bitand)
 (* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
 
 let v_bits2int bits = vint (List.fold_left (fun sum b -> sum*2+intv b) 0 (listv bits))
-let v_int2bits i = let rec int2bits i = 
+let v_int2bits i = let rec int2bits bs i = 
                      let b = vint (i mod 2) in
-                     if i>1 then b::int2bits (i/2) else [b]
+                     if i>1 then int2bits (b::bs) (i/2) else List.rev (b::bs)
                    in
-                   vlist (int2bits (intv i))
+                   vlist (int2bits [] (intv i))
 
 let _ = Interpret.know ("bits2int", "bit list -> int", vfun v_bits2int)
 let _ = Interpret.know ("int2bits", "int -> bit list", vfun v_int2bits)

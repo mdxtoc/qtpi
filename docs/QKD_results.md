@@ -2,6 +2,8 @@
 
 I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that [I had found a (tiny) security hole](#cleverEve), and then that [I had made it a little bigger](#superEve), but I now realise that [I probably hadn't](#notreally).
 
+Or perhaps ... I discovered a tiny but real security hole, and plugged it. If so, one mark for simulation as an investigation device.
+
 ## The scenario
 
 Alice has a message *M* which she wants to send to Bob. She has a quantum channel to him (at least she *thinks* it goes to him), and a [Wegman-Carter hash-tagged](#wegmancarter) two-way classical channel to him. She [calculates the number of qbits she will need](#enoughqbits), and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qbit, measures it in that basis, and records the results.
@@ -287,22 +289,31 @@ Note that the simulation runs the exact same Alice, Bob and their loggers as the
   * Alice goes for super-safety in the number of qbits she uses. And then, of course, she detects interference _every_ time.
   
         length of message? 100
-        length of a hash key? 0
+        length of a hash key? 20
         minimum number of checkbits? 40
         number of sigmas? 10
         number of trials? 100
 
-        1156 qbits per trial
+        trial number 1 quantum interference detected -- 152 check bits
+        trial number 2 quantum interference detected -- 162 check bits
+        ...
+        trial number 100 quantum interference detected -- 176 check bits
+
+        1369 qbits per trial
         all done: 0 Eve's; 100 Alice's; 0 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); 
-        average check bits (Alice/Eve) 145; minimum check bits (Alice/Eve) 115; average check bits (Eve/Bob) 145; minimum check bits (Eve/Bob) 115
+        average check bits (Alice/Eve) 171; minimum check bits (Alice/Eve) 146; average check bits (Eve/Bob) 171; minimum check bits (Eve/Bob) 146
         histogram of check-bit lengths (Alice/Eve)
-        [(115,1);(121,1);(125,1);(127,1);(128,1);(129,1);(130,2);(131,3);(132,3);(133,2);(134,1);(135,3);(136,1);(137,4);(138,3);(139
-        ,3);(140,4);(141,3);(143,6);(144,5);(145,4);(146,2);(147,2);(148,4);(149,4);(150,3);(151,3);(152,4);(153,5);(154,2);(155,2);(
-        157,4);(158,3);(159,2);(160,1);(163,1);(167,1);(171,1);(174,2);(177,1)]
+        [(146,1);(149,2);(151,2);(152,2);(153,1);(154,1);(155,1);(156,1);(157,1);(158,2);(160,4);(161,4);(162,4);(163,2);(164,1);(165
+        ,4);(166,2);(167,8);(168,2);(169,1);(170,2);(171,4);(172,4);(173,5);(174,5);(176,2);(177,2);(178,2);(179,5);(180,3);(181,1);(
+        182,4);(183,1);(186,3);(187,1);(189,3);(190,2);(192,1);(196,1);(197,1);(198,1);(204,1)]
         histogram of check-bit lengths (Eve/Bob)
-        [(115,1);(121,1);(125,1);(127,1);(128,1);(129,1);(130,2);(131,3);(132,3);(133,2);(134,1);(135,3);(136,1);(137,4);(138,3);(139
-        ,3);(140,4);(141,3);(143,6);(144,5);(145,4);(146,2);(147,2);(148,4);(149,4);(150,3);(151,3);(152,4);(153,5);(154,2);(155,2);(
-        157,4);(158,3);(159,2);(160,1);(163,1);(167,1);(171,1);(174,2);(177,1)]
+        [(146,1);(149,2);(151,2);(152,2);(153,1);(154,1);(155,1);(156,1);(157,1);(158,2);(160,4);(161,4);(162,4);(163,2);(164,1);(165
+        ,4);(166,2);(167,8);(168,2);(169,1);(170,2);(171,4);(172,4);(173,5);(174,5);(176,2);(177,2);(178,2);(179,5);(180,3);(181,1);(
+        182,4);(183,1);(186,3);(187,1);(189,3);(190,2);(192,1);(196,1);(197,1);(198,1);(204,1)]
+
+        real	0m32.667s
+        user	0m5.784s
+        sys	0m0.083s
 
 <a name="cleverEve"></a>
 ## Alice, Bob and clever Eve
@@ -320,47 +331,47 @@ The command is
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
         cleverEve.qtp LogEve.qtp SystemAEB.qtp)
 
-  * With a long message and a safety-first Alice (10 &sigma;s) there are no retries. But Eve's check-bit sequences are anomalous: she generates a 50% wider histogram than Bob does. If I were Alice I'd suspect an Eve.
+  * With a long message and a safety-first Alice (20-bit hash keys; 10 &sigma;s) there are no retries. But Eve's check-bit sequences are anomalous: she generates a checkbit histogram more than twice as wide as Bob's. If I were Alice I'd suspect an Eve.
   
         length of message? 1000
-        length of a hash key? 0
-        minimum number of checkbits? 0
+        length of a hash key? 20
+        minimum number of checkbits? 40
         number of sigmas? 10
         number of trials? 1000
 
-        4096 qbits per trial
+        4489 qbits per trial
         all done: 1000 Eve's; 0 Alice's; 0 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); 
-        average check bits (Alice/Eve) 511; minimum check bits (Alice/Eve) 369; average check bits (Eve/Bob) 512; minimum check bits (Eve/Bob) 447
+        average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 378; average check bits (Eve/Bob) 561; minimum check bits (Eve/Bob) 491
         histogram of check-bit lengths (Alice/Eve)
-        [(369,1);(389,1);(391,1);(392,1);(395,1);(397,1);(399,2);(405,1);(406,1);(407,1);(408,2);(409,2);(410,2);(412,1);(413,1);(414
-        ,2);(415,2);(417,3);(418,2);(419,1);(420,1);(422,2);(423,1);(424,3);(426,1);(427,2);(428,2);(429,2);(430,2);(431,2);(432,5);(
-        433,2);(435,5);(436,1);(437,2);(438,2);(439,1);(440,1);(441,3);(442,1);(443,5);(444,2);(446,6);(447,3);(448,4);(449,4);(450,2
-        );(451,6);(452,3);(453,4);(454,3);(455,3);(456,4);(457,3);(459,7);(460,1);(461,5);(462,9);(463,4);(464,3);(465,3);(466,1);(
-        467,6);(468,2);(469,4);(470,10);(471,3);(472,7);(473,8);(474,7);(475,7);(476,3);(477,7);(478,6);(479,10);(480,7);(481,6);(482
-        ,3);(483,6);(484,10);(485,7);(486,8);(487,4);(488,10);(489,6);(490,8);(491,9);(492,8);(493,9);(494,5);(495,10);(496,12);(497,
-        9);(498,6);(499,9);(500,7);(501,9);(502,9);(503,7);(504,7);(505,7);(506,7);(507,11);(508,9);(509,7);(510,13);(511,11);(512,9)
-        ;(513,6);(514,5);(515,7);(516,9);(517,8);(518,11);(519,6);(520,9);(521,10);(522,6);(523,9);(524,5);(525,14);(526,11);(527,12)
-        ;(528,4);(529,9);(530,12);(531,7);(532,10);(533,8);(534,5);(535,7);(536,11);(537,9);(538,12);(539,11);(540,7);(541,9);(542,5)
-        ;(543,8);(544,4);(545,8);(546,7);(547,3);(548,9);(549,5);(550,4);(551,13);(552,7);(553,10);(554,6);(555,6);(556,5);(557,3);(
-        558,7);(559,7);(560,2);(561,3);(562,5);(563,3);(564,2);(565,5);(566,5);(568,3);(569,4);(570,4);(571,3);(572,4);(573,5);(574,1
-        );(575,3);(576,4);(577,5);(578,4);(579,1);(581,5);(582,6);(583,3);(584,5);(586,2);(587,1);(588,1);(590,2);(591,3);(592,4);(
-        593,1);(594,1);(595,1);(597,2);(598,2);(599,3);(600,3);(601,2);(602,1);(604,1);(606,1);(608,2);(611,1);(612,2);(614,2);(616,2
-        );(618,1);(623,1);(629,1);(636,1);(641,1);(647,1);(649,1);(672,1);(685,1)]
+        [(378,1);(403,1);(426,1);(428,1);(429,1);(438,1);(444,1);(447,2);(450,1);(454,1);(455,1);(456,1);(457,1);(459,1);(462,1);(463
+        ,1);(464,1);(465,1);(466,5);(468,2);(469,1);(470,2);(472,3);(473,1);(474,2);(475,1);(476,2);(477,1);(478,1);(479,3);(480,2);(
+        481,1);(482,4);(483,4);(484,2);(485,2);(486,1);(487,3);(488,2);(490,1);(491,6);(492,6);(493,1);(494,3);(495,1);(496,3);(497,3
+        );(498,2);(499,6);(500,6);(501,6);(502,3);(503,5);(504,5);(505,5);(506,5);(507,7);(508,4);(509,3);(510,1);(511,4);(512,1);(
+        513,4);(514,2);(515,2);(516,9);(517,6);(518,2);(519,8);(520,6);(521,6);(522,8);(523,2);(524,7);(525,5);(526,6);(527,5);(528,4
+        );(529,11);(530,7);(531,8);(532,9);(533,8);(534,8);(535,8);(536,15);(537,8);(538,5);(539,13);(540,5);(541,9);(542,6);(543,9);
+        (544,10);(545,11);(546,4);(547,10);(548,7);(549,7);(550,15);(551,11);(552,8);(553,6);(554,12);(555,12);(556,8);(557,12);(558,
+        8);(559,13);(560,5);(561,10);(562,9);(563,8);(564,6);(565,7);(566,12);(567,6);(568,7);(569,10);(570,6);(571,12);(572,9);(573,
+        9);(574,6);(575,10);(576,3);(577,8);(578,8);(579,2);(580,4);(581,11);(582,10);(583,8);(584,6);(585,9);(586,4);(587,10);(588,8
+        );(589,2);(590,8);(591,6);(592,5);(593,6);(594,5);(595,9);(596,7);(597,5);(598,7);(599,6);(600,8);(601,5);(602,3);(603,5);(
+        604,8);(605,8);(606,7);(607,6);(608,7);(609,1);(610,5);(611,4);(612,6);(613,3);(614,3);(615,2);(616,1);(617,5);(618,3);(619,3
+        );(620,4);(621,5);(622,3);(623,5);(624,4);(625,4);(626,2);(627,6);(628,1);(629,3);(630,6);(631,5);(632,5);(633,1);(634,2);(
+        635,1);(636,5);(637,2);(638,2);(639,2);(640,1);(641,5);(642,1);(643,1);(644,2);(645,1);(646,1);(648,1);(649,1);(650,1);(651,3
+        );(652,1);(656,1);(659,1);(661,2);(663,1);(664,3);(671,1);(673,1);(681,1);(684,1);(686,1);(688,1);(695,1)]
         histogram of check-bit lengths (Eve/Bob)
-        [(447,1);(453,1);(454,1);(461,3);(462,1);(463,2);(464,2);(465,2);(466,2);(467,1);(468,3);(469,2);(470,4);(471,3);(472,3);(473
-        ,2);(474,5);(475,4);(476,8);(477,4);(478,6);(479,6);(480,4);(481,5);(482,8);(483,8);(484,4);(485,4);(486,8);(487,12);(488,12)
-        ;(489,8);(490,12);(491,9);(492,13);(493,9);(494,9);(495,13);(496,12);(497,17);(498,17);(499,13);(500,13);(501,16);(502,17);(
-        503,11);(504,24);(505,18);(506,21);(507,21);(508,23);(509,28);(510,11);(511,18);(512,15);(513,20);(514,22);(515,21);(516,23);
-        (517,20);(518,12);(519,19);(520,26);(521,22);(522,11);(523,15);(524,18);(525,13);(526,16);(527,16);(528,11);(529,21);(530,10)
-        ;(531,15);(532,9);(533,9);(534,12);(535,12);(536,12);(537,6);(538,9);(539,8);(540,6);(541,10);(542,3);(543,8);(544,5);(545,7)
-        ;(546,5);(547,5);(548,3);(549,6);(550,3);(551,6);(554,4);(555,2);(557,3);(558,1);(559,2);(560,2);(561,2);(562,2);(563,1);(565
-        ,1);(566,2);(567,1);(573,1);(575,1);(593,1)]
+        [(491,1);(500,1);(501,1);(503,1);(505,4);(506,1);(507,1);(511,2);(513,1);(514,2);(515,1);(516,1);(517,1);(518,2);(519,1);(521
+        ,4);(522,1);(523,3);(524,6);(525,5);(526,5);(527,7);(528,9);(529,5);(530,9);(531,6);(532,5);(533,12);(534,6);(535,9);(536,5);
+        (537,9);(538,10);(539,15);(540,9);(541,17);(542,9);(543,14);(544,16);(545,16);(546,9);(547,14);(548,15);(549,23);(550,14);(
+        551,16);(552,16);(553,19);(554,11);(555,23);(556,27);(557,19);(558,20);(559,20);(560,17);(561,20);(562,15);(563,26);(564,20);
+        (565,18);(566,14);(567,19);(568,16);(569,17);(570,22);(571,19);(572,12);(573,14);(574,12);(575,14);(576,18);(577,12);(578,16)
+        ;(579,8);(580,6);(581,12);(582,17);(583,7);(584,7);(585,12);(586,7);(587,14);(588,9);(589,8);(590,6);(591,2);(592,8);(593,5);
+        (594,5);(595,1);(596,8);(597,5);(598,3);(599,6);(600,4);(601,5);(602,1);(603,1);(604,4);(605,5);(606,1);(607,2);(608,4);(609,
+        1);(610,3);(611,1);(612,1);(614,2);(615,2);(616,1);(617,2);(618,2);(623,1);(626,1)]
 
-        real	3m26.518s
-        user	2m59.271s
-        sys	0m1.839s
+        real	3m51.001s
+        user	3m22.925s
+        sys	0m2.501s
 
-  * With a shorter message and a careless Alice (0 &sigma;s; no checkbit minimum) there are restarts, but no more from Eve than from Alice (Bob can't initiate them). So nothing to suspect here, were it not for the histogram. The shortest check-bit sequence that Bob generates is 19; Eve generates one of length 2, way, way outside the expected range. Bob goes up to 55, Eve to 67. Eve is bang to rights: Alice should nab her.
+  * With a shorter message and a careless Alice (0 &sigma;s; no hashing; no checkbit minimum) there are restarts, but no more from Eve than from Alice. So nothing to suspect here, were it not for the histogram. The shortest check-bit sequence that Bob generates is 19; Eve generates one of length 2, way, way outside the expected range. Bob goes up to 58, Eve to 67. Eve is bang to rights: Alice should nab her.
   
         length of message? 100
         length of a hash key? 0
@@ -419,39 +430,40 @@ The command is
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
         superEve.qtp LogEve.qtp SystemAEB.qtp)
 
-  * With cautious Alice and a long message, no restarts and so Eve hides perfectly. Her histogram is a bit wider than Alice's, but it's within normal limits because she is exactly playing Bob.
+  * With cautious Alice and a long message, no restarts and Eve hides perfectly -- and note that she's perfectly tagging her classical messages. Her histogram is a bit wider than Alice's, but it's within normal limits because she is exactly playing Bob.
   
         length of message? 1000
-        length of a hash key? 0
-        minimum number of checkbits? 0
+        length of a hash key? 20
+        minimum number of checkbits? 40
         number of sigmas? 10
         number of trials? 1000
 
-        4096 qbits per trial
+        4489 qbits per trial
         all done: 1000 Eve's; 0 Alice's; 0 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); 
-        average check bits (Alice/Eve) 511; minimum check bits (Alice/Eve) 445; average check bits (Eve/Bob) 511; minimum check bits (Eve/Bob) 435
+        average check bits (Alice/Eve) 561; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 560; minimum check bits (Eve/Bob) 492
         histogram of check-bit lengths (Alice/Eve)
-        [(445,1);(451,1);(452,1);(458,2);(459,1);(460,2);(461,1);(462,1);(463,2);(464,1);(465,2);(466,2);(467,2);(468,1);(469,2);(470
-        ,1);(471,5);(472,3);(473,4);(474,5);(475,4);(476,8);(477,4);(478,3);(479,5);(480,5);(481,4);(482,6);(483,9);(484,6);(485,9);(
-        486,10);(487,10);(488,16);(489,7);(490,12);(491,8);(492,14);(493,16);(494,13);(495,6);(496,11);(497,17);(498,16);(499,13);(
-        500,15);(501,11);(502,20);(503,19);(504,19);(505,25);(506,16);(507,19);(508,22);(509,21);(510,27);(511,16);(512,19);(513,13);
-        (514,16);(515,20);(516,22);(517,21);(518,17);(519,20);(520,12);(521,23);(522,12);(523,15);(524,14);(525,15);(526,14);(527,11)
-        ;(528,18);(529,12);(530,10);(531,14);(532,14);(533,10);(534,10);(535,14);(536,14);(537,11);(538,9);(539,12);(540,7);(541,6);(
-        542,7);(543,5);(544,6);(545,7);(546,2);(547,6);(548,3);(549,3);(550,3);(551,4);(552,3);(553,2);(554,2);(555,1);(556,5);(557,1
-        );(558,1);(559,2);(560,1);(562,1);(564,1);(565,2);(567,1);(568,1);(576,1);(581,1);(587,1)]
+        [(494,1);(498,1);(502,1);(505,2);(506,1);(509,1);(510,1);(512,3);(513,1);(514,4);(515,2);(516,5);(517,4);(518,1);(519,1);(520
+        ,2);(521,3);(522,5);(523,5);(524,8);(525,4);(526,4);(527,8);(528,1);(529,9);(530,8);(531,9);(532,11);(533,4);(534,8);(535,10)
+        ;(536,19);(537,12);(538,8);(539,10);(540,5);(541,11);(542,10);(543,10);(544,16);(545,14);(546,17);(547,15);(548,11);(549,12);
+        (550,20);(551,21);(552,19);(553,18);(554,19);(555,19);(556,13);(557,14);(558,20);(559,15);(560,18);(561,17);(562,16);(563,15)
+        ;(564,15);(565,25);(566,20);(567,19);(568,17);(569,15);(570,12);(571,19);(572,15);(573,19);(574,14);(575,10);(576,17);(577,7)
+        ;(578,14);(579,9);(580,12);(581,9);(582,9);(583,10);(584,11);(585,11);(586,11);(587,9);(588,10);(589,10);(590,9);(591,3);(592
+        ,5);(593,3);(594,8);(595,5);(596,11);(597,7);(598,7);(599,3);(600,7);(601,5);(602,1);(603,2);(604,5);(605,3);(606,2);(607,2);
+        (608,4);(609,4);(610,1);(613,2);(614,1);(615,1);(616,1);(617,1);(618,1);(621,1);(627,1);(628,1);(630,1);(635,1)]
         histogram of check-bit lengths (Eve/Bob)
-        [(435,1);(444,2);(446,1);(452,1);(457,1);(458,1);(459,3);(460,1);(461,2);(462,1);(463,3);(465,2);(466,5);(467,4);(468,5);(469
-        ,5);(470,4);(471,2);(472,5);(473,3);(474,7);(475,6);(476,7);(477,3);(478,5);(479,10);(480,5);(481,5);(482,6);(483,4);(484,12)
-        ;(485,6);(486,13);(487,9);(488,8);(489,11);(490,14);(491,10);(492,8);(493,16);(494,11);(495,15);(496,15);(497,13);(498,6);(
-        499,22);(500,12);(501,16);(502,15);(503,15);(504,9);(505,20);(506,22);(507,15);(508,21);(509,16);(510,23);(511,21);(512,19);(
-        513,20);(514,16);(515,17);(516,15);(517,17);(518,15);(519,14);(520,15);(521,7);(522,17);(523,20);(524,14);(525,12);(526,17);(
-        527,12);(528,15);(529,12);(530,14);(531,20);(532,8);(533,9);(534,14);(535,14);(536,7);(537,13);(538,17);(539,14);(540,8);(541
-        ,5);(542,7);(543,7);(544,6);(545,4);(546,8);(547,4);(548,4);(549,4);(550,4);(551,2);(552,1);(553,5);(554,3);(555,3);(556,2);(
-        557,1);(559,3);(560,1);(561,1);(562,1);(565,3);(567,1);(568,1);(569,1);(571,1);(576,1)]
+        [(492,1);(494,1);(496,2);(502,1);(505,1);(507,1);(508,1);(509,2);(510,1);(512,1);(513,1);(514,1);(515,1);(516,4);(517,1);(518
+        ,2);(519,4);(520,9);(521,5);(522,4);(523,3);(524,4);(525,8);(526,5);(527,4);(528,9);(529,7);(530,7);(531,7);(532,6);(533,11);
+        (534,10);(535,8);(536,11);(537,16);(538,12);(539,3);(540,12);(541,12);(542,9);(543,9);(544,17);(545,13);(546,10);(547,21);(
+        548,19);(549,8);(550,18);(551,18);(552,9);(553,20);(554,20);(555,20);(556,19);(557,14);(558,14);(559,12);(560,33);(561,14);(
+        562,11);(563,16);(564,15);(565,25);(566,7);(567,23);(568,24);(569,22);(570,14);(571,11);(572,12);(573,14);(574,19);(575,19);(
+        576,8);(577,13);(578,9);(579,10);(580,16);(581,14);(582,11);(583,10);(584,8);(585,13);(586,8);(587,11);(588,14);(589,9);(590,
+        7);(591,7);(592,6);(593,6);(594,5);(595,6);(596,2);(597,5);(598,4);(599,5);(600,4);(601,1);(602,3);(603,3);(604,1);(605,4);(
+        606,5);(607,3);(608,3);(609,4);(610,2);(611,1);(612,1);(615,1);(616,2);(617,1);(623,1);(624,1);(627,1);(632,1);(642,1);(650,1
+        )]
 
-        real	3m33.965s
-        user	3m10.751s
-        sys	0m2.068s
+        real	4m4.922s
+        user	3m35.276s
+        sys	0m2.360s
 
   * With mad Alice and a shorter message Eve is still under cover. No more Bob restarts from her than Eve restarts from Alice. This time her histogram's a tiny bit narrower, but all within normal variation.
 
@@ -497,16 +509,56 @@ The command is
         
 So cleverer Eve seems to have got away with it. With the checks that are described in BB84 she's invisible, given the very large initial assumption that she has prior knowledge of Alice and Bob's initial one-time hash keys.
 
-But not qiute invisible. In these days of GPS clocks Alice and Bob could pore over their logs. Some of the exchanges will be slower than Alice would expect, because Eve provokes an extra restart. So perhaps between 9 and 9.30 every morning she can play mad Alice, Bob can report arrival times, and they can try to spot her. They'd better not do it over the network, because Eve will just report arrival times for her, and Alice will see the times she would get if Eve wasn't there. Bob should take a printout of his arrival times to that park in Zurich. At that point Eve should burn the code books and run: nobody is truly undetectable.
+But not quite invisible. In these days of GPS clocks Alice and Bob could pore over their logs. Some of the exchanges will be slower than Alice would expect, because Eve provokes Bob to restart. So perhaps between 9 and 9.30 every morning she can play mad Alice, Bob can report arrival times, and they can try to spot her. They'd better not compare times over the network, because Eve will intercept and report arrival times for her, and Alice will see the times she would get if Eve wasn't there. Bob should take a printout of his arrival times to that park in Zurich. At that point Eve should burn the code books and run: nobody is truly undetectable.
 
 <a name="notreally"></a>
 ## - but probably not
 
-Restarts are part of the simulation because I wanted to watch the statistical variation of the choice mechanisms. They wouldn't be part of a real implementation, because a restart exposes the one-time hash keys more than once. So Alice would go for a large number of &sigma;s and a large minimum number of checkbits, and things would work out as in the first cleverer Eve test above: that is, she would hide perfectly. It looks as if there is a security hole.
+Restarts are part of the simulation because I wanted to watch the statistical variation of the choice mechanisms. They wouldn't be part of a real implementation, because a restart exposes the one-time hash keys more than once. So Alice would go for a large number of &sigma;s, long hash keys and a large minimum number of checkbits, and things would work out as in the first cleverer Eve test above: that is, she would hide perfectly. It looks as if there is a security hole.
 
 But Alice has cryptographers for friends. They tell her to try to smoke Eve out. Every now and then, preferably when she has many more than the mean number of code bits, she should send a message as long as _all_ her code bits (less the ones she needs to refresh the hash keys). If she's connected directly to Bob he won't stumble, because he will have the same number of code bits as she does. But if Eve is in the way then she is in trouble: she probably won't have agreed as many code bits with Bob as Alice has agreed with her. So she can either send Bob a shorter message or run away.
 
-Regular repetitions of Alice's swamping message tactic would seem to be a perfect counter-measure to cleverer Eve. In reality she might not be finished: Alice and Bob have to compare notes. They can't do that online, because Eve or a friend of hers could spoof the comparisons (remember, Eve et al. know how Alice and Bob are programmed). If they do it offline, then all sorts of Le Carr&eacute;-ish scenarios suggest themselves. Maybe real-life Eve isn't finished yet.
+I've simulated this defence. Every four messages or so, choosing at random, Alice sees if she has more than the expected number *n*/2-*n*/8-5*w* of secret code bits. If so, she makes up a random message of the same length as her code-bit sequence and fires it at whoever is listening on the quantum channel. If it's Eve she has a small chance of having as many or more code bits, but that's not enough for a long life.
+
+The command is
+
+        (cd examples/BB84_QKD; time ../../Qtpi nr_Alice.qtp nr_Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
+            nr_superEve.qtp LogEve.qtp SystemAEB.qtp)
+
+  * The logging process plays the r&ocirc;le of the Zurich park. If the message that Bob logged is not the one that Alice logged, and neither of them logged quantum or classical interference, then it's an 'undetected corrupt message'. Alice should fire at Eve about 1/8 of the time, and Eve can only duck a small proportion. 116 hits out of about 125 shots: Eve is no longer undectable.
+  
+        length of message? 1000
+        length of a hash key? 20
+        minimum number of checkbits? 40
+        number of sigmas? 10
+        number of trials? 1000
+
+        4489 qbits per trial
+        all done: 884 Eve's; 0 Alice's; 116 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 561; minimum check bits (Eve/Bob) 498
+        histogram of check-bit lengths (Alice/Eve)
+        [(494,1);(497,2);(503,1);(504,1);(505,1);(506,1);(507,2);(508,1);(509,2);(511,1);(512,2);(513,3);(514,3);(515,1);(516,1);(517,5);
+        (518,2);(519,5);(520,5);(521,5);(522,4);(523,5);(524,4);(525,5);(526,6);(527,9);(528,7);(529,8);(530,7);(531,9);(532,3);(533,4);(
+        534,11);(535,9);(536,7);(537,10);(538,12);(539,11);(540,11);(541,14);(542,13);(543,21);(544,15);(545,17);(546,14);(547,18);(548,
+        17);(549,17);(550,16);(551,13);(552,19);(553,15);(554,12);(555,13);(556,17);(557,22);(558,14);(559,20);(560,13);(561,15);(562,21)
+        ;(563,23);(564,23);(565,15);(566,16);(567,21);(568,19);(569,18);(570,19);(571,15);(572,23);(573,12);(574,11);(575,13);(576,18);(
+        577,8);(578,11);(579,7);(580,9);(581,14);(582,10);(583,7);(584,14);(585,10);(586,9);(587,9);(588,7);(589,3);(590,8);(591,5);(592,
+        13);(593,3);(594,7);(595,4);(596,9);(597,7);(598,3);(599,3);(600,2);(601,2);(602,2);(603,1);(604,4);(605,1);(606,2);(608,2);(610,
+        3);(611,3);(612,1);(613,2);(614,2);(615,1);(618,1);(620,1);(626,1)]
+        histogram of check-bit lengths (Eve/Bob)
+        [(498,2);(505,1);(506,1);(510,1);(511,1);(512,2);(513,1);(514,1);(515,3);(516,2);(517,2);(518,2);(520,6);(521,2);(522,1);(523,5);
+        (524,5);(525,4);(526,5);(527,13);(528,11);(529,4);(530,7);(531,10);(532,7);(533,12);(534,5);(535,14);(536,9);(537,8);(538,11);(
+        539,8);(540,12);(541,14);(542,16);(543,17);(544,14);(545,8);(546,9);(547,12);(548,18);(549,15);(550,11);(551,10);(552,14);(553,19
+        );(554,18);(555,20);(556,22);(557,15);(558,11);(559,18);(560,18);(561,16);(562,19);(563,27);(564,18);(565,24);(566,25);(567,16);(
+        568,14);(569,13);(570,18);(571,9);(572,14);(573,16);(574,14);(575,18);(576,20);(577,13);(578,22);(579,14);(580,16);(581,6);(582,7
+        );(583,18);(584,13);(585,6);(586,11);(587,8);(588,9);(589,5);(590,6);(591,6);(592,4);(593,6);(594,4);(595,8);(596,4);(597,4);(598
+        ,3);(599,4);(600,2);(601,4);(602,11);(603,2);(604,1);(605,6);(606,3);(607,1);(608,1);(609,1);(614,3);(616,1);(617,1);(618,2);(623
+        ,2);(625,3);(627,1)]
+
+        real	3m56.020s
+        user	3m30.731s
+        sys	0m2.580s
+
+Alice's swamping-message tactic would seem to be a perfect counter-measure to cleverer Eve. In reality Eve might not be finished: Alice and Bob have to compare notes. They can't do that online, because Eve or a friend of hers could spoof the comparisons (remember, Eve et al. know how Alice and Bob are programmed). If they do it offline, then all sorts of Le Carr&eacute;-ish scenarios suggest themselves. Maybe real-life Eve isn't finished yet.
 
 But let's not be silly. Technically, there's a counter-measure, and no security hole. And I dreamed of being famous ...
 

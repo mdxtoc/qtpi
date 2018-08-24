@@ -3,9 +3,9 @@ proc LogEve (verbose, logAE, logEB, done) =
   (new doneAE, doneEB)
   (  LogAliceEve (verbose, logAE, doneAE)
    | LogEveBob (0, verbose, logEB, doneEB)
-   | doneAE?_           .
-     doneEB?(result)    .
-     done!result        .
+   | doneAE?(resultAE)      .
+     doneEB?(resultEB)      .
+     done!resultAE,resultEB .
      _0
   )
   
@@ -20,7 +20,8 @@ proc LogAliceEve (verbose, log, done) =
        print_strings ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
      else () fi
     }                   .
-    done!()             .
+    log?(hkbsAE)        .
+    done!hkbsAE         .
     _0
   fi
 
@@ -50,6 +51,7 @@ proc LogEveBob (reps, verbose, log, done) =
        print_strings ["Eve decodes message "; show message; "\n"] 
      else () fi
     } .
-    done!decoded, message, length cs, reps .
+    log?(hkbsEB) .
+    done!decoded, message, length cs, hkbsEB, reps .
     _0
   fi

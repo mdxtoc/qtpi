@@ -1,3 +1,51 @@
+  
+(* send encoded (bit, value) pairs down channel qc *)
+proc SendQbits (bvs,qc,sent) =   
+    match bvs .
+        []         . sent!() . _0
+    <+> (b,v)::bvs . (newq q = match b,v .
+                                   0b0,0b0 . |0> 
+                               <+> 0b0,0b1 . |1> 
+                               <+> 0b1,0b0 . |+> 
+                               <+> 0b1,0b1 . |-> 
+                               hctam
+                     )
+                     qc!q    .
+                     SendQbits (bvs,qc,sent)
+    hctam
+    
+(* receive qbits on channel qc, measure them, return the results 
+   when you see a tagged message on channel bsc
+ *)
+proc ReceiveQBits (bvs, qc, bsc, results) =
+      bsc?(tag,bits)        . 
+        (let bs, vs = unzip (rev bvs))
+        results!bs          . 
+        results!vs          .
+        results!tag         .
+        results!bits        .
+        _0
+  <+> qc?(q)                . 
+        (let basis = randbit ())
+        q =?[if basis=0b1 then _H else _I fi] (value) .
+              dispose!q                               .
+        ReceiveQBits((basis,value)::bvs,qc,bsc,results)
+
+(* Read qbits from qA, measure them in a random bases, send the measured bits on qB. 
+   Stop when you see a message on bsA, and return measurements, tag and message.
+ *)
+proc CopyQBits (bvs, qA, qB, bsA, results) =
+        qA?(q)          . (let b = randbit ())
+                          q=?[if b=0 then _I else _H fi](v) . 
+                          qB!q                              . 
+                          CopyQBits ((b,v)::bvs, qA, qB, bsA, results)
+    <+> bsA?(tag,bits)  . (let bs, vs = unzip (rev bvs))
+                          results!bs                        . 
+                          results!vs                        .
+                          results!tag                       .
+                          results!bits                      .
+                          _0
+
 (* check that masked bits in vs match check bits *)
 fun test_checkbits mask checks vs =
   forall (lam (cb,vb) . cb=vb) 
@@ -55,8 +103,11 @@ fun listsum ns = foldl (lam sum n . sum+n) 0 ns
 
 fun listmin ns = foldl (lam sofar n . min sofar n) (hd ns) (tl ns)
 
+fun tagged keys i w message = 
+  hwc message keys i w, message
+  
 fun hwc message keys i w : bit list = 
-  if w=0 then [0b0] else
+  if w=0 || message=[] then [0b0] else
     hwc1 message (nth keys i) (2*s) mask
       where mask = bits2int (tabulate s (const 0b1)) (* 2^s-1 *)
       where s = (w+1)/3*4+1 (* odd, at least, and bigger than w *)

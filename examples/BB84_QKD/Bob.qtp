@@ -1,6 +1,6 @@
 proc Bob (w, hks, qc, bsc, againc, log) = 
     (new received) 
-    (  ReceiveBits([],qc,bsc,received)
+    (  ReceiveQBits([],qc,bsc,received)
      | received?(bs)                    . (* bs, vs is what I saw *)
        received?(vs)                    .
        log!bs                           .
@@ -40,17 +40,3 @@ proc Bob (w, hks, qc, bsc, againc, log) =
        )
     )
   
-(* receive qbits, measure them, log the results when you see her bases *)
-proc ReceiveBits(bvs,qc,bsc,results) =
-      bsc?(h0,bases)        . 
-        (let bvs = rev bvs)
-        results!map fst bvs . 
-        results!map snd bvs .
-        results!h0          .
-        results!bases       .
-        _0
-  <+> qc?(q)                . 
-        (let basis = randbit ())
-        q =?[if basis=0b1 then _H else _I fi] (value) .
-              dispose!q                               .
-        ReceiveBits((basis,value)::bvs,qc,bsc,results)

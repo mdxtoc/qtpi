@@ -1,45 +1,33 @@
 (* a naive eavesdropper. Sees Alice's bits but messes with them. *)
-proc Eve (qA, qB, bsA, bsB, againA, againB, logAE,logEB) =
+proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB, logAE,logEB) =
     (new measured) 
-    (  CopyBits([],qA,qB,bsA,measured)
+    (  CopyQBits([],qA,qB,bsA,measured)
      | measured?(bs)                    .   (* bs, vs are what I think I saw *)
        measured?(vs)                    .
        logEB!bs                         .
        logEB!vs                         .
       
-       measured?(basesA) . bsB!basesA   .   (* bases A->B       *)
+       measured?(h)      . 
+       measured?(basesA) . bsB!h,basesA .   (* bases A->B       *)
        bsB?(basesB)      . bsA!basesB   .   (* bases B->A       *)
        bsB?(mask)        . bsA!mask     .   (* mask B->A        *)
-       bsB?(cs)          . bsA!cs       .   (* checkbits B->A   *)
+       bsB?(h,cs)        . bsA!h,cs     .   (* checkbits B->A   *)
        logEB!cs                         .
        
-       (    bsA?(encrypted)             .   (* encrypted message A->B *)
-              bsB!encrypted             .   
+       (    bsA?(h,encrypted)           .   (* encrypted message A->B *)
+              bsB!h,encrypted           .   (* send it on *) 
               logAE![bool2bit false]    .   (* not going round *) 
               logEB![bool2bit false]    .   (* either of us    *)   
               logAE!encrypted           . 
               logEB![bool2bit false]    .   (* can't decrypt *)
               logEB![]                  .   (* empty message *)
+              logAE![]                  .   (* empty hash keys A<->E *)
+              logEB![]                  .   (* empty hash keys E<->B *)
               _0
         <+> againA?(_)                  .   (* round again, both sides *)
               againB!()                 .
               logAE![bool2bit true]     .
               logEB![bool2bit true]     .
-              Eve (qA, qB, bsA, bsB, againA, againB, logAE,logEB)
+              Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB, logAE,logEB)
        )
     )
-
-(* Read qbits from qA, measure them in a random bases, send the measured bits on qB,
-   return the measurements. Stop when you see a message on bsA, and return that too.
- *)
-proc CopyBits (bvs, qA, qB, bsA, result) =
-        qA?(q)          . (let b = randbit ())
-                          q=?[if b=0 then _I else _H fi](v) . 
-                          qB!q                              . 
-                          CopyBits ((b,v)::bvs, qA, qB, bsA, result)
-    <+> bsA?(basesA)    . (let bvs = rev bvs)
-                          result!map fst bvs . 
-                          result!map snd bvs . 
-                          result!basesA      .
-                          _0
-

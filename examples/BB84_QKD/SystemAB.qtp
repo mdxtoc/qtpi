@@ -22,7 +22,7 @@ proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
                                    if verbose then "\n" else " " fi] 
                else () fi
       } .
-    {if verbose then print_strings ["initial hash keys are "; show hks; "\n"] else () fi} .
+      {if verbose then print_strings ["hash keys are "; show hks; "\n"] else () fi} .
       (let M = randbits n)
       {if verbose then print_strings ["message is "; show M; "\n"] else () fi} .
       (new logA, logB, doneA, doneB)

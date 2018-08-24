@@ -2,22 +2,22 @@
    Alice generates more code bits than she strictly needs.
  *)
 
-proc Eve (qcA, qcB, bcA, bcB, againA, againB, logasB, logasA) =
+proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB) =
   (new copied)
-  (  CopyBits ([], qcA, qcB, bcA, copied)  
-   | copied?(bs) . copied?(vs) . copied?(bases) .
+  (  CopyQBits ([], qcA, qcB, bcA, copied)  
+   | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
      (new mc, init)
-     (  init!bs . init!vs . init!bases . _0
-      | AsBob (init, qcA, bcA, againA, mc, logasB)
-      | AsAlice (bs, vs, qcB, bcB, againB, mc, logasA)
+     (  init!bs . init!vs . init!h0 . init!bases . _0
+      | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
+      | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
      )
   )
   
-proc AsBob (received, qcA, bcA, againA, mc, log) =
+proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
   received?(bs) . received?(vs)                 .
-  received?(basesA)                             .
+  received?_    . received?(basesA)             .
 
-  bcA!bs                                        .   (* send Alice my bases *)
+  bcA!tagged hks 1 w bs                         .   (* send Alice my bases *)
   (* do a Bob-style calculation of a check mask and check bits *)
   (let rvsA = reconcile bs basesA vs)
   (let maskA = tabulate (length rvsA) cb_choose)
@@ -25,37 +25,42 @@ proc AsBob (received, qcA, bcA, againA, mc, log) =
   (let codeA = mask_filter 0b0 maskA rvsA)
 
   (* don't worry if Alice doesn't have enough code bits: she will signal if necessary *)
-  bcA!maskA . bcA!checkbitsA                    .   (* send check bits and mask *) 
-
+  bcA!tagged hks 2 w maskA                      .    (* send check bits and mask *) 
+  bcA!tagged hks 3 w checkbitsA                 .
   (* see if Alice is ok with that *)
   (    againA?(_)                               .   (* Alice didn't get enough code bits *)
          log![bool2bit true]                    .   (* going round again *)
-         (  ReceiveBits ([], qcA, bcA, received)
-          | AsBob (received, qcA, bcA, againA, mc,log)
+         (  ReceiveQBits ([], qcA, bcA, received)
+          | AsBob (w, hks, received, qcA, bcA, againA, mc,log)
          )
-   <+> bcA?(encrypted)                          .   (* receive her encrypted message *)
+   <+> bcA?(_,encrypted)                        .   (* receive her encrypted message *)
         log![bool2bit false]                    .   (* not going round again *)
         log!encrypted                           .
         
-        (* decode as Bob would, and send it across *)
-        mc ! xor_mask (take (length encrypted) codeA) encrypted
-                                                .
+        (* decode as Bob would, and send it to AsAlice *)
+        (let hkbs' = take (5*w) codeA)
+        (let codeA = drop (5*w) codeA)
+        (let message = xor_mask (take (length encrypted) codeA) encrypted)    
+        mc ! message                            .
+        log!hkbs'                               .
         _0
   )
   
-proc AsAlice(bs, vs, qcB, bcB, againB, mc, log) =
+proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
   log!bs    . log!vs                            .
 
-  bcB!bs . bcB?(basesB)                         .   (* send my bases to Bob; receive his in return *)
+  bcB!tagged hks 0 w bs . bcB?(_,basesB)        .   (* send my bases to Bob; receive his in return *)
   (let rvsB = reconcile basesB bs vs)
-  bcB?(maskB) . bcB?(checkbitsB)                .   (* receive Bob's mask and check bits *)
-                                                    (* but ignore his check bits *)
+  bcB?(_,maskB) . bcB?(_,checkbitsB)            .   (* receive Bob's mask and check bits *)
+                                                    (* but ignore his tags and check bits *)
   log!checkbitsB                                .   (* -- other than logging them *)
   (let codeB = mask_filter 0b0 maskB rvsB)
 
   mc?(M)                                        .   (* receive real Alice's clear message *)
 
   (* there is a possibility that Bob may not have enough code bits ... *)
+  (let hkbs' = take (5*w) codeB)
+  (let codeB = drop (5*w) codeB)
   if length M > length codeB then
     againB!()                                   .   (* round again, Bob *) 
     log![bool2bit true]                         .   (* going round again *)
@@ -63,9 +68,9 @@ proc AsAlice(bs, vs, qcB, bcB, againB, mc, log) =
     (let bs = randbits n)
     (let vs = randbits n)
     (new done)
-    (  SendBits (zip bs vs,qcB,done)
+    (  SendQbits (zip bs vs,qcB,done)
      | mc!M . _0
-     | done?_ . AsAlice (bs, vs, qcB, bcB, againB, mc, log)
+     | done?_ . AsAlice (w, hks, bs, vs, qcB, bcB, againB, mc, log)
     )
   else 
     log![bool2bit false]                        .   (* not going round again *)
@@ -73,18 +78,10 @@ proc AsAlice(bs, vs, qcB, bcB, againB, mc, log) =
     log!M                                       .   (* and here it is *)
        
     (* encode for Bob as Alice would *)
-    bcB!xor_mask (take (length M) codeB) M      .
+    (let eM = xor_mask (take (length M) codeB) M)
+    bcB!tagged hks 4 w eM                       .
+    
+    (* and bow out *)
+    log!hkbs'                                   .
     _0
   fi
-
-proc CopyBits (bvs, qcA, qcB, bcA, result) =
-        qcA?(q)                                 . 
-            (let b = randbit ())
-            q=?[if b=0 then _I else _H fi](v)   . 
-            qcB!q                               . 
-            CopyBits ((b,v)::bvs, qcA, qcB, bcA, result)
-    <+> bcA?(basesA)                            . 
-            (let bs, vs = unzip (rev bvs))
-            result!bs . result!vs               . 
-            result!basesA                       .
-            _0

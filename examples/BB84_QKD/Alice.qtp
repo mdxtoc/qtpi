@@ -40,7 +40,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
   
   (* send Bob the qbits I chose, tell me when it's done *)
   (new sent)
-  (  SendBits (zip bs vs, qc, sent)
+  (  SendQbits (zip bs vs, qc, sent)
    | sent?(_)                               .
      
      (* tell each other the qbit bases we used - me first *)
@@ -73,7 +73,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
         we send an empty message, to keep Bob alive.
       *)
      if not check then
-       bsc![0b0],[]                         . 
+       bsc!tagged hks 4 w []                . (* empty message *) 
        log![]                               . (* no new hash keys *) 
        _0
      else
@@ -103,27 +103,4 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
        fi
      fi
   )
-  
-(* send encoded (bit, value) pairs down channel qc *)
-proc SendBits (bvs,qc,sent) =   
-    match bvs .
-        []         . sent!() . _0
-    <+> (b,v)::bvs . (new sentbit)
-                     (  SendBit (b, v, qc, sentbit)
-                      | sentbit?_ . 
-                        SendBits (bvs,qc,sent)
-                     )
-    hctam
-                     
-proc SendBit (b,v,qc,sent) =
-  (newq q = match b,v .
-                0b0,0b0 . |0> 
-            <+> 0b0,0b1 . |1> 
-            <+> 0b1,0b0 . |+> 
-            <+> 0b1,0b1 . |-> 
-            hctam
-  )
-  qc!q    .
-  sent!() .
-  _0
 

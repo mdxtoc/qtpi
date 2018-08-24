@@ -192,8 +192,10 @@ Mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Pr
 * *abandon*: *string* -> *'a*  
 	* stops the program and doesn't return (raises an exception).  
 * *append*: *'a list* -> *'a list* -> *'a list*
+* *concat*: *'a list list* -> *'a list*
 * *const*: *'a* -> *'b* -> *'a*
 * *drop*: *int* -> *'a list* -> *'a list*
+* *dropwhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 * *exists*: (*'a* -> *bool*) -> *'a list* -> *bool*
 * *filter*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 * *foldl*: (*'a* -> *'b* -> *'a*) -> *'a* -> *'b list* -> *'a*
@@ -205,21 +207,36 @@ Mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Pr
 * *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
 * *length*: *'a list* -> *int*  	
 * *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
+* *max*: *int* -> *int* -> *int*
+* *min*: *int* -> *int* -> *int*
+* *nth*: *'a list* -> *int* -> *'a*
+* *rev*: *'a list* -> *'a list*
+* *show*: *'a* -> *string*
+	* converts any value to a string. If you use it on a qbit or a function you won't see anything interesting.  
+* *sort*: *'a list* -> *'a list*
+	* sorts in ascending order; shouldn't sort functions and qbits (but probably does)
 * *snd*: *'a*\**'b* -> *'b*  
-* *string_of_value*: *'a* -> *string*
-	* converts any value to a string. If you use it on a qbit you won't see anything interesting.  
 * *tabulate*: *int* -> (*int* -> *'a*) -> *'a list*
 * *take*: *int* -> *'a list* -> *'a list*
+* *takewhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
 * *tl*: *'a list* -> *'a list*  
 	* raises an exception if applied to `[]`  
 * *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
 * *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
-	* raises an exception if applied to lists of differing lengths 
+	* raises an exception if applied to lists of differing lengths (but probably shouldn't)
+* 
+* *bitand*: *int* -> *int* -> *int*
+* *bits2int*: *bit list* -> *int*
+* *int2bits*: *int* -> *bit list*
+* 
+* *read_alternative*: *string* -> *string* -> (*string*\**'a*) *list* -> *'a*
+	* *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user types
 * *read_bool*: *string* -> *string* -> *string* -> *bool*
 	* prompt, true\_response, false\_response
 * *read_int*: *string* -> *int*
 * *read_string*: *string* -> *string*
 	* *read_int* and *read_string* take a prompt-string argument.  
+* 
 * *print_qbit*: *qbit* -> *unit*
 	* prints a string *q*`(`*A*`|0>`+*B*`|1>)`, the qbit's index *q* and a representation of its state as a probability vector in the computational basis. In probabilities the constant `h` means *sqrt*(1/2), and `h(`*k*`)` means (*sqrt*(1/2))<sup>*k*</sup>. If *q* is entangled with *q'* you will see stuff like `[`*q*;*q'*`](`*A*`|00>`+*B*`|01>+`*C*`|10>`+*D*`|11>)`. The standard example would be `[0,1](h|00>+h|01>)`. And so on for larger entanglements.
 * *print_string*: *string* -> *unit*

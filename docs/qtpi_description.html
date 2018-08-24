@@ -200,8 +200,10 @@
 </ul>
 </li>
 <li><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>concat</em>: <em>'a list list</em> -&gt; <em>'a list</em></li>
 <li><em>const</em>: <em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em></li>
 <li><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>dropwhile</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>exists</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>bool</em></li>
 <li><em>filter</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>foldl</em>: (<em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em>) -&gt; <em>'a</em> -&gt; <em>'b list</em> -&gt; <em>'a</em></li>
@@ -216,14 +218,24 @@
 <li><em>iter</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>unit</em></li>
 <li><em>length</em>: <em>'a list</em> -&gt; <em>int</em></li>
 <li><em>map</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>'b list</em></li>
-<li><em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></li>
-<li><em>string_of_value</em>: <em>'a</em> -&gt; <em>string</em>
+<li><em>max</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
+<li><em>min</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
+<li><em>nth</em>: <em>'a list</em> -&gt; <em>int</em> -&gt; <em>'a</em></li>
+<li><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>show</em>: <em>'a</em> -&gt; <em>string</em>
 <ul>
-<li>converts any value to a string. If you use it on a qbit you won't see anything interesting.</li>
+<li>converts any value to a string. If you use it on a qbit or a function you won't see anything interesting.</li>
 </ul>
 </li>
+<li><em>sort</em>: <em>'a list</em> -&gt; <em>'a list</em>
+<ul>
+<li>sorts in ascending order; shouldn't sort functions and qbits (but probably does)</li>
+</ul>
+</li>
+<li><em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></li>
 <li><em>tabulate</em>: <em>int</em> -&gt; (<em>int</em> -&gt; <em>'a</em>) -&gt; <em>'a list</em></li>
 <li><em>take</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>takewhile</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em>
 <ul>
 <li>raises an exception if applied to <code>[]</code></li>
@@ -232,7 +244,17 @@
 <li><em>unzip</em>: <em>'a</em>*<em>'b</em> <em>list</em> -&gt; <em>'a</em> <em>list</em> * <em>'b</em> <em>list</em></li>
 <li><em>zip</em>: <em>'a</em> <em>list</em> -&gt; <em>'b</em> <em>list</em> -&gt; <em>'a</em>*<em>'b</em> <em>list</em>
 <ul>
-<li>raises an exception if applied to lists of differing lengths</li>
+<li>raises an exception if applied to lists of differing lengths (but probably shouldn't)</li>
+</ul>
+</li>
+<li></li>
+<li><em>bitand</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
+<li><em>bits2int</em>: <em>bit list</em> -&gt; <em>int</em></li>
+<li><em>int2bits</em>: <em>int</em> -&gt; <em>bit list</em></li>
+<li></li>
+<li><em>read_alternative</em>: <em>string</em> -&gt; <em>string</em> -&gt; (<em>string</em>*<em>'a</em>) <em>list</em> -&gt; <em>'a</em>
+<ul>
+<li><em>read_alternative</em> <em>prompt</em> &quot;/&quot; [(<em>s0</em>,<em>v0</em>);(<em>s1</em>,<em>v1</em>);...] prints <em>prompt</em>(<em>s0</em>/<em>s1</em>/...) and returns <em>v0</em> or <em>v1</em> or ... according to what the user types</li>
 </ul>
 </li>
 <li><em>read_bool</em>: <em>string</em> -&gt; <em>string</em> -&gt; <em>string</em> -&gt; <em>bool</em>
@@ -246,6 +268,7 @@
 <li><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</li>
 </ul>
 </li>
+<li></li>
 <li><em>print_qbit</em>: <em>qbit</em> -&gt; <em>unit</em>
 <ul>
 <li>prints a string <em>q</em><code>(</code><em>A</em><code>|0&gt;</code>+<em>B</em><code>|1&gt;)</code>, the qbit's index <em>q</em> and a representation of its state as a probability vector in the computational basis. In probabilities the constant <code>h</code> means <em>sqrt</em>(1/2), and <code>h(</code><em>k</em><code>)</code> means (<em>sqrt</em>(1/2))<sup><em>k</em></sup>. If <em>q</em> is entangled with <em>q'</em> you will see stuff like <code>[</code><em>q</em>;<em>q'</em><code>](</code><em>A</em><code>|00&gt;</code>+<em>B</em><code>|01&gt;+</code><em>C</em><code>|10&gt;</code>+<em>D</em><code>|11&gt;)</code>. The standard example would be <code>[0,1](h|00&gt;+h|01&gt;)</code>. And so on for larger entanglements.</li>

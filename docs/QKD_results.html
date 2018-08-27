@@ -29,7 +29,7 @@ Before the protocol started Alice and Bob shared a secret: five short one-time h
 <p>One of the solutions of this equation is negative, so we ignore it; the positive solution is</p>
 <p>  √<span style="text-decoration:overline;"> <em>n</em> </span> = 4/3(<em>qs</em> + √<span style="text-decoration:overline;"> (<em>qs</em>)<sup>2</sup> + 3<em>k</em>/2 </span>)
  where <em>q</em> = √<span style="text-decoration:overline;"> 3/32 </span>+1/2</p>
-<p>Tricky in integer arithmetic ... so we approximate <em>q</em> = 806/1000 and do a lot of rounding up, which means Alice wastes some effort, but not too much and, as you'd expect, she calculates about half a σ too much padding.</p>
+<p>Tricky in integer arithmetic ... so we approximate <em>q</em> = 806/1000 and do a lot of rounding up, which means Alice wastes some qbits, but not too many. As you'd expect, she calculates about half a σ too much padding.</p>
 <p>At this point Alice has to decide if she will get enough check-bits from Bob. She can be sure of</p>
 <p>  <em>c</em> = <em>n</em>/8 - <em>s</em>√<span style="text-decoration:overline;"> 3/32 </span>√<span style="text-decoration:overline;"> <em>n</em> </span></p>
 <p>So, given a pre-arranged lower bound <em>cmin</em>, she can calculate a lower bound <em>nmin</em> from a quadratic in √<span style="text-decoration:overline;"> <em>nmin</em> </span></p>
@@ -40,7 +40,8 @@ Before the protocol started Alice and Bob shared a secret: five short one-time h
 <p><a name="wegmancarter"></a></p>
 <h2>Wegman-Carter hash-tagging</h2>
 <p>For verisimilitude I implement hash tagging. But it doesn't make a difference: in the simulation Eve can either hack it perfectly (<a href="#cleverEve">clever Eve</a> and <a href="#superEve">cleverer Eve</a>) or she doesn't even try (<a href="#naiveEve">naive Eve</a>).</p>
-<p>The mechanism is this: for a hash-key size <em>w</em> pick a packet size <em>s</em> such that <em>s</em>≥<em>w</em> and 2<sup><em>s</em></sup>-1 is prime (though the simulation doesn't bother with the prime test). Divide the bit sequence to be hashed into packets size 2<em>s</em>; convert each packet to an integer; multiply by the hash key; mask with 2<sup><em>s</em></sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than <em>s</em> bits, and that's the tag.</p>
+<p>Wegman-Carter tagging is too computationally expensive whilst qtpi is a naively interpreted language. So I do something simpler, because I'm not simulating security against code-crackers. It's still a hash, and experiment shows that if Eve accidentally gets her keys muddled up, Alice and Bob notice.</p>
+<p>For a hash-key size <em>w</em> choose packet size <em>p</em> = <em>w</em>/3*4+1. Divide the bit sequence to be hashed into packets size 2<em>p</em>; convert each packet to an integer; multiply by the hash key; mask with 2<sup><em>p</em></sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than <em>p</em> bits, and that's the tag.</p>
 <p><a name="noEve"></a></p>
 <h2>No Eve: just Alice and Bob</h2>
 <p>Trials to see if Alice picks enough qbits. Interference never detected because Eve isn't there: command is</p>

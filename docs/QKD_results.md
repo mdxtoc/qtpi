@@ -57,7 +57,7 @@ One of the solutions of this equation is negative, so we ignore it; the positive
 &emsp;&emsp;&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span> = 4/3(*qs* + &radic;<span style="text-decoration:overline;">&nbsp;(*qs*)<sup>2</sup> + 3*k*/2&nbsp;</span>)
 &emsp;where *q* = &radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+1/2
 
-Tricky in integer arithmetic ... so we approximate *q* = 806/1000 and do a lot of rounding up, which means Alice wastes some effort, but not too much and, as you'd expect, she calculates about half a &sigma; too much padding. 
+Tricky in integer arithmetic ... so we approximate *q* = 806/1000 and do a lot of rounding up, which means Alice wastes some qbits, but not too many. As you'd expect, she calculates about half a &sigma; too much padding. 
 
 At this point Alice has to decide if she will get enough check-bits from Bob. She can be sure of
 
@@ -78,7 +78,9 @@ The [no Eve trials](#noEve) show how many bits she uses for various values of *k
 
 For verisimilitude I implement hash tagging. But it doesn't make a difference: in the simulation Eve can either hack it perfectly ([clever Eve](#cleverEve) and [cleverer Eve](#superEve)) or she doesn't even try ([naive Eve](#naiveEve)).
 
-The mechanism is this: for a hash-key size *w* pick a packet size *s* such that *s*&ge;*w* and 2<sup>*s*</sup>-1 is prime (though the simulation doesn't bother with the prime test). Divide the bit sequence to be hashed into packets size 2*s*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*s*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than *s* bits, and that's the tag. 
+Wegman-Carter tagging is too computationally expensive whilst qtpi is a naively interpreted language. So I do something simpler, because I'm not simulating security against code-crackers. It's still a hash, and experiment shows that if Eve accidentally gets her keys muddled up, Alice and Bob notice.
+
+For a hash-key size *w* choose packet size *p* = *w*/3\*4+1. Divide the bit sequence to be hashed into packets size 2*p*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*p*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than *p* bits, and that's the tag. 
 
 <a name="noEve"></a>
 ## No Eve: just Alice and Bob

@@ -21,8 +21,6 @@
     (or look at http://www.gnu.org).
 *)
  
-let filename = ref ""			(* for creating sourcepos values *)
-
 exception Can'tHappen of string	(* for anybody to use *)
 
 let temp_setting vref v f =

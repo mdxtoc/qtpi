@@ -249,12 +249,12 @@ and string_of_edecl =
     | None   -> ""
   in
   function
-  | EDPat (e,wpat,wtype,we)         -> Printf.sprintf "%s where %s%s=%s" 
+  | EDPat (e,wpat,wtype,we)         -> Printf.sprintf "(%s where %s%s=%s)" 
                                               (string_of_expr e) 
                                               (string_of_pattern wpat) 
                                               (sot wtype)
                                               (string_of_expr we)
-  | EDFun (e,wfn,wfpats,wtype, we)  -> Printf.sprintf "%s where %s %s%s = %s"
+  | EDFun (e,wfn,wfpats,wtype, we)  -> Printf.sprintf "(%s where %s %s%s = %s)"
                                                       (string_of_expr e)
                                                       (string_of_name wfn.inst)
                                                       (String.concat " " (List.map string_of_fparam wfpats))

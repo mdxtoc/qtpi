@@ -38,7 +38,7 @@
     curr.Lexing.pos_lnum
     
   let get_loc lexbuf =
-    (!Settings.filename, Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
+    (!Parserparams.filename, Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
 
   let backslashed = function
     | 'n' -> '\n'
@@ -127,7 +127,6 @@ rule make_token = parse
   | "fun"       {FUN}
   | "proc"      {PROC}
   | "where"     {WHERE}
-  | "and"       {ANDWHERE}
   | "lam"       {LAMBDA}
   
   | '?'         {QUERY}

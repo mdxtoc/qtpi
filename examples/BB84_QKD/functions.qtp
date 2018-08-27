@@ -109,14 +109,12 @@ fun tagged keys i w message =
 fun hwc message keys i w : bit list = 
   if w=0 || message=[] then [0b0] else
     hwc1 message
-      where hwc1 bits =
-         (match hps .
-              [hash] . hash
-          <+> ps     . hwc1 (concat hps)
-          hctam
-            where hps = map (lam p . int2bits (bitand mask (key*bits2int p))) ps
-            where ps = packets [] size bits
-         )
+      where hwc1 bits = match hps .
+                             [hash] . hash
+                        <+> ps     . hwc1 (concat hps)
+                        hctam
+                          where hps = map (lam p . int2bits (bitand mask (key*bits2int p))) ps
+                          where ps = packets [] size bits
       where key = nth keys i
       where size = 2*s
       where mask = bits2int (tabulate s (const 0b1)) (* 2^s-1 *)

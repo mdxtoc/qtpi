@@ -29,7 +29,7 @@ exception Error of string
 let parse_string entry string =
   let lexbuf = Lexing.from_string string in
   try
-    entry Lexer.make_token lexbuf
+    entry (Linesperson.make_make_token lexbuf) lexbuf
   with 
   | Parsing.Parse_error ->
          (let curr = lexbuf.Lexing.lex_curr_p in
@@ -49,16 +49,16 @@ let parse_string entry string =
                      )
               )
 
-let parse_typestring s = Settings.filename := ""; parse_string Parser.readtype s
+let parse_typestring s = Parserparams.filename := ""; parse_string Parser.readtype s
 
-let parse_exprstring s = Settings.filename := ""; parse_string Parser.readexpr s
+let parse_exprstring s = Parserparams.filename := ""; parse_string Parser.readexpr s
 
 let parse_program filename =
-  Settings.filename := filename; 
+  Parserparams.filename := filename; 
   let in_channel = try open_in filename with Sys_error s -> raise (Error ("** " ^ s)) in
   let lexbuf = Lexing.from_channel in_channel in
   try
-    let result = Parser.program Lexer.make_token lexbuf in
+    let result = Parser.program (Linesperson.make_make_token lexbuf) lexbuf in
     close_in in_channel; 
     result
   with

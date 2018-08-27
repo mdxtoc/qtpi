@@ -22,7 +22,7 @@
 */
 
 %{
-
+  open Parserparams
   open Program
   open Def
   open Process
@@ -38,7 +38,7 @@
   exception ParserCrash of string
   
   let get_sourcepos() =
-    !Settings.filename, Parsing.symbol_start_pos(), Parsing.symbol_end_pos()
+    !Parserparams.filename, Parsing.symbol_start_pos(), Parsing.symbol_end_pos()
   
   let bad s = raise (Program.ParseError(get_sourcepos(),s))
 
@@ -67,8 +67,8 @@
 %token <string> STRING 
 %token <char> CHAR 
 
-%token EOP 
-%token FUN PROC WHERE ANDWHERE LAMBDA
+%token EOP OFFSIDE /* could it be EOP? No. */
+%token FUN PROC WHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
@@ -86,7 +86,7 @@
 %token FORALL PROCESS
 
 /* remember %left %right %nonassoc and increasing priority */
-%left WHERE
+/* %left WHERE */
 %nonassoc LAMBDA
 %nonassoc COMMA
 %right CONS
@@ -109,6 +109,16 @@
 %type  <Expr.expr> readexpr
 
 %%
+indentL:
+  |                                     {push_offsideline Parserparams.Start}
+  
+indentR:
+  |                                     {push_offsideline Parserparams.End}
+  
+outdent:    
+  | OFFSIDE                             {pop_offsideline()}
+  |                                     {pop_offsideline()}
+  
 program: defs EOP                       {$1}
                                         
 defs:
@@ -397,10 +407,13 @@ ematch:
   
 expr:
   | nwexpr                              {$1}
-  | expr WHERE bpattern EQUALS restypeopt nwexpr   
-                                        {eadorn (EWhere (EDPat($1,$3,$5,$6)))}
-  | expr WHERE funname fparams restypeopt EQUALS nwexpr   
-                                        {eadorn (EWhere (EDFun($1,$3,$4,$5,$7)))}
+  | expr WHERE indentL edecl outdent    {eadorn (EWhere ($4 $1))}
+  
+edecl:
+  | bpattern restypeopt EQUALS indentR expr outdent
+                                        {fun e -> EDPat(e,$1,$2,$5)}
+  | funname fparams restypeopt EQUALS indentR expr outdent   
+                                        {fun e -> EDFun(e,$1,$2,$3,$6)}
 
 nwexpr:  
   | ntexpr                              {$1}

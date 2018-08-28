@@ -431,11 +431,11 @@ let rec matchcheck_expr e =
   | EApp        (e1,e2)
   | EAppend     (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
   | ELambda     (pats,e)    -> matchcheck_expr e
-  | EWhere      ed          -> matchcheck_edecl ed
+  | EWhere      (e,ed)      -> matchcheck_expr e; matchcheck_edecl ed
   
 and matchcheck_edecl = function
-  | EDPat (e,wpat,_,we)        -> matchcheck_expr e; matchcheck_expr we
-  | EDFun (e,wfn,wfpats,_, we) -> matchcheck_expr e; matchcheck_expr we
+  | EDPat (wpat,_,we)        -> matchcheck_expr we
+  | EDFun (wfn,wfpats,_, we) -> matchcheck_expr we
 
 let rec matchcheck_proc proc =
   if !verbose then 

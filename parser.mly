@@ -407,10 +407,13 @@ ematch:
   
 expr:
   | nwexpr                              {$1}
+  | expr WHERE indentL edecl outdent    {eadorn (EWhere ($1,$4))}
   
 edecl:
   | bpattern restypeopt EQUALS indentR expr outdent
+                                        {EDPat($1,$2,$5)}
   | funname fparams restypeopt EQUALS indentR expr outdent   
+                                        {EDFun($1,$2,$3,$6)}
 
 nwexpr:  
   | ntexpr                              {$1}

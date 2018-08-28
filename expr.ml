@@ -62,7 +62,7 @@ and enode =
   | ECompare of expr * compareop * expr
   | EBoolArith of expr * boolop * expr
   | ELambda of pattern list * expr
-  | EWhere of edecl
+  | EWhere of expr * edecl
 
 and ugate = ugnode instance
 
@@ -99,8 +99,8 @@ and boolop =
 and ematch = pattern * expr
 
 and edecl =  
-  | EDPat of expr * pattern* _type option * expr
-  | EDFun of expr * name instance * pattern list * _type option * expr 
+  | EDPat of pattern* _type option * expr
+  | EDFun of name instance * pattern list * _type option * expr 
 
 let ewrap opt enode = {etype=ref opt; enode=enode}
 
@@ -241,7 +241,7 @@ and string_of_expr e =
   | EBoolArith  (left, op, right)   -> string_of_binary_expr left right (string_of_boolop    op) (boolprio op)
   | EAppend     (left, right)       -> string_of_binary_expr left right "@"                      (exprprio e)
   | ELambda     (pats, expr)        -> Printf.sprintf "lam %s.%s" (string_of_list string_of_fparam " " pats) (string_of_expr expr)
-  | EWhere      ed                  -> string_of_edecl ed
+  | EWhere      (e, ed)             -> Printf.sprintf "(%s where %s)" (string_of_expr e) (string_of_edecl ed)
   
 and string_of_edecl = 
   let sot = function
@@ -249,17 +249,15 @@ and string_of_edecl =
     | None   -> ""
   in
   function
-  | EDPat (e,wpat,wtype,we)         -> Printf.sprintf "(%s where %s%s=%s)" 
-                                              (string_of_expr e) 
-                                              (string_of_pattern wpat) 
-                                              (sot wtype)
-                                              (string_of_expr we)
-  | EDFun (e,wfn,wfpats,wtype, we)  -> Printf.sprintf "(%s where %s %s%s = %s)"
-                                                      (string_of_expr e)
-                                                      (string_of_name wfn.inst)
-                                                      (String.concat " " (List.map string_of_fparam wfpats))
-                                                      (sot wtype)
-                                                      (string_of_expr we)
+  | EDPat (pat,topt,e)       -> Printf.sprintf "%s%s=%s" 
+                                               (string_of_pattern pat) 
+                                               (sot topt)
+                                               (string_of_expr e)
+  | EDFun (fn,pats,topt, e)  -> Printf.sprintf "%s %s%s = %s"
+                                               (string_of_name fn.inst)
+                                               (String.concat " " (List.map string_of_fparam pats))
+                                               (sot topt)
+                                               (string_of_expr e)
 
 and string_of_arithop = function
   | Plus    -> "+"

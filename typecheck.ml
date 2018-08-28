@@ -135,7 +135,7 @@ let rec rewrite_expr cxt e =
        | ECompare    (e1,_,e2)   
        | EBoolArith  (e1,_,e2)  -> List.iter (rewrite_expr cxt) [e1;e2]
        | ELambda     (pats, e)  -> List.iter (rewrite_pattern cxt) pats; rewrite_expr cxt e
-       | EWhere      ed         -> rewrite_edecl cxt ed
+       | EWhere      (e,ed)     -> rewrite_expr cxt e; rewrite_edecl cxt ed
       )
   | None   -> raise (Error (e.pos,
                             Printf.sprintf "** Disaster: typecheck didn't mark %s"
@@ -144,8 +144,8 @@ let rec rewrite_expr cxt e =
                     )
 
 and rewrite_edecl cxt = function
-  | EDPat (e,wpat,_,we)        -> rewrite_expr cxt e; rewrite_pattern cxt wpat; rewrite_expr cxt we
-  | EDFun (e,wfn,wfpats,_, we) -> rewrite_expr cxt e; rewrite_fparams cxt wfpats; rewrite_expr cxt we
+  | EDPat (wpat,_,we)        -> rewrite_pattern cxt wpat; rewrite_expr cxt we
+  | EDFun (wfn,wfpats,_, we) -> rewrite_fparams cxt wfpats; rewrite_expr cxt we
 
 and rewrite_fparams cxt = List.iter (rewrite_pattern cxt)
 
@@ -461,7 +461,7 @@ and assigntype_expr cxt t e =
                                let cxt = assigntype_expr cxt t' e2 in
                                unifytypes cxt t t'
      | ELambda (pats, e)    -> check_distinct_fparams pats; assigntype_fun cxt t pats e
-     | EWhere  ed           -> assigntype_edecl cxt t ed
+     | EWhere  (e, ed)      -> assigntype_edecl cxt t e ed
   with 
   | TypeUnifyError (t1,t2)  -> raise (Error (e.pos,
                                              Printf.sprintf "%s appears to be type %s, but in context should be %s"
@@ -471,17 +471,17 @@ and assigntype_expr cxt t e =
                                             )
                                      )
   
-and assigntype_edecl cxt t = function
-  | EDPat (e,wpat,wtopt,we)        -> let wt = ntv we.pos in
-                                      let cxt = assigntype_expr cxt wt we in
-                                      assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
-  | EDFun (e,wfn,wfpats,wtopt, we) -> ok_funname wfn;
-                                      check_distinct_fparams wfpats;
-                                      let tf = inventtype_fun wfpats wtopt we in
-                                      let cxt = cxt <@++> (wfn.inst,tf) in
-                                      let cxt = assigntype_fun cxt tf wfpats we in
-                                      let cxt = assigntype_expr cxt t e in
-                                      cxt <@--> wfn.inst
+and assigntype_edecl cxt t e = function
+  | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
+                                    let cxt = assigntype_expr cxt wt we in
+                                    assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
+  | EDFun (wfn,wfpats,wtopt, we) -> ok_funname wfn;
+                                    check_distinct_fparams wfpats;
+                                    let tf = inventtype_fun wfpats wtopt we in
+                                    let cxt = cxt <@++> (wfn.inst,tf) in
+                                    let cxt = assigntype_fun cxt tf wfpats we in
+                                    let cxt = assigntype_expr cxt t e in
+                                    cxt <@--> wfn.inst
 
 and inventtype_fun pats topt e = 
   let rec itf set = function

@@ -378,17 +378,17 @@ let rec evale env e =
                                    )
   | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
   | ELambda (pats, e)       -> fun_of e env pats
-  | EWhere  ed              -> (match ed with
-                                | EDPat (e,wpat,_,we) ->
-                                    let v = evale env we in
-                                    let env = bmatch env wpat v in
-                                    evale env e
-                                | EDFun (e,wfn,wfpats,_, we) ->
-                                    let stored_env = ref env in
-                                    let env = env <@+> bind_fun stored_env wfn.inst wfpats we in
-                                    stored_env := env;
-                                    evale env e
-                               )
+  | EWhere  (e, ed)         -> let env = match ed with
+                                         | EDPat (pat,_,we) ->
+                                             let v = evale env we in
+                                             bmatch env pat v
+                                         | EDFun (fn,pats,_, we) ->
+                                             let stored_env = ref env in
+                                             let env = env <@+> bind_fun stored_env fn.inst pats we in
+                                             stored_env := env;
+                                             env
+                               in
+                               evale env e
                  
 and fun_of expr env pats =
   match pats with

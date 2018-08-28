@@ -41,17 +41,15 @@ proc AliceSend(verbose, bvs, qB, bsB, again) =
 (* send encoded bits down channel qB *)
 proc AliceSendBits (bvs,qB,done) =   
     match bvs .
-        []         . done!() . _0
-    <+> (b,v)::bvs . (newq q = match b,v .
-                                   0b0,0b0 . |0> 
-                               <+> 0b0,0b1 . |1> 
-                               <+> 0b1,0b0 . |+> 
-                               <+> 0b1,0b1 . |-> 
-                               hctam
-                     )
-                     qB!q.
-                     AliceSendBits(bvs,qB,done)
-    hctam
+    + []         . done!() . _0
+    + (b,v)::bvs . (newq q = match b,v .
+                             + 0b0,0b0 . |0> 
+                             + 0b0,0b1 . |1> 
+                             + 0b1,0b0 . |+> 
+                             + 0b1,0b1 . |-> 
+                   )
+                   qB!q.
+                   AliceSendBits(bvs,qB,done)
 
 proc AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
@@ -80,17 +78,15 @@ proc AliceNegotiate (verbose,bvs,bsB,again) =
     
 proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
-      []    , _       . done!true . _0
-  <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0 fi
-  <+> _               . done!false . _0
-  hctam
+  + []    , _       . done!true . _0
+  + v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0 fi
+  + _               . done!false . _0
 
 proc Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
-       []     , []         . (done!rev vs . _0)
-   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <+> _                   . {print_string  "Reconcile failure"} . _0
-   hctam
+  + []     , []         . (done!rev vs . _0)
+  + bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
+  + _                   . {print_string  "Reconcile failure"} . _0
   
 
 proc Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
@@ -150,7 +146,11 @@ proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 proc System() = (let k = read_int "number of trials")
                 (let n = read_int "number of qbits")
                 (let s = read_string "with commentary (y/n)")
-                (let verbose = match s . "y" . true <+> "n" . false <+> _ . abandon ["pardon?"] hctam)
+                (let verbose = match s . 
+                               + "y" . true 
+                               + "n" . false 
+                               + _ . abandon ["pardon?"]
+                )
                 (new r,qc1,qc2,bsc)
                 (  Alice(k,verbose,n,r,qc1,bsc) 
                  | Bob(k,verbose,n,r,qc2,bsc) 

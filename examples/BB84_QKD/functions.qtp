@@ -1,19 +1,17 @@
-  
+fun basisv_of_bits b v = match b,v .
+                         + 0b0,0b0 . |0> 
+                         + 0b0,0b1 . |1> 
+                         + 0b1,0b0 . |+> 
+                         + 0b1,0b1 . |-> 
+
 (* send encoded (bit, value) pairs down channel qc *)
 proc SendQbits (bvs,qc,sent) =   
     match bvs .
-        []         . sent!() . _0
-    <+> (b,v)::bvs . (newq q = match b,v .
-                                   0b0,0b0 . |0> 
-                               <+> 0b0,0b1 . |1> 
-                               <+> 0b1,0b0 . |+> 
-                               <+> 0b1,0b1 . |-> 
-                               hctam
-                     )
+    + []         . sent!() . _0
+    + (b,v)::bvs . (newq q = basisv_of_bits b v)
                      qc!q    .
                      SendQbits (bvs,qc,sent)
-    hctam
-    
+
 (* receive qbits on channel qc, measure them, return the results 
    when you see a tagged message on channel bsc
  *)
@@ -92,12 +90,11 @@ fun histogram ns =
 
 fun histo buckets ns =
   match ns .
-      []    . buckets
-  <+> n::ns . histo ((n,length pre+1)::buckets) post
+  + []    . buckets
+  + n::ns . histo ((n,length pre+1)::buckets) post
                 where pre = takewhile sameas ns
                 where post = dropwhile sameas ns
                 where sameas = lam k . k=n
-  hctam
 
 fun listsum ns = foldl (lam sum n . sum+n) 0 ns
 
@@ -111,9 +108,8 @@ fun hwc message keys i w : bit list =
     hwc1 message
       where hwc1 bits = 
               match hps .
-                   [hash] . hash
-              <+> ps     . hwc1 (concat hps)
-              hctam
+              + [hash] . hash
+              + ps     . hwc1 (concat hps)
                 where hps = map (lam p . int2bits (bitand mask (key*bits2int p))) ps
                 where ps = packets [] size bits
       where key = nth keys i
@@ -124,8 +120,7 @@ fun hwc message keys i w : bit list =
   
 fun packets rs (size:int) (bits:bit list) : bit list list=
   match bits .
-      [] . rs
-  <+> _  . packets (take size bits::rs) size (drop size bits)
-  hctam
+  + [] . rs
+  + _  . packets (take size bits::rs) size (drop size bits)
 
 fun checkhash hks w (i,(h,m)) = hwc m hks i w = h

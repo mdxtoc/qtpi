@@ -20,17 +20,15 @@ proc AliceSend(bvs, qB, bsB) =
 (* send encoded bits down channel qB *)
 proc AliceSendBits (bvs,qB,done) =   
     match bvs .
-        []         . done!() . _0
-    <+> (b,v)::bvs . (newq q = match b,v .
-                                   0b0,0b0 . |0> 
-                               <+> 0b0,0b1 . |1> 
-                               <+> 0b1,0b0 . |+> 
-                               <+> 0b1,0b1 . |-> 
-                               hctam
-                     )
-                     qB!q.
-                     AliceSendBits(bvs,qB,done)
-    hctam
+    + []         . done!() . _0
+    + (b,v)::bvs . (newq q = match b,v .
+                             + 0b0,0b0 . |0> 
+                             + 0b0,0b1 . |1> 
+                             + 0b1,0b0 . |+> 
+                             + 0b1,0b1 . |->
+                   ) 
+                   qB!q.
+                   AliceSendBits(bvs,qB,done)
 
 proc AliceNegotiate (bvs,bsB) =
     bsB!map fst bvs . (* send him my bases *)
@@ -48,17 +46,15 @@ proc AliceNegotiate (bvs,bsB) =
     
 proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
-      []    , _       . done!() . _0
-  <+> v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
-  <+> _               . Bad ()
-  hctam
+  + []    , _       . done!() . _0
+  + v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else Bad () fi
+  + _               . Bad ()
 
 proc Reconcile (bBs,bvs,vs,done) =
   match bBs, bvs .
-       []     , []         . (done!rev vs . _0)
-   <+> bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-   <+> _                   . Stop (["Reconcile failure"])
-   hctam
+  + []     , []         . (done!rev vs . _0)
+  + bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
+  + _                   . Stop (["Reconcile failure"])
   
 proc Stop (ss) = {print_strings (ss @ ["\n"])} . _0
 

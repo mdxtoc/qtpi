@@ -5,11 +5,11 @@ proc Alice (x:qbit, c:^bit*bit, z:qbit) =
 
 proc Bob(y:qbit, c:^bit*bit) = 
     c?(b1,b2) . y>>_Phi (match b1,b2 .
-                             0b0,0b0 . 0
-                         <+> 0b0,0b1 . 1
-                         <+> 0b1,0b0 . 2
-                         <+> 0b1,0b1 . 3
-                         hctam) . 
+                         + 0b0,0b0 . 0
+                         + 0b0,0b1 . 1
+                         + 0b1,0b0 . 2
+                         + 0b1,0b1 . 3
+						) . 
     {print_string  "finally Bob's y is "} .  {print_qbit y} . {print_string  "\n"} .
   	_0
 

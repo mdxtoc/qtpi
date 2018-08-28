@@ -48,9 +48,9 @@ let do_push_offsideline offset =
   offsideline := offset
   
 let push_offsideline = function
-  | Prev   -> do_push_offsideline !curr_start
-  | Here     -> do_push_offsideline !curr_end (* oh I wish it could be !curr_end + 1 *)
-  | Next        -> push_pending := !push_pending+1
+  | Prev    -> do_push_offsideline !curr_start
+  | Here    -> do_push_offsideline !curr_end (* oh I wish it could be !curr_end + 1 *)
+  | Next    -> push_pending := !push_pending+1
   
 let pop_offsideline () =
   match !offsidelines with

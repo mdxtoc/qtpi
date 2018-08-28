@@ -32,6 +32,10 @@ let make_make_token lexbuf =
   let get_token () = token := Lexer.make_token lexbuf;
                      curr_start := offset_of_position (Lexing.lexeme_start_p lexbuf);
                      curr_end := offset_of_position (Lexing.lexeme_end_p lexbuf);
+                     while !push_pending > 0 do
+                       do_push_offsideline !curr_start;
+                       push_pending := !push_pending-1
+                     done;
                      ready := true
   in
   (* initialise *)

@@ -39,11 +39,17 @@ let offset_of_position position = position.Lexing.pos_cnum - position.Lexing.pos
 
 let is_offside () = !curr_start < !offsideline
 
-type lr = Start | End
+type lr = Previous | Next
 
-let push_offsideline lr = 
+let push_pending = ref 0
+
+let do_push_offsideline offset = 
   offsidelines := !offsideline :: !offsidelines;
-  offsideline := (match lr with Start -> !curr_start | End -> !curr_end)
+  offsideline := offset
+  
+let push_offsideline = function
+  | Previous -> do_push_offsideline !curr_start
+  | Next     -> push_pending := !push_pending+1
   
 let pop_offsideline () =
   match !offsidelines with

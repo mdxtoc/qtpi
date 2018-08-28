@@ -110,14 +110,14 @@
 
 %%
 indentL:
-  |                                     {push_offsideline Parserparams.Start}
+  |                                     {push_offsideline Parserparams.Previous}
   
 indentR:
-  |                                     {push_offsideline Parserparams.End}
+  |                                     {push_offsideline Parserparams.Next}
   
 outdent:    
-  | OFFSIDE                             {pop_offsideline()}
-  |                                     {pop_offsideline()}
+  | OFFSIDE                             {pop_offsideline ()}
+  |                                     {pop_offsideline ()}
   
 program: defs EOP                       {$1}
                                         
@@ -407,13 +407,10 @@ ematch:
   
 expr:
   | nwexpr                              {$1}
-  | expr WHERE indentL edecl outdent    {eadorn (EWhere ($4 $1))}
   
 edecl:
   | bpattern restypeopt EQUALS indentR expr outdent
-                                        {fun e -> EDPat(e,$1,$2,$5)}
   | funname fparams restypeopt EQUALS indentR expr outdent   
-                                        {fun e -> EDFun(e,$1,$2,$3,$6)}
 
 nwexpr:  
   | ntexpr                              {$1}

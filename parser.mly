@@ -73,9 +73,9 @@
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
-%token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH HCTAM
+%token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUSPLUS PLUS MINUS DIV
+%token PLUS MINUS DIV
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -93,7 +93,7 @@
 %left AND OR
 %right NOT
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
-%left PLUS MINUS PLUSPLUS
+%left PLUS MINUS
 %left mult_op STAR DIV
 %left APPEND
 
@@ -109,11 +109,14 @@
 %type  <Expr.expr> readexpr
 
 %%
-indentPrev:                             {push_offsideline Parserparams.Prev}
+indentPrev:                             
+ |                                      {push_offsideline Parserparams.Prev}
   
-indentHere:                             {push_offsideline Parserparams.Here}
+indentHere:                             
+ |                                      {push_offsideline Parserparams.Here}
   
-indentNext:                             {push_offsideline Parserparams.Next}
+indentNext:                             
+ |                                      {push_offsideline Parserparams.Next}
   
 outdent:    
   | OFFSIDE                             {pop_offsideline ()}
@@ -274,16 +277,28 @@ simpleprocess:
   | iostep DOT simpleprocess            {adorn (GSum [$1,$3])}
   | LBRACE expr RBRACE DOT simpleprocess      
                                         {adorn (WithExpr ($2,$5))}
-  | MATCH expr DOT procmatches HCTAM    {adorn (PMatch ($2,$4))}
+  /* this MATCH rule has to have exactly the same indent/outdent pattern as the expression MATCH rule */
+  | MATCH 
+    indentPrev 
+      indentNext expr outdent
+      DOT 
+      indentNext procmatches outdent
+    outdent                             {adorn (PMatch ($4,$8))}
   | LPAR process RPAR                   {$2}
   | IF ubif FI                          {$2}
 
 procmatches:
   | procmatch                           {[$1]}
-  | procmatch matchsep procmatches      {$1::$3}
+  | procmatch procmatches               {$1::$2}
   
 procmatch:
-  | pattern DOT simpleprocess           {$1,$3}
+  | PLUS indentHere indentNext pattern outdent DOT indentNext simpleprocess outdent outdent    {$4,$8}
+ /* | PLUS indentHere 
+           indentNext pattern outdent 
+           DOT 
+           indentNext simpleprocess outdent
+         outdent
+                                        {$4,$8} */
   
 ubif: 
   | expr THEN process ELSE process      {adorn (Cond ($1, $3, $5))}
@@ -295,8 +310,14 @@ qspecs:
   | qspec COMMA qspecs                  {$1::$3}
 
 qspec:
-  | param                               {$1, None}
-  | param EQUALS ntexpr                 {$1, Some $3}
+  | param                               {let q = $1, None in
+                                         if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
+                                         q
+                                        }
+  | param EQUALS ntexpr                 {let q = $1, Some $3 in
+                                         if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
+                                         q
+                                        }
   
 letspec:
   | bpattern EQUALS expr                {$1, $3}
@@ -305,15 +326,19 @@ qstep:
   | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
   | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       
                                         {adorn (Measure ($1,Some $4,$7))}
-  | ntexprs THROUGH expr                {adorn (Ugatestep ($1,$3))}
+  /* | expr THROUGH expr                   {adorn (Ugatestep ([$1],$3))} */
+  | nwexpr THROUGH expr                {adorn (Ugatestep (Expr.relist $1,$3))}
 
 args:
   |                                     {[]}
   | ntexprs                             {$1}
 
 pattern:
-  | conspattern                         {$1}
-  | conspattern COMMA tuplepattern      {padorn (Pattern.delist ($1::$3))}
+  | conspattern                         {if !(Settings.verbose) then Printf.printf "seen pattern %s\n" (string_of_pattern $1); $1}
+  | conspattern COMMA tuplepattern      {let p = padorn (Pattern.delist ($1::$3)) in
+                                         if !(Settings.verbose) then Printf.printf "seen pattern %s\n" (string_of_pattern p);
+                                         p
+                                        }
   
 tuplepattern:
   | conspattern                         {[$1]}
@@ -392,7 +417,13 @@ primary:
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR expr RPAR                      {eadorn (Expr.delist (Expr.relist $2))}
   | IF eif FI                           {eadorn($2.inst.enode)}
-  | MATCH expr DOT ematches HCTAM       {eadorn (EMatch ($2,$4))}
+  /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
+  | MATCH 
+    indentPrev 
+      indentNext expr outdent
+      DOT 
+      indentNext ematches outdent
+    outdent                             {eadorn (EMatch ($4,$8))}
   
 eif:
   | expr THEN expr ELSE expr            {eadorn (ECond ($1,$3,$5))}
@@ -400,10 +431,11 @@ eif:
   
 ematches:
   | ematch                              {[$1]}
-  | ematch matchsep ematches            {$1::$3}
+  | ematch ematches                     {$1::$2}
   
 ematch:
-  | pattern DOT expr                    {$1,$3}
+  | PLUS indentHere indentNext pattern outdent DOT indentNext expr outdent outdent             
+                                        {$4,$8}
   
 expr:
   | nwexpr                              {$1}

@@ -122,7 +122,6 @@ rule make_token = parse
   | "newq"      {QBITDEC}
   | "let"       {LETDEC}
   | "match"     {MATCH}
-  | "hctam"     {HCTAM}
   
   | "fun"       {FUN}
   | "proc"      {PROC}
@@ -140,7 +139,8 @@ rule make_token = parse
   | '+'         {PLUS}
   | '-'         {MINUS}
   | '/'         {DIV}
-  
+  (* and STAR as multiply *)
+    
   | "|0>"       {VZERO}
   | "|1>"       {VONE}
   | "|+>"       {VPLUS}

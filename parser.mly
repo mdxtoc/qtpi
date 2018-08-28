@@ -109,11 +109,11 @@
 %type  <Expr.expr> readexpr
 
 %%
-indentL:
-  |                                     {push_offsideline Parserparams.Previous}
+indentPrev:                             {push_offsideline Parserparams.Prev}
   
-indentR:
-  |                                     {push_offsideline Parserparams.Next}
+indentHere:                             {push_offsideline Parserparams.Here}
+  
+indentNext:                             {push_offsideline Parserparams.Next}
   
 outdent:    
   | OFFSIDE                             {pop_offsideline ()}
@@ -407,12 +407,13 @@ ematch:
   
 expr:
   | nwexpr                              {$1}
-  | expr WHERE indentL edecl outdent    {eadorn (EWhere ($1,$4))}
+  | expr WHERE indentPrev edecl outdent    
+                                        {eadorn (EWhere ($1,$4))}
   
 edecl:
-  | bpattern restypeopt EQUALS indentR expr outdent
+  | bpattern restypeopt EQUALS indentNext expr outdent
                                         {EDPat($1,$2,$5)}
-  | funname fparams restypeopt EQUALS indentR expr outdent   
+  | funname fparams restypeopt EQUALS indentNext expr outdent   
                                         {EDFun($1,$2,$3,$6)}
 
 nwexpr:  

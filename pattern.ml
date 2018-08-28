@@ -63,8 +63,8 @@ and gpnode =
 let nGatepat = 7  (* for matchchecker *)
 
 let constprio = NonAssoc, 10
-let tupleprio = NonAssoc, 6
-let listprio  = Right   , 3
+let listprio  = Right   , 6
+let tupleprio = NonAssoc, 3
 
 let patprio p =
   match p.inst.pnode with

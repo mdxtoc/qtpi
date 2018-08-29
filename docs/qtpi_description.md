@@ -1,6 +1,26 @@
 # qtpi language description
 
-Based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I don't like hiding state-changing operations inside expressions (e.g. unary gates, measurement); some to be closer to the pi calculus; new operators intended to be easy to read. 
+Based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because state-changing operations (e.g. applying unary gates, measurement) should be protocol steps; new operators intended to be easy to read.
+
+The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, eventually, laziness. The process language is beginning to exploit the offside parser and maybe I've gone too far with the parallel, sum and match constructs.
+
+## The offside rule
+
+Most languages use lots of brackets in their syntax. You often have to use brackets in OCaml, for example, around the stuff between `then` and `else`, because the `else` part can be missing (i.e. no closing bracket for `then`) and likewise after the `else` because there's no closing `fi`.
+
+When I began to implement Qtpi I thought that I'd do the Algol 68 thing and include `fi`. When I realised I needed pattern matching, I introduced a construct which started `match` and ended `hctam`. It looked horrible.
+
+Landin's *offside rule* makes closing brackets unnecessary. In the Miranda expression *E* `where` *E'*, *E'* mustn't be left of `where`, and can't be left of its own first token. This disambiguates things like 
+
+		hwc key message
+		  where message = packets [] bits
+		                    where bits = f message
+		                    where f = g k
+		  where key = ...
+	
+-- the first and fourth `where`s attach to hwc key message; the second and third attach to packets [] bits.
+
+It's tricky to make an offside parser, but I'm trying. So far it applies to `where` clauses, to `match`es in processes and expressions, and to parallel process compositions.
 
 ## Grammar 
 
@@ -8,7 +28,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
 * Program description
 
-	A program is a sequence of process and function definitions. One of the process descriptions must be `System`, which must have no parameters. (And soon we will have user-defined functions.)
+	A program is a sequence of process and function definitions. One of the process descriptions must be `System`, which must have no parameters.
 
   | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  
   | `fun` *x* *pat* ... *pat*  = *E*  
@@ -22,10 +42,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Process *P* 
 
   | *Q* `.` *P*  
-  | *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P*   
-  | *P* `|` ... `|` *P*   
+  | `+` *IO* `.` *P* ... `+` *IO* `.` *P*   
+  | `|` *P* ... `|` *P*   
   | `if` *E* `then` *P* `else` *P* `fi`  
-  | `match` *E* `.` *pat* `.` *P* `<+>` ... `<+>` *pat* `.` *P* `hctam`  
+  | `match` `+` *E* `.` *pat* `.` *P* ... `+` *pat* `.` *P*   
   | `( new` *par*  `,`  ... `,` *par* `)` *P*   
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *pat* `=` *E* `)` *P*  
@@ -34,14 +54,14 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `(` *P* `)`  
   | `_0`
 
-  * `new` creates channels.    
+  * Note that a a guarded sum starts with a `+`, and a parallel composition starts with a `|`. Neither needs to be bracketed, because the offside parser ensures that everything is to the right of the `+` or `|`, as appropriate.  
+  * match processes also use the `+` separator.  
+  * `new` creates channels, as in the pi calculus &nu;.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a*`|0>`+*b*`|1>`), for unknown *a* and *b*, where *a*<sup>2</sup>+*b*<sup>2</sup>=1.  
-  * The guarded sum *IO* `.` *P* `<+>` ... `<+>` *IO* `.` *P* uses the separator `<+>` instead of `+` to avoid parsing problems.  
-  * match processes also use the <+> separator.  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P* lets you execute an arbitrary expression, but it has to be unit type. Useful for outputting strings and the like.  
-  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Especially non-pi if you write `let _ = `*E*. Sorry.
+  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`. Sorry.
   
 * Quantum step *Q*
   
@@ -57,10 +77,12 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Input-output step *IO*  
 
   | *E* `?` `(` *pat* `)`    
+  | *E* `?` `_`    
   | *E* `!` *E*    
 
-  * '`?`' is read, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- no constants, no lists.  
-  * '`!`' is write, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be a tuple.  
+  * '`?`' is read, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- no constants except `()`, no lists.   
+  * *E*`?_` ignores the value it reads (should I allow this? I'm not sure).  
+  * '`!`' is write, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)  
   * Channels each carry either a qbit or a classical value (one not including any qbits).  
   
 * Parameter *par*
@@ -90,9 +112,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *T* `process`  
   | `(` *T* `)`  
 
+  * These types are still ML style. Miranda style is neater (`[int]` rather than `int list`, `(int,bit)` rather than `int*bit`, and they don't need syntactic precedence. One day soon ...)  
+  * Range types were in original CQP. They are hard to deal with in the typechecker and are currently pretty useless, but with a subtyping typechecker they may come back (I do hope so).  
   * `basisv` is the type of basis vectors (see below).  
   * '`*`' separates elements of a tuple type.   
-  * Type variables `'`*x*, function types *T* `->` ... `->` *T* and process types *T* `process` are currently for internal use.  
+  * Process types *T* `process` are currently for internal use.  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
   * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It's probably pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
 
@@ -103,31 +127,53 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `()`  
   | *constant*  
   | *x*  
+  | `[` *pattern* `;` *pattern* ... `;` *pattern* `]`
   | *pat* `::` *pat*  
   | *pat* `,` ... `,` *pat*  
   | *pat* `:` *type*  
   | `(` *pat* `)`  
 
-  * typed patterns may need bracketing (of course).
-  * `let`, `E?..` and function definitions use a restricted form of pattern: only `x`, `_`, `()` and tuples thereof -- i.e. patterns which can't fail to match.
+  * For constants see Expression *E* below.  
+  * Typed patterns *pat*`:`*type* often need bracketing. 
+  * `let`, `E?..` and function parameters use a restricted form of pattern: only `x`, `_`, `()` and tuples thereof -- i.e. patterns which can't fail to match.
   
 * Expression *E*
 
-  * The usual stuff: constants (`0b1` and `1b1` are bit constants; `|0>`, `|1>`, `|+>` and `|->` are basis vectors), variables, arithmetic (not much implemented yet), comparison, boolean operations (only && and || so far).
+  | *constant*  
+  | `_Phi(` *E* `)`  
+  | *x*  
+  | `if` *E* `then` *E* `else` *E* `fi`  
+  | `if` *E* `then` *E* `elif` *E* `then` *E* ... `else` *E* `fi`  
+  | `match` *E* `.` `+` *pat* . *E* ... `+` *pat* . *E*  
+  | `(` *E* `,` ... `,` *E* `)`  
+  | `[` *E* `;` ... `;` *E* `]`  
   
-  * Conditionals are `if` *E* `then` *E* `else` *E* `fi`. 
+  | *E* *E*  
+  | `-` *E*  
+  | `not` *E*  
+  | *E* `::` *E*  
+  | *E* `@` *E*  
+  | *E* *aop* *E*  
+  | *E* *cop* *E*  
+  | *E* *bop* *E*  
+  | `lam` *pat* ... *pat* `.` *E*  
   
-  * Match expressions are `match` *E* `.` *pat* `.` *E* `<+>` ... `<+>` *pat* `.` *E* `hctam`.  
-  
-  * Function calls are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.  
-  
-  * No process stuff, no steps.  
+  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`; gates `_H`, `_CNot`, `_I`, `_X`, `_Y`, `_Z`.
+  * The gate `_Phi(*E*)` is not a constant. (I suppose it is a constructor -- the only one so far.)  
+  * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
+  * There is no one-tuple.   
+  * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (They will soon disappear in favour of Miranda-style matching on function parameters.)  
+  * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and Real Soon Now there will be downloadable bundles of functions.  
+  * Absolutely no process stuff, no manipulation of qbits. But see *print_string*, *print_strings* and *print_qbit* below.  
   
 * Built-in operators  
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples.  
     * `::` (cons) is now included.  
-
+    * `+`, `-`, `*`, `/` arithmetic operators *aop*.  
+    * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*.
+    * `&&`, `||`, boolean operators *bop*.
+    
 * Process name *N*
 
   Starts with an upper-case letter, continues with alphanumeric, prime and underscore.
@@ -142,7 +188,11 @@ Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, and t
 
 Learning from my experience of separation logic, I implemented a *dispose* channel of qbits. Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](./ownership.html) for explanation).
 
-Because I didn't know how to add one-way channels to the language, if you read from the *dispose* channel you get a new qbit. Ho ho?
+Because I don't yet  know how to add one-way channels to the language, if you read from the *dispose* channel you get a new qbit. Ho ho?
+
+## Output channels
+
+If I added output channels I could probably (no, certainly) get rid of the braced protocol step `{`*E*`}`, which only seems to be useful for printing stuff. So I shall do that soon.
 
 <a name="restrictions"></a>
 ## Restrictions
@@ -151,7 +201,7 @@ Qbits are big fragile things. They are measured, sent through gates, transmitted
 
 These restrictions, then, attempt to give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's really there for aesthetic reasons.
 
-It is also impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...)
+It is also impossible to branch according to the state or identity or equality of a qbit. (In unsimulated real life you couldn't ...). Likewise the identity or equality of a function.
 
   * **A channel is either `^qbit` or `^classical`**.
     	
@@ -173,11 +223,15 @@ It is also impossible to branch according to the state or identity of a qbit. (I
   
   	Given the other restrictions, such comparisons would be more or less useless anyway.
   
+  * **No comparison of functions, or values containing functions**.
+  
+  	This is standard in functional programming. You can't compare function values, because they are infinite.
+  
   * **Library functions don't expose simulation state**.
   
-  	There used to be a function *qbit_state* which allowed you to peek at a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of *qbit_state* on them. Horror!
+  	There used to be a function *qbit_state* which gave you a string representation of a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of *qbit_state* on them. Horror!
   	
-  	Not all is lost: there's *print_qbit*, and the `-verbose qsim` switch allows you to watch the simulation.
+  	Not all is lost: there's *print_qbit*, and the `-verbose qsim` switch on Qtpi allows you to watch the simulation.
   	
   	This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.
   	

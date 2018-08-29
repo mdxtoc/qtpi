@@ -233,25 +233,32 @@ matchsep:
   | SUMSEP                              {}
   
 process:
-  | sumprocess                          {$1}
-  | sumprocess parsep processpar        {adorn (Par ($1::$3))}
+  | sumprocess                          {adorn (GSum $1)}
+  | parprocess                          {adorn (Par $1)}
+  | simpleprocess                       {$1}
   
-processpar:
-  | sumprocess                          {[$1]}
-  | sumprocess parsep processpar        {$1::$3}
+parprocess:
+  | onepar                               {[$1]}
+  | onepar parprocess                    {$1::$2}
+
+onepar:
+  | PARSEP indentHere indentNext process outdent outdent
+                                        {$4}
 
 sumprocess:
-  | ioproc                              {adorn (GSum [$1])}
-  | ioproc sumsep processsum            {adorn (GSum ($1::$3))}
-  | simpleprocess                       {$1}
-
-processsum:
-  | ioproc                              {[$1]}
-  | ioproc sumsep processsum            {$1::$3}
-
-ioproc:
-  | iostep DOT simpleprocess            {$1,$3}
+  | sumproc                             {[$1]}
+  | sumproc sumprocess                  {$1::$2}
   
+sumproc:
+  | PLUS indentHere indentNext iostep DOT process outdent outdent
+                                        {$4,$6}
+
+qstep:
+  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
+  | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       
+                                        {adorn (Measure ($1,Some $4,$7))}
+  | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
+
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
   | expr QUERY UNDERSCORE               {adorn (Read ($1, padorn PatAny))}
@@ -266,18 +273,18 @@ simpleprocess:
                                                      )
                                                )
                                         }
-  | LPAR NEWDEC paramseq RPAR simpleprocess   
+  | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ($3,$5))}
-  | LPAR QBITDEC qspecs RPAR simpleprocess    
+  | LPAR QBITDEC qspecs RPAR process    
                                         {adorn (WithQbit ($3,$5))}
-  | LPAR LETDEC letspec RPAR simpleprocess    
+  | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
-  | qstep DOT simpleprocess                   
+  | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
-  | iostep DOT simpleprocess            {adorn (GSum [$1,$3])}
-  | LBRACE expr RBRACE DOT simpleprocess      
+  | iostep DOT process                  {adorn (GSum [$1,$3])}
+  | LBRACE expr RBRACE DOT process      
                                         {adorn (WithExpr ($2,$5))}
-  /* this MATCH rule has to have exactly the same indent/outdent pattern as the expression MATCH rule */
+  /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule */
   | MATCH 
     indentPrev 
       indentNext expr outdent
@@ -292,13 +299,12 @@ procmatches:
   | procmatch procmatches               {$1::$2}
   
 procmatch:
-  | PLUS indentHere indentNext pattern outdent DOT indentNext simpleprocess outdent outdent    {$4,$8}
- /* | PLUS indentHere 
+  | PLUS indentHere 
            indentNext pattern outdent 
            DOT 
-           indentNext simpleprocess outdent
-         outdent
-                                        {$4,$8} */
+           indentNext process outdent 
+         outdent    
+                                        {$4,$8}
   
 ubif: 
   | expr THEN process ELSE process      {adorn (Cond ($1, $3, $5))}
@@ -322,13 +328,6 @@ qspec:
 letspec:
   | bpattern EQUALS expr                {$1, $3}
   
-qstep:
-  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
-  | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       
-                                        {adorn (Measure ($1,Some $4,$7))}
-  /* | expr THROUGH expr                   {adorn (Ugatestep ([$1],$3))} */
-  | nwexpr THROUGH expr                {adorn (Ugatestep (Expr.relist $1,$3))}
-
 args:
   |                                     {[]}
   | ntexprs                             {$1}

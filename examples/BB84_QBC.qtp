@@ -4,9 +4,9 @@ proc Alice(n:int, r:^bit, qB, vB, log) =
     (let vs = randbits n)
     log![basis] .
     log!vs .
-    (new done) (  AliceSendBits (vs,basis,qB,done)
-                | done?(_) . vB!basis,vs . _0
-               )
+    (new done) 
+    | AliceSendBits (vs,basis,qB,done)
+    | done?(_) . vB!basis,vs . _0
 
 (* send values encoded in [basis] as qbits down channel [qB] *)
 proc AliceSendBits (vs,basis,qB,done) =   
@@ -23,18 +23,17 @@ proc AliceSendBits (vs,basis,qB,done) =
 
 proc Bob(n:int, r:^bit, qA, vA, log) = 
   (new done,verified) 
-  (  BobReceive(n,[],qA,r,done)
-   | done?(bvs) . 
-     log!(map fst bvs) .
-     log!(map snd bvs) .
-     r?(guess) .
-     log![guess] .
-     vA?(basis:bit, vs:bit list) .
-     BobVerify (basis,vs,bvs,verified)
-   | verified?(honest) .
-     log![if honest then 0b1 else 0b0 fi] .
-     _0
-  )
+  | BobReceive(n,[],qA,r,done)
+  | done?(bvs) . 
+    log!(map fst bvs) .
+    log!(map snd bvs) .
+    r?(guess) .
+    log![guess] .
+    vA?(basis:bit, vs:bit list) .
+    BobVerify (basis,vs,bvs,verified)
+  | verified?(honest) .
+    log![if honest then 0b1 else 0b0 fi] .
+    _0
 
 (* receive qbits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
@@ -67,9 +66,8 @@ proc System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            (new r)
-           (   Run (k, verbose, n, r)
-            | (newq q = |0>) Random(q,r)
-           )
+           | Run (k, verbose, n, r)
+           | (newq q = |0>) Random(q,r)
            
 proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
@@ -87,40 +85,39 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
                    ]
     } .
     (new qc, vc, logA, logB)
-    (  Alice(n,r,qc,vc,logA) 
-     | Bob(n,r,qc,vc,logB)
-     | logA?(bases) .
-       (let basis = hd bases)
-       logA?(vs) .
-       {if verbose then print_strings ["Alice chose basis "; show basis;
-                                       " and values "; show vs; "\n"
-                                      ]
-        else ()
-        fi
-       } .
-       logB?(bs) .
-       logB?(vs) .
-       (let bvs = zip bs vs)
-       logB?(guesses) .
-       (let guess = hd guesses)
-       {if verbose then print_strings ["Bob received "; show bvs;
-                                       " and guessed "; show guess; "\n"
-                                      ]
-        else ()
-        fi
-       } .
-       logB?(honests) .
-       (let honest = hd honests = 0b1)
-       {print_strings ["Bob says Alice ";
-                       if honest then "was honest" else "lied" fi;
-                       "\n"
-                      ]} .
-       (let nH = if honest then nH+1 else nH fi)
-       (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
-       {print_string  if guess=basis then "Bob wins\n"
-                                    else "Alice wins\n"
-                     fi
-       } . 
-       Control (k, i+1, verbose, nA, nB, nH, n, r)
-    )
+    | Alice(n,r,qc,vc,logA) 
+    | Bob(n,r,qc,vc,logB)
+    | logA?(bases) .
+      (let basis = hd bases)
+      logA?(vs) .
+      {if verbose then print_strings ["Alice chose basis "; show basis;
+                                      " and values "; show vs; "\n"
+                                     ]
+       else ()
+       fi
+      } .
+      logB?(bs) .
+      logB?(vs) .
+      (let bvs = zip bs vs)
+      logB?(guesses) .
+      (let guess = hd guesses)
+      {if verbose then print_strings ["Bob received "; show bvs;
+                                      " and guessed "; show guess; "\n"
+                                     ]
+       else ()
+       fi
+      } .
+      logB?(honests) .
+      (let honest = hd honests = 0b1)
+      {print_strings ["Bob says Alice ";
+                      if honest then "was honest" else "lied" fi;
+                      "\n"
+                     ]} .
+      (let nH = if honest then nH+1 else nH fi)
+      (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
+      {print_string  if guess=basis then "Bob wins\n"
+                                   else "Alice wins\n"
+                    fi
+      } . 
+      Control (k, i+1, verbose, nA, nB, nH, n, r)
   fi

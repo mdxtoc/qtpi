@@ -20,4 +20,6 @@ proc Bob'(t:^qbit,c:^bit*bit) = t?(y:qbit) . Bob(y,c)
 proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
 
 proc System() = 
-    (newq z)(new c:^bit*bit,s:^qbit,t:^qbit) ( Alice'(s,c,z) | Bob'(t,c) | Source(s,t) )
+    (newq z)(new c:^bit*bit,s:^qbit,t:^qbit) | Alice'(s,c,z) 
+    										 | Bob'(t,c) 
+    										 | Source(s,t)

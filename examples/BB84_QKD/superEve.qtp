@@ -4,14 +4,12 @@
 
 proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB) =
   (new copied)
-  (  CopyQBits ([], qcA, qcB, bcA, copied)  
-   | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
-     (new mc, init)
-     (  init!bs . init!vs . init!h0 . init!bases . _0
-      | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
-      | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
-     )
-  )
+  | CopyQBits ([], qcA, qcB, bcA, copied)  
+  | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
+    (new mc, init)
+    | init!bs . init!vs . init!h0 . init!bases . _0
+    | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
+    | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
   
 proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
   received?(bs) . received?(vs)                 .
@@ -28,23 +26,21 @@ proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
   bcA!tagged hks 2 w maskA                      .    (* send check bits and mask *) 
   bcA!tagged hks 3 w checkbitsA                 .
   (* see if Alice is ok with that *)
-  (    againA?(_)                               .   (* Alice didn't get enough code bits *)
-         log![bool2bit true]                    .   (* going round again *)
-         (  ReceiveQBits ([], qcA, bcA, received)
-          | AsBob (w, hks, received, qcA, bcA, againA, mc,log)
-         )
-   <+> bcA?(_,encrypted)                        .   (* receive her encrypted message *)
-        log![bool2bit false]                    .   (* not going round again *)
-        log!encrypted                           .
-        
-        (* decode as Bob would, and send it to AsAlice *)
-        (let hkbs' = take (5*w) codeA)
-        (let codeA = drop (5*w) codeA)
-        (let message = xor_mask (take (length encrypted) codeA) encrypted)    
-        mc ! message                            .
-        log!hkbs'                               .
-        _0
-  )
+  + againA?(_)                                  .   (* Alice didn't get enough code bits *)
+        log![bool2bit true]                     .   (* going round again *)
+        | ReceiveQBits ([], qcA, bcA, received)
+        | AsBob (w, hks, received, qcA, bcA, againA, mc,log)
+  + bcA?(_,encrypted)                           .   (* receive her encrypted message *)
+       log![bool2bit false]                     .   (* not going round again *)
+       log!encrypted                            .
+       
+       (* decode as Bob would, and send it to AsAlice *)
+       (let hkbs' = take (5*w) codeA)
+       (let codeA = drop (5*w) codeA)
+       (let message = xor_mask (take (length encrypted) codeA) encrypted)    
+       mc ! message                            .
+       log!hkbs'                               .
+       _0
   
 proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
   log!bs    . log!vs                            .
@@ -68,10 +64,9 @@ proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
     (let bs = randbits n)
     (let vs = randbits n)
     (new done)
-    (  SendQbits (zip bs vs,qcB,done)
-     | mc!M . _0
-     | done?_ . AsAlice (w, hks, bs, vs, qcB, bcB, againB, mc, log)
-    )
+    | SendQbits (zip bs vs,qcB,done)
+    | mc!M . _0
+    | done?_ . AsAlice (w, hks, bs, vs, qcB, bcB, againB, mc, log)
   else 
     log![bool2bit false]                        .   (* not going round again *)
     log![bool2bit true]                         .   (* I decoded the message *)

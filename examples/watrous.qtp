@@ -1,4 +1,7 @@
-proc System() = (new cq:^Qbit, cc:^Bit*Bit, r:^Bit)( Alice(cq,cc,r) | Bob(cq,cc) | (qbit q){_measure q}.Random(q,r))
+proc System() = (new cq:^Qbit, cc:^Bit*Bit, r:^Bit)
+                | Alice(cq,cc,r) 
+                | Bob(cq,cc) 
+                | (qbit q){_measure q}.Random(q,r)
 
 proc Alice(cq:^Qbit, cc:^Bit*Bit) =
     (qbit qx)

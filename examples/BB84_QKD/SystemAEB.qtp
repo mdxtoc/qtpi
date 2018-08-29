@@ -1,9 +1,8 @@
 proc Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) = 
   (new qcAE,qcEB,bscAE,bscEB,againAE,againEB)
-  (  Alice (M, w, hksAE, cMin, nSigma,qcAE,bscAE,againAE,logA) 
-   | Eve   (w, hksAE, hksEB, qcAE,qcEB,bscAE,bscEB,againAE,againEB,logAE,logEB) 
-   | Bob   (w, hksEB, qcEB,bscEB,againEB,logB)
-  )
+  | Alice (M, w, hksAE, cMin, nSigma,qcAE,bscAE,againAE,logA) 
+  | Eve   (w, hksAE, hksEB, qcAE,qcEB,bscAE,bscEB,againAE,againEB,logAE,logEB) 
+  | Bob   (w, hksEB, qcEB,bscEB,againEB,logB)
 
 proc System() = (let n = read_min_int 1 "length of message")
                 (let w = read_min_int 0 "length of a hash key")
@@ -34,54 +33,53 @@ proc Logger (k, i, verbose, nAlice, nEve,
               (let M = randbits n)
               {if verbose then print_strings ["message is "; show M; "\n"] else () fi} .
               (new logA,logAE,logEB,logB,doneA,doneB,doneE)
-              (  Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) 
-               | LogAlice (0, verbose, logA, doneA)
-               | LogBob (0, verbose, logB, doneB)
-               | LogEve (verbose, logAE, logEB, doneE)
-               | doneA?(q_intfseen, nbA, ncA, c_intfseenA, hkbsA, repsA)     .
-                 doneB?(ncB, messageB, c_intfseenB, hkbsB, repsB)           .
-                 doneE?(hkbsAE, (decodeE, messageE, _, hkbsEB, _))        .
-                 (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-                 if not intfseen && hkbsA<>hkbsAE && hkbsAE<>[]
-                 then {print_strings ["whoops! different new hash keys A<->E ";
-                                     show (packets [] w hkbsA); " ";
-                                     show (packets [] w hkbsAE)
-                                    ]
-                      } . _0
-                 elif not intfseen && hkbsB<>hkbsEB && hkbsEB<>[]
-                 then {print_strings ["whoops! different new hash keys E<->B ";
-                                     show (packets [] w hkbsEB); " ";
-                                     show (packets [] w hkbsB)
-                                    ]
-                      } ._0
-                 else
-                   (let evewins = decodeE && not intfseen && messageB=messageE && messageE=M)
-                   {print_strings if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
-                                             else []
-                                  fi
-                   } .
-                   {if i+1=k then print_strings [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
-                    else () fi
-                   } .
-                   (let nAlice, nEve = if   intfseen then nAlice+1, nEve     (* Alice spotted Eve *)
-                                       elif evewins  then nAlice  , nEve+1   (* Alice didn't spot Eve, and Eve saw the message *)
-                                       else               nAlice  , nEve     (* somehow Eve was missed, but she didn't see the message *)
-                                       fi
-                   )
-                   (let hkbsAE, hkbsEB = if intfseen || hkbsA=[] || hkbsB=[]
-                                         then k, k where k = randbits (5*w)
-                                         else hkbsA, hkbsB
-                                         fi
-                   )
-                   (let hksAE, hksEB = map bits2int (packets [] w hkbsAE),
-                                       map bits2int (packets [] w hkbsEB)
-                   )
-                   Logger (k, i+1, verbose, nAlice, nEve, 
-                                            nRepsA+repsA, nRepsB+repsB, 
-                                            ncA::ncAs, ncB::ncBs,
-                                            n, w, hksAE, hksEB, cMin, nSigma)
-                 fi
-              )
+              | Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) 
+              | LogAlice (0, verbose, logA, doneA)
+              | LogBob (0, verbose, logB, doneB)
+              | LogEve (verbose, logAE, logEB, doneE)
+              | doneA?(q_intfseen, nbA, ncA, c_intfseenA, hkbsA, repsA)     .
+                doneB?(ncB, messageB, c_intfseenB, hkbsB, repsB)           .
+                doneE?(hkbsAE, (decodeE, messageE, _, hkbsEB, _))        .
+                (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
+                if not intfseen && hkbsA<>hkbsAE && hkbsAE<>[]
+                then {print_strings ["whoops! different new hash keys A<->E ";
+                                    show (packets [] w hkbsA); " ";
+                                    show (packets [] w hkbsAE)
+                                   ]
+                     } . _0
+                elif not intfseen && hkbsB<>hkbsEB && hkbsEB<>[]
+                then {print_strings ["whoops! different new hash keys E<->B ";
+                                    show (packets [] w hkbsEB); " ";
+                                    show (packets [] w hkbsB)
+                                   ]
+                     } ._0
+                else
+                  (let evewins = decodeE && not intfseen && messageB=messageE && messageE=M)
+                  {print_strings if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
+                                            else []
+                                 fi
+                  } .
+                  {if i+1=k then print_strings [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
+                   else () fi
+                  } .
+                  (let nAlice, nEve = if   intfseen then nAlice+1, nEve     (* Alice spotted Eve *)
+                                      elif evewins  then nAlice  , nEve+1   (* Alice didn't spot Eve, and Eve saw the message *)
+                                      else               nAlice  , nEve     (* somehow Eve was missed, but she didn't see the message *)
+                                      fi
+                  )
+                  (let hkbsAE, hkbsEB = if intfseen || hkbsA=[] || hkbsB=[]
+                                        then k, k where k = randbits (5*w)
+                                        else hkbsA, hkbsB
+                                        fi
+                  )
+                  (let hksAE, hksEB = map bits2int (packets [] w hkbsAE),
+                                      map bits2int (packets [] w hkbsEB)
+                  )
+                  Logger (k, i+1, verbose, nAlice, nEve, 
+                                           nRepsA+repsA, nRepsB+repsB, 
+                                           ncA::ncAs, ncB::ncBs,
+                                           n, w, hksAE, hksEB, cMin, nSigma)
+                fi
          else (let nCorrupt = k-nAlice-nEve)
               {print_strings ["all done: "; 
                               show nEve;                " Eve's; ";

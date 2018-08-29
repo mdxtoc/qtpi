@@ -25,4 +25,4 @@ proc Random(q:qbit, r:^bit) =
  
 proc System() = 
     (new cq:^qbit, cc:^(bit*bit), r:^bit)
-    ( Alice(cq,cc,r) | Bob(cq,cc) | (newq q) Random(q,r) )
+    | Alice(cq,cc,r) | Bob(cq,cc) | (newq q) Random(q,r) 

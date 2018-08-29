@@ -40,67 +40,66 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
   
   (* send Bob the qbits I chose, tell me when it's done *)
   (new sent)
-  (  SendQbits (zip bs vs, qc, sent)
-   | sent?(_)                               .
-     
-     (* tell each other the qbit bases we used - me first *)
-     (let h0 = hwc bs hks 0 w)
-     bsc!h0,bs                              . (* send Bob my bases *)
-     bsc?(h1,bBs)                           . (* receive his bases *)
-     log!h0 . log!bs                        . 
-     log!h1 . log!bBs                       . 
-     
-     (* pick out the values for which our bases agree *)
-     (let rvs = reconcile bBs bs vs)      
-     log!rvs                                . 
-     
-     (* Now we both know the same _number_ of values. Bob sends me a mask of
-        that number of bits, and a list of the values it picks out from his
-        list.
-      *)
-     bsc?(h2,mask)                          . 
-     bsc?(h3,checkbitsB)                    . 
-     log!h2 . log!mask                      . 
-     log!h3 . log!checkbitsB                . 
-     
-     (* test to see if Bob and I agree on the bits selected by his mask *)
-     (let checkbitsA = mask_filter 0b1 mask rvs)
-     (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
-     log![bool2bit (not check)]   .
-     
-     (* If we disagree about the masked bits then interference has been 
-        detected and Alice goes silent. But in this simulation 
-        we send an empty message, to keep Bob alive.
-      *)
-     if not check then
-       bsc!tagged hks 4 w []                . (* empty message *) 
-       log![]                               . (* no new hash keys *) 
-       _0
-     else
-       (* If the number of checkbits Bob chose is enough, then it is very 
-          very (...) likely that we agree on the rest of the values. So the 
-          (secret) code bits are the ones Bob didn't mask. 
-        *)
-       (let codebits = mask_filter 0b0 mask rvs)
-       (let hks' = take (5*w) codebits)
-       (let codebits = drop (5*w) codebits)
-       
-       if length codebits>=length M then
-         (let code = take (length M) codebits)
-         log![bool2bit true]                . (* not going round again *)
-         log!code                           . 
-         (let encryptedM = xor_mask code M)
-         (let h4 = hwc encryptedM hks 4 w)
-         bsc    !h4,encryptedM              . (* send the encrypted message *)
-         log!h4 . log!encryptedM            . 
-         (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
-         log![bool2bit (not c_ok)]          .
-         log!hks'                           .
-         _0
-       else 
-         log![bool2bit false]               .
-         againc!() . Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log)
-       fi
-     fi
-  )
+  | SendQbits (zip bs vs, qc, sent)
+  | sent?(_)                               .
+    
+    (* tell each other the qbit bases we used - me first *)
+    (let h0 = hwc bs hks 0 w)
+    bsc!h0,bs                              . (* send Bob my bases *)
+    bsc?(h1,bBs)                           . (* receive his bases *)
+    log!h0 . log!bs                        . 
+    log!h1 . log!bBs                       . 
+    
+    (* pick out the values for which our bases agree *)
+    (let rvs = reconcile bBs bs vs)      
+    log!rvs                                . 
+    
+    (* Now we both know the same _number_ of values. Bob sends me a mask of
+       that number of bits, and a list of the values it picks out from his
+       list.
+     *)
+    bsc?(h2,mask)                          . 
+    bsc?(h3,checkbitsB)                    . 
+    log!h2 . log!mask                      . 
+    log!h3 . log!checkbitsB                . 
+    
+    (* test to see if Bob and I agree on the bits selected by his mask *)
+    (let checkbitsA = mask_filter 0b1 mask rvs)
+    (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
+    log![bool2bit (not check)]   .
+    
+    (* If we disagree about the masked bits then interference has been 
+       detected and Alice goes silent. But in this simulation 
+       we send an empty message, to keep Bob alive.
+     *)
+    if not check then
+      bsc!tagged hks 4 w []                . (* empty message *) 
+      log![]                               . (* no new hash keys *) 
+      _0
+    else
+      (* If the number of checkbits Bob chose is enough, then it is very 
+         very (...) likely that we agree on the rest of the values. So the 
+         (secret) code bits are the ones Bob didn't mask. 
+       *)
+      (let codebits = mask_filter 0b0 mask rvs)
+      (let hks' = take (5*w) codebits)
+      (let codebits = drop (5*w) codebits)
+      
+      if length codebits>=length M then
+        (let code = take (length M) codebits)
+        log![bool2bit true]                . (* not going round again *)
+        log!code                           . 
+        (let encryptedM = xor_mask code M)
+        (let h4 = hwc encryptedM hks 4 w)
+        bsc    !h4,encryptedM              . (* send the encrypted message *)
+        log!h4 . log!encryptedM            . 
+        (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
+        log![bool2bit (not c_ok)]          .
+        log!hks'                           .
+        _0
+      else 
+        log![bool2bit false]               .
+        againc!() . Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log)
+      fi
+    fi
 

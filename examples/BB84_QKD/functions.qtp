@@ -16,14 +16,14 @@ proc SendQbits (bvs,qc,sent) =
    when you see a tagged message on channel bsc
  *)
 proc ReceiveQBits (bvs, qc, bsc, results) =
-      bsc?(tag,bits)        . 
+  + bsc?(tag,bits)          . 
         (let bs, vs = unzip (rev bvs))
         results!bs          . 
         results!vs          .
         results!tag         .
         results!bits        .
         _0
-  <+> qc?(q)                . 
+  + qc?(q)                  . 
         (let basis = randbit ())
         q =?[if basis=0b1 then _H else _I fi] (value) .
               dispose!q                               .
@@ -33,11 +33,11 @@ proc ReceiveQBits (bvs, qc, bsc, results) =
    Stop when you see a message on bsA, and return measurements, tag and message.
  *)
 proc CopyQBits (bvs, qA, qB, bsA, results) =
-        qA?(q)          . (let b = randbit ())
+    + qA?(q)            . (let b = randbit ())
                           q=?[if b=0 then _I else _H fi](v) . 
                           qB!q                              . 
                           CopyQBits ((b,v)::bvs, qA, qB, bsA, results)
-    <+> bsA?(tag,bits)  . (let bs, vs = unzip (rev bvs))
+    + bsA?(tag,bits)    . (let bs, vs = unzip (rev bvs))
                           results!bs                        . 
                           results!vs                        .
                           results!tag                       .

@@ -29,12 +29,11 @@ proc System () =
 proc Run (k, standard, i) =
   if i=k then {print_strings [show k; " trials\n"]} . _0
   else (new log)
-       (  if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
-                      else (newq x,y)          Experiment (x, y, log)
-          fi
-        | log?(_) .
-          Run (k, standard, i+1)
-       )
+       | if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
+                     else (newq x,y)          Experiment (x, y, log)
+         fi
+       | log?(_) .
+         Run (k, standard, i+1)
   fi
   
 proc Experiment (x, y, log) =
@@ -42,7 +41,6 @@ proc Experiment (x, y, log) =
   (new c:^bit*bit)
   (newq z)
   (new logA, logB)
-  (  Alice(x,c,z,logA) 
-   | Bob(y,c,logB)
-   | logA?(_) . logB?(_) . log!() . _0
-  )
+  | Alice(x,c,z,logA) 
+  | Bob(y,c,logB)
+  | logA?(_) . logB?(_) . log!() . _0

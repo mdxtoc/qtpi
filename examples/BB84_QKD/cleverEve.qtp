@@ -2,18 +2,17 @@
 
 proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB) =
     (new copied) 
-    (  CopyQBits([],qcA,qcB,bcA,copied)
-     | copied?(bs)                      .   (* bs, vs are what I _sent_ *)
-       copied?(vs)                      .
-       logEB!bs                         .
-       logEB!vs                         .
-      
-       copied?_                         .
-       copied?(basesA) . 
-       bcA!tagged hksAE 1 w bs          .   (* send my bases (as if Bob) to Alice *)
-        
-       EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bs, vs, bs, vs, basesA, logAE, logEB)
-    )
+    | CopyQBits([],qcA,qcB,bcA,copied)
+    | copied?(bs)                      .   (* bs, vs are what I _sent_ *)
+      copied?(vs)                      .
+      logEB!bs                         .
+      logEB!vs                         .
+     
+      copied?_                         .
+      copied?(basesA) . 
+      bcA!tagged hksAE 1 w bs          .   (* send my bases (as if Bob) to Alice *)
+       
+      EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bs, vs, bs, vs, basesA, logAE, logEB)
        
 proc EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs, vs, basesA, logAE, logEB) =
    bcB!tagged hksEB 0 w bs              . 
@@ -35,12 +34,12 @@ proc EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs,
      (let cbsA = mask_filter 0b1 maskA rvsA)
      bcA!tagged hksAE 3 w cbsA          .
      (* see if Alice is ok with that *)
-     (    againA?(_)                    .   (* Alice didn't get enough code bits *)
+     + againA?(_)                       .   (* Alice didn't get enough code bits *)
             againB!()                   .   (* round again, Bob *)
             logAE![bool2bit true]       .   (* going round again *)
             logEB![bool2bit true]       .   (* both of us *)
             Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB)
-      <+> bcA?(_,encrypted)            .   (* receive her coded message *)
+     + bcA?(_,encrypted)                .   (* receive her coded message *)
             logAE![bool2bit false]      .   (* not going round again *) 
             logEB![bool2bit false]      .   (* either of us    *)   
             logAE!encrypted             .
@@ -59,7 +58,6 @@ proc EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs,
             logAE!hkbsAE'                   .
             logEB!hkbsEB'                   .
             _0
-     )
    else                                     (* too many code bits with Bob *)
       againB!()                         .   (* round again, Bob *)
       logEB![bool2bit true]             .
@@ -67,10 +65,9 @@ proc EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs,
       (let bs = randbits (length bs))
       (let vs = randbits (length vs))
       (new sent)
-      (  SendQbits (zip bs vs, qcB, sent)
-       | sent?(_)                       .
-         logEB!bs                       .  
-         logEB!vs                       .
-         EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs, vs, basesA, logAE, logEB)
-      )
+      | SendQbits (zip bs vs, qcB, sent)
+      | sent?(_)                       .
+        logEB!bs                       .  
+        logEB!vs                       .
+        EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs, vs, basesA, logAE, logEB)
    fi

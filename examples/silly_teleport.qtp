@@ -14,4 +14,5 @@ proc Bob(y:qbit, c:^bit*bit) =
   	_0
 
 proc System () = 
-  	(newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^bit*bit) (Alice(x,c,z) | Bob(y,c))
+  	(newq x=|0>, y=|0>, z) x>>_H . x,y>>_CNot . (new c:^bit*bit) | Alice(x,c,z) 
+  																 | Bob(y,c)

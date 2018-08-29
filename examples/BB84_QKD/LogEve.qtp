@@ -1,13 +1,12 @@
 
 proc LogEve (verbose, logAE, logEB, done) =
   (new doneAE, doneEB)
-  (  LogAliceEve (verbose, logAE, doneAE)
-   | LogEveBob (0, verbose, logEB, doneEB)
-   | doneAE?(resultAE)      .
-     doneEB?(resultEB)      .
-     done!resultAE,resultEB .
-     _0
-  )
+  | LogAliceEve (verbose, logAE, doneAE)
+  | LogEveBob (0, verbose, logEB, doneEB)
+  | doneAE?(resultAE)      .
+    doneEB?(resultEB)      .
+    done!resultAE,resultEB .
+    _0
   
 proc LogAliceEve (verbose, log, done) = 
   log?(again)            .

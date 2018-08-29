@@ -1,8 +1,7 @@
 proc Experiment (M, w, hks, cMin, nSigma, logA, logB) = 
   (new qc,bsc,again)
-  (  Alice (M,w,hks,cMin,nSigma,qc,bsc,again,logA) 
-   | Bob   (w,hks,qc,bsc,again,logB)
-  )
+  | Alice (M,w,hks,cMin,nSigma,qc,bsc,again,logA) 
+  | Bob   (w,hks,qc,bsc,again,logB)
     
 proc System() = (let n = read_min_int 1 "length of message")
                 (let w = read_min_int 0 "length of a hash key")
@@ -26,30 +25,29 @@ proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
       (let M = randbits n)
       {if verbose then print_strings ["message is "; show M; "\n"] else () fi} .
       (new logA, logB, doneA, doneB)
-      (  Experiment (M, w, hks, cMin, nSigma, logA, logB) 
-       | LogAlice (0, verbose, logA, doneA)
-       | LogBob (0, verbose, logB, doneB)
-       | doneA?(q_intfseen, nb, ncA, c_intfseenA, hkbsA, repsA)   .
-         doneB?(_, messageB, c_intfseenB, hkbsB, _)       .
-         (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-         {if not intfseen && hkbsA<>hkbsB
-           then print_strings ["whoops! different new hash keys ";
-                               show (packets [] w hkbsA); " ";
-                               show (packets [] w hkbsB)
-                              ]
-          else () fi
-         } .
-         {if i+1=k then print_strings [show nb; " qbits";
-                                        if k=1 then "\n" else " per trial\n" fi
-                                       ]
-          else () fi
-         } .
-         (let nIntf = if intfseen then nIntf+1 else nIntf fi)
-         (let nOk = if not q_intfseen && messageB=M then nOk+1 else nOk fi)
-         (let hkbits = if not intfseen && hkbsA=hkbsB then hkbsA else randbits (5*w) fi)
-         (let hks = map bits2int (packets [] w hkbits))
-         Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, w, hks, cMin, nSigma)
-      )
+      | Experiment (M, w, hks, cMin, nSigma, logA, logB) 
+      | LogAlice (0, verbose, logA, doneA)
+      | LogBob (0, verbose, logB, doneB)
+      | doneA?(q_intfseen, nb, ncA, c_intfseenA, hkbsA, repsA)   .
+        doneB?(_, messageB, c_intfseenB, hkbsB, _)       .
+        (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
+        {if not intfseen && hkbsA<>hkbsB
+          then print_strings ["whoops! different new hash keys ";
+                              show (packets [] w hkbsA); " ";
+                              show (packets [] w hkbsB)
+                             ]
+         else () fi
+        } .
+        {if i+1=k then print_strings [show nb; " qbits";
+                                       if k=1 then "\n" else " per trial\n" fi
+                                      ]
+         else () fi
+        } .
+        (let nIntf = if intfseen then nIntf+1 else nIntf fi)
+        (let nOk = if not q_intfseen && messageB=M then nOk+1 else nOk fi)
+        (let hkbits = if not intfseen && hkbsA=hkbsB then hkbsA else randbits (5*w) fi)
+        (let hks = map bits2int (packets [] w hkbits))
+        Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, w, hks, cMin, nSigma)
   else {print_strings ["all done: "; 
                        show nIntf;          " interfered with; ";
                        show nOk;            " exchanges succeeded; ";

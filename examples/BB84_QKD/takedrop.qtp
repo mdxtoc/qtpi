@@ -1,10 +1,10 @@
 
 proc Alice(n:int, r:^bit, qB, bsB) = 
-  (new chosen) (  AliceChoose (n,[],r,chosen)
-                | chosen?(bvs) . 
-                  {print_strings ["Alice chose "; show bvs; "\n"]} .
-                  AliceSend (bvs, qB, bsB)
-               )
+  (new chosen) 
+  | AliceChoose (n,[],r,chosen)
+  | chosen?(bvs) . 
+    {print_strings ["Alice chose "; show bvs; "\n"]} .
+    AliceSend (bvs, qB, bsB)
 
 (* choose n basis,bit pairs *)
 proc AliceChoose(n, bvs, r, chosen) =
@@ -13,9 +13,9 @@ proc AliceChoose(n, bvs, r, chosen) =
     fi
 
 proc AliceSend(bvs, qB, bsB) =
-    (new done) (  AliceSendBits (bvs,qB,done)
-                | done?(s) . AliceNegotiate (bvs,bsB)
-               )
+    (new done) 
+    | AliceSendBits (bvs,qB,done)
+    | done?(s) . AliceNegotiate (bvs,bsB)
 
 (* send encoded bits down channel qB *)
 proc AliceSendBits (bvs,qB,done) =   
@@ -34,15 +34,15 @@ proc AliceNegotiate (bvs,bsB) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     {print_strings ["Bob sent bases "; show bBs; "\n"]} .
-    (new done) (  Reconcile (bBs, bvs, [], done)
-                | done?(vs) . (* vs are the values we should agree upon *)
-                  {print_strings ["Alice reconciled "; show vs; "\n"]} .
-                  bsB?(vBs) . (* vBs are the bits to check, from vs *)
-                  {print_strings ["Bob sent check bits "; show vBs; "\n"]} .
-                  (new done) (AliceCheck (vBs, vs, done)
-                              | done?(s) . Good (drop (length vBs) vs)
-                             )
-               )
+    (new done) 
+    | Reconcile (bBs, bvs, [], done)
+    | done?(vs) . (* vs are the values we should agree upon *)
+      {print_strings ["Alice reconciled "; show vs; "\n"]} .
+      bsB?(vBs) . (* vBs are the bits to check, from vs *)
+      {print_strings ["Bob sent check bits "; show vBs; "\n"]} .
+      (new done) 
+      | AliceCheck (vBs, vs, done)
+      | done?(s) . Good (drop (length vBs) vs)
     
 proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
@@ -62,22 +62,22 @@ proc Bad () = Stop (["interference detected -- everything stops"])
 proc Good (vs) = Stop (["Alice's code is "; show vs])
 
 proc Bob(n:int, r:^bit, qA, bsA) = 
-    (new done) (  BobReceive(n,[],qA,r,done)
-                | done?(bvs)      . (* bvs is what I saw *)
-                  {print_strings ["Bob saw "; show bvs; "\n"]} .
-                  bsA?(bAs)       . (* receive her bases *)
-                  {print_strings ["Alice sent bases "; show bAs; "\n"]} .
-                  bsA!map fst bvs . (* send my bases *)
-                  (new done) (  Reconcile (bAs,bvs,[],done)
-                              | done?(vs) . (* the bits we agree on *)
-                                {print_strings ["Bob reconciled "; show vs; "\n"]} .
-                                (let checklength = (length vs)/4)
-                                bsA!take checklength vs . (* send her a sample *)
-                                (let code = drop checklength vs)
-                                {print_strings ["Bob's code is "; show code; "\n"]} .                                
-                                _0
-                             )
-               )
+    (new done) 
+    | BobReceive(n,[],qA,r,done)
+    | done?(bvs)      . (* bvs is what I saw *)
+      {print_strings ["Bob saw "; show bvs; "\n"]} .
+      bsA?(bAs)       . (* receive her bases *)
+      {print_strings ["Alice sent bases "; show bAs; "\n"]} .
+      bsA!map fst bvs . (* send my bases *)
+      (new done) 
+      | Reconcile (bAs,bvs,[],done)
+      | done?(vs) . (* the bits we agree on *)
+        {print_strings ["Bob reconciled "; show vs; "\n"]} .
+        (let checklength = (length vs)/4)
+        bsA!take checklength vs . (* send her a sample *)
+        (let code = drop checklength vs)
+        {print_strings ["Bob's code is "; show code; "\n"]} .                                
+        _0
 
 (* receive qbits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
@@ -94,4 +94,4 @@ proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
 
 proc System() = (let n = read_int "number of qbits")
                 (new r,qc,bsc)
-                (Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | (newq q = |0>) Random(q,r))
+                | Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | (newq q = |0>) Random(q,r)

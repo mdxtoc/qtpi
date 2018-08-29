@@ -11,22 +11,22 @@ proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:int, r:^bit, qB,
               } . 
               _0
          else {print_strings ["trial number "; show (k-i+1); if verbose then "\n" else " " fi]} .
-              (new chosen, again) (  AliceChoose (n,[],r,chosen)
-                                   | chosen?(bvs) . 
-                                     {if verbose then print_strings ["Alice chose "; show bvs; "\n"] else () fi} .
-                                     AliceSend (verbose, bvs, qB, bsB, again)
-                                   | again?(b,nc) .
-                                     Alice1 (k, i-1,
-                                                if b then nGood+1 else nGood fi,
-                                                if b then nBad else nBad+1 fi,
-                                                sumChecks+nc,
-                                                if minChecks<0 then nc
-                                                elif nc<minChecks then nc
-                                                else minChecks
-                                                fi,
-                                                verbose,
-                                                n,r,qB,bsB)
-                                  )
+              (new chosen, again)  
+              | AliceChoose (n,[],r,chosen)
+              | chosen?(bvs) . 
+                {if verbose then print_strings ["Alice chose "; show bvs; "\n"] else () fi} .
+                AliceSend (verbose, bvs, qB, bsB, again)
+              | again?(b,nc) .
+                Alice1 (k, i-1,
+                           if b then nGood+1 else nGood fi,
+                           if b then nBad else nBad+1 fi,
+                           sumChecks+nc,
+                           if minChecks<0 then nc
+                           elif nc<minChecks then nc
+                           else minChecks
+                           fi,
+                           verbose,
+                           n,r,qB,bsB)
   fi
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
@@ -34,9 +34,9 @@ proc AliceChoose(n, bvs, r, chosen) =
     (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
 proc AliceSend(verbose, bvs, qB, bsB, again) =
-    (new done) (  AliceSendBits (bvs,qB,done)
-                | done?(s) . AliceNegotiate (verbose, bvs, bsB, again)
-               )
+    (new done)  
+    | AliceSendBits (bvs,qB,done)
+    | done?(s) . AliceNegotiate (verbose, bvs, bsB, again)
 
 (* send encoded bits down channel qB *)
 proc AliceSendBits (bvs,qB,done) =   
@@ -55,26 +55,26 @@ proc AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     {if verbose then print_strings ["Bob sent bases "; show bBs; "\n"] else () fi} .
-    (new done) (  Reconcile (bBs, bvs, [], done)
-                | done?(vs) . (* vs are the values we should agree upon *)
-                  {if verbose then print_strings ["Alice reconciled "; show vs; "\n"] else () fi} .
-                  bsB?(vBs) . (* vBs are the bits to check, from vs *)
-                  {if verbose then print_strings ["Bob sent check bits "; show vBs; "\n"] else () fi} .
-                  (new done) (AliceCheck (vBs, vs, done)
-                              | done?(b) . 
-                                {print_strings (if b then if verbose then ["Alice's code is "; 
-                                                                           show (drop (length vBs) vs); 
-                                                                           "\n"]
-                                                                     else  ["code -- "; show (length vBs); " check bits\n"]
-                                                          fi
-                                               else ["interference detected -- "; show (length vBs); " check bits\n"]
-                                               fi
-                                              )
-                                } .
-                                again!b, length vBs .
-                                _0
-                             )
-               )
+    (new done)  
+    | Reconcile (bBs, bvs, [], done)
+    | done?(vs) . (* vs are the values we should agree upon *)
+      {if verbose then print_strings ["Alice reconciled "; show vs; "\n"] else () fi} .
+      bsB?(vBs) . (* vBs are the bits to check, from vs *)
+      {if verbose then print_strings ["Bob sent check bits "; show vBs; "\n"] else () fi} .
+      (new done)  
+      | AliceCheck (vBs, vs, done)
+      | done?(b) . 
+        {print_strings (if b then if verbose then ["Alice's code is "; 
+                                                   show (drop (length vBs) vs); 
+                                                   "\n"]
+                                             else  ["code -- "; show (length vBs); " check bits\n"]
+                                  fi
+                       else ["interference detected -- "; show (length vBs); " check bits\n"]
+                       fi
+                      )
+        } .
+        again!b, length vBs .
+        _0
     
 proc AliceCheck (vBs, vs, done) =
   match vBs, vs .
@@ -92,22 +92,22 @@ proc Reconcile (bBs,bvs,vs,done) =
 proc Bob(k, verbose, n:int, r:^bit, qA, bsA) = 
   if k=0 then _0
   else
-    (new done) (  BobReceive(n,[],qA,r,done)
-                | done?(bvs)      . (* bvs is what I saw *)
-                  {if verbose then print_strings ["Bob saw "; show bvs; "\n"] else () fi} .
-                  bsA?(bAs)       . (* receive her bases *)
-                  {if verbose then print_strings ["Alice sent bases "; show bAs; "\n"] else () fi} .
-                  bsA!map fst bvs . (* send my bases *)
-                  (new done) (  Reconcile (bAs,bvs,[],done)
-                              | done?(vs) . (* the bits we agree on *)
-                                {if verbose then print_strings ["Bob reconciled "; show vs; "\n"] else () fi} .
-                                (let checklength = (length vs)/4)
-                                bsA!take checklength vs . (* send her a sample *)
-                                (let code = drop checklength vs)
-                                {if verbose then print_strings ["Bob's code is "; show code; "\n"] else () fi} .                                
-                                Bob (k-1, verbose, n, r, qA, bsA)
-                             )
-               )
+    (new done) 
+    | BobReceive(n,[],qA,r,done)
+    | done?(bvs)      . (* bvs is what I saw *)
+      {if verbose then print_strings ["Bob saw "; show bvs; "\n"] else () fi} .
+      bsA?(bAs)       . (* receive her bases *)
+      {if verbose then print_strings ["Alice sent bases "; show bAs; "\n"] else () fi} .
+      bsA!map fst bvs . (* send my bases *)
+      (new done)  
+      | Reconcile (bAs,bvs,[],done)
+      | done?(vs) . (* the bits we agree on *)
+        {if verbose then print_strings ["Bob reconciled "; show vs; "\n"] else () fi} .
+        (let checklength = (length vs)/4)
+        bsA!take checklength vs . (* send her a sample *)
+        (let code = drop checklength vs)
+        {if verbose then print_strings ["Bob's code is "; show code; "\n"] else () fi} .                                
+        Bob (k-1, verbose, n, r, qA, bsA)
   fi
   
 (* receive qbits down qA, measure them, record the results *)
@@ -124,11 +124,11 @@ proc BobReceive(n,bvs,qA,r,done) =
 proc Eve (k, verbose, n, r:^bit, qA, qB) =
   if k=0 then _0
   else
-    (new done) (  EvesDrop(n,[],r,qA,qB,done)
-                | done?(bvs) .
-                  {if verbose then print_strings ["Eve saw "; show bvs; "\n"] else () fi} .
-                  Eve (k-1, verbose, n, r, qA, qB)
-               )
+    (new done) 
+    | EvesDrop(n,[],r,qA,qB,done)
+    | done?(bvs) .
+      {if verbose then print_strings ["Eve saw "; show bvs; "\n"] else () fi} .
+      Eve (k-1, verbose, n, r, qA, qB)
   fi
   
 proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
@@ -152,8 +152,7 @@ proc System() = (let k = read_int "number of trials")
                                + _ . abandon ["pardon?"]
                 )
                 (new r,qc1,qc2,bsc)
-                (  Alice(k,verbose,n,r,qc1,bsc) 
-                 | Bob(k,verbose,n,r,qc2,bsc) 
-                 | Eve (k,verbose,n,r,qc1,qc2) 
-                 | (newq q = |0>) Random(q,r)
-                )
+                | Alice(k,verbose,n,r,qc1,bsc) 
+                | Bob(k,verbose,n,r,qc2,bsc) 
+                | Eve (k,verbose,n,r,qc1,qc2) 
+                | (newq q = |0>) Random(q,r)

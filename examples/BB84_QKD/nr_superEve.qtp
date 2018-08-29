@@ -4,14 +4,12 @@
 
 proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB) =
   (new copied)
-  (  CopyQBits ([], qcA, qcB, bcA, copied)  
-   | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
-     (new mc, init)
-     (  init!bs . init!vs . init!h0 . init!bases . _0
-      | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
-      | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
-     )
-  )
+  | CopyQBits ([], qcA, qcB, bcA, copied)  
+  | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
+    (new mc, init)
+    | init!bs . init!vs . init!h0 . init!bases . _0
+    | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
+    | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
   
 proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
   received?(bs) . received?(vs)                 .

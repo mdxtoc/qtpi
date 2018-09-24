@@ -1,23 +1,27 @@
+(If you are reading the html version of this note, and the non-ASCII symbols like &rarr; &radic; and so on look funny in your browser, make sure it knows it's reading a UTF-8 file. I had that problem too.)
+
 # Experiments with QKD
 
-I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that [I had found a (tiny) security hole](#cleverEve), and then that [I had made it a little bigger](#superEve), but I now realise that [I probably hadn't](#notreally).
+I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that [I had found a (tiny) security hole](#cleverEve), and then that [I had made it a little bigger](#superEve), then I thought that [I probably hadn't](#notreally), and currently I believe that I should [try it out](#whataboutit).
 
-Or perhaps ... I discovered a tiny but real security hole, and plugged it. If so, one mark for simulation as an investigation device.
+At any rate ... I discovered where there might be a tiny security hole. If I'm right, one mark for simulation as an investigation device.
 
 ## The scenario
 
-Alice has a message *M* which she wants to send to Bob. She has a quantum channel to him (at least she *thinks* it goes to him), and a [Wegman-Carter hash-tagged](#wegmancarter) two-way classical channel to him. She [calculates the number of qbits she will need](#enoughqbits), and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qbit, measures it in that basis, and records the results.
+Alice has a message *M* which she wants to send to Bob. She has a quantum channel to him, and a [Wegman-Carter hash-tagged](#wegmancarter) two-way classical channel to him. She [calculates the number of qbits she will need](#enoughqbits), and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qbit, measures it in that basis, and records the results.
 
 Then they do the QKD protocol dance: Alice sends the bases she chose to Bob through the classical channel and Bob sends the bases he chose back to Alice. They each select the subsequence of values for which they used the same basis, which will be about half of them, and throw the rest away. Now, supposing no interference with the qbits in transit, and no interference with the classical messages, they share the same sequence of code bits. Bob picks a subsequence of his code bits, sends a bit-mask to Alice to characterise it, and the subsequence itself. Alice looks at the corresponding subsequence of her own code bits: if they have the same code bits then the two subsequences should be identical, with probability 1-1/2<sup>*c*</sup>, where *c* is the number of bits Bob picks. If the subsequences differ, and nothing is wrong with the classical communication, then something has interfered with Alice's quantum transmissions.
 
-If all seems ok Alice deletes Bob's checkbits from her code bits, takes a prefix of them to exclusive-or mask the message *M*, and sends it down the classical channel to Bob. Bob, having deleted his checkbits from his own code bits, takes a prefix of the same length, exclusive-or's it with the encrypted message, and he can see *M*. 
+If all seems ok Alice deletes Bob's checkbits from her code bits, takes a prefix of what's left to exclusive-or mask the message *M*, and sends it down the classical channel to Bob. Bob, having deleted his checkbits from his own code bits, takes a prefix of the same length as Alice's communication, exclusive-or's the two, and he can see *M*. 
 
 <a name="hashsecret"></a>
-Before the protocol started Alice and Bob shared a secret: five short one-time hash keys, one for each of the five classical messages they exchange (bases A&rarr;B, bases B&rarr;A, bit-mask B&rarr;A, subsequence B&rarr;A, encrypted message A&rarr;B). Each classical message is tagged by a hash of the message and the corresponding hash key, and each tag is checked by the recipient, who uses the same hash function and knows the same hash key. If the tags aren't as expected then something is spoofing messages on the classical channel. If all is ok when the protocol is over, Alice and Bob each take five new hash keys from the unused suffix of their code bits, and they are ready to run the protocol again. Crucially, the messages are sent in the clear, but the secret code bits are never disclosed, apart from the checkbit sequence sent by Bob.
+Before the protocol started Alice and Bob shared a secret: five 'short' one-time hash keys, one for each of the five classical messages they exchange (bases A&rarr;B, bases B&rarr;A, bit-mask B&rarr;A, subsequence B&rarr;A, encrypted message A&rarr;B). Each classical message is tagged by a hash of the message controlled by the corresponding hash key, and each tag is checked by the recipient, who uses the same hash function and knows the same hash key. If the tags aren't as expected then something is spoofing messages on the classical channel. If all is ok when the protocol is over, Alice and Bob each take five new hash keys from the unused suffix of their code bits, and they are ready to run the protocol again. Crucially, the classical messages are sent in the clear, but the secret code bits are never disclosed, apart from the checkbit sequence sent by Bob.
 
 If there is an eavesdropper Eve, then the quantum and classical channels lead through her. She must do her best to read the quantum traffic between Alice and Bob, and to intercept and alter classical messages, and do it all without being noticed.
 
-In the simulation we log the steps of the protocol, so our Alice, Bob and Eve each have a classical bit-list channel back to a logging process. In reality Alice and/or Bob would fall silent if they detected interference, but in the simulation we complete each trial even if something seems to be wrong. So Alice sends a blank message instead of an encrypted *M* if she detects quantum-channel interference, and each of them keeps going even if they detect classical-channel interference. In reality Alice would be sure to pick enough qbits to ensure near certainty that Bob can select enough check bits to reliably detect interference, and to give her enough code bits to encrypt *M* and refresh the bit sequences; in the simulation she may be directed to pick too few, and she and Bob share a signalling channel (which also goes through Eve, if she's present) so that they can restart the experiment if Alice doesn't have enough code bits. 
+In the simulation we log the steps of the protocol, so our Alice, Bob and Eve each have a classical bit-list channel back to a logging process. In reality Alice and/or Bob would fall silent if they detected interference, but in the simulation we complete each trial even if something seems to be wrong. So Alice sends a blank (zero-length) message instead of an encrypted *M* if she detects quantum-channel interference, and each of them keeps going even if they detect classical-channel interference. 
+
+In the real world Alice would be sure to pick enough qbits to ensure near certainty that Bob can select enough check bits to reliably detect interference, and to give her enough code bits to encrypt *M* and refresh the bit sequences. In the simulation she may be directed to pick too few, and she and Bob share a signalling channel (which also goes through Eve, if she's present) so that they can restart the experiment if Alice doesn't have enough code bits. 
 
 Restarting is not part of the QKD protocol. It would be a security risk, because Alice and Bob would have to re-use what should be one-time hash keys, and multiple re-use might give an eagle-eyed interceptor enough information to hack the classical channel. It's in the simulation just to allow experiment with calculating qbit numbers: see the [description of Alice's calculation](#enoughqbits) for an analysis of repetition frequency and see the [no Eve trials](#noEve) for some experimental results.
 
@@ -87,13 +91,14 @@ For a hash-key size *w* choose packet size *p* = *w*/3\*4+1. Divide the bit sequ
 
 Trials to see if Alice picks enough qbits. Interference never detected because Eve isn't there: command is
 
-        (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp)
+        (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
+                                                    SystemAB.qtp)
 
 Note that in this simulation Bob doesn't know the length of *M*, still less the number of qbits Alice is going to send him. He reads qbits until he sees Alice's first message on the classical channel. Oh, the power of guarded sums!
 
 ### With hash tags
 
-  * With Wegman-Carter tagging, the hash calculations are implemented in the qtpi functional language and therefore slowly interpreted.
+  * With hash tagging, the hash calculations are implemented in the qtpi functional language and therefore slowly interpreted.
   But it works: Bob and Alice each agree that the other isn't spoofing classical messages.
   
         length of message? 4000
@@ -116,7 +121,7 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         user	0m45.455s
         sys	0m0.525s
   
-  * That's about 4 seconds for each trial, but it is 13M qbits in 45 seconds. It is a quarter faster without hash tagging (zero-length keys turn it off) or, if you like, a third slower with hash tagging.
+  * That's about 4 seconds for each trial, but it is 1.3M qbits in 45 seconds. It is a quarter faster without hash tagging (zero-length keys turn it off) or, if you like, a third slower with hash tagging.
 
         length of message? 4000
         length of a hash key? 0
@@ -137,7 +142,7 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         user	0m37.433s
         sys	0m0.440s
 
-  * Even though the hash tagging mechanism is affordable it's turned off in most of the experiments below.
+  * Even though the hash tagging mechanism is affordable it's turned off in many of the experiments below.
   
 ### 0 Sigma  
 * Checking the *cmin* &rarr; *nmin* calculation, and the lower-bounding. It works.
@@ -284,7 +289,7 @@ If she passes on the qbits she sees without measuring them, and passes on classi
 Naive Eve does indeed measure and re-transmit the qbits she receives. She is, of course, pretty much always detected. Once she's spotted, Alice doesn't encrypt and send *M*, so even if Eve could hack the classical channel it wouldn't do her much good. In my simulation she simply re-transmits classical messages.
 
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
-        naiveEve.qtp LogEve.qtp SystemAEB.qtp)
+                                                    naiveEve.qtp LogEve.qtp SystemAEB.qtp)
 
 Note that the simulation runs the exact same Alice, Bob and their loggers as the Eve-free simulation did. The SystemAEB file runs Alice, Bob and naive Eve in parallel with their three loggers (though it's set up to deal with [cleverer Eve](#superEve), so naive Eve has to use two logging channels when she only really needs one).
 
@@ -322,16 +327,16 @@ Note that the simulation runs the exact same Alice, Bob and their loggers as the
 
 It occurred to me that it would be possible for Eve to stand between Alice and Bob, playing Bob to Alice and Alice to Bob, _if_ she could write properly-tagged messages on the classical channel. That's a very big if: 1/2<sup>5*w*</sup> and all that. But suppose that she was listening on a parabolic microphone in the park in Zurich when Alice told Bob the passphrase and the number of bits per key, and suppose that she intervenes in every one of their exchanges from the very first. Then, of course, she won't be detected by any of the means discussed above: there won't be any interference on the quantum channels Alice&rarr;Eve and Eve&rarr;Bob (supposing no littler Eves in the way) and she can tag her pretend-Alice and pretend-Bob messages just as if she were Alice or Bob. Because there are, in effect, two QKD protocols running in parallel (one Alice&harr;Eve and the other Eve&harr;Bob) the two sides won't use the same codes nor the same hash keys after the first run. But that's no problem: it's easy for Eve to remember 10*w* hash-key bits.
 
-My first attempt at a clever Eve wasn't quite successful, although in the simulation she is never detected, she always reads and decrypts Alice's message and she always recrypts it for Bob. I haven't yet, for full verisimilitude, simulated the Wegman-Carter hashing mechanism but that doesn't take away Eve's achievement because, when I do, I'll get the exact same results.
+My first attempt at a clever Eve is never detected, always reads and decrypts Alice's message and almost always recrypts it for Bob.
 
-Like naive Eve she doesn't need information about *M* or *n*. But Eve isn't clever enough (or rather, I wasn't clever enough). I thought that Alice would always use _all_ her code bits (less the ones she needs to keep for next time's hash keys) to encrypt the message she sends to Bob, so that Bob would expect a message that is as long as his code-bit sequence (take away the hash keys). If Eve agrees more code bits with Bob than she does with Alice then she is in trouble: Bob controls the number of code bits in QKD, and she can't get Alice to agree more code bits once they've exchanged bases. So in desperation she has to force Bob to restart the protocol. This is very unsatisfactory: as we saw above, it's easy for Alice to use so many qbits that retries are vanishingly unlikely. A partner who requests restarts ought perhaps to be suspected of being an Eve.
+Like naive Eve she doesn't need information about *M* or *n*. But Eve isn't clever enough (or rather, I wasn't clever enough). I thought that Alice would always use _all_ her code bits (less the ones she needs to keep for next time's hash keys) to encrypt the message she sends to Bob, so that Bob would expect a message that is as long as his code-bit sequence (take away the hash keys). If Eve agrees more code bits with Bob than she does with Alice then she is in trouble: Bob controls the number of code bits in QKD, and she can't get Alice to agree more code bits once they've exchanged bases. So in desperation she has to force Bob to restart the protocol. This is very unsatisfactory: as we saw above, it's easy for Alice to use so many qbits that retries are vanishingly unlikely. Bob should realise that a partner who requests restarts ought  to be suspected of being an Eve.
 
 There is more. Because this Eve wants Alice&rarr;Eve to have the same number of code bits as Eve&rarr;Bob, the mask she fakes and sends to Alice selects sometimes many fewer, and sometimes many more, values than Bob would have asked for. So the histogram of check-bit-subsequence lengths doesn't look normal, and that's a dead giveaway.
 
 The command is
 
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
-        cleverEve.qtp LogEve.qtp SystemAEB.qtp)
+                                                cleverEve.qtp LogEve.qtp SystemAEB.qtp)
 
   * With a long message and a safety-first Alice (20-bit hash keys; 10 &sigma;s) there are no retries. But Eve's check-bit sequences are anomalous: she generates a checkbit histogram more than twice as wide as Bob's. If I were Alice I'd suspect an Eve.
   
@@ -421,7 +426,7 @@ _Definitely_ no cigar.
 <a name="superEve"></a>
 ## Alice, Bob and cleverer Eve
 
-In the simulation I can make Alice careful or careless. In reality she will probably be careful, and generate far more code bits than she strictly needs. If she is careless or deliberately generates too few, she'll have to restart. So Eve shouldn't worry: just let Alice control things. Play Bob to Alice and Alice to Bob, confident that in either direction there will be plenty of code bits to deal with the *M* that Alice has in mind, or if not, a restart won't be totally unexpected.
+In the simulation I can make Alice careful or careless. In reality she will be careful, generating far more code bits than she is likely to need. If she were careless or deliberately generated too few, she'd have to restart the communication, using the same hash keys twice, and that's a security risk. So Eve shouldn't worry: just let Alice control things. Play Bob to Alice and Alice to Bob, confident that in either direction there will be plenty of code bits to deal with the *M* that Alice has in mind, or if not, a restart won't be totally unexpected.
 
 So cleverer Eve doesn't fake a mask when dealing with Alice: instead she does exactly what Bob would do, selecting check bits with probability 1/4. And when dealing with Bob she's just another Alice, agreeing a code as he directs. There is a possibility, if Alice is deliberately careless, that sometimes Alice could agree enough code bits with Eve to encrypt *M* when Eve and Bob did not. In that case Eve would have to ask Bob to restart. But also in that case Alice would be likely to provoke restarts of her own. 
 
@@ -430,7 +435,7 @@ As a bonus, this Eve is easier to code. No faking, no irrational restarts, two i
 The command is
 
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
-        superEve.qtp LogEve.qtp SystemAEB.qtp)
+                                                superEve.qtp LogEve.qtp SystemAEB.qtp)
 
   * With cautious Alice and a long message, no restarts and Eve hides perfectly -- and note that she's perfectly tagging her classical messages. Her histogram is a bit wider than Alice's, but it's within normal limits because she is exactly playing Bob.
   
@@ -467,7 +472,7 @@ The command is
         user	3m35.276s
         sys	0m2.360s
 
-  * With mad Alice and a shorter message Eve is still under cover. No more Bob restarts from her than Eve restarts from Alice. This time her histogram's a tiny bit narrower, but all within normal variation.
+  * With careless Alice (not enough qbits) and a shorter message Eve is still under cover: no more Bob restarts from her than Eve restarts from Alice. This time her histogram's a tiny bit narrower, but all within normal variation.
 
         length of message? 100
         length of a hash key? 0
@@ -511,23 +516,21 @@ The command is
         
 So cleverer Eve seems to have got away with it. With the checks that are described in BB84 she's invisible, given the very large initial assumption that she has prior knowledge of Alice and Bob's initial one-time hash keys.
 
-But not quite invisible. In these days of GPS clocks Alice and Bob could pore over their logs. Some of the exchanges will be slower than Alice would expect, because Eve provokes Bob to restart. So perhaps between 9 and 9.30 every morning she can play mad Alice, Bob can report arrival times, and they can try to spot her. They'd better not compare times over the network, because Eve will intercept and report arrival times for her, and Alice will see the times she would get if Eve wasn't there. Bob should take a printout of his arrival times to that park in Zurich. At that point Eve should burn the code books and run: nobody is truly undetectable.
-
 <a name="notreally"></a>
-## - but probably not
+## Or maybe not ... but wait a minute
 
 Restarts are part of the simulation because I wanted to watch the statistical variation of the choice mechanisms. They wouldn't be part of a real implementation, because a restart exposes the one-time hash keys more than once. So Alice would go for a large number of &sigma;s, long hash keys and a large minimum number of checkbits, and things would work out as in the first cleverer Eve test above: that is, she would hide perfectly. It looks as if there is a security hole.
 
-But Alice has cryptographers for friends. They tell her to try to smoke Eve out. Every now and then, preferably when she has many more than the mean number of code bits, she should send a message as long as _all_ her code bits (less the ones she needs to refresh the hash keys). If she's connected directly to Bob he won't stumble, because he will have the same number of code bits as she does. But if Eve is in the way then she is in trouble: she probably won't have agreed as many code bits with Bob as Alice has agreed with her. So she can either send Bob a shorter message or run away.
+But Alice has programmers for friends. They tell her to try to smoke Eve out. Every now and then she should send a message as long as _all_ her code bits (less the ones she needs to refresh the hash keys). If she's connected directly to Bob he won't stumble, because he will have the same number of code bits as she does. But if Eve is in the way then she is in trouble: she probably won't have agreed the same number of code bits with Bob as Alice has agreed with her. So she can either send Bob a different message or run away.
 
 I've simulated this defence. Every four messages or so, choosing at random, Alice sees if she has more than the expected number *n*/2-*n*/8-5*w* of secret code bits. If so, she makes up a random message of the same length as her code-bit sequence and fires it at whoever is listening on the quantum channel. If it's Eve she has a small chance of having as many or more code bits, but that's not enough for a long life.
 
 The command is
 
         (cd examples/BB84_QKD; time ../../Qtpi nr_Alice.qtp nr_Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
-            nr_superEve.qtp LogEve.qtp SystemAEB.qtp)
+                                                    nr_superEve.qtp LogEve.qtp SystemAEB.qtp)
 
-  * The logging process plays the r&ocirc;le of the Zurich park. If the message that Bob logged is not the one that Alice logged, and neither of them logged quantum or classical interference, then it's an 'undetected corrupt message'. Alice should fire at Eve about 1/8 of the time, and Eve can only duck a small proportion. 116 hits out of about 125 shots: Eve is no longer undectable.
+  * The logging process plays the r&ocirc;le of the Zurich park. If the message that Bob logged is not the one that Alice logged, and neither of them logged quantum or classical interference, then it's an 'undetected corrupt message'. Alice should fire at Eve about 1/8 of the time, and Eve can only duck a small proportion. 116 hits out of about 125 shots: it seems that Eve is no longer undectable.
   
         length of message? 1000
         length of a hash key? 20
@@ -560,9 +563,16 @@ The command is
         user	3m30.731s
         sys	0m2.580s
 
-Alice's swamping-message tactic would seem to be a perfect counter-measure to cleverer Eve. In reality Eve might not be finished: Alice and Bob have to compare notes. They can't do that online, because Eve or a friend of hers could spoof the comparisons (remember, Eve et al. know how Alice and Bob are programmed). If they do it offline, then all sorts of Le Carr&eacute;-ish scenarios suggest themselves. Maybe real-life Eve isn't finished yet.
+But is she detectable? If Alice is sending _real_ messages she'll be using less than all her code bits: the swamping messages will be some kind of fake, made up for the purpose of smoking out Eve. Eve knows how Alice works: she should invent similar swamping messages, send them to Bob at the same frequency as Alice swamps her, and make sure that the _real_ messages all arrive in the right order.  I haven't simulated this counter-counter measure.
 
-But let's not be silly. Technically, there's a counter-measure, and no security hole. And I dreamed of being famous ...
+If they looked at their own message statistics Bob and Alice would be unaware of Eve's presence: Bob will see swamping messages as often as he'd expect, and Alice will see a normal histogram of checkbit lengths. If they look at message logs Eve will be unmasked because the log of checkbit masks and lengths won't match, and nor will the occurrences of swamping messages. 
+
+It seems likely that anything Alice can do online can be matched by Eve. So perhaps there isn't a realistic defence, unless there is a channel outside the protocol for comparing logs.
+
+<a name="whataboutit"></a>
+## But does the attack work in any implementations?
+
+If an implementation of the protocol is careless about the secrecy of the initial hash keys, an Eve could be successful. If it is careless with secrecy in dealing with recovery from hardware crashes, then one could imagine that an Eve-collaborator could provoke Bob or Alice to crash and allow an Eve to intervene. I think I have to look at implementations to see if it's possible. If an attack is effective then, of course, I shall provoke greater secrecy in future implementations. Which won't be a bad thing.
 
 <a name="whyEve"></a>
 ## Why "Eve"?

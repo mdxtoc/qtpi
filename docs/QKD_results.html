@@ -1,7 +1,7 @@
 <p>(If you are reading the html version of this note, and the non-ASCII symbols like → √ and so on look funny in your browser, make sure it knows it's reading a UTF-8 file. I had that problem too.)</p>
 <h1>Experiments with QKD</h1>
-<p>I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that <a href="#cleverEve">I had found a (tiny) security hole</a>, and then that <a href="#superEve">I had made it a little bigger</a>, then I thought that <a href="#notreally">I probably hadn't</a>, and currently I believe that I should <a href="#whataboutit">try it out</a>.</p>
-<p>At any rate ... I discovered where there might be a tiny security hole. If I'm right, one mark for simulation as an investigation device.</p>
+<p>I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that <a href="#cleverEve">I had found a (tiny) security hole</a>, and then that <a href="#superEve">I had made it a little bigger</a>, then I thought that <a href="#notreally">I probably hadn't</a>, and then that I should <a href="#whataboutit">try it out</a>.</p>
+<p>But actually <a href="#codswallop">it's codswallop</a>. My 'security hole' is the way the protocol is supposed to work, daisy-chaining A↔B, B↔C, ... Y↔Z. Obviously each of those components has to be trusted; obviously if any is dishonest the whole chain is compromised. The research community is well aware of the problem, and well on top of it. So egg on my face. But I enjoyed my experiments, and I enjoyed building a tool which could carry them out.</p>
 <h2>The scenario</h2>
 <p>Alice has a message <em>M</em> which she wants to send to Bob. She has a quantum channel to him, and a <a href="#wegmancarter">Wegman-Carter hash-tagged</a> two-way classical channel to him. She <a href="#enoughqbits">calculates the number of qbits she will need</a>, and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qbit, measures it in that basis, and records the results.</p>
 <p>Then they do the QKD protocol dance: Alice sends the bases she chose to Bob through the classical channel and Bob sends the bases he chose back to Alice. They each select the subsequence of values for which they used the same basis, which will be about half of them, and throw the rest away. Now, supposing no interference with the qbits in transit, and no interference with the classical messages, they share the same sequence of code bits. Bob picks a subsequence of his code bits, sends a bit-mask to Alice to characterise it, and the subsequence itself. Alice looks at the corresponding subsequence of her own code bits: if they have the same code bits then the two subsequences should be identical, with probability 1-1/2<sup><em>c</em></sup>, where <em>c</em> is the number of bits Bob picks. If the subsequences differ, and nothing is wrong with the classical communication, then something has interfered with Alice's quantum transmissions.</p>
@@ -498,7 +498,9 @@ number of sigmas? 10
 number of trials? 1000
 
 4489 qbits per trial
-all done: 884 Eve's; 0 Alice's; 116 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 561; minimum check bits (Eve/Bob) 498
+all done: 884 Eve's; 0 Alice's; 116 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); 
+    average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 561; 
+    minimum check bits (Eve/Bob) 498
 histogram of check-bit lengths (Alice/Eve)
 [(494,1);(497,2);(503,1);(504,1);(505,1);(506,1);(507,2);(508,1);(509,2);(511,1);(512,2);(513,3);(514,3);(515,1);(516,1);(517,5);
 (518,2);(519,5);(520,5);(521,5);(522,4);(523,5);(524,4);(525,5);(526,6);(527,9);(528,7);(529,8);(530,7);(531,9);(532,3);(533,4);(
@@ -530,6 +532,10 @@ sys	0m2.580s
 <p><a name="whataboutit"></a></p>
 <h2>But does the attack work in any implementations?</h2>
 <p>If an implementation of the protocol is careless about the secrecy of the initial hash keys, an Eve could be successful. If it is careless with secrecy in dealing with recovery from hardware crashes, then one could imagine that an Eve-collaborator could provoke Bob or Alice to crash and allow an Eve to intervene. I think I have to look at implementations to see if it's possible. If an attack is effective then, of course, I shall provoke greater secrecy in future implementations. Which won't be a bad thing.</p>
-<p><a name="whyEve"></a></p>
+<p><a name="codswallop"></a></p>
+<h2>Oh no it isn't</h2>
+<p>BB84 QKD is designed to daisy-chain A↔B, B↔C, ... Y↔Z. Breaking one of the links and inserting a new component, e.g. by making A↔E and E↔B  is of course possible, provided E knows the secret keys for that link, and can easily be transformed after the first iteration into two links with separate keys. That's how it's supposed to work. The problem is keeping the keys secret. In practice that may not be as difficult as I had thought it was, given privacy amplification techniques (see, for example, Renner and Wolf, <em>Unconditional Authenticity and Privacy from an Arbitrarily Weak Secret</em>).</p>
+<p>So I was silly. I'm not going to delete this stuff, though I probably should (and then you would have to recover it from the commit history).
+<a name="whyEve"></a></p>
 <h2>Why &quot;Eve&quot;?</h2>
 <p>&quot;Eve&quot; from &quot;eavesdropper&quot;? I do hope so. Not, I hope, from any notion of females as deceptive.</p>

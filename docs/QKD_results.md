@@ -2,9 +2,9 @@
 
 # Experiments with QKD
 
-I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that [I had found a (tiny) security hole](#cleverEve), and then that [I had made it a little bigger](#superEve), then I thought that [I probably hadn't](#notreally), and currently I believe that I should [try it out](#whataboutit).
+I've encoded QKD in qtpi, and played around with it. The simulation has taught me a lot. I thought for a while that [I had found a (tiny) security hole](#cleverEve), and then that [I had made it a little bigger](#superEve), then I thought that [I probably hadn't](#notreally), and then that I should [try it out](#whataboutit).
 
-At any rate ... I discovered where there might be a tiny security hole. If I'm right, one mark for simulation as an investigation device.
+But actually [it's codswallop](#codswallop). My 'security hole' is the way the protocol is supposed to work, daisy-chaining A&harr;B, B&harr;C, ... Y&harr;Z. Obviously each of those components has to be trusted; obviously if any is dishonest the whole chain is compromised. The research community is well aware of the problem, and well on top of it. So egg on my face. But I enjoyed my experiments, and I enjoyed building a tool which could carry them out.
 
 ## The scenario
 
@@ -539,7 +539,9 @@ The command is
         number of trials? 1000
 
         4489 qbits per trial
-        all done: 884 Eve's; 0 Alice's; 116 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 561; minimum check bits (Eve/Bob) 498
+        all done: 884 Eve's; 0 Alice's; 116 undetected corrupt messages; 0 repetitions (Alice-Eve); 0 repetitions (Eve-Bob); 
+            average check bits (Alice/Eve) 559; minimum check bits (Alice/Eve) 494; average check bits (Eve/Bob) 561; 
+            minimum check bits (Eve/Bob) 498
         histogram of check-bit lengths (Alice/Eve)
         [(494,1);(497,2);(503,1);(504,1);(505,1);(506,1);(507,2);(508,1);(509,2);(511,1);(512,2);(513,3);(514,3);(515,1);(516,1);(517,5);
         (518,2);(519,5);(520,5);(521,5);(522,4);(523,5);(524,4);(525,5);(526,6);(527,9);(528,7);(529,8);(530,7);(531,9);(532,3);(533,4);(
@@ -574,6 +576,12 @@ It seems likely that anything Alice can do online can be matched by Eve. So perh
 
 If an implementation of the protocol is careless about the secrecy of the initial hash keys, an Eve could be successful. If it is careless with secrecy in dealing with recovery from hardware crashes, then one could imagine that an Eve-collaborator could provoke Bob or Alice to crash and allow an Eve to intervene. I think I have to look at implementations to see if it's possible. If an attack is effective then, of course, I shall provoke greater secrecy in future implementations. Which won't be a bad thing.
 
+<a name="codswallop"></a>
+## Oh no it isn't
+
+BB84 QKD is designed to daisy-chain A&harr;B, B&harr;C, ... Y&harr;Z. Breaking one of the links and inserting a new component, e.g. by making A&harr;E and E&harr;B  is of course possible, provided E knows the secret keys for that link, and can easily be transformed after the first iteration into two links with separate keys. That's how it's supposed to work. The problem is keeping the keys secret. In practice that may not be as difficult as I had thought it was, given privacy amplification techniques (see, for example, Renner and Wolf, _Unconditional Authenticity and Privacy from an Arbitrarily Weak Secret_).
+
+So I was silly. I'm not going to delete this stuff, though I probably should (and then you would have to recover it from the commit history).
 <a name="whyEve"></a>
 ## Why "Eve"?
 

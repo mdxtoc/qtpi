@@ -1,0 +1,40 @@
+(* Dense coding, to see if I understand it *)
+
+fun bit2int b = if b=0b0 then 0 else 1 fi
+
+proc Alice (cep, cBob) =
+  (let i,j = randbit(), randbit())
+  {print_strings ["Alice bit i="; show i; ", j="; show j; "; sends "; show (bit2int i * 2 + bit2int j); "\n"]} .
+  cep?(ep1)                        .
+  ep1 >> match i, j .
+         + 0b0,0b0 . _I
+         + 0b0,0b1 . _X
+         + 0b1,0b0 . _Y
+         + 0b1,0b1 . _Z            .
+  cBob!ep1                         .
+  _0
+  
+proc Bob(cep, cAlice) =
+  cep?(ep2) .
+  cAlice?(ep1) .
+  ep1,ep2 >> _Cnot                  .
+  ep1 >> _H                         .
+  ep1 =? (i)                        .
+  ep2 =? (j)                        .
+  {print_strings ["Bob bit i="; show i; ", j="; show j; 
+                  "; receives "; show (match i,j .
+                                       + 0b0,0b0 . 0
+                                       + 0b0,0b1 . 1
+                                       + 0b1,0b1 . 2 (* yes *)
+                                       + 0b1,0b0 . 3 (* yes *)
+                                      ); 
+                  "\n"
+                 ]}                 .
+  _0
+
+proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
+
+proc System() = (new s,t,cq) 
+                | Alice(s,cq)
+                | Bob(t,cq)
+                | Source(s,t)

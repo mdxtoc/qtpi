@@ -551,6 +551,7 @@ let tensor_v vA vB =
   vR
   
 let tensor_m mA mB =
+  if !verbose_qcalc then Printf.printf "tensor_m%s%s = " (string_of_matrix mA) (string_of_matrix mB);
   let nA = msize mA in
   let nB = msize mB in
   let mt = new_ug (nA*nB) in
@@ -559,11 +560,12 @@ let tensor_m mA mB =
                                 let aij = mA.(i).(j) in
                                 _for 0 1 nB (fun m ->
                                                _for 0 1 nB (fun p ->
-                                                              mt.(i*nB+p).(j*nB+m) <- prod aij (mB.(m).(p))
+                                                              mt.(i*nB+m).(j*nB+p) <- prod aij (mB.(m).(p))
                                                            )
                                             )
                              )
               );
+   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
    mt
 
 let do_mv m v =

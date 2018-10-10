@@ -660,11 +660,12 @@ let rotate_left qs v = make_first qs v (List.length qs - 1)
 
 let try_split qs v =
   let nqs = List.length qs in
+  let nvs = Array.length v in
+  let nzs = _for_leftfold 0 1 nvs (fun i nzs -> if v.(i)=P_0 then nzs+1 else nzs) 0 in
+  let worth_a_try = nzs*2>=nvs in (* and I could do stuff with +, - as well ... *)
   let rec t_s i qs v = 
     if i=nqs then None 
     else
-      (if !tryrotate && !verbose_qcalc then 
-         Printf.printf "t_s %s\n" (string_of_probvec v);
       (if !verbose_qcalc then 
          Printf.printf "t_s %s\n" (string_of_qval (qs,v));
        let n = vsize v in
@@ -682,10 +683,11 @@ let try_split qs v =
          )
       )
   in
-  let r = t_s 0 qs v in
+  let r = if worth_a_try then t_s 0 qs v else None in
   if !verbose_qcalc then
-    Printf.printf "try_split %s => %s\n" 
+    Printf.printf "try_split %s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
                   (string_of_probvec v)
+                  nzs nvs worth_a_try
                   (string_of_option (string_of_triple (bracketed_string_of_list string_of_qbit)
                                                       string_of_probvec 
                                                       string_of_probvec 
@@ -749,9 +751,6 @@ let ugstep pn qs ugv =
   let doit_Cnot q1 q2 =
     if q1=q2 then raise (Error (Printf.sprintf "** Disaster (same qbit twice in Cnot) %s" (id_string ())));
     match qval q1, qval q2 with
-    | (q1s, v1), (q2s, v2) -> (* these lists _have_ to be different. I'm not going to check. *)
-        let v = tensor_v v1 v2 in
-        let qs = q1s @ q2s in
     | ((q1s, v1) as qv1), ((q2s, v2) as qv2) -> (* q1s and q2s are either identical or they don't share indices. *)
         let v, qs = if qv1=qv2 then v1, q1s
                     else tensor_v v1 v2, q1s @ q2s

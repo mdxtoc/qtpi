@@ -665,6 +665,8 @@ let try_split qs v =
     else
       (if !tryrotate && !verbose_qcalc then 
          Printf.printf "t_s %s\n" (string_of_probvec v);
+      (if !verbose_qcalc then 
+         Printf.printf "t_s %s\n" (string_of_qval (qs,v));
        let n = vsize v in
        let nh = vsize v / 2 in
        (* if the first half is all zeros then use v_1, which is 0+1 *)
@@ -675,11 +677,9 @@ let try_split qs v =
        if _for_all nh 1 n (fun i -> v.(i)=P_0) then
          Some (qs, Array.copy v_0, Array.init nh (fun i -> v.(i)))
        else
-       if !tryrotate then
          (let qs, v = rotate_left qs v in 
           t_s (i+1) qs v
          )
-       else None
       )
   in
   let r = t_s 0 qs v in

@@ -42,8 +42,6 @@ let opts = Arg.align
                     " show final state -- channels, stuck processes, qbit states");
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
-              ("-tryrotate"  , Arg.Set tryrotate, 
-					" try rotating probability vectors when disentangling");
               ("-typereport"  , Arg.Set typereport, 
 					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 

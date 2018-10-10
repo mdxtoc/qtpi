@@ -752,6 +752,10 @@ let ugstep pn qs ugv =
     | (q1s, v1), (q2s, v2) -> (* these lists _have_ to be different. I'm not going to check. *)
         let v = tensor_v v1 v2 in
         let qs = q1s @ q2s in
+    | ((q1s, v1) as qv1), ((q2s, v2) as qv2) -> (* q1s and q2s are either identical or they don't share indices. *)
+        let v, qs = if qv1=qv2 then v1, q1s
+                    else tensor_v v1 v2, q1s @ q2s
+        in
         let bit1 = ibit q1 qs in
         let bit2 = ibit q2 qs in
         let m_Cnot = bigI (vsize v) in

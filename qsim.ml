@@ -784,6 +784,8 @@ let ugstep pn qs ugv =
   | [q]    , GateH       
   | [q]    , GateI      
   | [q]    , GateX      
+  | [q]    , GateY      
+  | [q]    , GateZ      
   | [q]    , GatePhi _  -> doit_1 q (matrix_of_ugv ugv)
   | [q1;q2], GateCnot   -> doit_Cnot q1 q2 
   | _                   -> raise (Error (Printf.sprintf "** Disaster: ugstep [%s] %s"

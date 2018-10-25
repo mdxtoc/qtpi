@@ -202,12 +202,10 @@ simple_typespec:
   | UNITTYPE                            {adorn Unit}
   | QBITTYPE                            {adorn Qbit}
   | typevar                             {adorn (TypeVar ($1))}
-  | INT DOTDOT INT                      {let low = int_of_string $1 in
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
                                          if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
-                                        } 
                                         } */
   | LPAR typespec RPAR                  {$2}
   | FORALL typevars DOT typespec        {adorn (Univ ($2,$4))}
@@ -256,9 +254,9 @@ sumproc:
                                         {$4,$6}
 
 qstep:
-  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,None,$4))}
-  | expr MEASURE LSQPAR expr RSQPAR LPAR param RPAR       
-                                        {adorn (Measure ($1,Some $4,$7))}
+  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,[],$4))}
+  | expr MEASURE LSQPAR exprs RSQPAR LPAR param RPAR       
+                                        {adorn (Measure ($1,$4,$7))}
   | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
 
 iostep:
@@ -512,6 +510,11 @@ exprlist:
   | expr                                {eadorn (ECons ($1, eadorn ENil))}
   | expr SEMICOLON exprlist             {eadorn (ECons ($1, $3))}
 
+exprs:  /* not the same as exprlist */
+  |                                     {[]}
+  | expr                                {[$1]}
+  | expr SEMICOLON exprs                {$1::$3}
+  
 names:
   | name                                {[$1]}
   | name COMMA names                    {$1::$3}

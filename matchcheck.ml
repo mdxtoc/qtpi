@@ -452,13 +452,8 @@ let rec matchcheck_proc proc =
                                matchcheck_proc proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc proc (* binding pattern doesn't need check *)
   | WithQstep (qstep,proc)  -> (match qstep.inst with
-                                | Measure   (qe, geopt, _)  -> matchcheck_expr qe;
-                                                               (match geopt with
-                                                                | Some ge -> matchcheck_expr ge
-                                                                | None    -> ()
-                                                               )
-                                | Ugatestep (qes,ge)        -> List.iter matchcheck_expr qes;
-                                                               matchcheck_expr ge
+                                | Measure   (qe, ges, _)  -> matchcheck_expr qe; List.iter matchcheck_expr ges
+                                | Ugatestep (qes,ge)      -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc proc 
   | WithExpr  (e,proc)      -> matchcheck_expr e; matchcheck_proc proc

@@ -97,7 +97,6 @@ and evaltype cxt t =
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
                        adorn (Univ (ns,evaltype cxt t'))
-  | Range _         -> t
   (* | Range _         -> t *)
   | List t          -> adorn (List (evaltype cxt t))
   | Tuple ts        -> adorn (Tuple (List.map (evaltype cxt) ts))
@@ -185,13 +184,9 @@ let rewrite_params cxt = List.iter (rewrite_param cxt)
 
 let rewrite_qstep cxt qstep = 
   match qstep.inst with
-  | Measure   (e,eopt,param) -> rewrite_expr cxt e; 
-                                (match eopt with
-                                 | Some e -> rewrite_expr cxt e
-                                 | None   -> ()
-                                );
-                                rewrite_param cxt param
-  | Ugatestep (es, ug)       -> List.iter (rewrite_expr cxt) es
+  | Measure   (e,ges,param) -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) ges;
+                               rewrite_param cxt param
+  | Ugatestep (es, ug)      -> List.iter (rewrite_expr cxt) es
 
 let rewrite_iostep cxt iostep = 
   match iostep.inst with
@@ -242,8 +237,6 @@ let rec unifytypes cxt t1 t2 =
   | Channel t1      , Channel t2        
   | List t1         , List t2           -> (try unifytypes cxt t1 t2 with _ -> raise exn)
   | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn cxt [t1a;t1b] [t2a;t2b]
-  | Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
-                                           if m<=i && j<=n then cxt else raise exn
   (* | Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
                                            if m<=i && j<=n then cxt else raise exn *)
   | _                                   -> if t1.inst=t2.inst then cxt else raise exn
@@ -264,9 +257,6 @@ and canunifytype n cxt t =
   | Bit 
   | Unit
   | Qbit 
-  | Basisv
-  | Gate    _   
-  | Range   _       -> true
   | Basisv   
   (* | Range   _ *)
   | Gate    _       -> true
@@ -410,8 +400,6 @@ and assigntype_expr cxt t e =
      | EInt i               -> (match (evaltype cxt t).inst with 
                                 | Bit              -> if i=0||i=1 then cxt
                                                       else unifytypes cxt t (adorn_x e Int)
-                                | Range (j,k) as t -> if j<=i && i<=k then cxt 
-                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Int)
                                 (* | Range (j,k) as t -> if j<=i && i<=k then cxt 
                                                       else unifytypes cxt (adorn_x e t) (adorn_x e Int) *)
                                 | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Int)
@@ -421,17 +409,14 @@ and assigntype_expr cxt t e =
      | EString _            -> unifytypes cxt t (adorn_x e String)
      | EBit b               -> (match (evaltype cxt t).inst with 
                                 | Int              -> cxt
-                                | Range (j,k) as t -> let i = if b then 1 else 0 in
                                 (* | Range (j,k) as t -> let i = if b then 1 else 0 in
                                                       if j<=i && i<=k then cxt 
-                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Bit)
                                                       else unifytypes cxt (adorn_x e t) (adorn_x e Bit) *)
                                 | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Bit)
                                )
      | EBasisv _            -> unifytypes cxt t (adorn_x e Basisv)
      | EGate   ug           -> let cxt = match ug.inst with
                                          | GH | GI | GX | GY | GZ | GCnot -> cxt
-                                         | GPhi e                         -> assigntype_expr cxt (adorn_x e (Range (0,3))) e
                                          | GPhi e                         -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
                                in
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
@@ -649,13 +634,10 @@ and typecheck_process cxt p =
       assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, eopt, param) ->
+       | Measure (e, ges, param) ->
            let n,rt = param.inst in
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
-           let cxt = match eopt with
-                     | Some e -> assigntype_expr cxt (adorn e.pos (Gate(1))) e
-                     | None   -> cxt
-           in
+           let cxt = List.fold_left (fun cxt ge -> assigntype_expr cxt (adorn ge.pos (Gate 1)) ge) cxt ges in
            let cxt = unify_paramtype cxt rt (adorn param.pos Bit) in
            do_procparams "Measure" cxt [param] proc
        | Ugatestep (es, uge) ->

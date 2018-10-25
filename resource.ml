@@ -70,8 +70,6 @@ let rec is_resource_type t =
   | Bit 
   | Basisv
   | Gate    _
-  | TypeVar _          (* can happen in Univ ... *)
-  | Range   _       -> false
   (* | Range   _ *)
   | TypeVar _          (* can happen in Univ ... *)       
                     -> false
@@ -121,8 +119,6 @@ let rec ctfa_type classic t =
   | Bool
   | Bit 
   | Basisv
-  | Gate    _
-  | Range   _       -> ()
   (* | Range   _ *)
   | Gate    _       -> ()
   | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
@@ -187,10 +183,8 @@ let ctfa_def def =
 
   and ctfa_qstep qstep =
     match qstep.inst with
-    | Measure   (qe,gopt,param) -> ctfa_expr qe; 
-                                   (match gopt with Some g -> ctfa_expr g | None -> ());
-                                   ctfa_param param
-    | Ugatestep (qes, ug)       -> List.iter ctfa_expr qes
+    | Measure   (qe,ges,param) -> ctfa_expr qe; List.iter ctfa_expr ges
+    | Ugatestep (qes, ug)      -> List.iter ctfa_expr qes
   
   and ctfa_iostep iostep =
     (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
@@ -347,9 +341,6 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | String
   | Bit 
   | Unit  
-  | Basisv
-  | Gate  _         
-  | Range _         -> state, RNull
   | Basisv         
   (* | Range _ *)
   | Gate  _         -> state, RNull
@@ -542,7 +533,7 @@ let rec r_o_e disjoint state env e =
       | ECons       (hd,tl)   -> let r1, u1 = re use hd in
                                  let r2, u2 = re use tl in
                                  (match r1, r2 with
-                                  | RNull, _        (* if the hd has no resource, neither can the list *)
+                                  | RNull, _        (* if the hd has no resource, neither can the list (either it has qbit or it doesn't)*)
                                   | _    , RNull -> (* likewise the tail *)
                                                     RNull
                                   | _            -> try_disjoint (RCons (r1,r2))
@@ -651,14 +642,12 @@ and rck_proc state env proc =
                                    let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, bopt, param) -> 
+                                    | Measure (qe, ges, param) -> 
                                         let n,_ = param.inst in
                                         let _, usedq = resources_of_expr state env qe in
-                                        let usedb = match bopt with
-                                                    | Some e -> snd (resources_of_expr state env e)
-                                                    | None   -> ResourceSet.empty
-                                        in
-                                        ResourceSet.union usedq (ResourceSet.union usedb (rp state (env <@+> (n,RNull)) proc))
+                                        let ugs = List.map (snd <.> resources_of_expr state env) ges in
+                                        let usedg = List.fold_left ResourceSet.union ResourceSet.empty ugs in
+                                        ResourceSet.union usedq (ResourceSet.union usedg (rp state (env <@+> (n,RNull)) proc))
                                     | Ugatestep (qes, ug)    -> 
                                         let qers = List.map (snd <.> resources_of_expr state env) qes in
                                         (try let used = disju qers in

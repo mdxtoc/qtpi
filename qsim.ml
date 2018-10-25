@@ -539,7 +539,7 @@ let bigI n = let m = Array.make_matrix n n P_0 in
              _for 0 1 n (fun i -> m.(i).(i) <- P_1);
              m
              
-let tensor_v vA vB =
+let tensor_vv vA vB =
   let nA = vsize vA in
   let nB = vsize vB in
   let vR = new_v (nA*nB) in
@@ -550,8 +550,8 @@ let tensor_v vA vB =
                                        (string_of_probvec vR);
   vR
   
-let tensor_m mA mB =
-  if !verbose_qcalc then Printf.printf "tensor_m%s%s = " (string_of_matrix mA) (string_of_matrix mB);
+let tensor_mm mA mB =
+  if !verbose_qcalc then Printf.printf "tensor_mm%s%s = " (string_of_matrix mA) (string_of_matrix mB);
   let nA = msize mA in
   let nB = msize mB in
   let mt = new_ug (nA*nB) in
@@ -568,10 +568,10 @@ let tensor_m mA mB =
    if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
    mt
 
-let do_mv m v =
+let mult_mv m v =
   let n = Array.length v in
   if msize m <> n then
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): do_mv %s %s"
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
                                  (string_of_matrix m)
                                  (string_of_probvec v)
                  )
@@ -581,9 +581,28 @@ let do_mv m v =
                 v'.(i) <- _for_rightfold 0 1 n (fun j -> sum (prod m.(i).(j) v.(j))) P_0
              );
   v'
+
+let mult_mm mA mB =
+  let n = msize mA in
+  let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
+  if m <> msize mB then
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mm %s %s"
+                                 (string_of_matrix mA)
+                                 (string_of_matrix mB)
+                 )
+          );
+  let p = vsize mB.(0) in
+  let m' = new_ug m in
+  _for 0 1 n (fun i ->
+                (_for 0 1 p (fun j ->
+                               m'.(i).(j) <- _for_rightfold 0 1 m (fun k -> sum (prod mA.(i).(k) mB.(k).(j))) P_0
+                            )
+                )
+             );
+  m'
   
-let m_IH = tensor_m m_I m_H
-let m_HI = tensor_m m_H m_I
+let m_IH = tensor_mm m_I m_H
+let m_HI = tensor_mm m_H m_I
 
 type ugv =
   | GateH
@@ -612,7 +631,15 @@ let matrix_of_ugv = function
   | GateCnot        -> m_Cnot
   | GatePhi (i)     -> m_Phi(i)
 
-  
+let arity_of_ugv = function
+  | GateH           
+  | GateI           
+  | GateX           
+  | GateY           
+  | GateZ           
+  | GatePhi _       -> 1
+  | GateCnot        -> 2
+
 let idx q qs = 
   let rec f i = function
     | q'::qs -> if q = q' then i else f (i+1) qs
@@ -710,6 +737,34 @@ let rec record ((qs, vq) as qv) =
                | Some (q'::qs',vq,v') -> record ([q'], vq); record (qs', v')
                | _                    -> List.iter accept qs
 
+let ugstep_1 id_string q m =
+  match qval q with
+  | qs, v -> let nqs = List.length qs in
+             let i = idx q qs in
+             let m_op =
+               if i=0 && nqs=1 then m 
+               else (let pre_m = _for_leftfold 0 1 i (fun _ mIs -> tensor_mm m_I mIs) m_1 in
+                     let post_m = _for_leftfold (i+1) 1 nqs (fun _ mIs -> tensor_mm m_I mIs) m_1 in
+                     let m_op = tensor_mm (tensor_mm pre_m m) post_m in
+                     if !verbose_qcalc then
+                       Printf.printf "pre_m = %s, m= %s, post_m = %s, m_op = %s\n" 
+                                     (string_of_matrix pre_m)
+                                     (string_of_matrix m)
+                                     (string_of_matrix post_m)
+                                     (string_of_matrix m_op);
+                      m_op
+                     )
+             in
+             let v' = mult_mv m_op v in
+             if !verbose || !verbose_qsim then 
+               Printf.printf "%s : was %s|->%s; now %s->%s\n"
+                             (id_string ())
+                             (string_of_qbit q)
+                             (string_of_qval (qs, v))
+                             (string_of_qbit q)
+                             (string_of_qval (qs, v'));
+             record (qs,v')
+
 let ugstep pn qs ugv = 
   let id_string () = Printf.sprintf (if List.length qs = 1 then "%s ugstep %s >> %s" else "%s ugstep [%s] >> %s")
                                     (Name.string_of_name pn)
@@ -718,42 +773,12 @@ let ugstep pn qs ugv =
   in
   (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
 
-  let doit_1 q m =
-    match qval q with
-    | qs, v -> let nqs = List.length qs in
-               let i = idx q qs in
-               let m_op =
-                 if i=0 && nqs=1 then m 
-                 else (let pre_m = _for_leftfold 0 1 i (fun _ mIs -> tensor_m m_I mIs) m_1 in
-                       let post_m = _for_leftfold (i+1) 1 nqs (fun _ mIs -> tensor_m m_I mIs) m_1 in
-                       let m_op = tensor_m (tensor_m pre_m m) post_m in
-                       if !verbose_qcalc then
-                         Printf.printf "pre_m = %s, m= %s, post_m = %s, m_op = %s\n" 
-                                       (string_of_matrix pre_m)
-                                       (string_of_matrix m)
-                                       (string_of_matrix post_m)
-                                       (string_of_matrix m_op);
-                        m_op
-                       )
-               in
-               let v' = do_mv m_op v in
-               if !verbose || !verbose_qsim then 
-                 Printf.printf "%s : was %s|->%s; now %s->%s\n"
-                               (id_string ())
-                               (string_of_qbit q)
-                               (string_of_qval (qs, v))
-                               (string_of_qbit q)
-                               (string_of_qval (qs, v'));
-               record (qs,v')
-    
-  in
-  
   let doit_Cnot q1 q2 =
     if q1=q2 then raise (Error (Printf.sprintf "** Disaster (same qbit twice in Cnot) %s" (id_string ())));
     match qval q1, qval q2 with
     | ((q1s, v1) as qv1), ((q2s, v2) as qv2) -> (* q1s and q2s are either identical or they don't share indices. *)
         let v, qs = if qv1=qv2 then v1, q1s
-                    else tensor_v v1 v2, q1s @ q2s
+                    else tensor_vv v1 v2, q1s @ q2s
         in
         let bit1 = ibit q1 qs in
         let bit2 = ibit q2 qs in
@@ -771,7 +796,7 @@ let ugstep pn qs ugv =
                      ) m_Cnot;
         if !verbose_qcalc then
           Printf.printf "m_Cnot = %s\n" (string_of_matrix m_Cnot);
-        let v' = do_mv m_Cnot v in
+        let v' = mult_mv m_Cnot v in
         let qv = qs, v' in
         if !verbose || !verbose_qsim then 
           Printf.printf "%s : %s|->%s; %s|->%s; now %s,%s|->%s\n"
@@ -791,7 +816,7 @@ let ugstep pn qs ugv =
   | [q]    , GateX      
   | [q]    , GateY      
   | [q]    , GateZ      
-  | [q]    , GatePhi _  -> doit_1 q (matrix_of_ugv ugv)
+  | [q]    , GatePhi _  -> ugstep_1 id_string q (matrix_of_ugv ugv)
   | [q1;q2], GateCnot   -> doit_Cnot q1 q2 
   | _                   -> raise (Error (Printf.sprintf "** Disaster: ugstep [%s] %s"
                                                         (string_of_list string_of_qbit ";" qs)
@@ -799,10 +824,9 @@ let ugstep pn qs ugv =
                                         )
                                  )
 
-let rec qmeasure pn gopt q = 
-  match gopt with
-  | Some GateI
-  | None        -> (* computational measure *)
+let rec qmeasure pn ugvs q = 
+  match List.filter (fun ugv -> ugv<>GateI) ugvs with
+  | []          -> (* computational measure *)
       let qs, v = qval q in
       let nv = vsize v in
       let imask = ibit q qs in
@@ -895,8 +919,26 @@ let rec qmeasure pn gopt q =
             record qv'
            );
       r
-  | Some gate -> (* in gate-defined basis *)
-      ugstep pn [q] gate; 
-      let bit = qmeasure pn None q in
-      ugstep pn [q] gate;
+  | _ -> (* in gate-defined basis *)
+      if List.exists (fun ugv -> arity_of_ugv ugv <> 1) ugvs then 
+        raise (Error (Printf.sprintf "** Disaster: (arity) qmeasure %s %s %s"
+                                     pn
+                                     (bracketed_string_of_list string_of_ugv ugvs)
+                                     (string_of_qbit q)
+                     )
+              );
+      let gs = List.map matrix_of_ugv ugvs in
+      let gate = match gs with 
+                 | [g]   -> g
+                 | g::gs -> List.fold_left mult_mm g gs
+      in
+      let id_string () = Printf.sprintf "%s qmeasure %s =? %s (%s)"
+                                        (Name.string_of_name pn)
+                                        (string_of_qbit q)
+                                        (bracketed_string_of_list string_of_ugv ugvs)
+                                        (string_of_matrix gate)
+      in
+      ugstep_1 id_string q gate; 
+      let bit = qmeasure pn [] q in
+      ugstep_1 id_string q gate; (* this works because they are unitary gates *)
       bit

@@ -41,7 +41,6 @@ and tnode =
   | Gate of int     (* arity *)
   | TypeVar of name (* unknown name starts with '?', which doesn't appear in parseable names *)
   | Univ of name list * _type
-  | Range of int * int
   (* | Range of int * int *)
   | List of _type
   | Tuple of _type list
@@ -68,8 +67,6 @@ let typeprio t =
   | Basisv
   | Gate    _
   | TypeVar _ 
-  | Univ    _        
-  | Range   _       -> primaryprio
   (* | Range   _ *) 
   | Univ    _      -> primaryprio
   | List    _       -> listprio
@@ -140,8 +137,6 @@ and _frees s t =
   | Unit
   | Qbit  
   | Basisv
-  | Gate  _
-  | Range _     -> s
   (* | Range _ *)
   | Gate  _     -> s
   | TypeVar n   -> NameSet.add n s 
@@ -163,8 +158,6 @@ let rec rename assoc t =
   | Unit
   | Qbit 
   | Basisv
-  | Gate  _
-  | Range _     -> t
   (* | Range _ *)
   | Gate  _     -> t
   | TypeVar n   -> replace (TypeVar (assoc<@>n)) 

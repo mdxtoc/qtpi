@@ -72,6 +72,9 @@ let rec is_resource_type t =
   | Gate    _
   | TypeVar _          (* can happen in Univ ... *)
   | Range   _       -> false
+  (* | Range   _ *)
+  | TypeVar _          (* can happen in Univ ... *)       
+                    -> false
   | Univ (ns, t)    -> is_resource_type t 
   | List    t       -> is_resource_type t 
   | Channel t       -> false
@@ -120,6 +123,8 @@ let rec ctfa_type classic t =
   | Basisv
   | Gate    _
   | Range   _       -> ()
+  (* | Range   _ *)
+  | Gate    _       -> ()
   | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
                        ()
   | Univ    (ns, t) -> ctfa_type classic t
@@ -345,6 +350,9 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Basisv
   | Gate  _         
   | Range _         -> state, RNull
+  | Basisv         
+  (* | Range _ *)
+  | Gate  _         -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
   | TypeVar _       -> state, RNull  (* checked in ctfa *)
   | Univ _          -> state, RNull  (* checked in cfta *)

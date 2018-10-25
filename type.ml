@@ -42,6 +42,7 @@ and tnode =
   | TypeVar of name (* unknown name starts with '?', which doesn't appear in parseable names *)
   | Univ of name list * _type
   | Range of int * int
+  (* | Range of int * int *)
   | List of _type
   | Tuple of _type list
   | Channel of _type        (* cos if it's _type list then typechecking is harder *)
@@ -69,6 +70,8 @@ let typeprio t =
   | TypeVar _ 
   | Univ    _        
   | Range   _       -> primaryprio
+  (* | Range   _ *) 
+  | Univ    _      -> primaryprio
   | List    _       -> listprio
   | Tuple   _       -> tupleprio
   | Channel _       -> chanprio
@@ -101,7 +104,7 @@ and string_of_tnode = function
   | TypeVar  n      -> string_of_typevar n
   | Univ    (ns,ut) -> let nstrings = List.map string_of_typevar ns in
                        Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
-  | Range   (l,h)   -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h)
+  (* | Range   (l,h)   -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
   | List    t       -> Printf.sprintf "%s list" (possbracket false listprio t)
   | Tuple   ts      -> string_of_typelist true tupleprio ts
   | Channel t       -> Printf.sprintf "^%s" (possbracket false chanprio t)
@@ -139,6 +142,8 @@ and _frees s t =
   | Basisv
   | Gate  _
   | Range _     -> s
+  (* | Range _ *)
+  | Gate  _     -> s
   | TypeVar n   -> NameSet.add n s 
   | Univ (ns,t) -> let vs = frees t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
   | Channel t   
@@ -160,6 +165,8 @@ let rec rename assoc t =
   | Basisv
   | Gate  _
   | Range _     -> t
+  (* | Range _ *)
+  | Gate  _     -> t
   | TypeVar n   -> replace (TypeVar (assoc<@>n)) 
   | Univ (ns,t) -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
   | List    t   -> replace (List (rename assoc t))   

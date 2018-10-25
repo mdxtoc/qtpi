@@ -98,6 +98,7 @@ and evaltype cxt t =
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
                        adorn (Univ (ns,evaltype cxt t'))
   | Range _         -> t
+  (* | Range _         -> t *)
   | List t          -> adorn (List (evaltype cxt t))
   | Tuple ts        -> adorn (Tuple (List.map (evaltype cxt) ts))
   | Channel t       -> adorn (Channel (evaltype cxt t))
@@ -243,6 +244,8 @@ let rec unifytypes cxt t1 t2 =
   | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn cxt [t1a;t1b] [t2a;t2b]
   | Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
                                            if m<=i && j<=n then cxt else raise exn
+  (* | Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
+                                           if m<=i && j<=n then cxt else raise exn *)
   | _                                   -> if t1.inst=t2.inst then cxt else raise exn
 
 and unifypair cxt (t1,t2) = unifytypes cxt t1 t2
@@ -264,6 +267,9 @@ and canunifytype n cxt t =
   | Basisv
   | Gate    _   
   | Range   _       -> true
+  | Basisv   
+  (* | Range   _ *)
+  | Gate    _       -> true
   | TypeVar n'      -> (match eval cxt n' with
                         | None    -> n<>n'
                         | Some t' -> canunifytype n cxt t'
@@ -406,6 +412,8 @@ and assigntype_expr cxt t e =
                                                       else unifytypes cxt t (adorn_x e Int)
                                 | Range (j,k) as t -> if j<=i && i<=k then cxt 
                                                       else unifytypes cxt (adorn_x e t) (adorn_x e Int)
+                                (* | Range (j,k) as t -> if j<=i && i<=k then cxt 
+                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Int) *)
                                 | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Int)
                                )
      | EBool _              -> unifytypes cxt t (adorn_x e Bool)
@@ -414,14 +422,17 @@ and assigntype_expr cxt t e =
      | EBit b               -> (match (evaltype cxt t).inst with 
                                 | Int              -> cxt
                                 | Range (j,k) as t -> let i = if b then 1 else 0 in
+                                (* | Range (j,k) as t -> let i = if b then 1 else 0 in
                                                       if j<=i && i<=k then cxt 
                                                       else unifytypes cxt (adorn_x e t) (adorn_x e Bit)
+                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Bit) *)
                                 | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Bit)
                                )
      | EBasisv _            -> unifytypes cxt t (adorn_x e Basisv)
      | EGate   ug           -> let cxt = match ug.inst with
                                          | GH | GI | GX | GY | GZ | GCnot -> cxt
                                          | GPhi e                         -> assigntype_expr cxt (adorn_x e (Range (0,3))) e
+                                         | GPhi e                         -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
                                in
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n

@@ -203,10 +203,12 @@ simple_typespec:
   | QBITTYPE                            {adorn Qbit}
   | typevar                             {adorn (TypeVar ($1))}
   | INT DOTDOT INT                      {let low = int_of_string $1 in
+/*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
                                          if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } 
+                                        } */
   | LPAR typespec RPAR                  {$2}
   | FORALL typevars DOT typespec        {adorn (Univ ($2,$4))}
   | simple_typespec LISTTYPE            {adorn (List ($1))}

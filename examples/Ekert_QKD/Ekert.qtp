@@ -1,0 +1,62 @@
+fun bit2int b = if b=0b0 then 0 else 1 fi
+
+fun rand4() = i1*2+i2 where i1=bit2int b1
+                      where i2=bit2int b2
+                      where b1,b2 = randbit(), randbit()
+
+proc Alice(qc,rc) = qc?(q) . AliceMeasure (q,rc) 
+
+proc AliceMeasure (q,rc) = match rand4() .
+                           + 0 . q=?[]  (b) . dispose!q . rc!0,b . _0
+                           + 1 . q=?[_H](b) . dispose!q . rc!1,b . _0
+                           + 2 . q=?[_X](b) . dispose!q . rc!2,b . _0
+                           + _ . AliceMeasure (q,rc) (* 3 - try again *)
+
+proc Bob(qc,rc) = qc?(q) . BobMeasure (q,rc) 
+
+proc BobMeasure (q,rc) = match rand4() .
+                         + 1 . q=?[_H]   (b) . dispose!q . rc!1,b . _0
+                         + 2 . q=?[_Y]   (b) . dispose!q . rc!2,b . _0
+                         + 3 . q=?[_Y;_H](b) . dispose!q . rc!3,b . _0 (* does this give the right sign? *)
+                         + _ . BobMeasure  (q,rc) (* 0 - try again *)
+
+(* produce pairs (h|01>-h|10> -- the '-' is crucial *)
+proc Source(qA,qB) = (newq a=|1>,b=|->) b,a >> _Cnot . qA!a . qB!b . Source(qA,qB)
+
+fun frow xs (i,j) =
+  i, j, zs, length (filter (lam (vi,vj) . vi=vj) zs)
+      where zs = map (lam ((_,vi),(_,vj)) . vi,vj) ys
+      where ys = filter (lam ((i',_),(j',_)) . i=i' && j=j') xs
+      
+fun crossprod xs ys =
+  match xs . + []    . []
+             + x::xs . row x ys @ crossprod xs ys
+                         where row x ys = match ys . + []    . []
+                                                     + y::ys . (x,y) :: row x ys
+                                                     
+proc Control(qA,qB,n,k,results) =
+  if n=k then (let rows = map (frow results) (crossprod [0;1;2] [1;2;3]))
+              {iter (lam (i,j,xs,neq) . print_strings [show i; show j; ":"; (* show xs; ","; *) 
+                                                       show neq; ","; show ndiff; ",";
+                                                       show (neq-ndiff); "/"; show (length xs);
+                                                       "\n"]
+                                            where ndiff = length xs - neq
+                    ) rows
+              } .
+              _0 
+  else
+    {print_strings ["trial number "; show (k+1); "\n"]} .
+    (new rA, rB)
+    | Alice (qA,rA)
+    | Bob (qB,rB)
+    | rA?(bA,vA) . rB?(bB,vB) . 
+        (* {print_strings ["Alice saw "; show vA; " in basis "; show bA;
+                        "; Bob saw "; show vB; " in basis "; show bB; "\n"
+                       ]} . *)
+        Control(qA,qB,n,k+1,((bA,vA),(bB,vB))::results)
+  fi
+  
+proc System() = 
+  (let n = read_int "number of trials")
+  (new qA,qB) | Source(qA,qB)
+              | Control(qA,qB,n,0,[])

@@ -1,0 +1,12 @@
+proc System() = (let bs = randbits 1000) {print_strings [show bs; "\n"]} . Source()
+
+proc Source() =
+  (newq a=|0>,b=|+>) {print_qbit a} . {print_qbit b} . 
+  b,a >> _Cnot . {print_qbit a} . {print_string "\n"} .
+  (newq a=|0>,b=|->) {print_qbit a} . {print_qbit b} . 
+  b,a >> _Cnot . {print_qbit a} . {print_string "\n"} .
+  (newq a=|1>,b=|+>) {print_qbit a} . {print_qbit b} . 
+  b,a >> _Cnot . {print_qbit a} . {print_string "\n"} .
+  (newq a=|1>,b=|->) {print_qbit a} . {print_qbit b} . 
+  b,a >> _Cnot . {print_qbit a} . {print_string "\n"} .
+  _0

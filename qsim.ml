@@ -31,18 +31,29 @@ open Tupleutils
 exception Error of string
 
 type qbit = int
-
+(* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
+   f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
+   g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
+   i = sqrt -1; will be useful if we ever go complex.
+   
+   Note h^2=1/2; 
+        f^2+g^2=1;
+        f^2-g^2=h;
+        fg = 1/2h  
+ *)
 type prob = 
   | P_0
   | P_1
-  | P_h of int              (* (sqrt 1/2)**n *)
-  | P_i                     (* sqrt -1 *)
+  | P_f of int              
+  | P_g of int
+  | P_h of int              
+  | P_i                     
   | Psymb of bool * qbit    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
   | Pneg of prob
   | Pprod of prob list      (* associative *)
   | Psum of prob list       (* associative *)
 
-type qval = qbit list * prob array (* 2^n probs in the array *)
+type qval = qbit list * prob array (* with n qbits, 2^n probs in the array *)
 
 let string_of_qbit = string_of_int
 
@@ -56,6 +67,8 @@ let rec string_of_prob p =
     | P_0
     | P_1
     | P_i             
+    | P_f  _ 
+    | P_g  _ 
     | P_h  _ 
     | Psymb _         -> 10
     | Pprod _         -> 8
@@ -72,6 +85,10 @@ let rec string_of_prob p =
   match p with
   | P_0             -> "0"
   | P_1             -> "1"
+  | P_f 1           -> "f"
+  | P_f n           -> Printf.sprintf "f(%d)" n
+  | P_g 1           -> "g"
+  | P_g n           -> Printf.sprintf "g(%d)" n
   | P_h 1           -> "h"
   | P_h n           -> Printf.sprintf "h(%d)" n
   | P_i             -> "i"
@@ -137,6 +154,8 @@ let rec string_of_probvec v =
        | P_0                (* can't happen *)
        | P_1                (* can't happen *)
        | P_i             
+       | P_f  _ 
+       | P_g  _ 
        | P_h  _ 
        | Psymb _         
        | Pprod _         -> string_of_prob p
@@ -288,7 +307,7 @@ let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted according to the type definition: i.e.
- * P_0, P_1, P_h, P_i, Psymb. But ... this isn't good enough. 
+ * P_0, P_1, P_f, P_g, P_h, P_i, Psymb. But ... this isn't good enough. 
  
  * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  *)
@@ -395,7 +414,7 @@ and simplify_sum ps =
                                                   (string_of_option string_of_prob r);
             r
           in
-          let rec a2b2 p1 p2 = (* looking for X*a**2+X*b**2 *)
+          let rec a2b2 p1 p2 = (* looking for X*a^2+X*b^2; also X*f^2+X*g^2. *)
             let r = match p1, p2 with
                     | Pneg p1  , Pneg p2   -> a2b2 p1 p2 &~~ (_Some <.> neg)
                     | Pprod p1s, Pprod p2s ->
@@ -414,6 +433,11 @@ and simplify_sum ps =
                              | (Psymb (false, q1), Psymb (true, q2)) ::
                                (Psymb (false, q3), Psymb (true, q4)) :: post  
                                when q1=q2 && q1=q3 && q1=q4 && all_same post
+                                     -> let pre , _ = unzip pre in
+                                        let post, _ = unzip post in
+                                        Some (simplify_prod (pre @ post))
+                             | (P_f i, P_g j) :: post
+                               when i=j && i mod 2 = 0 && all_same post
                                      -> let pre , _ = unzip pre in
                                         let post, _ = unzip post in
                                         Some (simplify_prod (pre @ post))
@@ -500,19 +524,22 @@ and div p1 p2 = (* happens in normalise *) (* this needs work for division by su
   
 let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 
-let m_I  = make_ug [[P_1    ; P_0        ];
-                   [P_0    ; P_1        ]] 
-let m_X  = make_ug [[P_0    ; P_1        ];
-                   [P_1    ; P_0        ]] 
-let m_Y  = make_ug [[P_0    ; P_1        ];
-                   [neg P_1; P_0        ]] 
-let mYi = make_ug [[P_0    ; neg P_i    ];
-                   [P_i    ; P_0        ]] 
-let m_Z =  make_ug [[P_1    ; P_0        ];
-                   [P_0    ; neg P_1    ]] 
+let m_I  = make_ug  [[P_1       ; P_0        ];
+                     [P_0       ; P_1        ]] 
+let m_X  = make_ug  [[P_0       ; P_1        ];
+                     [P_1       ; P_0        ]] 
+let m_Y  = make_ug  [[P_0       ; P_1        ];
+                     [neg P_1   ; P_0        ]] 
+let mYi = make_ug   [[P_0       ; neg P_i    ];
+                     [P_i       ; P_0        ]] 
+let m_Z =  make_ug  [[P_1       ; P_0        ];
+                     [P_0       ; neg P_1    ]] 
 
-let m_H  = make_ug [[P_h 1  ; P_h 1      ];
-                   [P_h 1  ; neg (P_h 1)]]
+let m_H  = make_ug [[P_h 1      ; P_h 1      ];
+                    [P_h 1      ; neg (P_h 1)]]
+
+let m_FG = make_ug [[P_f 1      ; P_g 1      ];
+                    [neg (P_g 1); P_f 1      ]]
 
 let m_Phi = function
   | 0 -> m_I
@@ -522,9 +549,9 @@ let m_Phi = function
   | i -> raise (Error ("** Disaster: _Phi(" ^ string_of_int i ^ ")"))
 
 let m_Cnot = make_ug [[P_1; P_0; P_0; P_0];
-                     [P_0; P_1; P_0; P_0];
-                     [P_0; P_0; P_0; P_1];
-                     [P_0; P_0; P_1; P_0]]
+                      [P_0; P_1; P_0; P_0];
+                      [P_0; P_0; P_0; P_1];
+                      [P_0; P_0; P_1; P_0]]
                      
 let m_1 = make_ug [[P_1]] (* a unit for folding *)
 let m_0 = make_ug [[P_0]] (* another unit for folding *)

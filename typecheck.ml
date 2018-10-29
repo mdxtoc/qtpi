@@ -119,8 +119,9 @@ let rec rewrite_expr cxt e =
        | EBit        _          
        | EBasisv     _          -> ()
        | EGate       ug         -> (match ug.inst with
-                                    | GH | GI | GX | GY | GZ | GCnot -> ()
-                                    | GPhi e                         -> rewrite_expr cxt e
+                                    | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
+                                                    -> ()
+                                    | UG_Phi e      -> rewrite_expr cxt e
                                    )
        | EMinus      e          
        | ENot        e          -> rewrite_expr cxt e
@@ -318,11 +319,12 @@ and assigntype_pat contn cxt t p =
       | PatString _     -> contn (unifytypes cxt t (adorn p.pos String))
       | PatBasisv _     -> contn (unifytypes cxt t (adorn p.pos Basisv))
       | PatGate pg      -> (match pg.inst with
-                            | PatH | PatI | PatX | PatY | PatZ -> contn (unifytypes cxt t (adorn p.pos (Gate (1))))
-                            | PatCnot                          -> contn (unifytypes cxt t (adorn p.pos (Gate (2))))
-                            | PatPhi p                         -> let pt = adorn p.pos Int in
-                                                                  let cxt = unifytypes cxt t (adorn p.pos (Gate(1))) in
-                                                                  assigntype_pat contn cxt pt p
+                            | PatH| PatFG | PatI | PatX | PatY | PatZ 
+                                                    -> contn (unifytypes cxt t (adorn p.pos (Gate (1))))
+                            | PatCnot               -> contn (unifytypes cxt t (adorn p.pos (Gate (2))))
+                            | PatPhi p              -> let pt = adorn p.pos Int in
+                                                       let cxt = unifytypes cxt t (adorn p.pos (Gate(1))) in
+                                                       assigntype_pat contn cxt pt p
                            ) 
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
                            let lt = adorn p.pos (List vt) in
@@ -416,8 +418,9 @@ and assigntype_expr cxt t e =
                                )
      | EBasisv _            -> unifytypes cxt t (adorn_x e Basisv)
      | EGate   ug           -> let cxt = match ug.inst with
-                                         | GH | GI | GX | GY | GZ | GCnot -> cxt
-                                         | GPhi e                         -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
+                                         | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
+                                                        -> cxt
+                                         | UG_Phi e       -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
                                in
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n

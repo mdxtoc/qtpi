@@ -67,13 +67,14 @@ and enode =
 and ugate = ugnode instance
 
 and ugnode =
-  | GH
-  | GI
-  | GX
-  | GY
-  | GZ
-  | GCnot
-  | GPhi of expr
+  | UG_H
+  | UG_FG
+  | UG_I
+  | UG_X
+  | UG_Y
+  | UG_Z
+  | UG_Cnot
+  | UG_Phi of expr
 
 and arithop =
   | Plus
@@ -282,26 +283,28 @@ and string_of_boolop = function
 
 and string_of_ugate ug = 
   match ug.inst with
-  | GH              -> "_H"  
-  | GI              -> "_I"
-  | GX              -> "_X"
-  | GY              -> "_Y"
-  | GZ              -> "_Z"
-  | GCnot           -> "_CNot"
-  | GPhi (e)        -> Printf.sprintf "_Phi(%s)" (string_of_expr e)
+  | UG_H              -> "_H"  
+  | UG_FG             -> "_FG"  
+  | UG_I              -> "_I"
+  | UG_X              -> "_X"
+  | UG_Y              -> "_Y"
+  | UG_Z              -> "_Z"
+  | UG_Cnot           -> "_CNot"
+  | UG_Phi (e)        -> Printf.sprintf "_Phi(%s)" (string_of_expr e)
 
 and string_of_ematch (pat,e) =
   Printf.sprintf "%s.%s" (string_of_pattern pat) (string_of_expr e)
 
 let arity_of_ugate ug =
   match ug.inst with
-  | GH
-  | GI
-  | GX
-  | GY
-  | GZ
-  | GPhi _  -> 1
-  | GCnot   -> 2
+  | UG_H
+  | UG_FG
+  | UG_I
+  | UG_X
+  | UG_Y
+  | UG_Z
+  | UG_Phi _  -> 1
+  | UG_Cnot   -> 2
 
 let delist = function
   | []  -> EUnit

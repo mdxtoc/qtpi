@@ -204,8 +204,8 @@ let ctfa_def def =
     | EBit       _          
     | EBasisv    _          -> ()   (* constants *)
     | EGate      ug         -> (match ug.inst with
-                                  | GH | GI | GX | GY | GZ | GCnot -> ()
-                                  | GPhi e                         -> ctfa_expr e
+                                  | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot -> ()
+                                  | UG_Phi e                               -> ctfa_expr e
                                )
     | EMinus     e          
     | ENot       e          -> ctfa_expr e
@@ -493,9 +493,10 @@ let rec r_o_e disjoint state env e =
       | EBit        _         
       | EBasisv     _         -> RNull, ResourceSet.empty
       | EGate       ug        -> (match ug.inst with
-                                    | GH | GI | GX | GY | GZ | GCnot -> RNull, ResourceSet.empty
-                                    | GPhi e                         -> let _, used = re use e in
-                                                                        RNull, used
+                                    | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
+                                                    -> RNull, ResourceSet.empty
+                                    | UG_Phi e        -> let _, used = re use e in
+                                                       RNull, used
                                  )                    
       | EMinus      e         -> re Uarith e
       | ENot        e         -> re Ubool e

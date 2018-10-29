@@ -646,6 +646,7 @@ let m_HI = tensor_mm m_H m_I
 
 type ugv =
   | GateH
+  | GateFG
   | GateI
   | GateX
   | GateY
@@ -655,6 +656,7 @@ type ugv =
 
 let string_of_ugv = function
   | GateH           -> "_H"
+  | GateFG          -> "_FG"
   | GateI           -> "_I"
   | GateX           -> "_X"
   | GateY           -> "_Y"
@@ -664,6 +666,7 @@ let string_of_ugv = function
 
 let matrix_of_ugv = function
   | GateH           -> m_H
+  | GateFG          -> m_FG
   | GateI           -> m_I
   | GateX           -> m_X
   | GateY           -> m_Y
@@ -673,6 +676,7 @@ let matrix_of_ugv = function
 
 let arity_of_ugv = function
   | GateH           
+  | GateFG          
   | GateI           
   | GateX           
   | GateY           

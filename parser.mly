@@ -73,7 +73,7 @@
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
-%token HADAMARD PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
+%token HADAMARD FG PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
 %token PLUS MINUS DIV
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
@@ -359,6 +359,7 @@ simplepattern:
   | STRING                              {padorn (PatString $1)}
   | basisv                              {padorn (PatBasisv $1) }
   | HADAMARD                            {padorn (PatGate (adorn PatH))}
+  | FG                                  {padorn (PatGate (adorn PatFG))}
   | CNOT                                {padorn (PatGate (adorn PatCnot))}
   | I                                   {padorn (PatGate (adorn PatI))}
   | X                                   {padorn (PatGate (adorn PatX))}
@@ -497,13 +498,14 @@ bool:
   | ntexpr OR ntexpr                    {$1,Or,$3}
   
 ugate: 
-  | HADAMARD                            {adorn GH}
-  | CNOT                                {adorn GCnot}
-  | I                                   {adorn GI}
-  | X                                   {adorn GX}
-  | Y                                   {adorn GY}
-  | Z                                   {adorn GZ}
-  | PHI LPAR expr RPAR                  {adorn (GPhi ($3))}
+  | HADAMARD                            {adorn UG_H}
+  | FG                                  {adorn UG_FG}
+  | CNOT                                {adorn UG_Cnot}
+  | I                                   {adorn UG_I}
+  | X                                   {adorn UG_X}
+  | Y                                   {adorn UG_Y}
+  | Z                                   {adorn UG_Z}
+  | PHI LPAR expr RPAR                  {adorn (UG_Phi ($3))}
 
 exprlist:
   |                                     {eadorn ENil}

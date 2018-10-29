@@ -108,6 +108,7 @@ rule make_token = parse
   | ".."        {DOTDOT}
     
   | "_H"        {HADAMARD}
+  | "_FG"       {FG}
   | "_I"        {I}
   | "_X"        {X}
   | "_Y"        {Y}

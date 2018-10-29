@@ -53,6 +53,7 @@ and gatepat = gpnode instance
 
 and gpnode =
   | PatH
+  | PatFG
   | PatI
   | PatX
   | PatY
@@ -60,7 +61,7 @@ and gpnode =
   | PatCnot
   | PatPhi of pattern 
   
-let nGatepat = 7  (* for matchchecker *)
+let nGatepat = 8  (* for matchchecker *)
 
 let constprio = NonAssoc, 10
 let listprio  = Right   , 6
@@ -120,6 +121,7 @@ let rec string_of_pattern p =
 and string_of_gatepat g =
   match g.inst with 
   | PatH        -> "_H"
+  | PatFG       -> "_FG"
   | PatI        -> "_I"
   | PatX        -> "_X"
   | PatY        -> "_Y"

@@ -284,6 +284,7 @@ let matcher pos env pairs value =
     | PatBasisv v       , VBasisv v'        -> maybe v v'
     | PatGate   pg      , VGate   vg        -> (match pg.inst, vg with
                                                 | PatH    , GateH 
+                                                | PatFG   , GateFG 
                                                 | PatI    , GateI
                                                 | PatX    , GateX
                                                 | PatY    , GateY
@@ -444,13 +445,14 @@ and funev env e =
 
 and ugev env ug = 
   match ug.inst with
-  | GH                  -> GateH
-  | GI                  -> GateI
-  | GX                  -> GateX
-  | GY                  -> GateY
-  | GZ                  -> GateZ
-  | GCnot               -> GateCnot
-  | GPhi  e             -> GatePhi(intev env e)
+  | UG_H                  -> GateH
+  | UG_FG                 -> GateFG
+  | UG_I                  -> GateI
+  | UG_X                  -> GateX
+  | UG_Y                  -> GateY
+  | UG_Z                  -> GateZ
+  | UG_Cnot               -> GateCnot
+  | UG_Phi  e             -> GatePhi(intev env e)
 
 let mkchan c = {cname=c; stream=Queue.create (); 
                          rwaiters=PQueue.create 10; (* 10 is a guess *)

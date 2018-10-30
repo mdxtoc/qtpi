@@ -7,17 +7,17 @@ fun rand4() = i1*2+i2 where i1=bit2int b1
 proc Alice(qc,rc) = qc?(q) . AliceMeasure (q,rc) 
 
 proc AliceMeasure (q,rc) = match rand4() .
-                           + 0 . q=?[]  (b) . dispose!q . rc!0,b . _0
-                           + 1 . q=?[_H](b) . dispose!q . rc!1,b . _0
-                           + 2 . q=?[_X](b) . dispose!q . rc!2,b . _0
+                           + 0 . q=?[]    (b) . dispose!q . rc!0,b . _0
+                           + 1 . q=?[_FG] (b) . dispose!q . rc!1,b . _0
+                           + 2 . q=?[_H]  (b) . dispose!q . rc!2,b . _0
                            + _ . AliceMeasure (q,rc) (* 3 - try again *)
 
 proc Bob(qc,rc) = qc?(q) . BobMeasure (q,rc) 
 
 proc BobMeasure (q,rc) = match rand4() .
-                         + 1 . q=?[_H]   (b) . dispose!q . rc!1,b . _0
-                         + 2 . q=?[_Y]   (b) . dispose!q . rc!2,b . _0
-                         + 3 . q=?[_Y;_H](b) . dispose!q . rc!3,b . _0 (* does this give the right sign? *)
+                         + 1 . q=?[_FG]   (b) . dispose!q . rc!1,b . _0
+                         + 2 . q=?[_H]    (b) . dispose!q . rc!2,b . _0
+                         + 3 . q=?[_H;_FG](b) . dispose!q . rc!3,b . _0 (* does this give the right sign? *)
                          + _ . BobMeasure  (q,rc) (* 0 - try again *)
 
 (* produce pairs (h|01>-h|10> -- the '-' is crucial *)
@@ -45,7 +45,7 @@ proc Control(qA,qB,n,k,results) =
               } .
               _0 
   else
-    {print_strings ["trial number "; show (k+1); "\n"]} .
+    {if (k+1) % 1000 = 0 then print_strings ["trial number "; show (k+1); "\n"] else () fi} .
     (new rA, rB)
     | Alice (qA,rA)
     | Bob (qB,rB)

@@ -39,7 +39,7 @@ type qbit = int
    Note h^2=1/2; 
         f^2+g^2=1;
         f^2-g^2=h;
-        fg = 1/2h  
+        fg = 1/2h = h^3  
  *)
 type prob = 
   | P_0
@@ -350,8 +350,11 @@ and simplify_prod ps = (* basically we deal with constants *)
             match ps with
             | P_0            :: ps -> false, [P_0]
             | P_1            :: ps -> sp is_neg r ps
-            | P_i   :: P_i   :: ps -> sp (not is_neg) r ps
+            | P_f i :: P_f j :: ps -> sp is_neg r (P_f (i+j) :: ps)
+            | P_g i :: P_g j :: ps -> sp is_neg r (P_g (i+j) :: ps)
+            | P_f 1 :: P_g 1 :: ps -> sp is_neg r (P_h 3 :: ps)
             | P_h i :: P_h j :: ps -> sp is_neg r (sqrt_half (i+j) :: ps)
+            | P_i   :: P_i   :: ps -> sp (not is_neg) r ps
             | p              :: ps -> sp is_neg (p::r) ps
             | []                   -> is_neg, List.rev r
           in
@@ -367,7 +370,6 @@ and simplify_prod ps = (* basically we deal with constants *)
     Printf.printf "simplify_prod (%s) -> %s\n" (string_of_prob (Pprod ps)) (string_of_prob r);
   r
 
-and sum  p1 p2 = 
 and sum p1 p2 = 
   let r = match p1, p2 with
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
@@ -593,8 +595,6 @@ let tensor_mm mA mB =
                                             )
                              )
               );
-   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
-   mt
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
   mt
 
@@ -645,7 +645,6 @@ let cjtrans_m m = (* square matrices only *)
           );
   let m' = new_ug n in
   _for 0 1 n (fun i ->
-                _for 0 1 n (fun j -> m'.(i).(j) = m.(j).(i))
                 _for 0 1 n (fun j -> m'.(i).(j) <- m.(j).(i))
              );
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
@@ -881,6 +880,43 @@ let ugstep pn qs ugv =
                                         )
                                  )
 
+let fp_h2 = 0.5
+let fp_h = sqrt fp_h2
+let fp_f2 = (1.0 +. fp_h) /. 2.0
+let fp_f = sqrt fp_f2
+let fp_g2 = (1.0 -. fp_h) /. 2.0
+let fp_g = sqrt fp_g2
+
+exception Compute
+
+let rec compute = function
+  | P_0         -> 0.0
+  | P_1         -> 1.0
+  | P_f i       -> (match i with
+                    | 0             -> 1.0
+                    | 1             -> fp_f
+                    | _ when i<0    -> 1.0 /. compute (P_f (~-i))
+                    | _             -> fp_f2 *. compute (P_f (i-2))
+                   )             
+  | P_g i       -> (match i with
+                    | 0             -> 1.0
+                    | 1             -> fp_g
+                    | _ when i<0    -> 1.0 /. compute (P_g (~-i))
+                    | _             -> fp_g2 *. compute (P_g (i-2))
+                   )             
+  | P_h i       -> (match i with
+                    | 0             -> 1.0
+                    | 1             -> fp_h
+                    | _ when i<0    -> 1.0 /. compute (P_h (~-i))
+                    | _             -> fp_h2 *. compute (P_h (i-2))
+                   )             
+               
+  | P_i                            
+  | Psymb _     -> raise Compute
+  | Pneg  p     -> ~-. (compute p)
+  | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
+  | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
+
 let rec qmeasure pn ugvs q = 
   match List.filter (fun ugv -> ugv<>GateI) ugvs with
   | []          -> (* computational measure *)
@@ -906,17 +942,13 @@ let rec qmeasure pn ugvs q =
         if !verbose || !verbose_qsim then Printf.printf " guessing %d;" r;
         r  
       in
-      let r = match prob with
-      | P_0    -> 0
-      | P_1    -> 1
-      | P_h i -> if i=0 then 1
-                 else (let rg = Random.float 1.0 in
-                       let rec iexp i rf = if i=0 then rf else iexp (i-1) (rf/.sqrt 2.0) in
-                       let r = if iexp i 1.0 < rg then 1 else 0 in
-                       if !verbose || !verbose_qsim then Printf.printf " (biased %f<%f) guessing %d;" (iexp i 1.0) rg r;
-                       r
-                      )
-      | _     -> guess ()
+      let r = try let v = compute prob in
+                  if v=1.0 then 1 else
+                  let rg = Random.float 1.0 in
+                  let r = if v>rg then 1 else 0 in
+                  if !verbose || !verbose_qsim then Printf.printf " test %f>%f: choosing %d;" v rg r;
+                  r
+              with Compute -> guess ()
       in
       (* set the relevant probs to zero, normalise *)
       _for 0 1 nv (fun i -> if (r=1 && i land imask=0) || (r=0 && i land imask<>0)
@@ -990,11 +1022,6 @@ let rec qmeasure pn ugvs q =
                  | g::gs -> List.fold_left mult_mm g gs
                  | []    -> m_I (* shut up compiler -- can't happen *)
       in
-      let id_string () = Printf.sprintf "rotation from %s qmeasure %s =? %s (%s)"
-                                        (Name.string_of_name pn)
-                                        (string_of_qbit q)
-                                        (bracketed_string_of_list string_of_ugv ugvs)
-                                        (string_of_matrix gate)
       let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? %s (%s)"
                                              (Name.string_of_name pn)
                                              (string_of_qbit q)
@@ -1002,7 +1029,6 @@ let rec qmeasure pn ugvs q =
                                              (string_of_matrix gate)
       in
       let qv = qval q in
-      ugstep_1 id_string q qv gate gate; 
       ugstep_1 (id_string gate) q qv gate gate; 
       let bit = qmeasure pn [] q in
       (* that _must_ have broken any entanglement: rotate the parts back separately *)
@@ -1023,10 +1049,8 @@ let rec qmeasure pn ugvs q =
                                                   (string_of_qval (qval q'))
                                   )
                            );
-                   ugstep_1 id_string q' qv' gate' gate'
                    ugstep_1 (id_string gate') q' qv' gate' gate'
                   )
       ); 
-      ugstep_1 id_string q (qval q) gate' gate';
       ugstep_1 (id_string gate') q (qval q) gate' gate';
       bit

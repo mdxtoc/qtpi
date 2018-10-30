@@ -34,7 +34,7 @@ type qbit = int
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
-   i = sqrt -1; will be useful if we ever go complex.
+   i = sqrt -1; will be useful if we ever go complex. For now commented out.
    
    Note h^2=1/2; 
         f^2+g^2=1;
@@ -47,7 +47,7 @@ type prob =
   | P_f of int              
   | P_g of int
   | P_h of int              
-  | P_i                     
+  (* | P_i *)                     
   | Psymb of bool * qbit    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
   | Pneg of prob
   | Pprod of prob list      (* associative *)
@@ -66,7 +66,7 @@ let rec string_of_prob p =
   let prio = function
     | P_0
     | P_1
-    | P_i             
+    (* | P_i *)             
     | P_f  _ 
     | P_g  _ 
     | P_h  _ 
@@ -91,7 +91,7 @@ let rec string_of_prob p =
   | P_g n           -> Printf.sprintf "g(%d)" n
   | P_h 1           -> "h"
   | P_h n           -> Printf.sprintf "h(%d)" n
-  | P_i             -> "i"
+  (* | P_i             -> "i" *) 
   | Psymb (b,q)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
   | Pneg p'         -> "-" ^ possbra p'
   | Pprod ps        -> nary ps "*"
@@ -153,7 +153,7 @@ let rec string_of_probvec v =
        match p with
        | P_0                (* can't happen *)
        | P_1                (* can't happen *)
-       | P_i             
+       (* | P_i *)             
        | P_f  _ 
        | P_g  _ 
        | P_h  _ 
@@ -162,7 +162,7 @@ let rec string_of_probvec v =
        | Pneg  p'        -> (match p' with
                                    | P_0       -> "(-0? really?)"
                                    | P_1       -> "-"
-                                   | P_i             
+                                   (* | P_i *)             
                                    | P_h   _ 
                                    | Psymb _   -> "-" ^ string_of_prob p'
                                    | _         -> "-(" ^ string_of_prob p' ^ ")"
@@ -307,7 +307,7 @@ let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted according to the type definition: i.e.
- * P_0, P_1, P_f, P_g, P_h, P_i, Psymb. But ... this isn't good enough. 
+ * P_0, P_1, P_f, P_g, P_h, (* P_i, *) Psymb. But ... this isn't good enough. 
  
  * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  *)
@@ -354,7 +354,7 @@ and simplify_prod ps = (* basically we deal with constants *)
             | P_g i :: P_g j :: ps -> sp is_neg r (P_g (i+j) :: ps)
             | P_f 1 :: P_g 1 :: ps -> sp is_neg r (P_h 3 :: ps)
             | P_h i :: P_h j :: ps -> sp is_neg r (sqrt_half (i+j) :: ps)
-            | P_i   :: P_i   :: ps -> sp (not is_neg) r ps
+            (* | P_i   :: P_i   :: ps -> sp (not is_neg) r ps *)
             | p              :: ps -> sp is_neg (p::r) ps
             | []                   -> is_neg, List.rev r
           in
@@ -533,8 +533,8 @@ let m_X  = make_ug  [[P_0       ; P_1        ];
                      [P_1       ; P_0        ]] 
 let m_Y  = make_ug  [[P_0       ; P_1        ];
                      [neg P_1   ; P_0        ]] 
-let mYi = make_ug   [[P_0       ; neg P_i    ];
-                     [P_i       ; P_0        ]] 
+(* let mYi = make_ug   [[P_0       ; neg P_i    ];
+                        [P_i       ; P_0        ]] *) 
 let m_Z =  make_ug  [[P_1       ; P_0        ];
                      [P_0       ; neg P_1    ]] 
 
@@ -910,8 +910,7 @@ let rec compute = function
                     | _ when i<0    -> 1.0 /. compute (P_h (~-i))
                     | _             -> fp_h2 *. compute (P_h (i-2))
                    )             
-               
-  | P_i                            
+  (* | P_i *)                            
   | Psymb _     -> raise Compute
   | Pneg  p     -> ~-. (compute p)
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)

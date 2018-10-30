@@ -368,6 +368,7 @@ and simplify_prod ps = (* basically we deal with constants *)
   r
 
 and sum  p1 p2 = 
+and sum p1 p2 = 
   let r = match p1, p2 with
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
           | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
@@ -594,8 +595,11 @@ let tensor_mm mA mB =
               );
    if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
    mt
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
+  mt
 
 let mult_mv m v =
+  if !verbose_qcalc then Printf.printf "mult_mv%s%s = " (string_of_matrix m) (string_of_probvec v);
   let n = Array.length v in
   if msize m <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
@@ -607,9 +611,11 @@ let mult_mv m v =
   _for 0 1 n (fun i -> 
                 v'.(i) <- _for_rightfold 0 1 n (fun j -> sum (prod m.(i).(j) v.(j))) P_0
              );
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
   v'
 
 let mult_mm mA mB =
+  if !verbose_qcalc then Printf.printf "mult_mm%s%s = " (string_of_matrix mA) (string_of_matrix mB);
   let n = msize mA in
   let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
   if m <> msize mB then
@@ -626,9 +632,11 @@ let mult_mm mA mB =
                             )
                 )
              );
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
   m'
 
 let cjtrans_m m = (* square matrices only *)
+  if !verbose_qcalc then Printf.printf "cjtrans_m%s = " (string_of_matrix m);
   let n = msize m in
   if n <> vsize m.(0) then
     raise (Error (Printf.sprintf "** Disaster (unsquareness): cjtrans_m %s"
@@ -638,7 +646,9 @@ let cjtrans_m m = (* square matrices only *)
   let m' = new_ug n in
   _for 0 1 n (fun i ->
                 _for 0 1 n (fun j -> m'.(i).(j) = m.(j).(i))
+                _for 0 1 n (fun j -> m'.(i).(j) <- m.(j).(i))
              );
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
   m'
   
 let m_IH = tensor_mm m_I m_H
@@ -985,9 +995,15 @@ let rec qmeasure pn ugvs q =
                                         (string_of_qbit q)
                                         (bracketed_string_of_list string_of_ugv ugvs)
                                         (string_of_matrix gate)
+      let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? %s (%s)"
+                                             (Name.string_of_name pn)
+                                             (string_of_qbit q)
+                                             (bracketed_string_of_list string_of_ugv ugvs)
+                                             (string_of_matrix gate)
       in
       let qv = qval q in
       ugstep_1 id_string q qv gate gate; 
+      ugstep_1 (id_string gate) q qv gate gate; 
       let bit = qmeasure pn [] q in
       (* that _must_ have broken any entanglement: rotate the parts back separately *)
       let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
@@ -1008,7 +1024,9 @@ let rec qmeasure pn ugvs q =
                                   )
                            );
                    ugstep_1 id_string q' qv' gate' gate'
+                   ugstep_1 (id_string gate') q' qv' gate' gate'
                   )
       ); 
       ugstep_1 id_string q (qval q) gate' gate';
+      ugstep_1 (id_string gate') q (qval q) gate' gate';
       bit

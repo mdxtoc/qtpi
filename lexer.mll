@@ -140,6 +140,7 @@ rule make_token = parse
   | '+'         {PLUS}
   | '-'         {MINUS}
   | '/'         {DIV}
+  | '%'         {MOD}
   (* and STAR as multiply *)
     
   | "|0>"       {VZERO}

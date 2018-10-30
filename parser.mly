@@ -75,7 +75,7 @@
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD FG PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUS MINUS DIV
+%token PLUS MINUS DIV MOD
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -94,7 +94,7 @@
 %right NOT
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS
-%left mult_op STAR DIV
+%left mult_op STAR DIV MOD
 %left APPEND
 
 %right TYPEARROW
@@ -478,6 +478,7 @@ app:
 arith:
   | ntexpr STAR ntexpr                  {$1,Times,$3}
   | ntexpr DIV ntexpr                   {$1,Div,$3}
+  | ntexpr MOD ntexpr                   {$1,Mod,$3}
   | ntexpr PLUS ntexpr                  {$1,Plus,$3}
   | ntexpr MINUS ntexpr                 {$1,Minus,$3}
   

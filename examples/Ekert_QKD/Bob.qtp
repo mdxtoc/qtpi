@@ -1,0 +1,26 @@
+proc Bob(qc,ic,bc,logc) = 
+  (new rc)
+    | BobRead (qc,ic,rc,[]) 
+    | rc?(bvs,bAs) .
+      (let bs = map fst bvs)
+      ic!bs .
+      (let bAbvs = combine bAs bvs)
+      (let vBs = sanitise bAbvs)
+      bc?(vAs) .
+      bc!vBs  .
+      (* here we should wait for Alice to check that the values we sent pass the non-interference test *)
+      (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
+      (* {print_strings ["Bob's key is "; show key; "\n"]} . *)
+      logc!() .
+      _0
+
+proc BobRead (qc,ic,rc,bvs) = 
+  + qc?(q)   . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (qc,ic,rc,bv::bvs)
+  + ic?(bAs) . rc!rev bvs, bAs . _0
+
+proc BobMeasure (q,r) =
+  match rand4() .
+    + 1 . q=?[_FG]   (b) . dispose!q . r!1,b . _0
+    + 2 . q=?[_H]    (b) . dispose!q . r!2,b . _0
+    + 3 . q=?[_H;_FG](b) . dispose!q . r!3,b . _0
+    + _ . BobMeasure (q,r) (* 0 - try again *)

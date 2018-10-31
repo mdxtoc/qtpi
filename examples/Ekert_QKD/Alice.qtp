@@ -1,0 +1,51 @@
+fun int_sqrt n = i_s 0 n
+
+fun i_s k n =
+  if k*k>=n then k 
+  else i_s (k+1) n fi
+  
+proc Alice(n,qc,ic,bc,logc) = 
+  (new rc) 
+    | AliceRead (n,qc,rc,[])
+    | rc?(bvs)    .
+      (let bs = map fst bvs)
+      ic!bs     .
+      ic?(bBs)  .
+      (let bBbvs = combine bBs bvs)
+      (let vAs = sanitise bBbvs)
+      bc!vAs   . (* send Bob the values, where we used different bases *)
+      bc?(vBs) .
+      (* apply the non-interference test *)
+      (* All the tests are about choosing from a sequence of k ~= nq/9 with 
+         probability (1+h)/2 (where h=1/sqrt 2) ~= 0.854. The standard deviation 
+         sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). Take 3 times that to be 
+         six sigma away from the mode.
+       *)
+      (let bbvvs = zip (zip bs bBs) (zip vAs vBs)) (* 1,1 and 2,2 don't matter *)
+      (* try it on 0,1 first *)
+      (let vv_01s = map snd (filter (lam ((b,b'),_) . b=0 && b'=1) bbvvs))
+      (let size = length vv_01s)
+      (let ndiff = length (filter (lam (v,v') . v<>v') vv_01s))
+      (let sigma = int_sqrt ((size+4)/8))
+      (let mean = size*854/1000)
+      {print_strings [(* "01s="; show vv_01s; "; *)"size="; show size;
+                      "; ndiff="; show ndiff; 
+                      "; mean="; show mean; "; sigma="; show sigma; 
+                      "; nsigmas="; show ((mean-ndiff)*2/sigma); "\n"]} .
+      (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
+      (* {print_strings ["Alice's key is "; show key; "\n"]} . *)
+      logc!() .
+      _0
+
+proc AliceRead (n,qc,rc,bvs) = 
+  if n=0 then rc!rev bvs . _0
+  else
+    qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (n-1,qc,rc,bv::bvs)
+  fi
+
+proc AliceMeasure (q,r) =
+  match rand4() . 
+    + 0 . q=?[]    (b) . dispose!q . r!0,b . _0
+    + 1 . q=?[_FG] (b) . dispose!q . r!1,b . _0
+    + 2 . q=?[_H]  (b) . dispose!q . r!2,b . _0
+    + _ . AliceMeasure (q,r) (* 3 - try again *)

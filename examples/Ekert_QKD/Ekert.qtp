@@ -1,5 +1,8 @@
 fun bit2int b = if b=0b0 then 0 else 1 fi
 
+fun bool2bit b = if b then 0b1 else 0b0 fi
+fun bit2bool (b:bit) :bool = b=0b1
+
 fun inverse b = if b=0b0 then 0b1 else 0b0 fi
 
 fun rand4() = i1*2+i2 where i1=bit2int b1
@@ -13,6 +16,20 @@ fun sanitise bbvs =
   
 fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
 
+(* apply the non-interference test *)
+(* All the tests are about choosing from a sequence of k ~= nq/9 with 
+   probability (1+h)/2 (where h=1/sqrt 2) ~= 0.854. The standard deviation 
+   sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). 
+ *)
+fun check bs b's vs v's ij = 
+  nsigmas<5 where nsigmas = abs (mean-ndiff)/sigma
+            where mean = size*854/1000
+            where sigma = int_sqrt ((size+4)/8)
+            where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
+            where size = length vv_ijs
+            where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
+            where bbvvs = zip (zip bs b's) (zip vs v's)
+            
 (* produce pairs (h|01>-h|10> -- the '-' is crucial *)
 proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
 
@@ -33,7 +50,7 @@ proc Control(qcA,qcB,n,k,nq) =
     {(* if (k+1) % 1000 = 0 then *) print_strings ["trial number "; show (k+1); "\n"] (* else () fi *)} .
     (new ic,bc,logcA, logcB)
     | Alice (nq,qcA,ic,bc,logcA)
-    | Bob (qcB,ic,bc,logcB)
+    | Bob   (nq,qcB,ic,bc,logcB)
     | logcA?_ . logcB?_ . 
         (* {print_strings ["Alice saw "; show vA; " in basis "; show bA;
                         "; Bob saw "; show vB; " in basis "; show bB; "\n"

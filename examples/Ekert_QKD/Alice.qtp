@@ -3,7 +3,9 @@ fun int_sqrt n = i_s 0 n
 fun i_s k n =
   if k*k>=n then k 
   else i_s (k+1) n fi
-  
+
+fun abs i = if i<0 then -i else i fi
+
 proc Alice(n,qc,ic,bc,logc) = 
   (new rc) 
     | AliceRead (n,qc,rc,[])
@@ -15,27 +17,27 @@ proc Alice(n,qc,ic,bc,logc) =
       (let vAs = sanitise bBbvs)
       bc!vAs   . (* send Bob the values, where we used different bases *)
       bc?(vBs) .
-      (* apply the non-interference test *)
-      (* All the tests are about choosing from a sequence of k ~= nq/9 with 
-         probability (1+h)/2 (where h=1/sqrt 2) ~= 0.854. The standard deviation 
-         sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). Take 3 times that to be 
-         six sigma away from the mode.
+      (* we can do this for all the orientations, but while we have a slow
+         interpreter, one each for Alice and Bob will have to do.
        *)
-      (let bbvvs = zip (zip bs bBs) (zip vAs vBs)) (* 1,1 and 2,2 don't matter *)
-      (* try it on 0,1 first *)
-      (let vv_01s = map snd (filter (lam ((b,b'),_) . b=0 && b'=1) bbvvs))
-      (let size = length vv_01s)
-      (let ndiff = length (filter (lam (v,v') . v<>v') vv_01s))
-      (let sigma = int_sqrt ((size+4)/8))
-      (let mean = size*854/1000)
-      {print_strings [(* "01s="; show vv_01s; "; *)"size="; show size;
-                      "; ndiff="; show ndiff; 
-                      "; mean="; show mean; "; sigma="; show sigma; 
-                      "; nsigmas="; show ((mean-ndiff)/sigma); "\n"]} .
-      (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
-      (* {print_strings ["Alice's key is "; show key; "\n"]} . *)
-      logc!() .
-      _0
+      if not (check bs bBs vAs vBs (0,1)) then (* we have interference *)
+        bc![bool2bit false] .
+        {print_strings ["Alice detects interference\n"]} .
+        logc!() .
+        _0
+      else 
+        bc![bool2bit true]  .
+        bc?(go)             .
+        if bit2bool (hd go) then (* Bob says ok too *)
+          (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
+          (* {print_strings ["Alice's key is "; show key; "\n"]} . *)
+          logc!() .
+        _0
+        else
+          logc!() .
+          _0
+        fi
+      fi
 
 proc AliceRead (n,qc,rc,bvs) = 
   if n=0 then rc!rev bvs . _0

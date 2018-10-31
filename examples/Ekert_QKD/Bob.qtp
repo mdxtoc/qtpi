@@ -1,22 +1,38 @@
-proc Bob(qc,ic,bc,logc) = 
+proc Bob(n,qc,ic,bc,logc) = 
   (new rc)
-    | BobRead (qc,ic,rc,[]) 
-    | rc?(bvs,bAs) .
+    | BobRead (n,qc,rc,[]) 
+    | rc?(bvs) .
       (let bs = map fst bvs)
-      ic!bs .
+      ic?(bAs)  .
+      ic!bs     .
       (let bAbvs = combine bAs bvs)
       (let vBs = sanitise bAbvs)
-      bc?(vAs) .
-      bc!vBs  .
-      (* here we should wait for Alice to check that the values we sent pass the non-interference test *)
-      (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
-      (* {print_strings ["Bob's key is "; show key; "\n"]} . *)
-      logc!() .
-      _0
+      bc?(vAs)  .
+      bc!vBs    .
+      bc?(go)   .
+      if bit2bool (hd go) then (* Alice says ok *)
+        if not (check bs bAs vBs vAs (3,2)) then (* we have interference *)
+          bc![bool2bit false] .
+          {print_strings ["Bob detects interference\n"]} .
+          logc!() .
+          _0
+        else (* All is well *)
+          bc![bool2bit true]  .
+          (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
+          (* {print_strings ["Bob's key is "; show key; "\n"]} . *)
+          logc!() .
+          _0
+        fi
+      else
+        logc!() .
+        _0
+      fi
 
-proc BobRead (qc,ic,rc,bvs) = 
-  + qc?(q)   . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (qc,ic,rc,bv::bvs)
-  + ic?(bAs) . rc!rev bvs, bAs . _0
+proc BobRead (n,qc,rc,bvs) = 
+  if n=0 then rc!rev bvs . _0
+  else
+    qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (n-1,qc,rc,bv::bvs)
+  fi
 
 proc BobMeasure (q,r) =
   match rand4() .

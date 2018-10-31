@@ -107,7 +107,9 @@ let v_randbits n =
   vlist (randbits n)
 
 let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))) 
-                  with Invalid_argument _ -> raise (LibraryError (Printf.sprintf "zip %s %s" 
+                  with Invalid_argument _ -> raise (LibraryError (Printf.sprintf "zip (%d %d) %s %s"
+                                                                                 (List.length (listv xs))
+                                                                                 (List.length (listv ys))
                                                                                  (bracketed_string_of_list string_of_value (listv xs))
                                                                                  (bracketed_string_of_list string_of_value (listv ys))
                                                           )

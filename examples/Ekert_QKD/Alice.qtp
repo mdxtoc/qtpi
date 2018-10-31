@@ -31,7 +31,7 @@ proc Alice(n,qc,ic,bc,logc) =
       {print_strings [(* "01s="; show vv_01s; "; *)"size="; show size;
                       "; ndiff="; show ndiff; 
                       "; mean="; show mean; "; sigma="; show sigma; 
-                      "; nsigmas="; show ((mean-ndiff)*2/sigma); "\n"]} .
+                      "; nsigmas="; show ((mean-ndiff)/sigma); "\n"]} .
       (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
       (* {print_strings ["Alice's key is "; show key; "\n"]} . *)
       logc!() .

@@ -27,11 +27,12 @@ fun check bs b's vs v's ij =
             where sigma = int_sqrt ((size+4)/8)
             where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
             where size = length vv_ijs
+            (* where _ = print_strings ["combine "; show bbvvs; "; "; show vv_ijs; "\n"] *)
             where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
             where bbvvs = zip (zip bs b's) (zip vs v's)
             
-(* produce pairs (h|01>-h|10> -- the '-' is crucial *)
-proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
+fun xor_mask code message = 
+  map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
 
 fun frow xs (i,j) =
   i, j, zs, length (filter (lam (vi,vj) . vi=vj) zs)
@@ -44,6 +45,11 @@ fun crossprod xs ys =
                          where row x ys = match ys . + []    . []
                                                      + y::ys . (x,y) :: row x ys
                                                      
+(* *************************************************************************************** *)
+
+(* produce pairs (h|01>-h|10> -- the '-' is crucial *)
+proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
+
 proc Control(qcA,qcB,n,k,nq) =
   if n=k then _0 
   else

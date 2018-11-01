@@ -14,17 +14,19 @@ proc Bob(n,qc,ic,bc,logc) =
         if not (check bs bAs vBs vAs (3,2)) then (* we have interference *)
           bc![bool2bit false] .
           {print_strings ["Bob detects interference\n"]} .
-          logc!() .
+          logc![] .
           _0
         else (* All is well *)
           bc![bool2bit true]  .
           (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
-          (* {print_strings ["Bob's key is "; show key; "\n"]} . *)
-          logc!() .
+          bc?(encrypted) .
+          (let message = xor_mask key encrypted)
+          {print_strings ["Bob receives "; show message; "\n"]} .
+          logc!message .
           _0
         fi
       else
-        logc!() .
+        logc![] .
         _0
       fi
 

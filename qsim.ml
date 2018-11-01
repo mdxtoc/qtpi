@@ -417,43 +417,63 @@ and simplify_sum ps =
                                                   (string_of_option string_of_prob r);
             r
           in
-          let rec a2b2 p1 p2 = (* looking for X*a^2+X*b^2; also X*f^2+X*g^2. *)
+          let takeit pre post =
+            let pre , _ = unzip pre in
+            let post, _ = unzip post in
+            Some (simplify_prod (pre @ post))
+          in
+          let partition_1 pps =
+            let rec pp_1 r pps =
+              match pps with
+              | (a,b) as h :: pps when a=b -> pp_1 (h::r) pps
+              | _                          -> List.rev r, pps
+            in
+            pp_1 [] pps
+          in
+          let all_same pps =
+            let _, post = partition_1 pps in
+            null post
+          in
+          let rec a2b2 p1 p2 = (* looking for X*a^2+X*b^2; also X*f^2+/-X*g^2. *)
             let r = match p1, p2 with
-                    | Pneg p1  , Pneg p2   -> a2b2 p1 p2 &~~ (_Some <.> neg)
-                    | Pprod p1s, Pprod p2s ->
+                    | Pneg p1         , Pneg p2             -> a2b2 p1 p2 &~~ (_Some <.> neg)
+                    | P_f 2           , P_g 2               -> Some P_1
+                    | P_f 2           , Pneg (P_g 2)        -> Some (P_h 1)
+                    | Pneg (P_f 2)    , P_g 2               -> Some (Pneg (P_h 1))
+                    | Pprod p1s       , Pneg (Pprod p2s)    -> a2nb2 p1s p2s 
+                    | Pneg (Pprod p1s), Pprod p2s           -> a2nb2 p2s p1s 
+                    | Pprod p1s       , Pprod p2s           ->
                         (try let pps = zip p1s p2s in
-                             let rec partition_1 r pps =
-                               match pps with
-                               | (a,b) as h :: pps when a=b -> partition_1 (h::r) pps
-                               | _                          -> List.rev r, pps
-                             in
-                             let pre, rest = partition_1 [] pps in
-                             let all_same pps =
-                               let pre, post = partition_1 [] pps in
-                               null post
-                             in
+                             let pre, rest = partition_1 pps in
                              match rest with
                              | (Psymb (false, q1), Psymb (true, q2)) ::
                                (Psymb (false, q3), Psymb (true, q4)) :: post  
                                when q1=q2 && q1=q3 && q1=q4 && all_same post
-                                     -> let pre , _ = unzip pre in
-                                        let post, _ = unzip post in
-                                        Some (simplify_prod (pre @ post))
-                             | (P_f i, P_g j) :: post
-                               when i=j && i mod 2 = 0 && all_same post
-                                     -> let pre , _ = unzip pre in
-                                        let post, _ = unzip post in
-                                        Some (simplify_prod (pre @ post))
+                                     -> takeit pre post
+                             | (P_f 2, P_g 2) :: post
+                               when all_same post
+                                     -> takeit pre post
                              | _     -> None
                          with Zip -> None
                         )
-                    | _ -> None
+                    | _                                     -> None
             in
             if !verbose_simplify then
               Printf.printf "a2b2 (%s) (%s) -> %s\n" (string_of_prob p1)  
                                                      (string_of_prob p2)
                                                      (string_of_option string_of_prob r);
             r
+          and a2nb2 p1s p2s = (* looking for X*f^2-X*g^2 or X*g^2-X*h^2. *)
+            try
+              let pps = zip p1s p2s in
+              let pre, rest = partition_1 pps in
+              match rest with
+              | (P_f 2, P_g 2) :: post
+                when all_same post         -> takeit pre post &~~ (_Some <.> prod (P_h 1))
+              | (P_g 2, P_f 2) :: post
+                when all_same post         -> takeit pre post &~~ (_Some <.> neg <.> prod (P_h 1))
+              | _                          -> None
+            with Zip -> None
           in
           let rec sp again r ps =
             match ps with

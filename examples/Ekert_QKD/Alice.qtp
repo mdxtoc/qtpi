@@ -31,7 +31,7 @@ proc Alice(n,qc,ic,bc,logc) =
         if bit2bool (hd go) then (* Bob says ok too *)
           (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
           (let message = randbits (length key))
-          {print_strings ["Alice sends  "; show message; "\n"]} .
+          (* {print_strings ["Alice sends  "; show message; "\n"]} . *)
           bc!xor_mask key message   .
           logc!message              .
         _0

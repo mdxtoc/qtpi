@@ -21,7 +21,7 @@ proc Bob(n,qc,ic,bc,logc) =
           (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
           bc?(encrypted) .
           (let message = xor_mask key encrypted)
-          {print_strings ["Bob receives "; show message; "\n"]} .
+          (* {print_strings ["Bob receives "; show message; "\n"]} . *)
           logc!message .
           _0
         fi

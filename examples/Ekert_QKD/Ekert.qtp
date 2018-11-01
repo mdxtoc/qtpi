@@ -47,23 +47,9 @@ fun crossprod xs ys =
                                                      
 (* *************************************************************************************** *)
 
-(* produce pairs (h|01>-h|10> -- the '-' is crucial *)
+(* produce pairs (h|01>-h|10> -- the '-' is crucial (well maybe not, but I do use anti-correlation in calculations) *)
 proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
 
-proc Control(qcA,qcB,n,k,nq) =
-  if n=k then _0 
-  else
-    {(* if (k+1) % 1000 = 0 then *) print_strings ["trial number "; show (k+1); "\n"] (* else () fi *)} .
-    (new ic,bc,logcA, logcB)
-    | Alice (nq,qcA,ic,bc,logcA)
-    | Bob   (nq,qcB,ic,bc,logcB)
-    | logcA?_ . logcB?_ . 
-        (* {print_strings ["Alice saw "; show vA; " in basis "; show bA;
-                        "; Bob saw "; show vB; " in basis "; show bB; "\n"
-                       ]} . *)
-        Control(qcA,qcB,n,k+1,nq)
-  fi
-  
 proc System() = 
   (let n = read_int "number of trials")
   (let nq = read_int "number of qbits")

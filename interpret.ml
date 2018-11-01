@@ -316,81 +316,88 @@ let name_of_bpat pat = (* only called by dispose?(q) *)
   | _         -> "can't happen"
   
 let rec evale env e =
-  match e.inst.enode with
-  | EUnit               -> VUnit
-  | ENil                -> VList []
-  | EVar n              -> (try env<@>n 
-                            with Invalid_argument _ -> 
-                              raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
-                           )
-  | EInt i              -> VInt i
-  | EBool b             -> VBool b
-  | EChar c             -> VChar c
-  | EString s           -> VString s
-  | EBit b              -> VInt (if b then 1 else 0)
-  | EBasisv bv          -> VBasisv bv
-  | EGate uge           -> VGate (ugev env uge)
-  | EMinus e            -> VInt (~- (intev env e))
-  | ENot   e            -> VBool (not (boolev env e))
-  | ETuple es           -> VTuple (List.map (evale env) es)
-  | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
-  | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
-  | EMatch (me,ems)     -> let v = evale env me in
-                           (match matcher e.pos env ems v with
-                            | Some (env, e) -> evale env e
-                            | None          -> raise (Error (e.pos, Printf.sprintf "match failed against %s"
-                                                                                   (string_of_value v)
-                                                            )
-                                                     )
-                           )  
-  | EApp (f,a)          -> let fv = funev env f in
-                           (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
+  try
+    match e.inst.enode with
+    | EUnit               -> VUnit
+    | ENil                -> VList []
+    | EVar n              -> (try env<@>n 
+                              with Invalid_argument _ -> 
+                                raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
+                             )
+    | EInt i              -> VInt i
+    | EBool b             -> VBool b
+    | EChar c             -> VChar c
+    | EString s           -> VString s
+    | EBit b              -> VInt (if b then 1 else 0)
+    | EBasisv bv          -> VBasisv bv
+    | EGate uge           -> VGate (ugev env uge)
+    | EMinus e            -> VInt (~- (intev env e))
+    | ENot   e            -> VBool (not (boolev env e))
+    | ETuple es           -> VTuple (List.map (evale env) es)
+    | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
+    | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)
+    | EMatch (me,ems)     -> let v = evale env me in
+                             (match matcher e.pos env ems v with
+                              | Some (env, e) -> evale env e
+                              | None          -> raise (Error (e.pos, Printf.sprintf "match failed against %s"
+                                                                                     (string_of_value v)
+                                                              )
+                                                       )
+                             )  
+    | EApp (f,a)          -> let fv = funev env f in
+                             (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
-  | EArith (e1,op,e2)   -> let v1 = intev env e1 in
-                           let v2 = intev env e2 in
-                           VInt (match op with
-                                 | Plus    -> v1+v2    
-                                 | Minus   -> v1-v2
-                                 | Times   -> v1*v2
-                                 | Div     -> v1/v2
-                                 | Mod     -> v1 mod v2
-                                )
-  | ECompare (e1,op,e2) -> VBool (match op with
-                                  | Eq  -> evale env e1 = evale env e2
-                                  | Neq -> evale env e1 <> evale env e2
-                                  | _   -> let v1 = intev env e1 in
-                                           let v2 = intev env e2 in
-                                           (match op with
-                                            | Lt    -> v1<v2
-                                            | Leq   -> v1<=v2
-                                            | Eq    -> v1=v2  (* can't happen *)
-                                            | Neq   -> v1<>v2 (* can't happen *)
-                                            | Geq   -> v1>=v2
-                                            | Gt    -> v1>v2
-                                           )
-                                 ) 
-  | EBoolArith (e1,op,e2) -> let v1 = boolev env e1 in
-                             let v2 = boolev env e2 in
-                             VBool (match op with
-                                      | And       -> v1 && v2
-                                      | Or        -> v1 || v2
-                                      | Implies   -> (not v1) || v2
-                                      | Iff       -> v1 = v2
-                                   )
-  | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
-  | ELambda (pats, e)       -> fun_of e env pats
-  | EWhere  (e, ed)         -> let env = match ed with
-                                         | EDPat (pat,_,we) ->
-                                             let v = evale env we in
-                                             bmatch env pat v
-                                         | EDFun (fn,pats,_, we) ->
-                                             let stored_env = ref env in
-                                             let env = env <@+> bind_fun stored_env fn.inst pats we in
-                                             stored_env := env;
-                                             env
-                               in
-                               evale env e
-                 
+    | EArith (e1,op,e2)   -> let v1 = intev env e1 in
+                             let v2 = intev env e2 in
+                             VInt (match op with
+                                   | Plus    -> v1+v2    
+                                   | Minus   -> v1-v2
+                                   | Times   -> v1*v2
+                                   | Div     -> v1/v2
+                                   | Mod     -> v1 mod v2
+                                  )
+    | ECompare (e1,op,e2) -> VBool (match op with
+                                    | Eq  -> evale env e1 = evale env e2
+                                    | Neq -> evale env e1 <> evale env e2
+                                    | _   -> let v1 = intev env e1 in
+                                             let v2 = intev env e2 in
+                                             (match op with
+                                              | Lt    -> v1<v2
+                                              | Leq   -> v1<=v2
+                                              | Eq    -> v1=v2  (* can't happen *)
+                                              | Neq   -> v1<>v2 (* can't happen *)
+                                              | Geq   -> v1>=v2
+                                              | Gt    -> v1>v2
+                                             )
+                                   ) 
+    | EBoolArith (e1,op,e2) -> let v1 = boolev env e1 in
+                               let v2 = boolev env e2 in
+                               VBool (match op with
+                                        | And       -> v1 && v2
+                                        | Or        -> v1 || v2
+                                        | Implies   -> (not v1) || v2
+                                        | Iff       -> v1 = v2
+                                     )
+    | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
+    | ELambda (pats, e)       -> fun_of e env pats
+    | EWhere  (e, ed)         -> let env = match ed with
+                                           | EDPat (pat,_,we) ->
+                                               let v = evale env we in
+                                               bmatch env pat v
+                                           | EDFun (fn,pats,_, we) ->
+                                               let stored_env = ref env in
+                                               let env = env <@+> bind_fun stored_env fn.inst pats we in
+                                               stored_env := env;
+                                               env
+                                 in
+                                 evale env e
+  with exn ->
+    Printf.printf "evale %s %s sees exception %s\n" 
+                  (string_of_env env)
+                  (string_of_expr e)
+                  (Printexc.to_string exn);
+    raise exn
+    
 and fun_of expr env pats =
   match pats with
   | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
@@ -491,152 +498,161 @@ let rec interp sysenv proc =
   in
   let runners = PQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = PQueue.push runners runner in
+  let print_interp_state () =
+    Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
+                  (string_of_runnerqueue ";\n  " runners)
+                  (string_of_stuck_chans ())
+                  (String.concat "\n " (strings_of_qsystem ()))
+  in
   let rec step () =
-    if PQueue.is_empty runners then 
-      if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
-         not (ChanSet.is_empty !stuck_chans)
-      then
-        Printf.printf "All stuck!\n channels=%s\n %s\n\n"
-                      (string_of_stuck_chans ())
-                      (String.concat "\n " (strings_of_qsystem ()))
-      else ()
-    else
-      (if !verbose || !verbose_interpret then
-         Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
-                       (string_of_runnerqueue ";\n  " runners)
-                       (string_of_stuck_chans ())
-                       (String.concat "\n " (strings_of_qsystem ()));
-       let runner = PQueue.pop runners in
-       PQueue.excite runners;
-       let pn, rproc, env = runner in
-       (match rproc.inst with
-        | Terminate         -> ()
-        | Call (n, es)      -> 
-            (let vs = List.map (evale env) es in
-             try (match env<@>n.inst with
-                  | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
-                                           addrunner (n.inst, proc, env)
-                  | v                   -> mistyped rproc.pos (string_of_name n.inst) v "a process"
-                 )  
-             with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
-            )
-        | WithNew (ps, proc) ->
-            let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
-            addrunner (pn, proc, (List.fold_left (<@+>) env ps))
-        | WithQbit (ps, proc) ->
-            let bv_eval = function
-            | None      -> None
-            | Some bve  -> Some (basisvv (evale env bve))
-            in
-            let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
-            addrunner (pn, proc, (List.fold_left (<@+>) env ps))
-        | WithLet ((pat,e), proc) ->
-            let v = evale env e in
-            addrunner (pn, proc, bmatch env pat v)
-        | WithQstep (qstep, proc) ->
-            (match qstep.inst with
-             | Measure (e, ges, {inst=n,_}) -> let q = qbitev env e in
-                                               let gvs = List.map (gatev <.> evale env) ges in
-                                               let v = VInt (qmeasure pn gvs q) in
-                                               addrunner (pn, proc, env <@+> (n,v))
-             | Ugatestep (es, ug)           -> let qs = List.map (qbitev env) es in
-                                               let g = gatev (evale env ug) in
-                                               ugstep pn qs g;
-                                               addrunner (pn, proc, env)
-            )
-        | WithExpr (e, proc)  -> let _ = evale env e in
-                                 addrunner (pn, proc, env)
-        | GSum ioprocs      -> 
-            let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
-            let canread c pat =
-              let do_match v' = Some (bmatch env pat v') in
-              try if c.cname = -1 then (* reading from dispose, ho ho *)
-                    let q = newqbit pn (name_of_bpat pat) None in
-                    do_match q
-                  else
-                    let v' = Queue.pop c.stream in
-                    (maybe_forget_chan c; 
-                     do_match v'
-                    )
-              with Queue.Empty ->
-              try boyd c.wwaiters; (* now the first must be alive *)
-                  let (pn',v',proc',env'),gsir = PQueue.pop c.wwaiters in
-                  let _, chans = !gsir in
-                  gsir := false, [];
-                  withdraw chans;
-                  PQueue.excite c.wwaiters;
-                  addrunner (pn', proc', env');
-                  do_match v'
-              with PQueue.Empty -> None
-            in
-            let canwrite c v =
-              if c.cname = -1 then (* it's dispose *)
-                 (disposeqbit pn (qbitv v); 
-                  true
+      if PQueue.is_empty runners then 
+        if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
+           not (ChanSet.is_empty !stuck_chans)
+        then
+          Printf.printf "All stuck!\n channels=%s\n %s\n\n"
+                        (string_of_stuck_chans ())
+                        (String.concat "\n " (strings_of_qsystem ()))
+        else ()
+      else
+        ((try 
+            if !verbose || !verbose_interpret then
+              print_interp_state();
+            let runner = PQueue.pop runners in
+            PQueue.excite runners;
+            let pn, rproc, env = runner in
+            (match rproc.inst with
+             | Terminate         -> ()
+             | Call (n, es)      -> 
+                 (let vs = List.map (evale env) es in
+                  try (match env<@>n.inst with
+                       | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
+                                                addrunner (n.inst, proc, env)
+                       | v                   -> mistyped rproc.pos (string_of_name n.inst) v "a process"
+                      )  
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
                  )
-               else
-               try boyd c.rwaiters;
-                   let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
-                   let _, chans = !gsir in
-                   gsir := false, [];
-                   withdraw chans;
-                   PQueue.excite c.rwaiters;
-                   addrunner (pn', proc', bmatch env' pat' v);
-                   true
-               with PQueue.Empty -> 
-               if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                  !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-               then
-                 (Queue.push v c.stream;
-                  remember_chan c;
-                  true
+             | WithNew (ps, proc) ->
+                 let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
+                 addrunner (pn, proc, (List.fold_left (<@+>) env ps))
+             | WithQbit (ps, proc) ->
+                 let bv_eval = function
+                 | None      -> None
+                 | Some bve  -> Some (basisvv (evale env bve))
+                 in
+                 let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
+                 addrunner (pn, proc, (List.fold_left (<@+>) env ps))
+             | WithLet ((pat,e), proc) ->
+                 let v = evale env e in
+                 addrunner (pn, proc, bmatch env pat v)
+             | WithQstep (qstep, proc) ->
+                 (match qstep.inst with
+                  | Measure (e, ges, {inst=n,_}) -> let q = qbitev env e in
+                                                    let gvs = List.map (gatev <.> evale env) ges in
+                                                    let v = VInt (qmeasure pn gvs q) in
+                                                    addrunner (pn, proc, env <@+> (n,v))
+                  | Ugatestep (es, ug)           -> let qs = List.map (qbitev env) es in
+                                                    let g = gatev (evale env ug) in
+                                                    ugstep pn qs g;
+                                                    addrunner (pn, proc, env)
                  )
-               else false
-            in
-            let rec try_iosteps gsum pq = 
-              try let (iostep,proc) = PQueue.pop pq in
-                  match iostep.inst with
-                  | Read (ce,pat) -> let c = chanev env ce in
-                                     (match canread c pat with
-                                      | Some env -> addrunner (pn, proc, env)
-                                      | None     -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
-                                     )
-                  | Write (ce,e)  -> let c = chanev env ce in
-                                     let v = evale env e in
-                                     if canwrite c v then addrunner (pn, proc, env)
-                                     else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
-              with PQueue.Empty ->
-              let cs = List.map fst gsum in
-              let gsir = ref (true, cs) in
-              let add_waiter = function
-                | c, Grw rw -> PQueue.push c.rwaiters (rw,gsir);
-                               remember_chan c
-                | c, Gww ww -> PQueue.push c.wwaiters (ww,gsir);
-                               remember_chan c
-              in
-              List.iter add_waiter gsum
-            in
-            let pq = PQueue.create (List.length ioprocs) in
-            List.iter (PQueue.push pq) ioprocs;
-            try_iosteps [] pq
-        | Cond (e, p1, p2)  ->
-            addrunner (pn, (if boolev env e then p1 else p2), env)
-        | PMatch (e,pms)    -> let v = evale env e in
-                               (match matcher rproc.pos env pms v with
-                                | Some (env, proc) -> addrunner (pn, proc, env)
-                                | None             -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
-                                                                                              (string_of_value v)
-                                                            )
-                                                     )
-                               )  
-        | Par ps            ->
-            List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
-       );
-       step ()
-      )
+             | WithExpr (e, proc)  -> let _ = evale env e in
+                                      addrunner (pn, proc, env)
+             | GSum ioprocs      -> 
+                 let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
+                 let canread c pat =
+                   let do_match v' = Some (bmatch env pat v') in
+                   try if c.cname = -1 then (* reading from dispose, ho ho *)
+                         let q = newqbit pn (name_of_bpat pat) None in
+                         do_match q
+                       else
+                         let v' = Queue.pop c.stream in
+                         (maybe_forget_chan c; 
+                          do_match v'
+                         )
+                   with Queue.Empty ->
+                   try boyd c.wwaiters; (* now the first must be alive *)
+                       let (pn',v',proc',env'),gsir = PQueue.pop c.wwaiters in
+                       let _, chans = !gsir in
+                       gsir := false, [];
+                       withdraw chans;
+                       PQueue.excite c.wwaiters;
+                       addrunner (pn', proc', env');
+                       do_match v'
+                   with PQueue.Empty -> None
+                 in
+                 let canwrite c v =
+                   if c.cname = -1 then (* it's dispose *)
+                      (disposeqbit pn (qbitv v); 
+                       true
+                      )
+                    else
+                    try boyd c.rwaiters;
+                        let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
+                        let _, chans = !gsir in
+                        gsir := false, [];
+                        withdraw chans;
+                        PQueue.excite c.rwaiters;
+                        addrunner (pn', proc', bmatch env' pat' v);
+                        true
+                    with PQueue.Empty -> 
+                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                       !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+                    then
+                      (Queue.push v c.stream;
+                       remember_chan c;
+                       true
+                      )
+                    else false
+                 in
+                 let rec try_iosteps gsum pq = 
+                   try let (iostep,proc) = PQueue.pop pq in
+                       match iostep.inst with
+                       | Read (ce,pat) -> let c = chanev env ce in
+                                          (match canread c pat with
+                                           | Some env -> addrunner (pn, proc, env)
+                                           | None     -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
+                                          )
+                       | Write (ce,e)  -> let c = chanev env ce in
+                                          let v = evale env e in
+                                          if canwrite c v then addrunner (pn, proc, env)
+                                          else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
+                   with PQueue.Empty ->
+                   let cs = List.map fst gsum in
+                   let gsir = ref (true, cs) in
+                   let add_waiter = function
+                     | c, Grw rw -> PQueue.push c.rwaiters (rw,gsir);
+                                    remember_chan c
+                     | c, Gww ww -> PQueue.push c.wwaiters (ww,gsir);
+                                    remember_chan c
+                   in
+                   List.iter add_waiter gsum
+                 in
+                 let pq = PQueue.create (List.length ioprocs) in
+                 List.iter (PQueue.push pq) ioprocs;
+                 try_iosteps [] pq
+             | Cond (e, p1, p2)  ->
+                 addrunner (pn, (if boolev env e then p1 else p2), env)
+             | PMatch (e,pms)    -> let v = evale env e in
+                                    (match matcher rproc.pos env pms v with
+                                     | Some (env, proc) -> addrunner (pn, proc, env)
+                                     | None             -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                                                   (string_of_value v)
+                                                                 )
+                                                          )
+                                    )  
+             | Par ps            ->
+                 List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
+            )
+          with exn ->
+            Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
+            print_interp_state();
+            raise exn
+         );
+         step ()
+        )
   in
   addrunner ("System", proc, sysenv);
-  step()
+  step ()
 
 let knowns = (ref [] : (name * string * value) list ref)
 

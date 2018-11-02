@@ -32,6 +32,11 @@ fun abs i = if i<0 then -i else i fi
 
 fun check bs b's vs v's ij = 
   nsigmas<5 where nsigmas = abs (mean-ndiff)/sigma
+  nsigmas<5 where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
+                               else 0 where _ = print_strings ["non-interference check finds "; show size;
+                                                               " "; show ij; "s in\n"; show bbvvs; 
+                                                               "\n -- less than 8 is too few for statistical investigation\n"]
+                               fi
             where mean = size*854/1000
             where sigma = int_sqrt ((size+4)/8)
             where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)

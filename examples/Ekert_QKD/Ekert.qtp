@@ -31,7 +31,6 @@ fun i_s k n =
 fun abs i = if i<0 then -i else i fi
 
 fun check bs b's vs v's ij = 
-  nsigmas<5 where nsigmas = abs (mean-ndiff)/sigma
   nsigmas<5 where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
                                else 0 where _ = print_strings ["non-interference check finds "; show size;
                                                                " "; show ij; "s in\n"; show bbvvs; 
@@ -66,6 +65,9 @@ proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(
 
 proc System() = 
   (let n = read_int "number of trials")
-  (let nq = read_int "number of qbits")
+  (let m = read_int "length of message")
+  (let verbose = read_bool "with commentary" "y" "n")
+  (let nq = min_qbits m (2,9) 8)
+  {print_strings [show nq; " qbit pairs per trial\n"]} .
   (new qcA,qcB) | Source(qcA,qcB)
-                | Control(qcA,qcB,n,0,nq)
+                | Control(qcA,qcB,n,0,nq,m,verbose)

@@ -1,6 +1,6 @@
-proc Bob(n,qc,ic,bc,logc) = 
+proc Bob(nq,qc,ic,bc,logc) = 
   (new rc)
-    | BobRead (n,qc,rc,[]) 
+    | BobRead (nq,qc,rc,[]) 
     | rc?(bvs) .
       (let bs = map fst bvs)
       ic?(bAs)  .
@@ -20,7 +20,7 @@ proc Bob(n,qc,ic,bc,logc) =
           bc![bool2bit true]  .
           (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
           bc?(encrypted) .
-          (let message = xor_mask key encrypted)
+          (let message = xor_mask (take (length encrypted) key) encrypted)
           (* {print_strings ["Bob receives "; show message; "\n"]} . *)
           logc!message .
           _0
@@ -30,10 +30,10 @@ proc Bob(n,qc,ic,bc,logc) =
         _0
       fi
 
-proc BobRead (n,qc,rc,bvs) = 
-  if n=0 then rc!rev bvs . _0
+proc BobRead (nq,qc,rc,bvs) = 
+  if nq=0 then rc!rev bvs . _0
   else
-    qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (n-1,qc,rc,bv::bvs)
+    qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
   fi
 
 proc BobMeasure (q,r) =

@@ -1,15 +1,6 @@
-fun int_sqrt n = i_s 0 n
-
-fun i_s k n =
-  if k*k>=n then k 
-  else i_s (k+1) n fi
-
-fun abs i = if i<0 then -i else i fi
-
-proc Alice(n,qc,ic,bc,logc) = 
 proc Alice(nq,m,qc,ic,bc,logc) = 
   (new rc) 
-    | AliceRead (n,qc,rc,[])
+    | AliceRead (nq,qc,rc,[])
     | rc?(bvs)    .
       (let bs = map fst bvs)
       ic!bs     .
@@ -31,9 +22,9 @@ proc Alice(nq,m,qc,ic,bc,logc) =
         bc?(go)             .
         if bit2bool (hd go) then (* Bob says ok too *)
           (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
-          (let message = randbits (length key))
+          (let message = randbits m)
           (* {print_strings ["Alice sends  "; show message; "\n"]} . *)
-          bc!xor_mask key message   .
+          bc!xor_mask (take m key) message   .
           logc!message              .
         _0
         else
@@ -42,10 +33,10 @@ proc Alice(nq,m,qc,ic,bc,logc) =
         fi
       fi
 
-proc AliceRead (n,qc,rc,bvs) = 
-  if n=0 then rc!rev bvs . _0
+proc AliceRead (nq,qc,rc,bvs) = 
+  if nq=0 then rc!rev bvs . _0
   else
-    qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (n-1,qc,rc,bv::bvs)
+    qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (nq-1,qc,rc,bv::bvs)
   fi
 
 proc AliceMeasure (q,r) =

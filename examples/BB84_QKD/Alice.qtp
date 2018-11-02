@@ -11,6 +11,9 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
      The protocol uses about n/8 checkbits, but that's 
      included in the formula calculation.
    *)
+  (* this can/should be done with the min_qbits library function -- if I 
+     could get my head round the checkbits problem
+   *)
   (let k = length M + 5*w)
   (let s = nSigma)
   (let qs = (806*s+500)/1000)      (* estimate, rounded *)

@@ -21,6 +21,15 @@ fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
    probability (1+h)/2 (where h=1/sqrt 2) ~= 0.854. The standard deviation 
    sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). 
  *)
+
+fun int_sqrt n = i_s 0 n
+
+fun i_s k n =
+  if k*k>=n then k 
+  else i_s (k+1) n fi
+
+fun abs i = if i<0 then -i else i fi
+
 fun check bs b's vs v's ij = 
   nsigmas<5 where nsigmas = abs (mean-ndiff)/sigma
             where mean = size*854/1000

@@ -7,6 +7,7 @@ fun i_s k n =
 fun abs i = if i<0 then -i else i fi
 
 proc Alice(n,qc,ic,bc,logc) = 
+proc Alice(nq,m,qc,ic,bc,logc) = 
   (new rc) 
     | AliceRead (n,qc,rc,[])
     | rc?(bvs)    .

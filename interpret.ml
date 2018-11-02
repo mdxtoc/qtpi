@@ -393,7 +393,7 @@ let rec evale env e =
                                  evale env e
   with exn ->
     Printf.printf "evale %s %s sees exception %s\n" 
-                  (string_of_env env)
+                  (short_string_of_env env)
                   (string_of_expr e)
                   (Printexc.to_string exn);
     raise exn

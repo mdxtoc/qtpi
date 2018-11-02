@@ -37,6 +37,7 @@ let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
 let funv2 f = funv <.> funv f
 
+(* ******************** lists ********************* *)
 let v_hd vs =
   let vs = listv vs in
   try List.hd vs with _ -> raise (LibraryError "hd []")
@@ -255,3 +256,39 @@ let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (
 let _ = Interpret.know ("print_qbit"   , "qbit -> unit"         , vfun print_qbit)
 
 let _ = Interpret.know ("show", "'a -> string", vfun (vstring <.> string_of_value))
+
+(* ******************** cheats ********************* *)
+
+(* selecting bits from a sequence length n with probability p:
+   how large must n be to guarantee that we get k bits?
+   Well: we need to know how many standard deviations sigma you want to
+   allow: 6 sigma is plenty. Then 
+   
+     sigma = sqrt (n*p*(1-p))
+   
+   The mean number that will be picked is n*p; pick n so that the mean is
+   s sigmas larger than the number you need:
+   
+     k = n*p - s*sigma
+     
+   which is a quadratic in sqrt n, with a=p, b=-s*sqrt(p*(1-p)), c=-k.
+   Put q=p*(1-p) and we have
+   
+     sqrt n = (s*sqrt q + sqrt(s^2*q+4*k*p))/2*p
+     
+   We give p as a rational i/j
+ *)
+let min_qbits (k:int) (p:int*int) (s:int) : int =
+  let i,j = p in
+  let f_p = float i /. float j in
+  let f_q = f_p *. (1.0 -. f_p) in
+  let f_s = float s in
+  let f_k = float k in
+  let f_rootn = (f_s *. sqrt f_q +. sqrt((f_s *. f_s *. f_q) +. (4.0 *. f_k *. f_p))) /. (2.0 *. f_p) in
+  truncate ((f_rootn *. f_rootn) +. 0.5)
+
+let _min_qbits k p s =
+  let i,j = pairv p in
+  vint (min_qbits (intv k) (intv i, intv j) (intv s))
+  
+let _ = Interpret.know ("min_qbits", "int -> int*int -> int -> int", vfun3 _min_qbits)

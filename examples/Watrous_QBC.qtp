@@ -1,31 +1,22 @@
-proc Alice(cq:^qbit, cc:^(bit*bit), r:^bit) =
-    r?(value).
-    r?(basis).
-    (newq qx = if value=0b0 then
-                 if basis=0b0 then |0> else |+> fi 
-               else 
-                 if basis=0b0 then |1> else |-> fi
-               fi)
-    cq!qx.
-    cc!(value,basis).
+proc Alice(qc:^qbit, bbc:^(bit*bit)) =
+    (let value, basis = randbit(), randbit())
+    (newq qx = match value,basis .
+               + 0b0,0b0 . |0> 
+               + 0b0,0b1 . |+>
+               + 0b1,0b0 . |1> 
+               + 0b1,0b1 . |->         )
+    qc!qx             .
+    bbc!(value,basis) .
     _0
         
-proc Bob(cq:^qbit, cc:^bit*bit) =
-    cq?(qx).
-    cc?(value,basis).
-    qx >> if basis=0b1 then _H else _I fi.
-    qx=?(measure).
-    (let n = print_string  if measure = value then "honest\n" else "liar!!\n" fi)
+proc Bob(qc:^qbit, bbc:^bit*bit) =
+    qc?(qx)             .
+    bbc?(value,basis)   .
+    qx =? [if basis=0b1 then _H else _I fi] (measure) .
+    {print_string  
+      if measure=value then "honest\n" else "liar!!\n" fi} .
     _0
     
-proc Random(q:qbit, r:^bit) =
-    q >> _H.
-    q=?(b).
-    r!b.
-    Random(q,r)
- 
 proc System() = 
-    (new cq:^qbit, cc:^(bit*bit), r:^bit)
-    | Alice(cq,cc,r) 
-    | Bob(cq,cc) 
-    | (newq q) Random(q,r)
+    (new qc:^qbit, bbc:^(bit*bit))
+    | Alice(qc,bbc) | Bob(qc,bbc) 

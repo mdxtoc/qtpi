@@ -58,6 +58,8 @@ open Pattern
 
 exception ResourceError of sourcepos * string
 exception ResourceDisaster of sourcepos * string
+exception Error of sourcepos * string
+exception Disaster of sourcepos * string
 
 let rec is_resource_type t =
   match t.inst with

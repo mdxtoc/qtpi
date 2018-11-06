@@ -78,7 +78,7 @@ let rec string_of_process proc =
                                             (string_of_expr e)
                                             (string_of_process p1)
                                             (string_of_process p2)
-  | PMatch (e,pms)        -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list string_of_procmatch "<+>" pms)
+  | PMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_expr e) (string_of_list string_of_procmatch "<+>" pms)
 
 and trailing_sop p =
   let s = string_of_process p in
@@ -112,7 +112,7 @@ and short_string_of_process proc =
                                             (string_of_expr e)
                                             (short_string_of_process p1)
                                             (short_string_of_process p2)
-  | PMatch (e,pms)        -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list short_string_of_procmatch "<+>" pms)
+  | PMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_expr e) (string_of_list short_string_of_procmatch "<+>" pms)
 
 and string_of_qspec (p, eopt) =
   Printf.sprintf "%s%s" 

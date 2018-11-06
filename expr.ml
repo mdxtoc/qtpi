@@ -193,7 +193,6 @@ let rec string_of_primary e =
                         | Some es -> bracketed_string_of_list string_of_expr es
                         | None    -> bad ()
                        )
-  | EMatch (e, ems) -> Printf.sprintf "match %s.%s hctam" (string_of_expr e) (string_of_list string_of_ematch "<+>" ems)
   | EMatch (e, ems) -> Printf.sprintf "(match %s.%s)" (string_of_expr e) (string_of_list string_of_ematch "<+>" ems)
   | ECond (c,e1,e2) -> Printf.sprintf "if %s then %s else %s fi"
                                       (string_of_expr c)

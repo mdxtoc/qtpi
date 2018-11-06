@@ -554,6 +554,19 @@ let rec interp sysenv proc =
                                                     let g = gatev (evale env ug) in
                                                     ugstep pn qs g;
                                                     addrunner (pn, proc, env)
+                  | Measure (e, ges, pat)  -> let q = qbitev env e in
+                                              let gvs = List.map (gatev <.> evale env) ges in
+                                              let v = VInt (qmeasure pn gvs q) in
+                                              addrunner (pn, proc, (match pat.inst.pnode with
+                                                                    | PatAny    -> env
+                                                                    | PatName n -> env <@+> (n,v)
+                                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                                                   )
+                                                        )
+                  | Ugatestep (es, ug)    -> let qs = List.map (qbitev env) es in
+                                             let g = gatev (evale env ug) in
+                                             ugstep pn qs g;
+                                             addrunner (pn, proc, env)
                  )
              | WithExpr (e, proc)  -> let _ = evale env e in
                                       addrunner (pn, proc, env)

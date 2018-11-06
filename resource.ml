@@ -56,8 +56,6 @@ open Process
 open Step
 open Pattern
 
-exception ResourceError of sourcepos * string
-exception ResourceDisaster of sourcepos * string
 exception Error of sourcepos * string
 exception Disaster of sourcepos * string
 
@@ -86,7 +84,6 @@ let rec is_resource_type t =
 let type_of_expr e =
   match !(e.inst.etype) with
   | Some t -> t
-  | None   -> raise (ResourceDisaster (e.pos,
   | None   -> raise (Disaster (e.pos,
                                        Printf.sprintf "typecheck didn't mark expr %s"
                                                       (string_of_expr e)
@@ -96,7 +93,6 @@ let type_of_expr e =
 let type_of_pattern p =
   match !(p.inst.ptype) with
   | Some t -> t
-  | None   -> raise (ResourceDisaster (p.pos,
   | None   -> raise (Disaster (p.pos,
                                        Printf.sprintf "typecheck didn't mark pattern %s"
                                                       (string_of_pattern p)
@@ -107,7 +103,6 @@ let type_of_pattern p =
 (* ******************************* also check that we don't compare qbits ******************************** *)
 
 let rec ctfa_type classic t = 
-  let badtype s = raise (ResourceError (t.pos,
   let badtype s = raise (Error (t.pos,
                                         Printf.sprintf "type %s: %s"
                                                        (string_of_type t)
@@ -141,7 +136,6 @@ let rec ctfa_type classic t =
 
 let ctfa_def def = 
   let ctfa_param p =
-    let bad_param s = raise (ResourceError (p.pos, Printf.sprintf "parameter %s: %s"
     let bad_param s = raise (Error (p.pos, Printf.sprintf "parameter %s: %s"
                                                                   (string_of_param p)
                                                                   s
@@ -180,7 +174,6 @@ let ctfa_def def =
     if t.inst = Qbit then 
       match e.inst.enode with
       | ECond  _
-      | EMatch _ -> raise (ResourceError (e.pos,
       | EMatch _ -> raise (Error (e.pos,
                                           "qbit-valued conditional expression as " ^ s
                                          )
@@ -221,7 +214,6 @@ let ctfa_def def =
                                (* we don't apply the pattern restriction in expressions, because they don't matter IMHO *)
                                List.iter (function pat,e -> (* ctfa_pat "pattern" pat; *) ctfa_expr e) ems
     | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
-                                raise (ResourceError (e.pos,
                                 raise (Error (e.pos,
                                                       "comparison of qbits, or values containing qbits, not allowed"
                                                      )
@@ -229,7 +221,6 @@ let ctfa_def def =
                                else ();
                                List.iter ctfa_expr [ce;e1;e2]
     | EApp        (ea,er)   -> if is_resource_type (type_of_expr e) then
-                                raise (ResourceError (e.pos,
                                 raise (Error (e.pos,
                                                       "a function application may not deliver a qbit, or a value containing a qbit"
                                                      )
@@ -241,7 +232,6 @@ let ctfa_def def =
     | EBoolArith  (e1,_,e2) -> List.iter ctfa_expr [e1;e2]
     | ECons       (e1,e2)   -> List.iter ctfa_expr [e1;e2]
     | EAppend     (e1,e2)   -> if is_resource_type (type_of_expr e) then
-                                raise (ResourceError (e.pos,
                                 raise (Error (e.pos,
                                                       "list append may not be applied to lists including qbits"
                                                      )
@@ -258,7 +248,6 @@ let ctfa_def def =
   and ctfa_pat s pat = (* check binding restriction *)
     match pat.inst.pnode with
     | PatName     _       -> (try ctfa_type true (type_of_pattern pat) 
-                              with _ -> raise (ResourceError (pat.pos,
                               with _ -> raise (Error (pat.pos,
                                                               s ^ " may only bind classical values"
                                                              )
@@ -324,7 +313,6 @@ let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
 
 let (<@>)  env n     = try NameMap.find n env 
-                       with Not_found -> raise (ResourceError (dummy_spos, Printf.sprintf "looking for %s in %s"
                        with Not_found -> raise (Error (dummy_spos, Printf.sprintf "looking for %s in %s"
                                                                               (string_of_name n)
                                                                               (string_of_env env)
@@ -332,7 +320,6 @@ let (<@>)  env n     = try NameMap.find n env
                                                )      
 let (<@+>) env (n,r) = NameMap.add n r env      
 let (<@->) env n     = try NameMap.remove n env 
-                       with Not_found -> raise (ResourceError (dummy_spos, Printf.sprintf "removing %s from %s"
                        with Not_found -> raise (Error (dummy_spos, Printf.sprintf "removing %s from %s"
                                                                               (string_of_name n)
                                                                               (string_of_env env)
@@ -422,7 +409,6 @@ let disju = List.fold_left (runion true) ResourceSet.empty
  *)
  
 let rec rck_pat contn state env pat resopt =
-  let bad () = raise (ResourceDisaster (pat.pos,
   let bad () = raise (Disaster (pat.pos,
                                         Printf.sprintf "pattern %s resource %s"
                                                        (string_of_pattern pat)
@@ -491,7 +477,6 @@ let rec r_o_e disjoint state env e =
       in
       let try_disjoint r =
         try let _ = resources_of_resource disjoint r in r
-        with OverLap _ -> raise (ResourceError (e.pos,
         with OverLap _ -> raise (Error (e.pos,
                                                 Printf.sprintf "non-separated expression %s"
                                                                (string_of_expr e)
@@ -522,7 +507,6 @@ let rec r_o_e disjoint state env e =
                                   (match r with
                                   | RNull   -> RNull, ResourceSet.empty
                                   | RQbit q -> if use<>Uok then
-                                                 raise (ResourceError (e.pos,
                                                  raise (Error (e.pos,
                                                                        Printf.sprintf "use of qbit %s in %s"
                                                                                       (match use with 
@@ -537,7 +521,6 @@ let rec r_o_e disjoint state env e =
                                                else
                                                if State.find q state then r, ResourceSet.singleton r
                                                else
-                                                 raise (ResourceError (e.pos,
                                                  raise (Error (e.pos,
                                                                        Printf.sprintf "use of sent-away qbit %s" (string_of_name n)
                                                                       )
@@ -619,7 +602,6 @@ and resource_of_params state params =
 
 and rck_proc state env proc = 
   let badproc s =
-    raise (ResourceError (proc.pos,
     raise (Error (proc.pos,
                           Printf.sprintf "checking %s: %s"
                                          (short_string_of_process proc)
@@ -661,12 +643,16 @@ and rck_proc state env proc =
                                    let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, ges, param) -> 
-                                        let n,_ = param.inst in
+                                    | Measure (qe, ges, pattern) -> 
                                         let _, usedq = resources_of_expr state env qe in
                                         let ugs = List.map (snd <.> resources_of_expr state env) ges in
                                         let usedg = List.fold_left ResourceSet.union ResourceSet.empty ugs in
-                                        ResourceSet.union usedq (ResourceSet.union usedg (rp state (env <@+> (n,RNull)) proc))
+                                        let env' = match pattern.inst.pnode with
+                                                   | PatAny    -> env
+                                                   | PatName n -> env <@+> (n,RNull)
+                                                   | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                        in
+                                        ResourceSet.union usedq (ResourceSet.union usedg (rp state env' proc))
                                     | Ugatestep (qes, ug)    -> 
                                         let qers = List.map (snd <.> resources_of_expr state env) qes in
                                         (try let used = disju qers in
@@ -696,7 +682,6 @@ and rck_proc state env proc =
                                            (match r with
                                             | RQbit q   -> State.add q false state
                                             | _         ->
-                                               raise (ResourceError (e.pos,
                                                raise (Error (e.pos,
                                                                      "ambiguous qbit-sending expression"
                                                                     )

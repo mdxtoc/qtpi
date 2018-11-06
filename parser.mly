@@ -254,10 +254,16 @@ sumproc:
                                         {$4,$6}
 
 qstep:
-  | expr MEASURE LPAR param RPAR        {adorn (Measure ($1,[],$4))}
-  | expr MEASURE LSQPAR exprs RSQPAR LPAR param RPAR       
-                                        {adorn (Measure ($1,$4,$7))}
+  | expr MEASURE mpat                   {adorn (Measure ($1,[],$3))}
+  | expr MEASURE LSQPAR exprs RSQPAR mpat       
+                                        {adorn (Measure ($1,$4,$6))}
   | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
+
+mpat:
+  | UNDERSCORE                          {padorn (PatAny)}
+  | LPAR UNDERSCORE RPAR                {padorn (PatAny)}
+  | LPAR name RPAR                      {padorn (PatName $2)}
+  | LPAR name COLON typespec RPAR       {adorn (pwrap (Some $4) (PatName $2))}
 
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}

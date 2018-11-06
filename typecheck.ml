@@ -188,6 +188,8 @@ let rewrite_qstep cxt qstep =
   | Measure   (e,ges,param) -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) ges;
                                rewrite_param cxt param
   | Ugatestep (es, ug)      -> List.iter (rewrite_expr cxt) es
+  | Measure   (e,ges,pattern) -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) ges;
+                                 rewrite_pattern cxt pattern
 
 let rewrite_iostep cxt iostep = 
   match iostep.inst with
@@ -639,10 +641,12 @@ and typecheck_process cxt p =
       (match qstep.inst with
        | Measure (e, ges, param) ->
            let n,rt = param.inst in
+       | Measure (e, ges, pat) ->
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
            let cxt = List.fold_left (fun cxt ge -> assigntype_expr cxt (adorn ge.pos (Gate 1)) ge) cxt ges in
            let cxt = unify_paramtype cxt rt (adorn param.pos Bit) in
            do_procparams "Measure" cxt [param] proc
+           assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt (adorn pat.pos Bit) pat
        | Ugatestep (es, uge) ->
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt (adorn e.pos Qbit) e) cxt es in
            let arity = List.length es in

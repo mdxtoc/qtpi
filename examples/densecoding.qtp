@@ -1,25 +1,24 @@
-(* Dense coding, to see if I understand it *)
-
 fun bit2int b = if b=0b0 then 0 else 1 fi
 
-proc Alice (cep, cBob) =
+proc Alice (epc, qc) =
   (let i,j = randbit(), randbit())
-  {print_strings ["Alice sends "; show (bit2int i * 2 + bit2int j); "\n"]} .
-  cep?(ep1)                        .
+  {print_strings 
+    ["Alice sends "; show (bit2int i * 2 + bit2int j); "\n"]} .
+  epc?(ep1)                 .
   ep1 >> match i, j .
          + 0b0,0b0 . _I
          + 0b0,0b1 . _X
          + 0b1,0b0 . _Y
-         + 0b1,0b1 . _Z            .
-  cBob!ep1                         .
+         + 0b1,0b1 . _Z     .
+  qc!ep1                    .
   _0
   
-proc Bob(cep, cAlice) =
-  cep?(ep2) .
-  cAlice?(ep1) .
-  ep1,ep2 >> _Cnot                  .
-  ep1 =?[_H] (i)                    .
-  ep2 =? (j)                        .
+proc Bob(epc, qc) =
+  epc?(ep2) .
+  qc?(ep1) .
+  ep1,ep2 >> _Cnot          .
+  ep1 =?[_H] (i)            .
+  ep2 =? (j)                .
   {print_strings ["Bob receives "; show (match i,j .
                                          + 0b0,0b0 . 0
                                          + 0b0,0b1 . 1
@@ -27,13 +26,12 @@ proc Bob(cep, cAlice) =
                                          + 0b1,0b0 . 3 (* yes *)
                                         ); 
                   "\n"
-                 ]}                 .
-  dispose!ep1 . dispose!ep2         .
+                 ]}         .
+  dispose!ep1 . dispose!ep2 .
   _0
 
-proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
+proc Source(s:^qbit,t:^qbit) = 
+  (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
 
-proc System() = (new s,t,cq) 
-                | Alice(s,cq)
-                | Bob(t,cq)
-                | Source(s,t)
+proc System() = (new s,t,qc) 
+                | Alice(s,qc) | Bob(t,qc) | Source(s,t)

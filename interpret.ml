@@ -546,14 +546,6 @@ let rec interp sysenv proc =
                  addrunner (pn, proc, bmatch env pat v)
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
-                  | Measure (e, ges, {inst=n,_}) -> let q = qbitev env e in
-                                                    let gvs = List.map (gatev <.> evale env) ges in
-                                                    let v = VInt (qmeasure pn gvs q) in
-                                                    addrunner (pn, proc, env <@+> (n,v))
-                  | Ugatestep (es, ug)           -> let qs = List.map (qbitev env) es in
-                                                    let g = gatev (evale env ug) in
-                                                    ugstep pn qs g;
-                                                    addrunner (pn, proc, env)
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let gvs = List.map (gatev <.> evale env) ges in
                                               let v = VInt (qmeasure pn gvs q) in
@@ -655,7 +647,34 @@ let rec interp sysenv proc =
                                     )  
              | Par ps            ->
                  List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
-            )
+            );
+            if !qstep then
+              (let wait () = let _ = read_line () in () in
+               let print_qstate () =
+                 let is_qbit = function (VQbit _) -> true
+                               |        _         -> false
+                 in
+                 let env' = List.filter (fun (_,v) -> is_qbit v) env in
+                 if not (null env') then 
+                   Printf.printf "\n%s" (string_of_assoc string_of_name string_of_value "=" ";" env');
+                 Printf.printf "\n%s" (string_of_qstate());
+               in
+               Printf.printf "%s: %s" pn (short_string_of_process rproc); 
+               (match rproc.inst with
+                | Terminate  
+                | Call     _
+                | WithNew  _
+                | WithLet  _
+                | WithExpr _
+                | Cond   _
+                | PMatch _
+                | GSum   _
+                | Par    _   -> ()
+                | WithQbit  _
+                | WithQstep _ -> print_qstate()
+               );
+               wait()
+              )
           with exn ->
             Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
             print_interp_state();

@@ -1,0 +1,38 @@
+
+proc Alice (x:qbit, c:^bit*bit) = 
+    (newq z)
+    {print_strings ["initially Alice's x ("; show x; ") is "]} .
+    {print_qbit x} . 
+    {print_strings [" and z ("; show z; ") is "]} . 
+    {print_qbit z} . {print_string "\n"} .
+    z,x>>_CNot . 
+    {print_strings ["after three-way entanglement z is "]} . 
+    {print_qbit z} . {print_string  "\n"} .
+    z=?[_H](vz) . 
+    {print_strings ["z is measured in the Hadamard basis, giving ";
+                    show vz; ";\n and now x is "]} .
+    {print_qbit x} . 
+    {print_string ";\n and z is "} .
+    {print_qbit z} . {print_string "\n"} .
+    x=?(vx) . 
+    {print_strings ["x is measured in the computational basis, giving ";
+                    show vx; "\n"]} .
+    c!vz,vx . 
+    _0 
+
+proc Bob(y:qbit, c:^bit*bit) = 
+    c?(b1,b2) . 
+    {print_strings ["Alice sends "; show b1; ",";
+                    show b2; "\nBob's y ("; show y; ") is "]} .
+    {print_qbit y} . {print_string  "\n"} .
+    y >> match b1,b2 . + 0b0,0b0 . _I
+                       + 0b0,0b1 . _X
+                       + 0b1,0b0 . _Z
+                       + 0b1,0b1 . _Y     . 
+    {print_string  "finally Bob's y is "} . 
+    {print_qbit y} . {print_string  "\n"} .
+    _0 
+
+proc System () = 
+  (newq x=|+>, y=|0>) x,y>>_CNot . 
+  (new c:^bit*bit) | Alice(x,c) | Bob(y,c)

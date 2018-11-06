@@ -1,0 +1,16 @@
+proc System() =
+  (newq a,b) 
+  a =? [_H] (_) . b =? (_) . a,b >> _Cnot . 
+  {print_string "entangled "} . 
+  {print_qbit a} . {print_string "\n"} .
+  | Alice (a) | Bob (b)
+  
+proc Alice (a) =
+  a =? (x) . 
+  {print_strings ["Alice sees "; show x; "\n"]} .
+  _0
+
+proc Bob (b) =
+  b =? (y) . 
+  {print_strings ["Bob sees "; show y; "\n"]} .
+  _0

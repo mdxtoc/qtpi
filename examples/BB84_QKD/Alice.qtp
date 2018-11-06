@@ -94,7 +94,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
         log!code                           . 
         (let encryptedM = xor_mask code M)
         (let h4 = hwc encryptedM hks 4 w)
-        bsc    !h4,encryptedM              . (* send the encrypted message *)
+        bsc!h4,encryptedM                  . (* send the encrypted message *)
         log!h4 . log!encryptedM            . 
         (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
         log![bool2bit (not c_ok)]          .

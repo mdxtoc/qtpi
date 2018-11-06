@@ -60,10 +60,10 @@ let _ = match !Usage.files with
                                                             (string_of_sourcepos pos)
                                                             s
                 | Qsim.Error s -> Printf.printf "\n\n** quantum simulator error %s\n" s
-                | ResourceError (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                | Resource.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | ResourceDisaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
+                | Resource.Disaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
                 | Typecheck.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"

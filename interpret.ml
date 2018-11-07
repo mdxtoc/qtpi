@@ -22,6 +22,7 @@
 *)
 
 open Settings
+open Stringutils
 open Listutils
 open Functionutils
 open Optionutils
@@ -520,48 +521,92 @@ let rec interp sysenv proc =
             let runner = PQueue.pop runners in
             PQueue.excite runners;
             let pn, rproc, env = runner in
+            let show_pstep s =
+                 Printf.printf "%s: %s" pn s;
+                 let _ = read_line () in
+                 ()
+            in
+            let pstep_state env =
+              let is_qbit = function (VQbit _) -> true
+                            |        _         -> false
+              in
+              let env' = List.filter (fun (_,v) -> is_qbit v) env in
+              let env_string = if not (null env') then 
+                                 Printf.sprintf "  %s\n" (string_of_assoc string_of_name string_of_value "=" ";" env')
+                               else ""
+              in
+              Printf.sprintf "%s  %s" env_string (string_of_qstate())
+            in
+            let pstep_env env' env =
+              let env'' = take (List.length env' - List.length env)  env' in
+              if not (null env'') then Printf.sprintf "\n  binds %s" (string_of_assoc string_of_name string_of_value "=" ";" env'')
+              else ""
+            in
             (match rproc.inst with
-             | Terminate         -> ()
+             | Terminate         -> if !pstep then show_pstep "_0"
              | Call (n, es)      -> 
                  (let vs = List.map (evale env) es in
                   try (match env<@>n.inst with
                        | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
-                                                addrunner (n.inst, proc, env)
+                                                addrunner (n.inst, proc, env);
+                                                if !pstep then
+                                                  show_pstep (Printf.sprintf "%s(%s)" 
+                                                                                     n.inst 
+                                                                                     (string_of_list short_string_of_value "," vs)
+                                                           )
                        | v                   -> mistyped rproc.pos (string_of_name n.inst) v "a process"
                       )  
                   with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
                  )
              | WithNew (ps, proc) ->
-                 let ps = List.map (fun n -> (n, newchan ())) (strip_params ps) in
-                 addrunner (pn, proc, (List.fold_left (<@+>) env ps))
-             | WithQbit (ps, proc) ->
+                 let ps' = List.map (fun n -> (n, newchan ())) (strip_params ps) in
+                 let env' = List.fold_left (<@+>) env ps' in
+                 addrunner (pn, proc, env');
+                 if !pstep then 
+                   show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
+             | WithQbit (qs, proc) ->
                  let bv_eval = function
                  | None      -> None
                  | Some bve  -> Some (basisvv (evale env bve))
                  in
-                 let ps = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) ps in
-                 addrunner (pn, proc, (List.fold_left (<@+>) env ps))
+                 let qs' = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) qs in
+                 let env' = List.fold_left (<@+>) env qs' in
+                 addrunner (pn, proc, env');
+                 if !pstep then 
+                   show_pstep (Printf.sprintf "(newq %s)\n%s" (commasep (List.map string_of_qspec qs)) (pstep_state env'))
              | WithLet ((pat,e), proc) ->
                  let v = evale env e in
-                 addrunner (pn, proc, bmatch env pat v)
+                 addrunner (pn, proc, bmatch env pat v);
+                 if !pstep then 
+                   show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let gvs = List.map (gatev <.> evale env) ges in
                                               let v = VInt (qmeasure pn gvs q) in
-                                              addrunner (pn, proc, (match pat.inst.pnode with
-                                                                    | PatAny    -> env
-                                                                    | PatName n -> env <@+> (n,v)
-                                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
-                                                                   )
-                                                        )
-                  | Ugatestep (es, ug)    -> let qs = List.map (qbitev env) es in
-                                             let g = gatev (evale env ug) in
-                                             ugstep pn qs g;
-                                             addrunner (pn, proc, env)
+                                              let env' = (match pat.inst.pnode with
+                                                          | PatAny    -> env
+                                                          | PatName n -> env <@+> (n,v)
+                                                          | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                                         )
+                                              in
+                                              addrunner (pn, proc, env');
+                                              if !pstep then 
+                                                show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
+                                                                                      (pstep_state env')
+                                                                                      (pstep_env env' env)
+                                                         )
+                  | Ugatestep (es, ug)     -> let qs = List.map (qbitev env) es in
+                                              let g = gatev (evale env ug) in
+                                              ugstep pn qs g;
+                                              addrunner (pn, proc, env);
+                                              if !pstep then 
+                                                show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
              | WithExpr (e, proc)  -> let _ = evale env e in
-                                      addrunner (pn, proc, env)
+                                      addrunner (pn, proc, env);
+                                      if !pstep then 
+                                        show_pstep (Printf.sprintf "{%s}" (string_of_expr e))
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                  let canread c pat =
@@ -614,12 +659,22 @@ let rec interp sysenv proc =
                        match iostep.inst with
                        | Read (ce,pat) -> let c = chanev env ce in
                                           (match canread c pat with
-                                           | Some env -> addrunner (pn, proc, env)
-                                           | None     -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
+                                           | Some env' -> addrunner (pn, proc, env');
+                                                          if !pstep then 
+                                                            show_pstep (Printf.sprintf "%s%s\n" (string_of_iostep iostep) 
+                                                                                                (pstep_env env env')
+                                                                       )
+                                           | None      -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
                                           )
                        | Write (ce,e)  -> let c = chanev env ce in
                                           let v = evale env e in
-                                          if canwrite c v then addrunner (pn, proc, env)
+                                          if canwrite c v then 
+                                            (addrunner (pn, proc, env);
+                                             if !pstep then 
+                                               show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_iostep iostep) 
+                                                                                           (string_of_value v)
+                                                          )
+                                            )
                                           else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
                    with PQueue.Empty ->
                    let cs = List.map fst gsum in
@@ -630,58 +685,44 @@ let rec interp sysenv proc =
                      | c, Gww ww -> PQueue.push c.wwaiters (ww,gsir);
                                     remember_chan c
                    in
-                   List.iter add_waiter gsum
+                   List.iter add_waiter gsum;
+                   if !pstep then 
+                     show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_process rproc))
                  in
                  let pq = PQueue.create (List.length ioprocs) in
                  List.iter (PQueue.push pq) ioprocs;
                  try_iosteps [] pq
              | Cond (e, p1, p2)  ->
-                 addrunner (pn, (if boolev env e then p1 else p2), env)
-             | PMatch (e,pms)    -> let v = evale env e in
-                                    (match matcher rproc.pos env pms v with
-                                     | Some (env, proc) -> addrunner (pn, proc, env)
-                                     | None             -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
-                                                                                                   (string_of_value v)
-                                                                 )
-                                                          )
-                                    )  
+                 let bv = boolev env e in
+                 addrunner (pn, (if bv then p1 else p2), env);
+                 if !pstep then 
+                   show_pstep (Printf.sprintf "%s (%B)" (short_string_of_process rproc) bv)
+             | PMatch (e,pms)    -> 
+                 let v = evale env e in
+                 (match matcher rproc.pos env pms v with
+                  | Some (env', proc) -> addrunner (pn, proc, env');
+                                         if !pstep then 
+                                           show_pstep (Printf.sprintf "%s\nchose %s%s" (short_string_of_process rproc)
+                                                                                       (short_string_of_process proc)
+                                                                                       (pstep_env env' env)
+                                                      )
+                  | None              -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                                 (string_of_value v)
+                                               )
+                                        )
+                 )  
              | Par ps            ->
-                 List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps)
-            );
-            if !qstep then
-              (let wait () = let _ = read_line () in () in
-               let print_qstate () =
-                 let is_qbit = function (VQbit _) -> true
-                               |        _         -> false
-                 in
-                 let env' = List.filter (fun (_,v) -> is_qbit v) env in
-                 if not (null env') then 
-                   Printf.printf "\n%s" (string_of_assoc string_of_name string_of_value "=" ";" env');
-                 Printf.printf "\n%s" (string_of_qstate());
-               in
-               Printf.printf "%s: %s" pn (short_string_of_process rproc); 
-               (match rproc.inst with
-                | Terminate  
-                | Call     _
-                | WithNew  _
-                | WithLet  _
-                | WithExpr _
-                | Cond   _
-                | PMatch _
-                | GSum   _
-                | Par    _   -> ()
-                | WithQbit  _
-                | WithQstep _ -> print_qstate()
-               );
-               wait()
-              )
+                 List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps);
+                 if !pstep then 
+                   show_pstep (short_string_of_process rproc)
+            ) (* end of match *)
           with exn ->
             Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
             print_interp_state();
             raise exn
-         );
-         step ()
-        )
+         ); (* end of try *)
+         step()
+       ) (* end of else *)
   in
   addrunner ("System", proc, sysenv);
   step ()

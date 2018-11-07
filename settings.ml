@@ -56,7 +56,7 @@ let show_final = ref false
 
 let typereport = ref false
 
-let qstep = ref false
+let pstep = ref false
 
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );

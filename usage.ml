@@ -44,8 +44,8 @@ let opts = Arg.align
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-typereport"  , Arg.Set typereport, 
 					" show fully typed program");
-              ("-qstep"  , Arg.Set qstep, 
-					" step through protocol, showing effect of quantum operations");
+              ("-pstep"  , Arg.Set pstep, 
+					" step through protocol");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
 					" verbose operation, various arguments, defaults false" ); 
              ]

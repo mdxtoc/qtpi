@@ -1,8 +1,9 @@
 proc System() =
-  (newq a,b) 
-  a =? [_H] (_) . b =? (_) . a,b >> _Cnot . 
-  {print_string "entangled "} . 
-  {print_qbit a} . {print_string "\n"} .
+  (newq a,b) a=?(_) . b=?(_) . 
+  {print_string "entangling "} . {print_qbit a} .
+  {print_string " and "} . {print_qbit b} .
+  a>>_H . a,b >> _Cnot . 
+  {print_string " gives "} . {print_qbit a} . {print_string "\n"} .
   | Alice (a) | Bob (b)
   
 proc Alice (a) =

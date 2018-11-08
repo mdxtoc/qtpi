@@ -1,33 +1,17 @@
-fun bit2int b = if b=0b0 then 0 else 1 fi
-
-proc Alice (epc, qc) =
+proc Alice (s, qc) =
   (let i,j = randbit(), randbit())
-  {print_strings 
-    ["Alice sends "; show (bit2int i * 2 + bit2int j); "\n"]} .
-  epc?(ep1)                 .
-  ep1 >> match i, j .
-         + 0b0,0b0 . _I
-         + 0b0,0b1 . _X
-         + 0b1,0b0 . _Y
-         + 0b1,0b1 . _Z     .
-  qc!ep1                    .
-  _0
+  {print_strings ["Alice decides to send "; show (i,j); "\n"]} .
+  s?(x) . x >> match i, j .
+               + 0b0,0b0 . _I
+               + 0b0,0b1 . _X
+               + 0b1,0b0 . _Z
+               + 0b1,0b1 . _Y     .
+  qc!x . _0
   
-proc Bob(epc, qc) =
-  epc?(ep2) .
-  qc?(ep1) .
-  ep1,ep2 >> _Cnot          .
-  ep1 =?[_H] (i)            .
-  ep2 =? (j)                .
-  {print_strings ["Bob receives "; show (match i,j .
-                                         + 0b0,0b0 . 0
-                                         + 0b0,0b1 . 1
-                                         + 0b1,0b1 . 2 (* yes *)
-                                         + 0b1,0b0 . 3 (* yes *)
-                                        ); 
-                  "\n"
-                 ]}         .
-  dispose!ep1 . dispose!ep2 .
+proc Bob(t, qc) =
+  t?(y) . qc?(x) . 
+  x,y >> _Cnot . x>>_H. x=?(i) . y=?(j) .
+  {print_strings ["Bob receives "; show (i,j); "\n" ]} .
   _0
 
 proc Source(s:^qbit,t:^qbit) = 

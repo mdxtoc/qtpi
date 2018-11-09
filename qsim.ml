@@ -1029,6 +1029,7 @@ let rec qmeasure pn ugvs q =
             if !verbose || !verbose_qsim then Printf.printf "%s => %s\n" (string_of_qval qv) (string_of_qval qv');
             record qv'
            );
+      if !measuredestroys then disposeqbit pn q;
       r
   | _ -> (* in gate-defined basis *)
       if List.exists (fun ugv -> arity_of_ugv ugv <> 1) ugvs then 
@@ -1055,24 +1056,14 @@ let rec qmeasure pn ugvs q =
       let bit = qmeasure pn [] q in
       (* that _must_ have broken any entanglement: rotate the parts back separately *)
       let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
-      let qs, _ = qv in
-      let qs' = List.filter (fun q' -> q'<>q) qs in
-      (match qs' with
-       | []    -> () (* there was only one bit *)
-       | q'::_ -> (let qv' = qval q' in
-                   if List.length (fst qv')<>List.length qs' then
-                     raise (Error (Printf.sprintf "** Disaster: qmeasure %s %s %s: after measuring %s->%s, %s->%s"
-                                                  pn
-                                                  (bracketed_string_of_list string_of_ugv ugvs)
-                                                  (string_of_qbit q)
-                                                  (string_of_qbit q)
-                                                  (string_of_qval (qval q))
-                                                  (string_of_qbit q')
-                                                  (string_of_qval (qval q'))
-                                  )
-                           );
-                   ugstep_1 (id_string gate') q' qv' gate' gate'
-                  )
-      ); 
-      ugstep_1 (id_string gate') q (qval q) gate' gate';
+      let rec rotate qs =
+        match qs with
+        | []    -> () (* done it *)
+        | q::qs -> let qqs, qqv = qval q in
+                   ugstep_1 (id_string gate') q (qqs,qqv) gate' gate';
+                   rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
+      in
+      rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
+      (* rotate q as well, if it wasn't disposed *)
+      if not !measuredestroys then ugstep_1 (id_string gate') q (qval q) gate' gate';
       bit

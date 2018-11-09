@@ -44,19 +44,21 @@ let verbose_resource = ref false
 let verbose_simplify = ref false
 let verbose_typecheck = ref false
 
-let symbq = ref true
-
 let fancyvec = ref true
 
 let interpret = ref true
 
 let matchcheck = ref true
 
-let show_final = ref false
-
-let typereport = ref false
+let measuredestroys = ref true
 
 let pstep = ref false
+
+let show_final = ref false
+
+let symbq = ref true
+
+let typereport = ref false
 
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );

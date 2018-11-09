@@ -503,6 +503,13 @@ let rec r_o_e disjoint state env e =
                                                else
                                                if State.find q state then r, ResourceSet.singleton r
                                                else
+                                                 raise (Error (e.pos, Printf.sprintf "use of %s qbit %s" 
+                                                                                     (if !measuredestroys then "sent-away/measured"
+                                                                                                          else "sent-away"
+                                                                                     )
+                                                                                     (string_of_name n)
+                                                              )
+                                                       )
                                   | _       -> r, resources_of_resource disjoint r
                                  )
       | ETuple      es        -> let rs, used = do_list use es in
@@ -621,13 +628,22 @@ and rck_proc state env proc =
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, ges, pattern) -> 
-                                        let _, usedq = resources_of_expr state env qe in
+                                        let rq, usedq = (if !measuredestroys then disjoint_resources_of_expr else resources_of_expr) 
+                                                            state env qe 
+                                        in
                                         let ugs = List.map (snd <.> resources_of_expr state env) ges in
                                         let usedg = List.fold_left ResourceSet.union ResourceSet.empty ugs in
                                         let env' = match pattern.inst.pnode with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)
                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                        in
+                                        let state = 
+                                          match !measuredestroys, rq with
+                                          | false, _       -> state
+                                          | true , RQbit q -> State.add q false state
+                                          | true , _       -> 
+                                              raise (Error (qe.pos, "ambiguous qbit expression (measure destroys what?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' proc))
                                     | Ugatestep (qes, ug)    -> 
@@ -659,7 +675,7 @@ and rck_proc state env proc =
                                            (match r with
                                             | RQbit q   -> State.add q false state
                                             | _         ->
-                                               raise (Error (e.pos, "ambiguous qbit-sending expression"))
+                                               raise (Error (e.pos, "ambiguous qbit expression (which qbit is sent?)"))
                                            )
                                        | _              -> state
                                      in

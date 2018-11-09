@@ -160,7 +160,6 @@ let ctfa_def def =
                                     ctfa_expr e;
                                     ctfa_proc proc
     | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
-    | WithExpr  (e, proc)        -> ctfa_expr e; ctfa_proc proc
     | Cond      (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
     | GSum      gs               -> let ctfa_g (iostep, proc) =
                                       ctfa_iostep iostep; ctfa_proc proc
@@ -660,8 +659,6 @@ and rck_proc state env proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | WithExpr (e, proc)      -> let _, used = resources_of_expr state env e in
-                                   ResourceSet.union used (rp state env proc)
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)

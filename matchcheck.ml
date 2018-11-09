@@ -456,7 +456,6 @@ let rec matchcheck_proc proc =
                                 | Ugatestep (qes,ge)      -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc proc 
-  | WithExpr  (e,proc)      -> matchcheck_expr e; matchcheck_proc proc
   | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc p1; matchcheck_proc p2 
   | PMatch    (e,pms)       -> matchcheck_expr e; 
                                matchcheck_pats short_string_of_process pms;

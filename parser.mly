@@ -288,8 +288,6 @@ simpleprocess:
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
-  | LBRACE expr RBRACE DOT process      
-                                        {adorn (WithExpr ($2,$5))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule */
   | MATCH 
     indentPrev 

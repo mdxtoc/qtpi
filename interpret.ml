@@ -603,10 +603,6 @@ let rec interp sysenv proc =
                                               if !pstep then 
                                                 show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
-             | WithExpr (e, proc)  -> let _ = evale env e in
-                                      addrunner (pn, proc, env);
-                                      if !pstep then 
-                                        show_pstep (Printf.sprintf "{%s}" (string_of_expr e))
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                  let canread c pat =

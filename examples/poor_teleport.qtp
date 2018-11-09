@@ -20,7 +20,10 @@ proc Bob(y:qbit, c:^bit*bit) =
 
 (* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)
 proc System () = 
-  (newq x, y, z) x=?(a) . x>>_H . y=?(b) . x,y>>_CNot . 
+  (newq x=if randbit()=0b0 then |0> else |1> fi, 
+        y=if randbit()=0b0 then |0> else |1> fi, 
+        z) 
+  x>>_H . x,y>>_CNot . 
   (new c:^bit*bit) 
   | Alice(x,c,z) 
   | Bob(y,c)

@@ -116,7 +116,6 @@ proc BobReceive(n,bvs,qA,r,done) =
     else qA?(q).
          r?(basis).
          q =?[if basis=0b1 then _H else _I fi] (value) .
-         dispose!q .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
        
@@ -136,12 +135,18 @@ proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     else qA?(q) .
          r?(b) .
          q=?[if b=0 then _I else _H fi](v) . 
+         (newq q = match b,v .
+                   + 0b0,0b0 . |0>
+                   + 0b0,0b1 . |1>
+                   + 0b1,0b0 . |+>
+                   + 0b1,0b1 . |->
+         ) 
          qB!q . 
          EvesDrop (n-1, (b,v)::bvs, r, qA, qB, done)
     fi
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(r:^bit) = (newq q=|+>) q=?(v) . r!v . Random(r)
 
 proc System() = (let k = read_int "number of trials")
                 (let n = read_int "number of qbits")
@@ -155,4 +160,4 @@ proc System() = (let k = read_int "number of trials")
                 | Alice(k,verbose,n,r,qc1,bsc) 
                 | Bob(k,verbose,n,r,qc2,bsc) 
                 | Eve (k,verbose,n,r,qc1,qc2) 
-                | (newq q = |0>) Random(q,r)
+                | Random(r)

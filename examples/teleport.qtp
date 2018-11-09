@@ -2,7 +2,6 @@
 proc Alice (x:qbit, c:^bit*bit, z:qbit, log) = 
     {print_string  "initially Alice's z is "} . {print_qbit z} . {print_string  "\n"} .
     z,x>>_CNot . z=?[_H](vz) . x=?(vx) . c!vz,vx . 
-    dispose!x . dispose!z .
     log!() . _0 
 
 proc Bob(y:qbit, c:^bit*bit, log) = 
@@ -13,7 +12,6 @@ proc Bob(y:qbit, c:^bit*bit, log) =
                          + 0b1,0b1 . 3
                         ) . 
     {print_string  "finally Bob's y is "} . {print_qbit y} . {print_string  "\n"} .
-    dispose!y .
     log!() . _0 
 
 proc System () = 

@@ -1,5 +1,6 @@
 proc System() =
-  (newq a,b) a=?(_) . b=?(_) . 
+  (newq a = if randbit()=0b0 then |0> else |1> fi,
+        b = if randbit()=0b0 then |0> else |1> fi) 
   {print_string "entangling "} . {print_qbit a} .
   {print_string " and "} . {print_qbit b} .
   a>>_H . a,b >> _Cnot . 

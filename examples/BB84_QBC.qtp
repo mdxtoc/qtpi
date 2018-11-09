@@ -41,7 +41,6 @@ proc BobReceive(n,bvs,qA,r,done) =
     else qA?(q).
          r?(basis).
          q =?[if basis=0b1 then _H else _I fi] (value) .
-         dispose!q .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
 
@@ -60,14 +59,14 @@ proc Liar   (done) = done!false . _0
 proc Honest (done) = done!true  . _0
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-proc Random(q:qbit, r:^bit) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(r:^bit) = (newq q=|+>) q=?(v) . r!v . Random(r)
 
 proc System() = (let k = read_int "number of trials")
            (let n = read_int "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            (new r)
            | Run (k, verbose, n, r)
-           | (newq q = |0>) Random(q,r)
+           | Random(r)
            
 proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 

@@ -12,8 +12,7 @@ proc Alice (x:qbit, c:^bit*bit) =
     {print_strings ["z is measured in the Hadamard basis, giving ";
                     show vz; ";\n and now x is "]} .
     {print_qbit x} . 
-    {print_string ";\n and z is "} .
-    {print_qbit z} . {print_string "\n"} .
+    {print_string "\n"} .
     x=?(vx) . 
     {print_strings ["x is measured in the computational basis, giving ";
                     show vx; "\n"]} .

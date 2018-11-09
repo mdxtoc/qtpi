@@ -26,7 +26,6 @@ proc ReceiveQBits (bvs, qc, bsc, results) =
   + qc?(q)                  . 
         (let basis = randbit ())
         q =?[if basis=0b1 then _H else _I fi] (value) .
-              dispose!q                               .
         ReceiveQBits((basis,value)::bvs,qc,bsc,results)
 
 (* Read qbits from qA, measure them in a random bases, send the measured bits on qB. 
@@ -35,6 +34,12 @@ proc ReceiveQBits (bvs, qc, bsc, results) =
 proc CopyQBits (bvs, qA, qB, bsA, results) =
     + qA?(q)            . (let b = randbit ())
                           q=?[if b=0 then _I else _H fi](v) . 
+                          (newq q = match b,v .
+                                    + 0b0,0b0 . |0>
+                                    + 0b0,0b1 . |1>
+                                    + 0b1,0b0 . |+>
+                                    + 0b1,0b1 . |->
+                          ) 
                           qB!q                              . 
                           CopyQBits ((b,v)::bvs, qA, qB, bsA, results)
     + bsA?(tag,bits)    . (let bs, vs = unzip (rev bvs))

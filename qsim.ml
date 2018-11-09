@@ -243,6 +243,9 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
     let q = match !qfrees, vopt with
       | q::qs, Some _ -> qfrees:=qs; q (* only re-use qbits when we don't make symbolic probabilities *)
                                        (* note this is a space leak, but a small one *)
+                                       (* but it's a nasty one, because it makes too many qbits in some demos.
+                                          if I could devise a cheap lookup for free variables in the qstate, I'd do it.
+                                        *)
       | _             -> let q = !qbitcount in 
                          qbitcount := q+1; 
                          q

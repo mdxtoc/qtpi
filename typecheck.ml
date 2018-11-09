@@ -712,9 +712,13 @@ and typecheck_def cxt def =
 let make_library_cxt () =
   let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let cxt = new_cxt (NameMap.of_assoc knownassoc) in
-  if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose",adorn dummy_spos (Channel (adorn dummy_spos Qbit)))
+  let typ = adorn dummy_spos in
+  let cxt = if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose", typ (Channel (typ Qbit))) in
+  let cxt = if cxt <@?> "out_q" then cxt else cxt <@+> ("out_q", typ (Channel (typ Qbit))) in
+  let cxt = if cxt <@?> "out_ss" then cxt else cxt <@+> ("out_ss", typ (Channel (typ (List (typ String))))) in
+  let cxt = if cxt <@?> "in_s" then cxt else cxt <@+> ("in_s", typ (Channel (typ String))) in
+  cxt
 
-      
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let cxt = make_library_cxt () in

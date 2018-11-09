@@ -235,6 +235,12 @@ let rec boyd pq =
 
 ;; (* to give boyd a universal type *)
 
+(* predefined channels *)
+let dispose_c = -1
+let out_ss_c  = -2
+let out_q_c   = -3
+let in_s_c    = -4
+
 (* ******************** the interpreter proper ************************* *)
 
 (* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
@@ -605,11 +611,15 @@ let rec interp sysenv proc =
                  )
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
-                 let canread c pat =
+                 let canread pos c pat =
+                   let can'tread s = raise (Error (pos, "cannot read from " ^ s ^ " channel (this should be a type error -- sorry)")) in
                    let do_match v' = Some (bmatch env pat v') in
-                   try if c.cname = -1 then (* reading from dispose, ho ho *)
-                         let q = newqbit pn (name_of_bpat pat) None in
-                         do_match q
+                   try if c.cname = dispose_c then can'tread "dispose" 
+                       else
+                       if c.cname = out_ss_c || c.cname = out_q_c then can'tread "output"
+                       else
+                       if c.cname = in_s_c then 
+                         do_match (vstring (read_line ()))
                        else
                          let v' = Queue.pop c.stream in
                          (maybe_forget_chan c; 
@@ -626,35 +636,42 @@ let rec interp sysenv proc =
                        do_match v'
                    with PQueue.Empty -> None
                  in
-                 let canwrite c v =
-                   if c.cname = -1 then (* it's dispose *)
-                      (disposeqbit pn (qbitv v); 
+                 let canwrite pos c v =
+                   let can'twrite s = raise (Error (pos, "cannot write to " ^ s ^ " channel (this should be a type error -- sorry)")) in
+                   if c.cname = in_s_c then can'twrite "input"
+                   else
+                   if c.cname = dispose_c then 
+                      (disposeqbit pn (qbitv v); true)
+                   else
+                   if c.cname = out_ss_c then
+                     (print_string (String.concat "" (List.map stringv (listv v))); true)
+                   else
+                   if c.cname = out_q_c then
+                     (print_string (string_of_qval (qval (qbitv v))); true)
+                   else
+                   try boyd c.rwaiters;
+                       let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
+                       let _, chans = !gsir in
+                       gsir := false, [];
+                       withdraw chans;
+                       PQueue.excite c.rwaiters;
+                       addrunner (pn', proc', bmatch env' pat' v);
                        true
-                      )
-                    else
-                    try boyd c.rwaiters;
-                        let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
-                        let _, chans = !gsir in
-                        gsir := false, [];
-                        withdraw chans;
-                        PQueue.excite c.rwaiters;
-                        addrunner (pn', proc', bmatch env' pat' v);
-                        true
-                    with PQueue.Empty -> 
-                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                       !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-                    then
-                      (Queue.push v c.stream;
-                       remember_chan c;
-                       true
-                      )
-                    else false
+                   with PQueue.Empty -> 
+                   if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                      !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+                   then
+                     (Queue.push v c.stream;
+                      remember_chan c;
+                      true
+                     )
+                   else false
                  in
                  let rec try_iosteps gsum pq = 
                    try let (iostep,proc) = PQueue.pop pq in
                        match iostep.inst with
                        | Read (ce,pat) -> let c = chanev env ce in
-                                          (match canread c pat with
+                                          (match canread iostep.pos c pat with
                                            | Some env' -> addrunner (pn, proc, env');
                                                           if !pstep then 
                                                             show_pstep (Printf.sprintf "%s%s\n" (string_of_iostep iostep) 
@@ -664,7 +681,7 @@ let rec interp sysenv proc =
                                           )
                        | Write (ce,e)  -> let c = chanev env ce in
                                           let v = evale env e in
-                                          if canwrite c v then 
+                                          if canwrite iostep.pos c v then 
                                             (addrunner (pn, proc, env);
                                              if !pstep then 
                                                show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_iostep iostep) 
@@ -738,7 +755,10 @@ let interpret defs =
   let stored_sysenv = ref [] in
   let defassoc = List.map (bind_def stored_sysenv) defs in
   let sysenv = defassoc @ knownassoc in
-  let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (-1))) in
+  let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (dispose_c))) in
+  let sysenv = if sysenv <@?> "out_ss"  then sysenv else sysenv <@+> ("out_ss" , VChan (mkchan (out_ss_c ))) in
+  let sysenv = if sysenv <@?> "out_q"   then sysenv else sysenv <@+> ("out_q"  , VChan (mkchan (out_q_c  ))) in
+  let sysenv = if sysenv <@?> "in_s"    then sysenv else sysenv <@+> ("in_s"   , VChan (mkchan (in_s_c   ))) in
   stored_sysenv := sysenv;
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);

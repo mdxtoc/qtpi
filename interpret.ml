@@ -310,12 +310,6 @@ let bmatch env pat v =
                                      )
                            )
   
-let name_of_bpat pat = (* only called by dispose?(q) *)
-  match pat.inst.pnode with
-  | PatName n -> n
-  | PatAny    -> "_"
-  | _         -> "can't happen"
-  
 let rec evale env e =
   try
     match e.inst.enode with
@@ -583,7 +577,7 @@ let rec interp sysenv proc =
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let gvs = List.map (gatev <.> evale env) ges in
-                                              let v = VInt (qmeasure pn gvs q) in
+                                              let v = VInt (qmeasure (qpat_binds pat) pn gvs q) in
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)
@@ -609,16 +603,15 @@ let rec interp sysenv proc =
                                         show_pstep (Printf.sprintf "{%s}" (string_of_expr e))
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
-                 let canread c pat =
+                 let canread pos c pat =
                    let do_match v' = Some (bmatch env pat v') in
                    try if c.cname = -1 then (* reading from dispose, ho ho *)
-                         let q = newqbit pn (name_of_bpat pat) None in
-                         do_match q
+                         match name_of_qpat pat with
+                         | Some n -> let q = newqbit pn n None in do_match q
+                         | None   -> Some env 
                        else
                          let v' = Queue.pop c.stream in
-                         (maybe_forget_chan c; 
-                          do_match v'
-                         )
+                         (maybe_forget_chan c; do_match v')
                    with Queue.Empty ->
                    try boyd c.wwaiters; (* now the first must be alive *)
                        let (pn',v',proc',env'),gsir = PQueue.pop c.wwaiters in
@@ -630,7 +623,7 @@ let rec interp sysenv proc =
                        do_match v'
                    with PQueue.Empty -> None
                  in
-                 let canwrite c v =
+                 let canwrite pos c v =
                    if c.cname = -1 then (* it's dispose *)
                       (disposeqbit pn (qbitv v); 
                        true
@@ -658,7 +651,7 @@ let rec interp sysenv proc =
                    try let (iostep,proc) = PQueue.pop pq in
                        match iostep.inst with
                        | Read (ce,pat) -> let c = chanev env ce in
-                                          (match canread c pat with
+                                          (match canread ce.pos c pat with
                                            | Some env' -> addrunner (pn, proc, env');
                                                           if !pstep then 
                                                             show_pstep (Printf.sprintf "%s%s\n" (string_of_iostep iostep) 
@@ -668,7 +661,7 @@ let rec interp sysenv proc =
                                           )
                        | Write (ce,e)  -> let c = chanev env ce in
                                           let v = evale env e in
-                                          if canwrite c v then 
+                                          if canwrite ce.pos c v then 
                                             (addrunner (pn, proc, env);
                                              if !pstep then 
                                                show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_iostep iostep) 

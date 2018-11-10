@@ -21,7 +21,9 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
 open Instance
+open Sourcepos
 open Listutils
 open Functionutils
 open Instance
@@ -141,3 +143,15 @@ let delist = function
   | []      -> PatUnit
   | [p]     -> p.inst.pnode
   | ps      -> PatTuple ps
+
+let name_of_qpat pat = 
+  match pat.inst.pnode with
+  | PatName n -> Some n
+  | PatAny    -> None
+  | _         -> raise (Can'tHappen (string_of_sourcepos pat.pos ^ " name_of_qpat " ^ string_of_pattern pat))
+  
+let qpat_binds pat = 
+  match name_of_qpat pat with
+  | Some _ -> true
+  | None   -> false
+  

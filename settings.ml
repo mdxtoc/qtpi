@@ -50,8 +50,6 @@ let interpret = ref true
 
 let matchcheck = ref true
 
-let measuredestroys = ref true
-
 let pstep = ref false
 
 let show_final = ref false

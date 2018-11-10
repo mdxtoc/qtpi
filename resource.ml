@@ -503,10 +503,7 @@ let rec r_o_e disjoint state env e =
                                                else
                                                if State.find q state then r, ResourceSet.singleton r
                                                else
-                                                 raise (Error (e.pos, Printf.sprintf "use of %s qbit %s" 
-                                                                                     (if !measuredestroys then "sent-away/measured"
-                                                                                                          else "sent-away"
-                                                                                     )
+                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away/detected qbit %s" 
                                                                                      (string_of_name n)
                                                               )
                                                        )
@@ -628,7 +625,8 @@ and rck_proc state env proc =
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, ges, pattern) -> 
-                                        let rq, usedq = (if !measuredestroys then disjoint_resources_of_expr else resources_of_expr) 
+                                        let detects = qpat_binds pattern in
+                                        let rq, usedq = (if detects then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in
                                         let ugs = List.map (snd <.> resources_of_expr state env) ges in
@@ -639,11 +637,11 @@ and rck_proc state env proc =
                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
                                         in
                                         let state = 
-                                          match !measuredestroys, rq with
+                                          match detects, rq with
                                           | false, _       -> state
                                           | true , RQbit q -> State.add q false state
                                           | true , _       -> 
-                                              raise (Error (qe.pos, "ambiguous qbit expression (measure destroys what?)"))
+                                              raise (Error (qe.pos, "ambiguous qbit expression (which qbit is consumed?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' proc))
                                     | Ugatestep (qes, ug)    -> 

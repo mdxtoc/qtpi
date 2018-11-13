@@ -2,43 +2,43 @@
 proc LogAlice (reps, verbose, log, done) =
     log?(bs)   .
     log?(vs)   .
-    {if verbose then print_strings ["Alice chose "; show (length bs);
-                                     " pairs: "; show (zip bs vs); "\n"] else () fi} .
+    out!if verbose then ["Alice chose "; show (length bs);
+                                     " pairs: "; show (zip bs vs); "\n"] else [] fi .
     log?(h0) . log?(bAs)         .
-    {if verbose then print_strings ["Alice sent tagged bases "; show (h0,bAs); "\n"] else () fi} .
+    out!if verbose then ["Alice sent tagged bases "; show (h0,bAs); "\n"] else [] fi .
     log?(h1) . log?(bBs)  .
-    {if verbose then print_strings ["Alice received tagged bases "; show (h1,bBs); "\n"] else () fi} .
+    out!if verbose then ["Alice received tagged bases "; show (h1,bBs); "\n"] else [] fi .
     log?(rvs)   . 
-    {if verbose then print_strings ["Alice reconciled "; show (length rvs);
-                                    " bits: "; show rvs; "\n"] else () fi} .
+    out!if verbose then ["Alice reconciled "; show (length rvs);
+                                    " bits: "; show rvs; "\n"] else [] fi .
     log?(h2) . log?(mask) .
-    {if verbose then print_strings ["Alice received tagged check-bit mask "; show (h2,mask); "\n"] else () fi} .
+    out!if verbose then ["Alice received tagged check-bit mask "; show (h2,mask); "\n"] else [] fi .
     log?(h3) . log?(cs)   .
     (let nc = length cs)
-    {if verbose then print_strings ["Alice received "; show nc; 
-                                    " tagged check bits: "; show (h3,cs); "\n"] else () fi} .
+    out!if verbose then ["Alice received "; show nc; 
+                                    " tagged check bits: "; show (h3,cs); "\n"] else [] fi .
     log?(intfseen) .
     if bit2bool (hd intfseen) then
-      {print_strings ["quantum interference detected -- "; show nc; " check bits\n"]} .
+      out!["quantum interference detected -- "; show nc; " check bits\n"] .
       log?(hks) .
       done!true,length bs,nc,false,hks,reps .
       _0
     else
-      {if not verbose then print_string  "\n" else () fi}.
+      out!if not verbose then ["\n"] else [] fi.
       log?(again) .
       if bit2bool (hd again) then
         log?(code) .
-        {if verbose then print_strings ["Alice's code is "; show code; "\n"] else () fi} .
+        out!if verbose then ["Alice's code is "; show code; "\n"] else [] fi .
         log?(h4). log?(encrypted) .
-        {if verbose then print_strings ["Alice sent tagged encrypted "; show (h4, encrypted); "\n"] else () fi} .
+        out!if verbose then ["Alice sent tagged encrypted "; show (h4, encrypted); "\n"] else [] fi .
         log?(c_intfseen) .
         (let c_intfseen = bit2bool (hd c_intfseen))
-        {print_string if c_intfseen then "Alice detected classical interference\n" else "" fi} .
+        out![if c_intfseen then "Alice detected classical interference\n" else "" fi] .
         log?(hks) .
         done!false,length bs,nc,c_intfseen,hks,reps .
         _0
       else
-        {print_string  "Alice goes round again\n"} .
+        out!["Alice goes round again\n"] .
         LogAlice (reps+1, verbose, log, done)   
       fi
     fi

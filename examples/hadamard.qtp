@@ -1,7 +1,7 @@
 
 proc System () = (newq q) 
-			{print_string  "initially "} . {print_qbit q} . {print_string  "; "} .
-			q>>_H . 
-			q>>_H . 
-			{print_string  "finally "} . {print_qbit q} . {print_string  "\n"} .
-			_0
+            out!["initially "] . outq!(qval q) . out!["; "] .
+            q>>_H . 
+            q>>_H . 
+            out!["finally "] . outq!(qval q) . out![".\n"] .
+            _0

@@ -1,8 +1,4 @@
-(* given a random qbit (a|0>+b|1>), this may terminate with
-   either a|0>+b|1> or a|0>-b|1>. Interesting, eh? Only 
-   'really' works if the initial qbit is |0> or |+> 
-   -- i.e. an unfair coin.
- *)
+(* bad use of x in Q *)
 
 proc P(fromQ:^qbit, toQ:^qbit) = | fromQ?(y) . toQ!y . _0
                                  | fromQ?(y) . y>>_X . toQ!y . _0

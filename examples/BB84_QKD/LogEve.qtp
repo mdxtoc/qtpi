@@ -11,14 +11,13 @@ proc LogEve (verbose, logAE, logEB, done) =
 proc LogAliceEve (verbose, log, done) = 
   log?(again)            .
   if bit2bool (hd again) then
-    {print_string  "Alice sends Eve round again\n"} .
+    out!["Alice sends Eve round again\n"] .
     LogAliceEve (verbose, log, done)
   else
     log?(encrypted)     .
-    {if verbose then 
-       print_strings ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
-     else () fi
-    }                   .
+    out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
+                   else [] fi
+                        .
     log?(hkbsAE)        .
     done!hkbsAE         .
     _0
@@ -27,29 +26,26 @@ proc LogAliceEve (verbose, log, done) =
 proc LogEveBob (reps, verbose, log, done) = 
   log?(bs)              .
   log?(vs)              .
-  {if verbose then 
-     print_strings ["Eve (as Alice) sent "; show (length bs); 
-                    " pairs: "; show (zip bs vs); "\n"] 
-     else () fi
-  }                     .
+  out!if verbose then ["Eve (as Alice) sent "; show (length bs); 
+                       " pairs: "; show (zip bs vs); "\n"] 
+                 else [] fi
+                        .
   log?(cs)              .
-  {if verbose then 
-     print_strings ["Eve (as Alice) saw "; show (length cs); 
-                    " checkbits from Bob: "; show cs; "\n"] 
-     else () fi
-  }                     .
+  out!if verbose then ["Eve (as Alice) saw "; show (length cs); 
+                       " checkbits from Bob: "; show cs; "\n"] 
+                 else [] fi
+                        .
   log?(again)           .
   if bit2bool (hd again) then
-    {print_string  "Eve (as Alice) sends Bob round again\n"} .
+    out!["Eve (as Alice) sends Bob round again\n"] .
     LogEveBob (reps+1, verbose, log, done)
   else
     log?(decoded)          .
     (let decoded = bit2bool (hd decoded))
     log?(message)       .
-    {if verbose && decoded then 
-       print_strings ["Eve decodes message "; show message; "\n"] 
-     else () fi
-    } .
+    out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
+                              else [] fi
+                        .
     log?(hkbsEB) .
     done!decoded, message, length cs, hkbsEB, reps .
     _0

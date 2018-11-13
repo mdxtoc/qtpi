@@ -1,0 +1,9 @@
+proc Eve (nq,qcin,qcout) =
+  if nq<>0 then
+    qcin?(q) .
+    (newq q'=|1>) q,q' >> _Cnot .
+    qcout!q  .
+    Eve (nq-1,qcin,qcout)
+  else
+    _0
+  fi

@@ -73,51 +73,45 @@ proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
-    {print_strings ["\n\nAll over: "; show nA; " Alice; ";
+    out!["\n\nAll over: "; show nA; " Alice; ";
                                       show nB; " Bob; ";
                                       show nH; " honest\n"
-                   ]
-    } . 
+                   ] . 
     _0
   else
-    {print_strings ["trial number "; show (i+1);
+    out!["trial number "; show (i+1);
                     if verbose then ": " else "\n" fi
-                   ]
-    } .
+                   ] .
     (new qc, vc, logA, logB)
     | Alice(n,r,qc,vc,logA) 
     | Bob(n,r,qc,vc,logB)
     | logA?(bases) .
       (let basis = hd bases)
       logA?(vs) .
-      {if verbose then print_strings ["Alice chose basis "; show basis;
-                                      " and values "; show vs; "\n"
-                                     ]
-       else ()
-       fi
-      } .
+      out!if verbose then ["Alice chose basis "; show basis;
+                           " and values "; show vs; "\n"]
+          else []
+          fi   .
       logB?(bs) .
       logB?(vs) .
       (let bvs = zip bs vs)
       logB?(guesses) .
       (let guess = hd guesses)
-      {if verbose then print_strings ["Bob received "; show bvs;
-                                      " and guessed "; show guess; "\n"
-                                     ]
-       else ()
-       fi
-      } .
+      out!if verbose then ["Bob received "; show bvs;
+                           " and guessed "; show guess; "\n"]
+          else []
+          fi .
       logB?(honests) .
       (let honest = hd honests = 0b1)
-      {print_strings ["Bob says Alice ";
+      out!["Bob says Alice ";
                       if honest then "was honest" else "lied" fi;
                       "\n"
-                     ]} .
+                     ] .
       (let nH = if honest then nH+1 else nH fi)
       (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
-      {print_string  if guess=basis then "Bob wins\n"
+      out![if guess=basis then "Bob wins\n"
                                    else "Alice wins\n"
-                    fi
-      } . 
+           fi
+          ] . 
       Control (k, i+1, verbose, nA, nB, nH, n, r)
   fi

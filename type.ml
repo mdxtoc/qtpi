@@ -37,6 +37,7 @@ and tnode =
   | String
   | Bit 
   | Qbit
+  | Qstate
   | Basisv
   | Gate of int     (* arity *)
   | TypeVar of name (* unknown name starts with '?', which doesn't appear in parseable names *)
@@ -64,11 +65,12 @@ let typeprio t =
   | Bit           
   | Unit          
   | Qbit
+  | Qstate
   | Basisv
   | Gate    _
   | TypeVar _ 
-  (* | Range   _ *) 
-  | Univ    _      -> primaryprio
+(*| Range   _ *) 
+  | Univ    _       -> primaryprio
   | List    _       -> listprio
   | Tuple   _       -> tupleprio
   | Channel _       -> chanprio
@@ -96,6 +98,7 @@ and string_of_tnode = function
   | Bool            -> "bool"
   | Unit            -> "unit"
   | Qbit            -> "qbit"
+  | Qstate          -> "qstate"
   | Basisv          -> "basisv"
   | Gate     i      -> Printf.sprintf "gate(%d)" i
   | TypeVar  n      -> string_of_typevar n
@@ -135,7 +138,8 @@ and _frees s t =
   | String
   | Bit 
   | Unit
-  | Qbit  
+  | Qbit 
+  | Qstate
   | Basisv
   (* | Range _ *)
   | Gate  _     -> s
@@ -157,6 +161,7 @@ let rec rename assoc t =
   | Bit 
   | Unit
   | Qbit 
+  | Qstate
   | Basisv
   (* | Range _ *)
   | Gate  _     -> t

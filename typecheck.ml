@@ -93,7 +93,8 @@ and evaltype cxt t =
   | Bit 
   | Basisv
   | Gate    _       
-  | Qbit            -> t
+  | Qbit            
+  | Qstate          -> t
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
                        adorn (Univ (ns,evaltype cxt t'))
@@ -257,6 +258,7 @@ and canunifytype n cxt t =
   | Bit 
   | Unit
   | Qbit 
+  | Qstate 
   | Basisv   
   (* | Range   _ *)
   | Gate    _       -> true
@@ -714,9 +716,9 @@ let make_library_cxt () =
   let cxt = new_cxt (NameMap.of_assoc knownassoc) in
   let typ = adorn dummy_spos in
   let cxt = if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose", typ (Channel (typ Qbit))) in
-  let cxt = if cxt <@?> "out_q" then cxt else cxt <@+> ("out_q", typ (Channel (typ Qbit))) in
-  let cxt = if cxt <@?> "out_ss" then cxt else cxt <@+> ("out_ss", typ (Channel (typ (List (typ String))))) in
-  let cxt = if cxt <@?> "in_s" then cxt else cxt <@+> ("in_s", typ (Channel (typ String))) in
+  let cxt = if cxt <@?> "out"     then cxt else cxt <@+> ("out"    , typ (Channel (typ (List (typ String))))) in
+  let cxt = if cxt <@?> "outq"    then cxt else cxt <@+> ("outq"   , typ (Channel (typ Qstate))) in
+  let cxt = if cxt <@?> "in"      then cxt else cxt <@+> ("in"     , typ (Channel (typ String))) in
   cxt
 
 let typecheck defs =

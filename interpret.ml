@@ -59,6 +59,7 @@ type value =
   | VGate of Qsim.ugv
   | VString of string
   | VQbit of qbit
+  | VQstate of string
   | VChan of chan
   | VTuple of value list
   | VList of value list
@@ -97,6 +98,7 @@ let rec string_of_value v =
   | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
   | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | VQbit q         -> "Qbit " ^ string_of_qbit q
+  | VQstate s       -> s
   | VChan c         -> "Chan " ^ string_of_chan c
   | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
   | VList vs        -> bracketed_string_of_list string_of_value vs
@@ -201,9 +203,10 @@ let basisvv = function VBasisv bv      -> bv     | v -> miseval "basisvv"  v
 let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
 let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
+let qstatev = function VQstate s       -> s      | v -> miseval "qstatev"  v
 let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
 let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
-let funv    = function VFun    f       -> f      | v -> miseval "funv"    v
+let funv    = function VFun    f       -> f      | v -> miseval "funv"     v
 
 let vunit   ()    = VUnit
 let vbit    i     = VInt    (i land 1)
@@ -214,6 +217,7 @@ let vstring s     = VString s
 let vgate   g     = VGate   g
 let vchan   c     = VChan   c
 let vqbit   q     = VQbit   q
+let vqstate s     = VQstate s
 let vpair   (a,b) = VTuple  [a;b]
 let vlist   vs    = VList   vs
 let vfun    f     = VFun    f
@@ -237,9 +241,9 @@ let rec boyd pq =
 
 (* predefined channels *)
 let dispose_c = -1
-let out_ss_c  = -2
-let out_q_c   = -3
-let in_s_c    = -4
+let out_c     = -2
+let outq_c    = -3
+let in_c      = -4
 
 (* ******************** the interpreter proper ************************* *)
 
@@ -363,19 +367,30 @@ let rec evale env e =
                                    | Div     -> v1/v2
                                    | Mod     -> v1 mod v2
                                   )
-    | ECompare (e1,op,e2) -> VBool (match op with
-                                    | Eq  -> evale env e1 = evale env e2
-                                    | Neq -> evale env e1 <> evale env e2
-                                    | _   -> let v1 = intev env e1 in
-                                             let v2 = intev env e2 in
-                                             (match op with
-                                              | Lt    -> v1<v2
-                                              | Leq   -> v1<=v2
-                                              | Eq    -> v1=v2  (* can't happen *)
-                                              | Neq   -> v1<>v2 (* can't happen *)
-                                              | Geq   -> v1>=v2
-                                              | Gt    -> v1>v2
-                                             )
+    | ECompare (e1,op,e2) -> VBool (try match op with
+                                        | Eq  -> comparable e1; comparable e2; evale env e1 = evale env e2
+                                        | Neq -> comparable e1; comparable e2; evale env e1 <> evale env e2
+                                        | _   -> let v1 = intev env e1 in
+                                                 let v2 = intev env e2 in
+                                                 (match op with
+                                                  | Lt    -> v1<v2
+                                                  | Leq   -> v1<=v2
+                                                  | Eq    -> v1=v2  (* can't happen *)
+                                                  | Neq   -> v1<>v2 (* can't happen *)
+                                                  | Geq   -> v1>=v2
+                                                  | Gt    -> v1>v2
+                                                 )
+                                    with Expr.Error _ ->
+                                      (* this is dodgy because we can come across typevar types inside functions. Oh dear:
+                                         we seem to need equality types. And then we need classical types too. Oh dear.
+                                       *)
+                                      raise (Error (e.pos, Printf.sprintf "comparing %s:%s with %s:%s"
+                                                                          (string_of_expr e1)
+                                                                          (string_of_type (type_of_expr e1))
+                                                                          (string_of_expr e2)
+                                                                          (string_of_type (type_of_expr e2))
+                                                   )
+                                            )
                                    ) 
     | EBoolArith (e1,op,e2) -> let v1 = boolev env e1 in
                                let v2 = boolev env e2 in
@@ -405,6 +420,10 @@ let rec evale env e =
                   (Printexc.to_string exn);
     raise exn
     
+and comparable e = 
+  if Expr.comparable e then () else
+    raise (Disaster (e.pos, "comparison with type " ^ string_of_type (type_of_expr e)))
+  
 and fun_of expr env pats =
   match pats with
   | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)
@@ -441,6 +460,11 @@ and qbitev env e =
   match evale env e with
   | VQbit q -> q
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
+
+and qstateev env e = 
+  match evale env e with
+  | VQstate s -> s
+  | v         -> mistyped e.pos (string_of_expr e) v "a qstate"
 
 and pairev env e =
   match evale env e with
@@ -616,9 +640,9 @@ let rec interp sysenv proc =
                    let do_match v' = Some (bmatch env pat v') in
                    try if c.cname = dispose_c then can'tread "dispose" 
                        else
-                       if c.cname = out_ss_c || c.cname = out_q_c then can'tread "output"
+                       if c.cname = out_c || c.cname = outq_c then can'tread "output"
                        else
-                       if c.cname = in_s_c then 
+                       if c.cname = in_c then 
                          do_match (vstring (read_line ()))
                        else
                          let v' = Queue.pop c.stream in
@@ -638,16 +662,16 @@ let rec interp sysenv proc =
                  in
                  let canwrite pos c v =
                    let can'twrite s = raise (Error (pos, "cannot write to " ^ s ^ " channel (this should be a type error -- sorry)")) in
-                   if c.cname = in_s_c then can'twrite "input"
+                   if c.cname = in_c then can'twrite "input"
                    else
                    if c.cname = dispose_c then 
                       (disposeqbit pn (qbitv v); true)
                    else
-                   if c.cname = out_ss_c then
-                     (print_string (String.concat "" (List.map stringv (listv v))); true)
+                   if c.cname = out_c then
+                     (print_string (String.concat "" (List.map stringv (listv v))); flush stdout; true)
                    else
-                   if c.cname = out_q_c then
-                     (print_string (string_of_qval (qval (qbitv v))); true)
+                   if c.cname = outq_c then
+                     (print_string (qstatev v); flush stdout; true)
                    else
                    try boyd c.rwaiters;
                        let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
@@ -756,9 +780,9 @@ let interpret defs =
   let defassoc = List.map (bind_def stored_sysenv) defs in
   let sysenv = defassoc @ knownassoc in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (dispose_c))) in
-  let sysenv = if sysenv <@?> "out_ss"  then sysenv else sysenv <@+> ("out_ss" , VChan (mkchan (out_ss_c ))) in
-  let sysenv = if sysenv <@?> "out_q"   then sysenv else sysenv <@+> ("out_q"  , VChan (mkchan (out_q_c  ))) in
-  let sysenv = if sysenv <@?> "in_s"    then sysenv else sysenv <@+> ("in_s"   , VChan (mkchan (in_s_c   ))) in
+  let sysenv = if sysenv <@?> "out"     then sysenv else sysenv <@+> ("out"    , VChan (mkchan (out_c ))) in
+  let sysenv = if sysenv <@?> "outq"    then sysenv else sysenv <@+> ("outq"   , VChan (mkchan (outq_c  ))) in
+  let sysenv = if sysenv <@?> "in"      then sysenv else sysenv <@+> ("in"     , VChan (mkchan (in_c   ))) in
   stored_sysenv := sysenv;
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);

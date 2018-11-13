@@ -71,7 +71,7 @@
 %token FUN PROC WHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
+%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD FG PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -201,6 +201,7 @@ simple_typespec:
   | BITTYPE                             {adorn Bit}
   | UNITTYPE                            {adorn Unit}
   | QBITTYPE                            {adorn Qbit}
+  | QSTATETYPE                          {adorn Qstate}
   | typevar                             {adorn (TypeVar ($1))}
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in

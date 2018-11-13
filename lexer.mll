@@ -97,6 +97,7 @@ rule make_token = parse
   | "bit"       {BITTYPE}
   | "unit"      {UNITTYPE}
   | "qbit"      {QBITTYPE}
+  | "qstate"    {QSTATETYPE}
   | "^"         {CHANTYPE}
   | "list"      {LISTTYPE}
   | "char"      {CHARTYPE}

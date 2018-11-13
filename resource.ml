@@ -70,6 +70,7 @@ let rec is_resource_type t =
   | Bit 
   | Basisv
   | Gate    _
+  | Qstate              (* false, really *)
   (* | Range   _ *)
   | TypeVar _          (* can happen in Univ ... *)       
                     -> false
@@ -80,15 +81,6 @@ let rec is_resource_type t =
   | Fun     (t1,t2) -> is_resource_type t1 || is_resource_type t2
                      
   | Process _       -> false
-
-let type_of_expr e =
-  match !(e.inst.etype) with
-  | Some t -> t
-  | None   -> raise (Disaster (e.pos,
-                                       Printf.sprintf "typecheck didn't mark expr %s"
-                                                      (string_of_expr e)
-                                      )
-                    )
 
 let type_of_pattern p =
   match !(p.inst.ptype) with
@@ -119,6 +111,7 @@ let rec ctfa_type classic t =
   | Bool
   | Bit 
   | Basisv
+  | Qstate
   (* | Range   _ *)
   | Gate    _       -> ()
   | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
@@ -342,7 +335,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Unit  
   | Basisv         
   (* | Range _ *)
-  | Gate  _         -> state, RNull
+  | Gate  _         
+  | Qstate          -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
   | TypeVar _       -> state, RNull  (* checked in ctfa *)
   | Univ _          -> state, RNull  (* checked in cfta *)
@@ -750,6 +744,9 @@ let resourcecheck defs =
     in
     let env = List.fold_left do_def env defs in
     let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
+    let env = if env <@?> "out"     then env else env <@+> ("out"    ,RNull) in
+    let env = if env <@?> "outq"    then env else env <@+> ("outq"   ,RNull) in
+    let env = if env <@?> "in"      then env else env <@+> ("in"     ,RNull) in
 
     List.iter (rck_def env) defs
   )

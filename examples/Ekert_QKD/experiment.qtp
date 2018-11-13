@@ -1,4 +1,4 @@
-proc System() = (newq a = |0>) a =? [_H;_FG] (b) . {print_strings ["result "; show b; "\n"]} . _0
+proc System() = (newq a = |0>) a =? [_G] (b) . {print_strings ["result "; show b; "\n"]} . _0
 
 proc Source() =
   (newq a=|0>,b=|+>) {print_qbit a} . {print_qbit b} . 

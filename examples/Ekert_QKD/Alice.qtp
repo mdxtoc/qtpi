@@ -10,9 +10,9 @@ proc Alice(nq,m,qc,ic,bc,logc) =
       bc!vAs   . (* send Bob the values, where we used different bases *)
       bc?(vBs) .
       (* we can do the non-interference check for all the orientations, but while we have a slow
-         interpreter, one each for Alice and Bob will have to do.
+         interpreter, two each for Alice and Bob sort of gives coverage.
        *)
-      if not (check bs bBs vAs vBs (0,1)) then (* we have interference *)
+      if not (check bs bBs vAs vBs (0,1) && check bs bBs vAs vBs (1,2)) then (* we have interference *)
         bc![bool2bit false] .
         {print_strings ["Alice detects interference\n"]} .
         logc![] .
@@ -42,6 +42,6 @@ proc AliceRead (nq,qc,rc,bvs) =
 proc AliceMeasure (q,r) =
   match rand4() . 
     + 0 . q=?[]    (b) . r!0,b . _0
-    + 1 . q=?[_FG] (b) . r!1,b . _0
+    + 1 . q=?[_F] (b) . r!1,b . _0
     + 2 . q=?[_H]  (b) . r!2,b . _0
     + _ . AliceMeasure (q,r) (* 3 - try again *)

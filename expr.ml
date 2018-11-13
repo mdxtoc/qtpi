@@ -68,7 +68,8 @@ and ugate = ugnode instance
 
 and ugnode =
   | UG_H
-  | UG_FG
+  | UG_F
+  | UG_G
   | UG_I
   | UG_X
   | UG_Y
@@ -284,7 +285,8 @@ and string_of_boolop = function
 and string_of_ugate ug = 
   match ug.inst with
   | UG_H              -> "_H"  
-  | UG_FG             -> "_FG"  
+  | UG_F              -> "_F"  
+  | UG_G              -> "_G"  
   | UG_I              -> "_I"
   | UG_X              -> "_X"
   | UG_Y              -> "_Y"
@@ -298,7 +300,8 @@ and string_of_ematch (pat,e) =
 let arity_of_ugate ug =
   match ug.inst with
   | UG_H
-  | UG_FG
+  | UG_F
+  | UG_G
   | UG_I
   | UG_X
   | UG_Y

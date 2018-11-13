@@ -55,7 +55,8 @@ and gatepat = gpnode instance
 
 and gpnode =
   | PatH
-  | PatFG
+  | PatF
+  | PatG
   | PatI
   | PatX
   | PatY
@@ -123,7 +124,8 @@ let rec string_of_pattern p =
 and string_of_gatepat g =
   match g.inst with 
   | PatH        -> "_H"
-  | PatFG       -> "_FG"
+  | PatF        -> "_F"
+  | PatG        -> "_G"
   | PatI        -> "_I"
   | PatX        -> "_X"
   | PatY        -> "_Y"

@@ -73,7 +73,7 @@
 %token IF THEN ELSE ELIF FI
 %token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
-%token HADAMARD FG PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
+%token HADAMARD F G PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
 %token PLUS MINUS DIV MOD
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
@@ -365,7 +365,8 @@ simplepattern:
   | STRING                              {padorn (PatString $1)}
   | basisv                              {padorn (PatBasisv $1) }
   | HADAMARD                            {padorn (PatGate (adorn PatH))}
-  | FG                                  {padorn (PatGate (adorn PatFG))}
+  | F                                   {padorn (PatGate (adorn PatF))}
+  | G                                   {padorn (PatGate (adorn PatG))}
   | CNOT                                {padorn (PatGate (adorn PatCnot))}
   | I                                   {padorn (PatGate (adorn PatI))}
   | X                                   {padorn (PatGate (adorn PatX))}
@@ -506,7 +507,8 @@ bool:
   
 ugate: 
   | HADAMARD                            {adorn UG_H}
-  | FG                                  {adorn UG_FG}
+  | F                                   {adorn UG_F}
+  | G                                   {adorn UG_G}
   | CNOT                                {adorn UG_Cnot}
   | I                                   {adorn UG_I}
   | X                                   {adorn UG_X}

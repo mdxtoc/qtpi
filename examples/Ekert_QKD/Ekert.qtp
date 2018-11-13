@@ -31,7 +31,10 @@ fun i_s k n =
 fun abs i = if i<0 then -i else i fi
 
 fun check bs b's vs v's ij = 
-  nsigmas<5 where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
+  nsigmas<5 (* where _ = print_strings ["combine "; show bbvvs; ";\n"; show vv_ijs; 
+                                     ";\nij="; show ij; " size="; show size; " ndiff="; show ndiff; 
+                                     " mean="; show mean; " nsigmas="; show nsigmas; "\n\n"] *)
+            where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
                                else 0 where _ = print_strings ["non-interference check finds "; show size;
                                                                " "; show ij; "s in\n"; show bbvvs; 
                                                                "\n -- less than 8 is too few for statistical investigation\n"]
@@ -40,7 +43,6 @@ fun check bs b's vs v's ij =
             where sigma = int_sqrt ((size+4)/8)
             where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
             where size = length vv_ijs
-            (* where _ = print_strings ["combine "; show bbvvs; "; "; show vv_ijs; "\n"] *)
             where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
             where bbvvs = zip (zip bs b's) (zip vs v's)
             

@@ -119,7 +119,7 @@ let rec rewrite_expr cxt e =
        | EBit        _          
        | EBasisv     _          -> ()
        | EGate       ug         -> (match ug.inst with
-                                    | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
+                                    | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
                                                     -> ()
                                     | UG_Phi e      -> rewrite_expr cxt e
                                    )
@@ -319,7 +319,7 @@ and assigntype_pat contn cxt t p =
       | PatString _     -> contn (unifytypes cxt t (adorn p.pos String))
       | PatBasisv _     -> contn (unifytypes cxt t (adorn p.pos Basisv))
       | PatGate pg      -> (match pg.inst with
-                            | PatH| PatFG | PatI | PatX | PatY | PatZ 
+                            | PatH| PatF | PatG | PatI | PatX | PatY | PatZ 
                                                     -> contn (unifytypes cxt t (adorn p.pos (Gate (1))))
                             | PatCnot               -> contn (unifytypes cxt t (adorn p.pos (Gate (2))))
                             | PatPhi p              -> let pt = adorn p.pos Int in
@@ -418,7 +418,7 @@ and assigntype_expr cxt t e =
                                )
      | EBasisv _            -> unifytypes cxt t (adorn_x e Basisv)
      | EGate   ug           -> let cxt = match ug.inst with
-                                         | UG_H | UG_FG | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
+                                         | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
                                                         -> cxt
                                          | UG_Phi e       -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
                                in

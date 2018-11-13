@@ -285,7 +285,8 @@ let matcher pos env pairs value =
     | PatBasisv v       , VBasisv v'        -> maybe v v'
     | PatGate   pg      , VGate   vg        -> (match pg.inst, vg with
                                                 | PatH    , GateH 
-                                                | PatFG   , GateFG 
+                                                | PatF    , GateF 
+                                                | PatG    , GateG 
                                                 | PatI    , GateI
                                                 | PatX    , GateX
                                                 | PatY    , GateY
@@ -448,7 +449,8 @@ and funev env e =
 and ugev env ug = 
   match ug.inst with
   | UG_H                  -> GateH
-  | UG_FG                 -> GateFG
+  | UG_F                  -> GateF
+  | UG_G                  -> GateG
   | UG_I                  -> GateI
   | UG_X                  -> GateX
   | UG_Y                  -> GateY

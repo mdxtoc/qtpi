@@ -4,7 +4,7 @@ proc Alice(qc:^qbit, bbc:^bit*bit) =
     qc!qx           .
     (let basis = randbit())
     qw =? [if basis=0b1 then _H else _I fi] (value) .
-    {print_strings [show value; ","; show basis; "\n"]} .
+    out![show value; ","; show basis; "\n"] .
     bbc!value,basis . 
     _0
         
@@ -12,8 +12,7 @@ proc Bob(qc:^qbit, bbc:^bit*bit) =
     qc?(qx)             .
     bbc?(value,basis)   .
     qx =? [if basis=0b1 then _H else _I fi] (measure) .
-    {print_string  
-      if measure = value then "honest\n" else "liar!!\n" fi} .
+    out![if measure=value then "honest\n" else "liar!!\n" fi] .
     _0
     
 proc System() = 

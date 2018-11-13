@@ -93,7 +93,8 @@ and evaltype cxt t =
   | Bit 
   | Basisv
   | Gate    _       
-  | Qbit            -> t
+  | Qbit            
+  | Qstate          -> t
   | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
   | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
                        adorn (Univ (ns,evaltype cxt t'))
@@ -202,7 +203,6 @@ let rec rewrite_process cxt proc =
   | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process cxt p
   | WithLet  ((pat,e), p)   -> rewrite_pattern cxt pat; rewrite_expr cxt e; rewrite_process cxt p
   | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process cxt p
-  | WithExpr (e,p)          -> rewrite_expr cxt e; rewrite_process cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process cxt p1; rewrite_process cxt p2
   | PMatch    (e,pms)       -> rewrite_expr cxt e; 
                                List.iter (fun (pat,proc) -> rewrite_pattern cxt pat; rewrite_process cxt proc) pms
@@ -258,6 +258,7 @@ and canunifytype n cxt t =
   | Bit 
   | Unit
   | Qbit 
+  | Qstate 
   | Basisv   
   (* | Range   _ *)
   | Gate    _       -> true
@@ -647,9 +648,6 @@ and typecheck_process cxt p =
            let cxt = assigntype_expr cxt (adorn uge.pos (Gate(arity))) uge in
            typecheck_process cxt proc
       )
-  | WithExpr (e, proc) ->
-      let cxt = assigntype_expr cxt (adorn e.pos Unit) e in
-      typecheck_process cxt proc
   | GSum gs ->
       let check_g cxt (iostep,proc) =
         match iostep.inst with
@@ -716,9 +714,13 @@ and typecheck_def cxt def =
 let make_library_cxt () =
   let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let cxt = new_cxt (NameMap.of_assoc knownassoc) in
-  if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose",adorn dummy_spos (Channel (adorn dummy_spos Qbit)))
+  let typ = adorn dummy_spos in
+  let cxt = if cxt <@?> "dispose" then cxt else cxt <@+> ("dispose", typ (Channel (typ Qbit))) in
+  let cxt = if cxt <@?> "out"     then cxt else cxt <@+> ("out"    , typ (Channel (typ (List (typ String))))) in
+  let cxt = if cxt <@?> "outq"    then cxt else cxt <@+> ("outq"   , typ (Channel (typ Qstate))) in
+  let cxt = if cxt <@?> "in"      then cxt else cxt <@+> ("in"     , typ (Channel (typ String))) in
+  cxt
 
-      
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let cxt = make_library_cxt () in

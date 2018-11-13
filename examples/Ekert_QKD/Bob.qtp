@@ -13,7 +13,7 @@ proc Bob(nq,qc,ic,bc,logc) =
       if bit2bool (hd go) then (* Alice says ok *)
         if not (check bs bAs vBs vAs (3,2) && check bs bAs vBs vAs (1,2)) then (* we have interference *)
           bc![bool2bit false] .
-          {print_strings ["Bob detects interference\n"]} .
+          out!["Bob detects interference\n"] .
           logc![] .
           _0
         else (* All is well *)
@@ -21,7 +21,7 @@ proc Bob(nq,qc,ic,bc,logc) =
           (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
           bc?(encrypted) .
           (let message = xor_mask (take (length encrypted) key) encrypted)
-          (* {print_strings ["Bob receives "; show message; "\n"]} . *)
+          (* out!["Bob receives "; show message; "\n"] . *)
           logc!message .
           _0
         fi

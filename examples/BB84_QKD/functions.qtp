@@ -59,7 +59,7 @@ fun reconcile b1s b2s vs =
   mask_filter 0b0 (xor_mask b1s b2s) vs
     
 (* filter out masked bits *)
-fun mask_filter (m:'a) (mask:'a list) (vs:'b list) : 'b list =
+fun mask_filter (m:bit) (mask:bit list) (vs:'b list) : 'b list =
   vs where _, vs = unzip mvs
      where mvs = filter (lam (me,_) . me=m) (zip mask vs)
 

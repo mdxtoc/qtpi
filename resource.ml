@@ -70,6 +70,7 @@ let rec is_resource_type t =
   | Bit 
   | Basisv
   | Gate    _
+  | Qstate              (* false, really *)
   (* | Range   _ *)
   | TypeVar _          (* can happen in Univ ... *)       
                     -> false
@@ -80,14 +81,6 @@ let rec is_resource_type t =
   | Fun     (t1,t2) -> is_resource_type t1 || is_resource_type t2
                      
   | Process _       -> false
-
-let type_of_expr e =
-  match !(e.inst.etype) with
-  | Some t -> t
-  | None   -> raise (Disaster (e.pos, Printf.sprintf "typecheck didn't mark expr %s"
-                                                     (string_of_expr e)
-                              )
-                    )
 
 let type_of_pattern p =
   match !(p.inst.ptype) with
@@ -116,6 +109,7 @@ let rec ctfa_type classic t =
   | Bool
   | Bit 
   | Basisv
+  | Qstate
   (* | Range   _ *)
   | Gate    _       -> ()
   | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
@@ -157,7 +151,6 @@ let ctfa_def def =
                                     ctfa_expr e;
                                     ctfa_proc proc
     | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
-    | WithExpr  (e, proc)        -> ctfa_expr e; ctfa_proc proc
     | Cond      (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
     | GSum      gs               -> let ctfa_g (iostep, proc) =
                                       ctfa_iostep iostep; ctfa_proc proc
@@ -328,7 +321,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Unit  
   | Basisv         
   (* | Range _ *)
-  | Gate  _         -> state, RNull
+  | Gate  _         
+  | Qstate          -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
   | TypeVar _       -> state, RNull  (* checked in ctfa *)
   | Univ _          -> state, RNull  (* checked in cfta *)
@@ -651,8 +645,6 @@ and rck_proc state env proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | WithExpr (e, proc)      -> let _, used = resources_of_expr state env e in
-                                   ResourceSet.union used (rp state env proc)
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
@@ -741,6 +733,9 @@ let resourcecheck defs =
     in
     let env = List.fold_left do_def env defs in
     let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
+    let env = if env <@?> "out"     then env else env <@+> ("out"    ,RNull) in
+    let env = if env <@?> "outq"    then env else env <@+> ("outq"   ,RNull) in
+    let env = if env <@?> "in"      then env else env <@+> ("in"     ,RNull) in
 
     List.iter (rck_def env) defs
   )

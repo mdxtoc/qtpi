@@ -33,7 +33,7 @@ open Pattern
 open Basisv
 open Printpriority
 
-exception Error of string
+exception Error of sourcepos * string
 
 type expr = einst instance
 
@@ -176,7 +176,7 @@ let is_primary e = exprprio e = primaryprio
 
 let rec string_of_primary e =
   let bad () =
-    raise (Error ("string_of_primary (" ^ string_of_expr e ^ ")"))
+    raise (Error (e.pos, "string_of_primary (" ^ string_of_expr e ^ ")"))
   in
   match e.inst.enode with
   | EUnit           -> "()"
@@ -320,3 +320,32 @@ let relist e =
   | ETuple es -> es
   | _         -> [e]
   
+let type_of_expr e =
+  match !(e.inst.etype) with
+  | Some t -> t
+  | None   -> raise (Error (e.pos, Printf.sprintf "typecheck didn't mark expr %s" (string_of_expr e)))
+
+let comparable e = 
+  let pos = e.pos in
+  let rec c t = 
+    match t.inst with
+    | Unit
+    | Int
+    | Bool
+    | Char
+    | String
+    | Bit       
+    | Basisv
+    | Gate _       -> true
+    | Qbit
+    | Qstate
+    | Channel _
+    | Fun     _
+    | Process _    -> false
+    | TypeVar _    
+    | Univ    _    -> raise (Error (pos, "comparable " ^ string_of_type (type_of_expr e)))
+ (* | Range of int * int *)
+    | List t        -> c t
+    | Tuple ts      -> List.for_all c ts
+  in
+  c (type_of_expr e)

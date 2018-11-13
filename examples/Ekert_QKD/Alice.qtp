@@ -14,7 +14,7 @@ proc Alice(nq,m,qc,ic,bc,logc) =
        *)
       if not (check bs bBs vAs vBs (0,1) && check bs bBs vAs vBs (1,2)) then (* we have interference *)
         bc![bool2bit false] .
-        {print_strings ["Alice detects interference\n"]} .
+        out!["Alice detects interference\n"] .
         logc![] .
         _0
       else 
@@ -23,7 +23,7 @@ proc Alice(nq,m,qc,ic,bc,logc) =
         if bit2bool (hd go) then (* Bob says ok too *)
           (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
           (let message = randbits m)
-          (* {print_strings ["Alice sends  "; show message; "\n"]} . *)
+          (* out!["Alice sends  "; show message; "\n"] . *)
           bc!xor_mask (take m key) message   .
           logc!message              .
         _0

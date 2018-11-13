@@ -1,17 +1,17 @@
 proc System() =
   (newq a,b) a=?(_) . b=?(_) . 
-  {print_string "entangling "} . {print_qbit a} .
-  {print_string " and "} . {print_qbit b} .
+  out!["entangling "] . outq!(qval a) .
+  out![" and "] . outq!(qval b) .
   a>>_H . a,b >> _Cnot . 
-  {print_string " gives "} . {print_qbit a} . {print_string "\n"} .
+  out![" gives "] . outq!(qval a) . out!["\n"] .
   | Alice (a) | Bob (b)
   
 proc Alice (a) =
   a =? (x) . 
-  {print_strings ["Alice sees "; show x; "\n"]} .
+  out!["Alice sees "; show x; "\n"] .
   _0
 
 proc Bob (b) =
   b =? (y) . 
-  {print_strings ["Bob sees "; show y; "\n"]} .
+  out!["Bob sees "; show y; "\n"] .
   _0

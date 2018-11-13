@@ -70,6 +70,6 @@ proc System() =
   (let m = read_int "length of message")
   (let verbose = read_bool "with commentary" "y" "n")
   (let nq = min_qbits m (2,9) 8)
-  {print_strings [show nq; " qbit pairs per trial\n"]} .
+  out![show nq; " qbit pairs per trial\n"] .
   (new qcA,qcB) | Source(qcA,qcB)
                 | Control(qcA,qcB,n,0,nq,m,verbose)

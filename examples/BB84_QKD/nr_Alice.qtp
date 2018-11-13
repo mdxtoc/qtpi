@@ -21,7 +21,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
   (let rootnmin = (s*1225+500)/1000 + int_sqrt ((3*s*s+1)/2+8*cMin))
   (let nmin = rootnmin*rootnmin)
   (let n = max n1 nmin)
-  (* {print_strings [    "k="        ; show k; 
+  (* out![    "k="        ; show k; 
                        "; qs="        ; show qs; 
                        "; numerator=" ; show numerator;
                        "; rootn1="    ; show rootn1;
@@ -30,7 +30,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
                        "; nmin="      ; show nmin; 
                        "; n="         ; show n; 
                        "\n"]
-     }                                         .
+     )                                         .
    *)
   
   

@@ -2,19 +2,18 @@ proc Control(qcA,qcB,n,k,nq,m,verbose) = ControlAB(qcA,qcB,n,k,nq,m,verbose,0)
 
 proc ControlAB(qcA,qcB,n,k,nq,m,verbose,nOK) =
   if n=k then 
-    {print_strings [show n; " trials, "; show nOK; " OK\n"]} .
+    out![show n; " trials, "; show nOK; " OK\n"] .
     _0 
   else
-    {if k=0 || (k+1) % 10 = 0 then print_strings ["trial number "; show (k+1); "\n"] else () fi } .
+    out!if k=0 || (k+1) % 10 = 0 then ["trial number "; show (k+1); "\n"] else [] fi .
     (new ic,bc,logcA, logcB)
     | Alice (nq,m,qcA,ic,bc,logcA)
     | Bob   (nq,qcB,ic,bc,logcB)
     | logcA?(mA) . logcB?(mB) . 
         (let nOK = if mA=mB then nOK+1 else nOK fi)
-        {if mA<>mB then print_strings ["Error: Alice sent "; show mA; "; Bob saw "; show mB; "\n"]
-         elif verbose then print_strings ["message "; show mA; "\n"]
-         else () fi
-        } . 
+        out!if mA<>mB then ["Error: Alice sent "; show mA; "; Bob saw "; show mB; "\n"]
+            elif verbose then ["message "; show mA; " successfully transmitted\n"]
+            else [] fi . 
         ControlAB(qcA,qcB,n,k+1,nq,m,verbose,nOK)
   fi
   

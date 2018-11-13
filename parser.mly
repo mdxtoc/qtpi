@@ -71,7 +71,7 @@
 %token FUN PROC WHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
+%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD F G PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -201,6 +201,7 @@ simple_typespec:
   | BITTYPE                             {adorn Bit}
   | UNITTYPE                            {adorn Unit}
   | QBITTYPE                            {adorn Qbit}
+  | QSTATETYPE                          {adorn Qstate}
   | typevar                             {adorn (TypeVar ($1))}
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
@@ -288,8 +289,6 @@ simpleprocess:
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
-  | LBRACE expr RBRACE DOT process      
-                                        {adorn (WithExpr ($2,$5))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule */
   | MATCH 
     indentPrev 

@@ -1,6 +1,6 @@
 proc Alice (s, qc) =
   (let i,j = randbit(), randbit())
-  {print_strings ["Alice decides to send "; show (i,j); "\n"]} .
+  out!["Alice decides to send "; show (i,j); "\n"] .
   s?(x) . x >> match i, j .
                + 0b0,0b0 . _I
                + 0b0,0b1 . _X
@@ -11,7 +11,7 @@ proc Alice (s, qc) =
 proc Bob(t, qc) =
   t?(y) . qc?(x) . 
   x,y >> _Cnot . x>>_H. x=?(i) . y=?(j) .
-  {print_strings ["Bob receives "; show (i,j); "\n" ]} .
+  out!["Bob receives "; show (i,j); "\n" ] .
   _0
 
 proc Source(s:^qbit,t:^qbit) = 

@@ -325,6 +325,7 @@ let type_of_expr e =
   | Some t -> t
   | None   -> raise (Error (e.pos, Printf.sprintf "typecheck didn't mark expr %s" (string_of_expr e)))
 
+(* maybe this will be useful in typecheck, when I implement equality types *)
 let comparable e = 
   let pos = e.pos in
   let rec c t = 

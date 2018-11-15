@@ -37,28 +37,3 @@ let subtractname = NameSet.remove
 let subtractnames = revargs (List.fold_left (revargs subtractname)) 
 
 module NameMap = MyMap.Make (OrderedName)
-
-let new_unknown_name = (* hide the reference *)
-  (let undecidedcount = ref 0 in
-   let new_unknown_name () = 
-     let n = !undecidedcount in
-     undecidedcount := n+1;
-     "?" ^ string_of_int n          (* '?' signals unknown: not in parseable names *)
-   in
-
-   (*
-      let namecount = ref 0 in
-      let new_name s = 
-        let n = !namecount in
-        namecount := n+1;
-        s ^ "!" ^ string_of_int n (* '!' is ok in Z3 variables *)
-      in
-      let new_var = new_name in 
-      let new_reg = new_name in 
-      let new_aux = new_name in
-      let new_logc = new_name in
-   *)
-   
-   new_unknown_name
-  )
-

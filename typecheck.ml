@@ -48,6 +48,7 @@ exception Disaster of string
    Have to play games to get assoc list behaviour, allowing a binding to be over-ridden 
    with <@++> and then restored with <@-->.
  *)
+
 type typecxt         = {tpushes: (name*_type option) list; tmap: _type NameMap.t}
 
 let string_of_typecxt cxt = 
@@ -70,14 +71,15 @@ let (<@-->) cxt n = (* pop binding *)
   match cxt.tpushes with
   | (n',Some t)::tpushes when n'=n -> {(cxt <@+> (n,t)) with tpushes=tpushes}
   | (n',None  )::tpushes when n'=n -> {(cxt <@-> n    ) with tpushes=tpushes}
-  | _                              -> raise (Disaster (Printf.sprintf "(<@-->) %s %s"
-                                                                      (string_of_typecxt cxt)
-                                                                      (string_of_name n)
-                                                      )
-                                            )
+  | _                                 -> raise (Disaster (Printf.sprintf "(<@-->) %s %s"
+                                                                         (string_of_typecxt cxt)
+                                                                         (string_of_name n)
+                                                         )
+                                               )
 
-let new_TypeVar () = TypeVar (new_unknown_name ())
-let ntv pos = adorn pos (new_TypeVar ())
+let new_TypeVar is_eq = TypeVar (new_unknown_tv is_eq)
+let ntv pos = adorn pos (new_TypeVar false)
+let ntveq pos = adorn pos (new_TypeVar true)
 
 let rec eval cxt n =
   try Some (evaltype cxt (cxt <@> n)) with Not_found -> None
@@ -95,10 +97,10 @@ and evaltype cxt t =
   | Gate    _       
   | Qbit            
   | Qstate          -> t
-  | TypeVar n       -> (try evaltype cxt (cxt <@> string_of_name n) with Not_found -> t)
-  | Univ (ns,t')    -> let cxt = List.fold_left (fun cxt n -> cxt <@-> (string_of_name n)) cxt ns in
-                       adorn (Univ (ns,evaltype cxt t'))
-  (* | Range _         -> t *)
+  | TypeVar n      -> (try evaltype cxt (cxt <@>n) with Not_found -> t)
+  | Univ (ns,t')   -> let cxt' = List.fold_left (fun cxt n -> cxt <@->n) cxt ns in
+                       adorn (Univ (ns,evaltype cxt' t'))
+(*| Range _         -> t *)
   | List t          -> adorn (List (evaltype cxt t))
   | Tuple ts        -> adorn (Tuple (List.map (evaltype cxt) ts))
   | Channel t       -> adorn (Channel (evaltype cxt t))
@@ -228,17 +230,21 @@ let pickdiff cxt t t1 t2 =
 let rec unifytypes cxt t1 t2 = 
   let t1 = evaltype cxt t1 in
   let t2 = evaltype cxt t2 in
-  let exn = TypeUnifyError (t1,t2) in 
+  let exn = TypeUnifyError (t1,t2) in
+  let ut n t =
+    (if is_equnknown n then make_eqtype cxt t else cxt) <@+> (n,t)
+  in
   match t1.inst, t2.inst with
-  | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt else cxt <@+> (n1,t2)
-  | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then cxt <@+> (n1,t2) else raise exn
-  | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then cxt <@+> (n2,t1) else raise exn
+  | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt 
+                                           else cxt <@+> (if is_equnknown n1 then (n2,t1) else (n1,t2))
+  | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then ut n1 t2 else raise exn
+  | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then ut n2 t1 else raise exn
   | Tuple t1s       , Tuple t2s             
   | Process t1s     , Process t2s       -> unifylists exn cxt t1s t2s 
   | Channel t1      , Channel t2        
   | List t1         , List t2           -> (try unifytypes cxt t1 t2 with _ -> raise exn)
   | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn cxt [t1a;t1b] [t2a;t2b]
-  (* | Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
+(*| Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
                                            if m<=i && j<=n then cxt else raise exn *)
   | _                                   -> if t1.inst=t2.inst then cxt else raise exn
 
@@ -248,30 +254,69 @@ and unifylists exn cxt t1s t2s =
   let pairs = try List.combine t1s t2s with Invalid_argument _ -> raise exn in
   List.fold_left unifypair cxt pairs
 
-(* canunify checks that a type doesn't contain TypeVar n *)  
-and canunifytype n cxt t = 
-  match t.inst with
-  | Int
-  | Bool
-  | Char
-  | String
-  | Bit 
-  | Unit
-  | Qbit 
-  | Qstate 
-  | Basisv   
-  (* | Range   _ *)
-  | Gate    _       -> true
-  | TypeVar n'      -> (match eval cxt n' with
-                        | None    -> n<>n'
-                        | Some t' -> canunifytype n cxt t'
-                       )
-  | Process ts       
-  | Tuple ts        -> List.for_all (canunifytype n cxt) ts
-  | Fun (t1,t2)     -> canunifytype n cxt t1 && canunifytype n cxt t2
-  | Channel t      
-  | List t          -> canunifytype n cxt t
-  | Univ (ns,t)     -> List.mem n ns || canunifytype n cxt t
+(* canunify checks that a type doesn't contain TypeVar n; also that equnknowns don't get unified with qbits, functions and such *)  
+and canunifytype n cxt t =
+  let is_eq = is_equnknown n in
+  let rec cu t = 
+    match t.inst with
+    | Int
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Basisv   
+ (* | Range   _ *)
+    | Gate    _       -> true
+    | Qbit 
+    | Qstate          -> not is_eq
+    | TypeVar n'      -> (match eval cxt n' with
+                          | None    -> n<>n'
+                          | Some t' -> cu t'
+                         )
+    | Tuple ts        -> List.for_all cu ts
+    | Fun (t1,t2)     -> not is_eq && cu t1 && cu t2
+    | Process ts      -> not is_eq && List.for_all cu ts
+    | List t          -> cu t
+    | Channel t       -> not is_eq && cu t
+    | Univ (ns,t)     -> not is_eq && (List.mem n ns || cu t) (* Univ types are function types *)
+  in
+  cu t
+
+(* make_eqtype unifies the unknowns in t with equnknowns *)  
+and make_eqtype cxt t =
+  let bad () = raise (Can'tHappen (Printf.sprintf "%s: make_eqtype (%s)"
+                                                  (string_of_sourcepos t.pos)
+                                                  (string_of_type t)
+                                  )
+                     )
+  in
+  let rec meq cxt t =
+    match t.inst with
+    | Int
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Basisv   
+ (* | Range   _ *)
+    | Gate    _       -> cxt
+    | TypeVar n'      -> (match eval cxt n' with
+                          | None    -> if is_equnknown n' then cxt else
+                                       (let n'' = ntveq t.pos in cxt <@+> (n',n''))
+                          | Some t' -> meq cxt t'
+                         )
+    | Tuple ts        -> List.fold_left meq cxt ts
+    | List t          -> meq cxt t
+    | Qbit            
+    | Qstate          
+    | Fun _           
+    | Process _       
+    | Channel _       
+    | Univ _          -> bad () 
+  in
+  meq cxt t
   
 (* when you think you have a complete type context, simplify it with evalcxt. 
    Once threw away TypeVars: now it just shortens lookups. 
@@ -450,7 +495,7 @@ and assigntype_expr cxt t e =
      | EArith (e1,_,e2)     -> binary cxt (adorn_x e Int)  (adorn_x e1 Int)  (adorn_x e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
-                                       let t = ntv e1.pos in
+                                       let t = ntveq e1.pos in
                                        binary cxt (adorn_x e Bool) t t e1 e2
                                    | _ ->
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Int) (adorn_x e2 Int)  e1 e2
@@ -490,11 +535,11 @@ and inventtype_fun pats topt e =
                    set, adorn (pos_of_instances pats) (Fun (ta,tr))
   | []          -> (match topt with 
                     | None   -> set, ntv e.pos 
-                    | Some t -> NameSet.union set (Type.frees t), t
+                    | Some t -> NameSet.union set (Type.freetvs t), t
                    )
   and inventtype_pat set pat =
     match !(pat.inst.ptype) with
-      | Some t -> NameSet.union set (Type.frees t), t
+      | Some t -> NameSet.union set (Type.freetvs t), t
       | None   -> match pat.inst.pnode with
                   | PatName _ 
                   | PatAny          -> set, ntv pat.pos
@@ -732,7 +777,7 @@ let typecheck defs =
                 match !rt with
                 | None   -> ntv param.pos
                 | Some t -> if (match t.inst with Univ _ -> true | _ -> false) ||
-                               not (NameSet.is_empty (Type.frees t)) 
+                               not (NameSet.is_empty (Type.freetvs t)) 
                             then raise (Error (t.pos,
                                                Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
                                                               (string_of_param param)

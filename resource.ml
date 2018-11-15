@@ -112,13 +112,14 @@ let rec ctfa_type classic t =
   | Qstate
   (* | Range   _ *)
   | Gate    _       -> ()
-  | TypeVar n       -> (* it really doesn't matter: type variables just correspond to unused variables *)
+  | TypeVar _       -> (* it really doesn't matter: type variables just correspond to unused variables *)
                        ()
   | Univ    (ns, t) -> ctfa_type classic t
   | List    t       -> ctfa_type classic t
   | Tuple   ts    
   | Process ts      -> List.iter (ctfa_type classic) ts
-  | Channel t       -> (match t.inst with
+  | Channel t       -> (* this is wrong: universal types will trip it up *)
+                       (match t.inst with
                         | Qbit      -> () (* always ok, even in classical channels *)
                         | _         -> try ctfa_type true t
                                        with _ -> badtype "should be a channel of qbit or a classical channel"

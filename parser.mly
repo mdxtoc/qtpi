@@ -218,8 +218,9 @@ simple_typespecs:
                                         {$1::$3}
                                         
 typevar:
-  | PRIME name                          {$2}
-  
+  | PRIME name                          {"'"  ^ $2}
+  | PRIME PRIME name                    {"''" ^ $3}
+    
 typevars:
   | typevar                             {[$1]}
   | typevar COMMA typevars              {$1::$3}

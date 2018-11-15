@@ -363,14 +363,8 @@ let rec evale env e =
                                    | Mod     -> v1 mod v2
                                   )
     | ECompare (e1,op,e2) -> VBool (try match op with
-                                        | Eq  -> let v1 = evale env e1 in 
-                                                 let v2 = evale env e2 in
-                                                 check_comparable e1.pos v1; check_comparable e2.pos v2; 
-                                                 v1 = v2
-                                        | Neq -> let v1 = evale env e1 in 
-                                                 let v2 = evale env e2 in
-                                                 check_comparable e1.pos v1; check_comparable e2.pos v2; 
-                                                 v1 <> v2
+                                        | Eq  -> evale env e1 =  evale env e2 (* all typechecked *)
+                                        | Neq -> evale env e1 <> evale env e2 (* all typechecked *)
                                         | _   -> let v1 = intev env e1 in
                                                  let v2 = intev env e2 in
                                                  (match op with
@@ -421,27 +415,6 @@ let rec evale env e =
                   (Printexc.to_string exn);
     raise exn
 
-(* comparable is about values, not types *)
-and check_comparable pos v = 
-  let bad () = raise (Error (pos, "comparison of value " ^ string_of_value v ^ " (and sorry, this should be a type error)")) in
-  let rec c = function
-              | VUnit
-              | VInt      _
-              | VBool     _
-              | VChar     _
-              | VBasisv   _
-              | VGate     _
-              | VString   _  -> ()
-              | VTuple    vs
-              | VList     vs -> List.iter c vs (* sorry, list *)
-              | VQbit     _
-              | VQstate   _
-              | VChan     _
-              | VFun      _
-              | VProcess  _  -> bad ()
-  in
-  c v
-  
 and fun_of expr env pats =
   match pats with
   | pat::pats -> VFun (fun v -> fun_of expr (bmatch env pat v) pats)

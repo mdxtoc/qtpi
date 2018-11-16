@@ -77,9 +77,8 @@ let (<@-->) cxt n = (* pop binding *)
                                                          )
                                                )
 
-let new_TypeVar is_eq = TypeVar (new_unknown_tv is_eq)
-let ntv pos = adorn pos (new_TypeVar false)
-let ntveq pos = adorn pos (new_TypeVar true)
+let new_TypeVar pos utv = adorn pos (TypeVar (new_unknown_tv utv))
+let ntv pos = new_TypeVar pos UTV
 
 let rec eval cxt n =
   try Some (evaltype cxt (cxt <@> n)) with Not_found -> None
@@ -232,17 +231,18 @@ let rec unifytypes cxt t1 t2 =
   let t2 = evaltype cxt t2 in
   let exn = TypeUnifyError (t1,t2) in
   let ut n t =
-    (if is_equnknown n then make_eqtype cxt t else cxt) <@+> (n,t)
+    let kind = unknown_kind n in
+    (if kind=UTV then cxt else force_kind kind cxt t) <@+> (n,t)
   in
   match t1.inst, t2.inst with
   | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt 
-                                           else cxt <@+> (if is_equnknown n1 then (n2,t1) else (n1,t2))
+                                           else cxt <@+> (if uincludes (unknown_kind n1) (unknown_kind n2) then (n1,t2) else (n2,t1))
   | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then ut n1 t2 else raise exn
   | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then ut n2 t1 else raise exn
   | Tuple t1s       , Tuple t2s             
   | Process t1s     , Process t2s       -> unifylists exn cxt t1s t2s 
   | Channel t1      , Channel t2        
-  | List t1         , List t2           -> (try unifytypes cxt t1 t2 with _ -> raise exn)
+  | List t1         , List t2           -> (* (try *)unifytypes cxt t1 t2(* with _ -> raise exn)*)
   | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn cxt [t1a;t1b] [t2a;t2b]
 (*| Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
                                            if m<=i && j<=n then cxt else raise exn *)
@@ -254,45 +254,73 @@ and unifylists exn cxt t1s t2s =
   let pairs = try List.combine t1s t2s with Invalid_argument _ -> raise exn in
   List.fold_left unifypair cxt pairs
 
-(* canunify checks that a type doesn't contain TypeVar n; also that equnknowns don't get unified with qbits, functions and such *)  
+(* canunify checks that a type doesn't contain TypeVar n; also that equnknowns don't get unified with qbits, functions and such;
+   and now also that channel types are qbit or classical and that classicals are classical. ISWIM
+ *)  
 and canunifytype n cxt t =
-  let is_eq = is_equnknown n in
-  let rec cu t = 
-    match t.inst with
-    | Int
-    | Bool
-    | Char
-    | String
-    | Bit 
-    | Unit
-    | Basisv   
- (* | Range   _ *)
-    | Gate    _       -> true
-    | Qbit 
-    | Qstate          -> not is_eq
-    | TypeVar n'      -> (match eval cxt n' with
-                          | None    -> n<>n'
-                          | Some t' -> cu t'
-                         )
-    | Tuple ts        -> List.for_all cu ts
-    | Fun (t1,t2)     -> not is_eq && cu t1 && cu t2
-    | Process ts      -> not is_eq && List.for_all cu ts
-    | List t          -> cu t
-    | Channel t       -> not is_eq && cu t
-    | Univ (ns,t)     -> not is_eq && (List.mem n ns || cu t) (* Univ types are function types *)
+  let bad () = 
+    let s = match unknown_kind n with
+            | UTVclass -> "a classical type"
+            | UTVeq    -> "an equality type"
+            | UTVchan  -> "suitable for a channel"
+            | UTV      -> " (whoops: can't happen)"
+    in
+    raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
   in
-  cu t
+  let rec check kind t = 
+    let rec cu t = 
+      match kind, t.inst with
+      | _       , TypeVar n'  -> (match eval cxt n' with
+                                  | None    -> n<>n'
+                                  | Some t' -> cu t'
+                                 )
+      | _       , Unit
+      | _       , Int
+      | _       , Bool
+      | _       , Char
+      | _       , String
+      | _       , Bit 
+      | _       , Basisv   
+   (* | _       , Range   _ *)
+      | _       , Gate    _   -> true
+     
+      | UTVchan , Qbit        -> true
+      | UTVchan , Channel t'  -> cu t'
+      | UTVchan , _           -> check UTVclass t
+      
+      | UTVeq   , Qbit        
+      | UTVeq   , Qstate      
+      | UTVeq   , Channel _   
+      | UTVeq   , Fun     _   
+      | UTVeq   , Univ    _      (* Univ types are function types *)
+      | UTVeq   , Process _   -> bad ()
+      
+      | UTVclass, Qbit        -> bad ()
+      
+      | UTV     , Qbit        -> true
+      | _       , Qstate      -> true
+      | _       , Tuple ts    -> List.for_all cu ts
+      | _       , Fun (t1,t2) -> check UTV t1 && check UTV t2 (* only the TypeVars matter *)
+      | _       , Process ts  -> List.for_all (check UTV) ts
+      | _       , List t      -> cu t
+      | _       , Channel t   -> check UTVchan t                (* why not? *)
+      | _       , Univ (ns,t) -> true                           (* Univ types have no free variables *) 
+    in
+    cu t
+  in
+  check (unknown_kind n) t
 
-(* make_eqtype unifies the unknowns in t with equnknowns *)  
-and make_eqtype cxt t =
-  let bad () = raise (Can'tHappen (Printf.sprintf "%s: make_eqtype (%s)"
-                                                  (string_of_sourcepos t.pos)
-                                                  (string_of_type t)
-                                  )
-                     )
-  in
-  let rec meq cxt t =
+(* force_kind unifies the unknowns in t with appropriate unknowns *)  
+and force_kind kind cxt t =
+  let rec fk cxt t =
     match t.inst with
+    | TypeVar n'      -> (match eval cxt n' with
+                          | None    -> if uincludes kind (unknown_kind n') then cxt else
+                                       (let n'' = new_TypeVar t.pos kind in cxt <@+> (n',n''))
+                          | Some t' -> fk cxt t'
+                         )
+    | Tuple ts        -> List.fold_left fk cxt ts
+    | List t          -> fk cxt t
     | Int
     | Bool
     | Char
@@ -301,22 +329,15 @@ and make_eqtype cxt t =
     | Unit
     | Basisv   
  (* | Range   _ *)
-    | Gate    _       -> cxt
-    | TypeVar n'      -> (match eval cxt n' with
-                          | None    -> if is_equnknown n' then cxt else
-                                       (let n'' = ntveq t.pos in cxt <@+> (n',n''))
-                          | Some t' -> meq cxt t'
-                         )
-    | Tuple ts        -> List.fold_left meq cxt ts
-    | List t          -> meq cxt t
+    | Gate    _       
     | Qbit            
     | Qstate          
     | Fun _           
     | Process _       
     | Channel _       
-    | Univ _          -> bad () 
+    | Univ _          -> cxt 
   in
-  meq cxt t
+  fk cxt t
   
 (* when you think you have a complete type context, simplify it with evalcxt. 
    Once threw away TypeVars: now it just shortens lookups. 
@@ -471,7 +492,9 @@ and assigntype_expr cxt t e =
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EApp    (e1,e2)      -> let atype = ntv e2.pos in
-                               let ftype = adorn_x e1 (Fun (atype, t)) in
+                               let rtype = new_TypeVar e.pos UTVclass in
+                               let ftype = adorn_x e1 (Fun (atype, rtype)) in
+                               let cxt = unifytypes cxt rtype t in
                                let cxt = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
      | EMinus  e            -> unary cxt (adorn_x e Int) (adorn_x e Int) e
@@ -487,15 +510,13 @@ and assigntype_expr cxt t e =
                                unifytypes cxt t t''
      | EMatch (e,ems)       -> let et = ntv e.pos in
                                let cxt = assigntype_expr cxt et e in
-                               let tc cxt e = 
-                                 assigntype_expr cxt t e
-                               in
+                               let tc cxt e = assigntype_expr cxt t e in
                                typecheck_pats tc cxt et ems
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
      | EArith (e1,_,e2)     -> binary cxt (adorn_x e Int)  (adorn_x e1 Int)  (adorn_x e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
-                                       let t = ntveq e1.pos in
+                                       let t = new_TypeVar e1.pos UTVeq in
                                        binary cxt (adorn_x e Bool) t t e1 e2
                                    | _ ->
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Int) (adorn_x e2 Int)  e1 e2
@@ -659,7 +680,7 @@ and typecheck_process cxt p =
       (* all the params have to be channels *)
       let cxt = 
         List.fold_left (fun cxt {pos=pos; inst=n,rt} -> 
-                          unify_paramtype cxt rt (adorn pos (Channel (ntv pos))) 
+                          unify_paramtype cxt rt (adorn pos (Channel (new_TypeVar pos UTVchan))) 
                        )
                        cxt
                        params

@@ -170,18 +170,49 @@ let rec rename assoc t =
   | Tuple   ts      -> replace (Tuple (List.map (rename assoc) ts))
   | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
 
+type unknownTV = 
+  | UTV
+  | UTVeq       (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
+  | UTVclass    (* classical: can't have qbit or value containing *)
+  | UTVchan     (* simply a qbit, or classical *)
+
+let string_of_unknownTV = function
+  | UTV         -> "(any type)"
+  | UTVeq       -> "(equality type)"
+  | UTVclass    -> "(classical type)"
+  | UTVchan     -> "(qbit or classical)"
+  
 let new_unknown_tv = (* hide the reference *)
   (let tvcount = ref 0 in
-   let new_unknown_tv eqv = 
+   let new_unknown_tv utv = 
      let n = !tvcount in
      tvcount := n+1;
-     (if eqv then "??" else "?") ^ string_of_int n (* '?' signals unknown: not in parseable names; '??' is equality typevar *)
+     (match utv with
+     | UTV          -> "?"
+     | UTVeq        -> "??"
+     | UTVclass     -> "?c"
+     | UTVchan      -> "?^"
+     ) ^ string_of_int n 
    in
    new_unknown_tv
   )
   
-let is_equnknown n = (* just for ones we've created *)
-  Stringutils.starts_with n "??"
+let unknown_kind n = (* just for ones we've created *)
+  match n.[1] with
+  | '?' -> UTVeq
+  | 'c' -> UTVclass
+  | '^' -> UTVchan
+  | _   -> UTV
+
+let uincludes k1 k2 =
+  if k1=k2 then true else
+  match k1, k2 with
+  | UTV    , _       -> true
+  | _      , UTV     -> false
+  | UTVchan, _       -> true
+  | _      , UTVchan -> false
+  | UTVclass, _      -> true
+  | _                -> false
   
 let generalise t = 
   let ns = freetvs t in
@@ -189,8 +220,13 @@ let generalise t =
   else (adorn t.pos (Univ(NameSet.elements ns,t)))
 
 let instantiate t =
+  let kind n =
+    if Stringutils.starts_with "'''" n then UTVclass else
+    if Stringutils.starts_with "''"  n then UTVeq    else
+    if Stringutils.starts_with "'^"  n then UTVchan  else UTV
+  in
   match t.inst with
-  | Univ (ns, t)  -> let newns = List.map (fun n -> new_unknown_tv (Stringutils.starts_with "''" n)) ns in
+  | Univ (ns, t)  -> let newns = List.map (fun n -> new_unknown_tv (kind n)) ns in
                      (try rename (zip ns newns) t
                       with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
                      )

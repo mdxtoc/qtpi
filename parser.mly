@@ -218,8 +218,10 @@ simple_typespecs:
                                         {$1::$3}
                                         
 typevar:
-  | PRIME name                          {"'"  ^ $2}
-  | PRIME PRIME name                    {"''" ^ $3}
+  | PRIME name                          {"'"   ^ $2}
+  | PRIME PRIME name                    {"''"  ^ $3}
+  | PRIME PRIME PRIME name              {"'''" ^ $4}
+  | PRIME CHANTYPE name                 {"'^"  ^ $3}
     
 typevars:
   | typevar                             {[$1]}

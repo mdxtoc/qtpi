@@ -761,6 +761,17 @@ let know dec = knowns := dec :: !knowns
 let bind_def er = function
   | Processdef  (n,params,p)    -> (n.inst, VProcess (strip_params params, p))
   | Functiondef (n,pats,_,expr) -> bind_fun er n.inst pats expr
+let bind_fdefs env = function
+  | Processdef   _      -> env 
+  | Functiondefs fdefs  -> let er = ref env in
+                           let bind_fdef env (n,pats,_,expr) = env <@+> bind_fun er n.inst pats expr in
+                           let env = List.fold_left bind_fdef env fdefs in
+                           er := env;
+                           env
+
+let bind_pdefs env = function
+  | Processdef  (n,params,p) -> env <@+> (n.inst, VProcess (strip_params params, p))
+  | Functiondefs _           -> env
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
@@ -769,6 +780,8 @@ let interpret defs =
   let stored_sysenv = ref [] in
   let defassoc = List.map (bind_def stored_sysenv) defs in
   let sysenv = defassoc @ knownassoc in
+  let sysenv = List.fold_left bind_fdefs knownassoc defs in
+  let sysenv = List.fold_left bind_pdefs sysenv defs in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (dispose_c))) in
   let sysenv = if sysenv <@?> "out"     then sysenv else sysenv <@+> ("out"    , VChan (mkchan (out_c ))) in
   let sysenv = if sysenv <@?> "outq"    then sysenv else sysenv <@+> ("outq"   , VChan (mkchan (outq_c  ))) in

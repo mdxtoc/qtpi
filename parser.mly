@@ -131,6 +131,7 @@ defs:
 
 def:
   | processdef                          {$1}
+  | functiondefs                        {$1}
   
 processdef:
   PROC procname LPAR procparams RPAR EQUALS process  
@@ -151,6 +152,17 @@ param:
   | name COLON typespec                 {adorn ($1,ref (Some $3))}
   | name                                {adorn ($1,ref None)}
 
+functiondefs:
+  FUN fdefs                             {Functiondefs $2}
+  
+fdefs:
+  | fdef                                {[$1]}
+  | fdef fdefs                          {$1::$2}
+
+fdef:
+  funname fparams restypeopt EQUALS indentHere expr outdent    
+                                        {let rt = ref $3 in ($1,$2,rt,$6)}
+  
 funname:
   name                                  {adorn $1}
   
@@ -446,6 +458,7 @@ edecl:
   | bpattern restypeopt EQUALS indentNext expr outdent
                                         {EDPat($1,$2,$5)}
   | funname fparams restypeopt EQUALS indentNext expr outdent   
+                                        {let rt = ref $3 in EDFun($1,$2,rt,$6)}
 
 nwexpr:  
   | ntexpr                              {$1}

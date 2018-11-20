@@ -215,10 +215,35 @@ let rec rewrite_process cxt proc =
 
 let rewrite_def cxt = function
   | Processdef (n, params, proc) ->
+let rewrite_def cxt def = 
+  match def with
+  | Processdef  (n, params, proc) ->
       rewrite_params cxt params; rewrite_process cxt proc
   | Functiondef (n, pats, _, expr) ->
       rewrite_fparams cxt pats; rewrite_expr cxt expr
   
+  | Functiondefs fdefs            ->
+      let rewrite_fdef (n, pats, toptr, expr) =
+        let nt = (try evaltype cxt (cxt <@>n.inst) 
+                  with Not_found -> raise (Can'tHappen (Printf.sprintf "%s: %s not in cxt %s"
+                                                                       (string_of_sourcepos n.pos)
+                                                                       (string_of_name n.inst)
+                                                                       (string_of_typecxt cxt)
+                                                       )
+                                          )
+                 )
+        in
+        let doit cxt rt = rewrite_fparams cxt pats; rewrite_expr cxt expr; toptr := Some (evaltype cxt rt) in
+        (* let freeprimetvs t = let set = freetvs t in NameSet.filter (fun n -> Stringutils.starts_with n "'") set in
+        let freeset = NameMap.fold (fun n t set -> NameSet.union set (freeprimetvs t)) cxt.tmap NameSet.empty in
+        if not (NameSet.is_empty freeset) then 
+          raise (Can'tHappen (string_of_sourcepos n.pos ^": cxt=" ^ string_of_typecxt cxt ^ "\nfrees " ^ NameSet.to_string freeset)); *)
+        doit cxt (result_type n.pos pats nt)
+      in
+      List.iter rewrite_fdef fdefs
+      
+(* ********************************************** unification stuff ******************************** *)
+
 (* useful in error messages *)
 let pickdiff cxt t t1 t2 = 
   let t = evaltype cxt t in
@@ -542,11 +567,13 @@ and assigntype_edecl cxt t e = function
                                     let cxt = assigntype_expr cxt wt we in
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
   | EDFun (wfn,wfpats,wtopt, we) -> ok_funname wfn;
+  | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;
                                     let tf = inventtype_fun wfpats wtopt we in
                                     let cxt = cxt <@++> (wfn.inst,tf) in
                                     let cxt = assigntype_fun cxt tf wfpats we in
                                     let cxt = assigntype_expr cxt t e in
+                                    wtoptr := Some tr;
                                     cxt <@--> wfn.inst
 
 and inventtype_fun pats topt e = 
@@ -742,9 +769,14 @@ and typecheck_def cxt def =
     Printf.printf "typecheck_def %s %s\n\n" 
                    (short_string_of_typecxt cxt)
                    (string_of_def def);
+and typecheck_pdef cxt def =
   let cxt =
     match def with 
       | Processdef (pn,params,proc) -> 
+          if !verbose then
+            Printf.printf "typecheck_pdef %s\n  %s\n\n" 
+                           (short_string_of_typecxt cxt)
+                           (string_of_def def);
           let env_types = match (cxt<@>pn.inst).inst with
                           | Process ts -> ts
                           | _          -> raise (Can'tHappen (Printf.sprintf "%s not a process name"
@@ -775,6 +807,16 @@ and typecheck_def cxt def =
                    (string_of_def def) 
                    (short_string_of_typecxt cxt)
     );
+          let r = List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytypes cxt t (_The !rt)) cxt tps in
+          if !verbose then
+            (rewrite_def cxt def;
+             Printf.printf "after typecheck_def, def = %s\n\ncxt = %s\n\n" 
+                           (string_of_def def) 
+                           (short_string_of_typecxt cxt)
+            );
+          r
+      | Functiondefs _ -> cxt
+   in
    cxt
       
 let make_library_cxt () =
@@ -786,6 +828,65 @@ let make_library_cxt () =
   let cxt = if cxt <@?> "outq"    then cxt else cxt <@+> ("outq"   , typ (Channel (typ Qstate))) in
   let cxt = if cxt <@?> "in"      then cxt else cxt <@+> ("in"     , typ (Channel (typ String))) in
   cxt
+
+let typecheck_fdefs cxt = function
+  | Processdef   _     -> cxt
+  | Functiondefs fdefs -> 
+      let precxt cxt (fn,pats,toptr,e) =
+        ok_funname fn;
+        check_distinct_fparams pats;
+        let t, rt = inventtype_fun pats !toptr e in
+        toptr := Some rt;
+        cxt <@+> (fn.inst, t)
+      in
+      let fns = List.map (fun (fn,_,_,_) -> fn) fdefs in
+      let rec check_unique_fns = function
+        | fn::fns -> List.iter (fun fn' -> if fn.inst=fn'.inst then raise (Error (fn'.pos, "duplicate function definition"))) fns;
+                     check_unique_fns fns
+        | []      -> ()
+      in
+      check_unique_fns fns;
+      let cxt = List.fold_left precxt cxt fdefs in
+      let tc_fdef cxt (fn,pats,topt,expr) = 
+        let env_type = cxt<@>fn.inst in
+        (* force classical result type *)
+        let rt = result_type fn.pos pats env_type in
+        let rtv = new_Unknown rt.pos UKclass in
+        let cxt = unifytypes cxt rtv rt in
+        evalcxt (assigntype_fun cxt (Type.instantiate env_type) pats expr)
+      in
+      let cxt = List.fold_left tc_fdef cxt fdefs in
+      let postcxt cxt fn =  
+        let t = evaltype cxt (cxt<@>fn.inst) in
+        cxt <@+> (fn.inst, generalise t)
+      in
+      List.fold_left postcxt cxt fns
+      
+let precheck_pdef cxt = function
+  | Processdef   (pn,ps,_) -> 
+      ok_procname pn;
+      let process_param param = 
+        let n,rt = param.inst in
+        let unknown = new_unknown UKchan in
+        match !rt with
+        | None   -> adorn param.pos (Unknown unknown)
+        | Some t -> if (match t.inst with Poly _ -> true | _ -> false) ||
+                       not (NameSet.is_empty (Type.freetvs t)) 
+                    then raise (Error (t.pos, "process parameter cannot be given a polytype or an unknown type"))
+                    else
+                    if not (canunifytype unknown cxt t) 
+                    then raise (Error (t.pos, "parameter type must be qbit, ^qbit or classical"))
+                    else t
+      in
+      let process_params = List.map process_param in
+      if cxt<@?>pn.inst 
+      then raise (Error (pn.pos,
+                         Printf.sprintf "there is a previous definition of %s" 
+                                        (string_of_name pn.inst)
+                        )
+                 )
+      else cxt <@+> (pn.inst, (adorn pn.pos (Process (process_params ps))))
+  | Functiondefs _         -> cxt
 
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
@@ -822,6 +923,12 @@ let typecheck defs =
         in
         let cxt = List.fold_left header_type cxt defs in
         let cxt = List.fold_left typecheck_def cxt defs in
+        (* put the process names in cxt *)
+        let cxt = List.fold_left precheck_pdef cxt defs in
+        (* do the function defs in order and in groups *)
+        let cxt = List.fold_left typecheck_fdefs cxt defs in
+        (* do the process defs *)
+        let cxt = List.fold_left typecheck_pdef cxt defs in
         List.iter (rewrite_def cxt) defs;
         if !verbose then 
           Printf.printf "typechecked\n\ncxt =\n%s\n\ndefs=\n%s\n\n" 

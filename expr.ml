@@ -103,6 +103,7 @@ and ematch = pattern * expr
 and edecl =  
   | EDPat of pattern* _type option * expr
   | EDFun of name instance * pattern list * _type option * expr 
+  | EDFun of name instance * pattern list * _type option ref * expr 
 
 let ewrap opt enode = {etype=ref opt; enode=enode}
 
@@ -256,9 +257,11 @@ and string_of_edecl =
                                                (sot topt)
                                                (string_of_expr e)
   | EDFun (fn,pats,topt, e)  -> Printf.sprintf "%s %s%s = %s"
+  | EDFun (fn,pats,toptr, e)  -> Printf.sprintf "%s %s%s = %s"
                                                (string_of_name fn.inst)
                                                (String.concat " " (List.map string_of_fparam pats))
                                                (sot topt)
+                                               (sot !toptr)
                                                (string_of_expr e)
 
 and string_of_arithop = function

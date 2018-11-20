@@ -28,20 +28,29 @@ open Pattern
 open Param
 open Type
 
+(* to deal honestly with Hindley-Milner typechecking, a program is now a sequence of 
+   _groups_ of mutually-recursive function definitions and single process definitions.
+   Real Soon Now we will have Miranda-style type definitions in the functiondefs
+ *)
 type def = 
   | Processdef of name instance * param list * process
-  | Functiondef of name instance * pattern list * _type option * expr 
+  | Functiondefs of fdef list
+  
+and fdef = name instance * pattern list * _type option ref * expr 
 
 let rec string_of_def = function
-  | Processdef  (pn,params,proc)    -> Printf.sprintf "proc %s(%s) = %s"
-                                       (string_of_name pn.inst)
-                                       (String.concat "," (List.map string_of_param params))
-                                       (string_of_process proc)
-  | Functiondef (fn,pats,topt,expr) -> Printf.sprintf "fun %s %s%s = %s"
-                                       (string_of_name fn.inst)
-                                       (String.concat " " (List.map string_of_fparam pats))
-                                       (match topt with
-                                        | Some t -> Printf.sprintf " :%s" (string_of_type t)
-                                        | None   -> ""
-                                       )
-                                       (string_of_expr expr)
+  | Processdef (pn,params,proc) -> Printf.sprintf "proc %s(%s) = %s"
+                                        (string_of_name pn.inst)
+                                        (String.concat "," (List.map string_of_param params))
+                                        (string_of_process proc)
+  | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
+  
+and string_of_fdef (fn,pats,toptr,expr) =
+  Printf.sprintf "fun %s %s%s = %s"
+  (string_of_name fn.inst)
+  (String.concat " " (List.map string_of_fparam pats))
+  (match !toptr with
+   | Some t -> Printf.sprintf " :%s" (string_of_type t)
+   | None   -> ""
+  )
+  (string_of_expr expr)

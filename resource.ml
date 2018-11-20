@@ -71,6 +71,8 @@ let rec is_resource_type t =
   | Basisv
   | Gate    _
   | Qstate              (* false, really *)
+  | Gate    _       -> false
+  | Qstate          -> false    (* really *)
   (* | Range   _ *)
   | TypeVar _          (* can happen in Univ ... *)       
                     -> false
@@ -248,9 +250,13 @@ let ctfa_def def =
   in
   match def with
   | Processdef(pn, params, proc) ->
+  | Processdef (pn, params, proc) ->
       List.iter ctfa_param params; ctfa_proc proc
   | Functiondef(fn, pats, _, expr) ->
       ctfa_expr expr (* don't check the type: will be checked on use *)
+  | Functiondefs fdefs ->
+      let ctfa_fdef (fn, pats, _, expr) = ctfa_expr expr in (* don't check the type: will be checked on use *)
+      List.iter ctfa_fdef fdefs
   
 (* *************** phase 2: resource check (rck_...) *************************** *)
 
@@ -694,6 +700,7 @@ let rck_def env def =
                   (string_of_def def);
   match def with
   | Processdef(pn, params, proc) -> 
+  | Processdef (pn, params, proc) -> 
       let state, rparams = resource_of_params State.empty params in
       if !verbose then
         Printf.printf "\ndef %s params %s resource %s\n" 
@@ -705,6 +712,9 @@ let rck_def env def =
       ()
   | Functiondef(fn, pats, _, expr) -> 
       ignore (rck_fun State.empty env pats expr)
+  | Functiondefs fdefs ->
+      let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
+      List.iter rck_fdef fdefs
 
 (* *************** main function: trigger the phases *************************** *)
 
@@ -731,6 +741,10 @@ let resourcecheck defs =
               | Functiondef (fn, _, _, _) -> fn.inst
       in
       env <@+> (n,RNull)
+      match def with
+      | Processdef   (pn, _, _) -> env <@+> (pn.inst,RNull)
+      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
+                                   List.fold_left do_fdef env fdefs
     in
     let env = List.fold_left do_def env defs in
     let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in

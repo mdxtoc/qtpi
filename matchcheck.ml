@@ -474,7 +474,8 @@ let matchcheck_def def =
   if !verbose then 
     Printf.printf "\nmatchcheck_def %s\n" (string_of_def def);
   match def with
-  | Processdef  (pn, params, proc)  -> matchcheck_proc proc
-  | Functiondef (fn, pats, _, expr) -> matchcheck_expr expr
+  | Processdef   (pn, params, proc) -> matchcheck_proc proc
+  | Functiondefs fdefs              -> let fcheck (fn, pats, _, expr) = matchcheck_expr expr in
+                                       List.iter fcheck fdefs
 
 let matchcheck defs = push_verbose !verbose_matchcheck (fun () -> List.iter matchcheck_def defs)

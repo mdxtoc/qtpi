@@ -245,7 +245,7 @@ let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3
 exception Abandon of string
 
 let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
-let _ = Interpret.know ("abandon", "string list -> 'a", vfun abandon)
+let _ = Interpret.know ("abandon", "string list -> 'a", vfun abandon) (* note classical result type ... *)
 
 
 let print_string s = vunit (Pervasives.print_string (stringv s); flush stdout)

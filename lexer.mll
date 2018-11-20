@@ -62,6 +62,8 @@ let number = NUM+
 
 let name   = ALPHA (ALPHA | NUM | '_' | '\'')*
 
+let tvname = '\'' (name | '=' name | '^' name | '*' name)
+
 let eol = '\n'
 
 rule make_token = parse
@@ -173,7 +175,6 @@ rule make_token = parse
   | "process"   {PROCESS}
   
   | "->"        {TYPEARROW}
-  | "'"         {PRIME}
     
   | "'" [^ '\\' '\'' 'n' '\r' '\t' ] "'"
                 {CHAR(Lexing.lexeme_char lexbuf 1)}
@@ -190,7 +191,8 @@ rule make_token = parse
                 }
 
   | number      {INT (Lexing.lexeme lexbuf)}
-  | name        {NAME (Lexing.lexeme lexbuf)}    (* should be interned *)
+  | name        {NAME (Lexing.lexeme lexbuf)}   (* should be interned *)
+  | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
 
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
                                                   Lexing.lexeme lexbuf ^ 

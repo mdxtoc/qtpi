@@ -64,6 +64,7 @@
 
 %token <string> INT
 %token <string> NAME 
+%token <string> TVNAME 
 %token <string> STRING 
 %token <char> CHAR 
 
@@ -71,7 +72,7 @@
 %token FUN PROC WHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW PRIME
+%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD F G PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -130,16 +131,11 @@ defs:
 
 def:
   | processdef                          {$1}
-  | functiondef                         {$1}
   
 processdef:
   PROC procname LPAR procparams RPAR EQUALS process  
                                         {Processdef($2,$4,$7)}
 
-functiondef:
-  FUN funname fparams restypeopt EQUALS expr       
-                                        {Functiondef($2,$3,$4,$6)}
-  
 procname:
   | name                                {adorn $1}
 
@@ -202,14 +198,12 @@ simple_typespec:
   | UNITTYPE                            {adorn Unit}
   | QBITTYPE                            {adorn Qbit}
   | QSTATETYPE                          {adorn Qstate}
-  | typevar                             {adorn (TypeVar ($1))}
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
                                          if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } */
   | LPAR typespec RPAR                  {$2}
-  | FORALL typevars DOT typespec        {adorn (Univ ($2,$4))}
   | simple_typespec LISTTYPE            {adorn (List ($1))}
   
 simple_typespecs:
@@ -218,10 +212,7 @@ simple_typespecs:
                                         {$1::$3}
                                         
 typevar:
-  | PRIME name                          {"'"   ^ $2}
-  | PRIME PRIME name                    {"''"  ^ $3}
-  | PRIME PRIME PRIME name              {"'''" ^ $4}
-  | PRIME CHANTYPE name                 {"'^"  ^ $3}
+  TVNAME                                {$1}
     
 typevars:
   | typevar                             {[$1]}
@@ -455,7 +446,6 @@ edecl:
   | bpattern restypeopt EQUALS indentNext expr outdent
                                         {EDPat($1,$2,$5)}
   | funname fparams restypeopt EQUALS indentNext expr outdent   
-                                        {EDFun($1,$2,$3,$6)}
 
 nwexpr:  
   | ntexpr                              {$1}

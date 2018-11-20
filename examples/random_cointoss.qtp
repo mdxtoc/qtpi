@@ -4,8 +4,8 @@
    -- i.e. an unfair coin.
  *)
 
-proc P(fromQ:^qbit, toQ:^qbit) = | fromQ?(y) . toQ!y . _0
-                                 | fromQ?(y) . y>>_X . toQ!y . _0
+proc P(fromQ:^qbit, toQ:^qbit) = + fromQ?(y) . toQ!y . _0
+                                 + fromQ?(y) . y>>_X . toQ!y . _0
                      
 proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>_H . toP!x . fromP?(z) . z>>_H . _0 

@@ -1,4 +1,4 @@
-proc Bob(nq,qc,ic,bc,logc) = 
+proc Bob(nq,qc,ic,bc,logc,verbose) = 
   (new rc)
     | BobRead (nq,qc,rc,[]) 
     | rc?(bvs) .
@@ -11,7 +11,7 @@ proc Bob(nq,qc,ic,bc,logc) =
       bc!vBs    .
       bc?(go)   .
       if bit2bool (hd go) then (* Alice says ok *)
-        if not (check bs bAs vBs vAs (3,2) && check bs bAs vBs vAs (1,2)) then (* we have interference *)
+        if not (check verbose bs bAs vBs vAs (3,2) && check verbose bs bAs vBs vAs (1,2)) then (* we have interference *)
           bc![bool2bit false] .
           out!["Bob detects interference\n"] .
           logc![] .

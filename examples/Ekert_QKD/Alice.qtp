@@ -1,4 +1,4 @@
-proc Alice(nq,m,qc,ic,bc,logc) = 
+proc Alice(nq,m,qc,ic,bc,logc,verbose) = 
   (new rc) 
     | AliceRead (nq,qc,rc,[])
     | rc?(bvs)    .
@@ -12,7 +12,7 @@ proc Alice(nq,m,qc,ic,bc,logc) =
       (* we can do the non-interference check for all the orientations, but while we have a slow
          interpreter, two each for Alice and Bob sort of gives coverage.
        *)
-      if not (check bs bBs vAs vBs (0,1) && check bs bBs vAs vBs (1,2)) then (* we have interference *)
+      if not (check verbose bs bBs vAs vBs (0,1) && check verbose bs bBs vAs vBs (1,2)) then (* we have interference *)
         bc![bool2bit false] .
         out!["Alice detects interference\n"] .
         logc![] .

@@ -11,8 +11,8 @@ fun rand4() = i1*2+i2 where i1=bit2int b1
 
 fun combine bs bvs = zip (zip bs (map fst bvs)) (map snd bvs)
 
-fun sanitise bbvs =
-  map (lam ((b, b'), v') . if b=b' then 0b0 else v' fi) bbvs
+fun sanitise bbvs
+  = map (lam ((b, b'), v') . if b=b' then 0b0 else v' fi) bbvs
   
 fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
 
@@ -22,43 +22,40 @@ fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
    sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). 
  *)
 
-fun int_sqrt n = i_s 0 n
-
-fun i_s k n =
-  if k*k>=n then k 
-  else i_s (k+1) n fi
+fun int_sqrt n = i_s 0 n where i_s k n = if k*k>=n then k else i_s (k+1) n fi
 
 fun abs i = if i<0 then -i else i fi
 
-fun check bs b's vs v's ij = 
-  nsigmas<5 (* where _ = print_strings ["combine "; show bbvvs; ";\n"; show vv_ijs; 
-                                     ";\nij="; show ij; " size="; show size; " ndiff="; show ndiff; 
-                                     " mean="; show mean; " nsigmas="; show nsigmas; "\n\n"] *)
-            where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
-                               else 0 where _ = print_strings ["non-interference check finds "; show size;
-                                                               " "; show ij; "s in\n"; show bbvvs; 
-                                                               "\n -- less than 8 is too few for statistical investigation\n"]
-                               fi
-            where mean = size*854/1000
-            where sigma = int_sqrt ((size+4)/8)
-            where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
-            where size = length vv_ijs
-            where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
-            where bbvvs = zip (zip bs b's) (zip vs v's)
+fun check verbose bs b's vs v's ij
+   = nsigmas<5 where _ = print_strings if verbose then ["combine "; show bbvvs; ";\n"; show vv_ijs; 
+                                                        ";\nij="; show ij; " size="; show size; " ndiff="; show ndiff; 
+                                                        " expected="; show mean; " nsigmas="; show nsigmas; "\n\n"]
+                                       else [] fi
+               where nsigmas = if sigma<>0 then abs (mean-ndiff)/sigma
+                                  else 0 where _ = print_strings ["non-interference check finds "; show size;
+                                                                  " "; show ij; "s in\n"; show bbvvs; 
+                                                                  "\n -- less than 8 is too few for statistical investigation\n"]
+                                  fi
+               where mean = size*854/1000
+               where sigma = int_sqrt ((size+4)/8)
+               where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
+               where size = length vv_ijs
+               where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
+               where bbvvs = zip (zip bs b's) (zip vs v's)
             
-fun xor_mask code message = 
-  map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
+fun xor_mask code message
+   = map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
 
-fun frow xs (i,j) =
-  i, j, zs, length (filter (lam (vi,vj) . vi=vj) zs)
-      where zs = map (lam ((_,vi),(_,vj)) . vi,vj) ys
-      where ys = filter (lam ((i',_),(j',_)) . i=i' && j=j') xs
+fun frow xs (i,j)
+   = i, j, zs, length (filter (lam (vi,vj) . vi=vj) zs)
+       where zs = map (lam ((_,vi),(_,vj)) . vi,vj) ys
+       where ys = filter (lam ((i',_),(j',_)) . i=i' && j=j') xs
       
-fun crossprod xs ys =
-  match xs . + []    . []
-             + x::xs . row x ys @ crossprod xs ys
-                         where row x ys = match ys . + []    . []
-                                                     + y::ys . (x,y) :: row x ys
+fun crossprod xs ys
+   =match xs . + []    . []
+               + x::xs . row x ys @ crossprod xs ys
+                           where row x ys = match ys . + []    . []
+                                                       + y::ys . (x,y) :: row x ys
                                                      
 (* *************************************************************************************** *)
 

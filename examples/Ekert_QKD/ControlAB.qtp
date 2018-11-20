@@ -7,8 +7,8 @@ proc ControlAB(qcA,qcB,n,k,nq,m,verbose,nOK) =
   else
     out!if k=0 || (k+1) % 10 = 0 then ["trial number "; show (k+1); "\n"] else [] fi .
     (new ic,bc,logcA, logcB)
-    | Alice (nq,m,qcA,ic,bc,logcA)
-    | Bob   (nq,qcB,ic,bc,logcB)
+    | Alice (nq,m,qcA,ic,bc,logcA,verbose)
+    | Bob   (nq,qcB,ic,bc,logcB,verbose)
     | logcA?(mA) . logcB?(mB) . 
         (let nOK = if mA=mB then nOK+1 else nOK fi)
         out!if mA<>mB then ["Error: Alice sent "; show mA; "; Bob saw "; show mB; "\n"]

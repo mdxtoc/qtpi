@@ -339,7 +339,7 @@ and canunifytype n cxt t =
       | UKeq    , Poly    _      (* Poly types are function types *)
       | UKeq    , Process _   -> bad ()
       
-      | UKclass, Qbit        -> bad ()
+      | UKclass, Qbit         -> bad ()
       
       | UKall   , Qbit        -> true
       | _       , Qstate      -> true
@@ -453,16 +453,18 @@ let rec assigntype_name pos cxt t n =
   | Some t' -> 
       let t' = Type.instantiate t' in
       (try unifytypes cxt t t' 
-       with TypeUnifyError(t1,t2) -> 
-         raise (Error (pos,
-                       Printf.sprintf "(unifying types %s and %s for %s): can't (sub-)unify %s and %s"
-                                      (string_of_type (evaltype cxt t))
-                                      (string_of_type (evaltype cxt t'))
-                                      (string_of_name n)
-                                      (string_of_type (evaltype cxt t1))
-                                      (string_of_type (evaltype cxt t2))
-                      )
-               )
+       with 
+       | TypeUnifyError(t1,t2) -> 
+           raise (Error (pos,
+                         Printf.sprintf "(unifying types %s and %s for %s): can't (sub-)unify %s and %s"
+                                        (string_of_type (evaltype cxt t))
+                                        (string_of_type (evaltype cxt t'))
+                                        (string_of_name n)
+                                        (string_of_type (evaltype cxt t1))
+                                        (string_of_type (evaltype cxt t2))
+                        )
+                 )
+       | Error (_, s) -> raise (Error (pos, s))
       )
   | None    -> raise (Undeclared (pos, n))
 

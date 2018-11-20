@@ -1,9 +1,9 @@
 
 proc Alice (x:qbit, c:^bit*bit) = 
     (newq z)
-    out!["initially Alice's x ("; show x; ") is "] .
+    out!["initially Alice's x is "] .
     outq!(qval x) . 
-    out![" and z ("; show z; ") is "] . 
+    out![" and z is "] . 
     outq!(qval z) . out!["\n"] .
     z,x>>_CNot . 
     out!["after three-way entanglement z is "] . 
@@ -11,9 +11,7 @@ proc Alice (x:qbit, c:^bit*bit) =
     z=?[_H](vz) . 
     out!["z is measured in the Hadamard basis, giving ";
                     show vz; ";\n and now x is "] .
-    outq!(qval x) . 
-    out![";\n and z is "] .
-    outq!(qval z) . out!["\n"] .
+    outq!(qval x) . out!["\n"] .
     x=?(vx) . 
     out!["x is measured in the computational basis, giving ";
                     show vx; "\n"] .
@@ -23,7 +21,7 @@ proc Alice (x:qbit, c:^bit*bit) =
 proc Bob(y:qbit, c:^bit*bit) = 
     c?(b1,b2) . 
     out!["Alice sends "; show b1; ",";
-                    show b2; "\nBob's y ("; show y; ") is "] .
+                    show b2; "\nBob's y is "] .
     outq!(qval y) . out!["\n"] .
     y >> match b1,b2 . + 0b0,0b0 . _I
                        + 0b0,0b1 . _X

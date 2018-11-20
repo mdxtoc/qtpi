@@ -77,8 +77,8 @@ let (<@-->) cxt n = (* pop binding *)
                                                          )
                                                )
 
-let new_TypeVar pos utv = adorn pos (TypeVar (new_unknown_tv utv))
-let ntv pos = new_TypeVar pos UTV
+let new_Unknown pos uk = adorn pos (Unknown (new_unknown uk))
+let ntv pos = new_Unknown pos UKall
 
 let rec eval cxt n =
   try Some (evaltype cxt (cxt <@> n)) with Not_found -> None
@@ -96,15 +96,31 @@ and evaltype cxt t =
   | Gate    _       
   | Qbit            
   | Qstate          -> t
-  | TypeVar n      -> (try evaltype cxt (cxt <@>n) with Not_found -> t)
-  | Univ (ns,t')   -> let cxt' = List.fold_left (fun cxt n -> cxt <@->n) cxt ns in
-                       adorn (Univ (ns,evaltype cxt' t'))
+  | Unknown n       -> (try evaltype cxt (cxt <@>n) with Not_found -> t)
+  | Known n         -> t
+  | Poly (ns,t')    -> let cxt' = List.fold_left (fun cxt n -> cxt <@->n) cxt ns in
+                       adorn (Poly (ns,evaltype cxt' t'))
 (*| Range _         -> t *)
   | List t          -> adorn (List (evaltype cxt t))
   | Tuple ts        -> adorn (Tuple (List.map (evaltype cxt) ts))
   | Channel t       -> adorn (Channel (evaltype cxt t))
   | Fun (t1,t2)     -> adorn (Fun (evaltype cxt t1, evaltype cxt t2))
   | Process ts      -> adorn (Process (List.map (evaltype cxt) ts))
+
+(* when you think you have a complete type context, simplify it with evalcxt. 
+   Once threw away TypeVars: now it just shortens lookups. 
+ *)
+let evalcxt cxt = 
+  let tpushes = List.map (fun (n,t) -> n, t &~~ (_Some <.> evaltype cxt)) cxt.tpushes in
+  let tmap = NameMap.map (evaltype cxt) cxt.tmap in
+  {tpushes=tpushes; tmap=tmap}
+
+let short_string_of_typecxt cxt = 
+  let cxt = evalcxt cxt in
+  let tmap = NameMap.filter (fun n t -> not (Stringutils.starts_with n "?")) cxt.tmap in
+  string_of_typecxt {cxt with tmap=tmap}
+
+(* ***************************** rewriting stuff ********************************* *)
 
 let rec rewrite_expr cxt e =
   match !(e.inst.etype) with
@@ -213,15 +229,10 @@ let rec rewrite_process cxt proc =
                                List.iter (rewrite_g) gs
   | Par      ps             -> List.iter (rewrite_process cxt) ps
 
-let rewrite_def cxt = function
-  | Processdef (n, params, proc) ->
 let rewrite_def cxt def = 
   match def with
   | Processdef  (n, params, proc) ->
       rewrite_params cxt params; rewrite_process cxt proc
-  | Functiondef (n, pats, _, expr) ->
-      rewrite_fparams cxt pats; rewrite_expr cxt expr
-  
   | Functiondefs fdefs            ->
       let rewrite_fdef (n, pats, toptr, expr) =
         let nt = (try evaltype cxt (cxt <@>n.inst) 
@@ -254,23 +265,30 @@ let pickdiff cxt t t1 t2 =
 let rec unifytypes cxt t1 t2 = 
   let t1 = evaltype cxt t1 in
   let t2 = evaltype cxt t2 in
+  if !verbose then
+    Printf.printf "unifytypes %s (%s) (%s)\n\n"
+                  (short_string_of_typecxt cxt)
+                  (string_of_type t1)
+                  (string_of_type t2);
   let exn = TypeUnifyError (t1,t2) in
   let ut n t =
-    let kind = unknown_kind n in
-    (if kind=UTV then cxt else force_kind kind cxt t) <@+> (n,t)
+    let kind = kind_of_unknown n in
+    (if kind=UKall then cxt else force_kind kind cxt t) <@+> (n,t)
   in
   match t1.inst, t2.inst with
-  | TypeVar n1      , TypeVar n2        -> if n1=n2 then cxt 
-                                           else cxt <@+> (if uincludes (unknown_kind n1) (unknown_kind n2) then (n1,t2) else (n2,t1))
-  | TypeVar n1      , _                 -> if canunifytype n1 cxt t2 then ut n1 t2 else raise exn
-  | _               , TypeVar n2        -> if canunifytype n2 cxt t1 then ut n2 t1 else raise exn
+  | Unknown n1      , Unknown n2        -> if n1=n2 then cxt 
+                                           else cxt <@+> (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
+                                                          then (n1,t2) 
+                                                          else (n2,t1)
+                                                         )
+  | Unknown n1      , _                 -> if canunifytype n1 cxt t2 then ut n1 t2 else raise exn
+  | _               , Unknown n2        -> if canunifytype n2 cxt t1 then ut n2 t1 else raise exn
   | Tuple t1s       , Tuple t2s             
   | Process t1s     , Process t2s       -> unifylists exn cxt t1s t2s 
   | Channel t1      , Channel t2        
   | List t1         , List t2           -> (* (try *)unifytypes cxt t1 t2(* with _ -> raise exn)*)
   | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn cxt [t1a;t1b] [t2a;t2b]
-(*| Range (i,j)     , Range (m,n)       -> (* presuming t2 is the context ... *)
-                                           if m<=i && j<=n then cxt else raise exn *)
+(*| Range (i,j)     , Range (m,n)       -> if m<=i && j<=n then cxt else raise exn *)
   | _                                   -> if t1.inst=t2.inst then cxt else raise exn
 
 and unifypair cxt (t1,t2) = unifytypes cxt t1 t2
@@ -279,26 +297,27 @@ and unifylists exn cxt t1s t2s =
   let pairs = try List.combine t1s t2s with Invalid_argument _ -> raise exn in
   List.fold_left unifypair cxt pairs
 
-(* canunify checks that a type doesn't contain TypeVar n; also that equnknowns don't get unified with qbits, functions and such;
+(* canunify checks that a type doesn't contain Unknown n; also that equnknowns don't get unified with qbits, functions and such;
    and now also that channel types are qbit or classical and that classicals are classical. ISWIM
  *)  
 and canunifytype n cxt t =
   let bad () = 
-    let s = match unknown_kind n with
-            | UTVclass -> "a classical type"
-            | UTVeq    -> "an equality type"
-            | UTVchan  -> "suitable for a channel"
-            | UTV      -> " (whoops: can't happen)"
+    let s = match kind_of_unknown n with
+            | UKclass -> "a classical type"
+            | UKeq    -> "an equality type"
+            | UKchan  -> "suitable for a channel"
+            | UKall   -> " (whoops: can't happen)"
     in
     raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
   in
   let rec check kind t = 
     let rec cu t = 
       match kind, t.inst with
-      | _       , TypeVar n'  -> (match eval cxt n' with
+      | _       , Unknown n'  -> (match eval cxt n' with
                                   | None    -> n<>n'
                                   | Some t' -> cu t'
                                  )
+      | _       , Known n'    -> kind_includes kind (kind_of_unknown n')
       | _       , Unit
       | _       , Int
       | _       , Bool
@@ -309,39 +328,39 @@ and canunifytype n cxt t =
    (* | _       , Range   _ *)
       | _       , Gate    _   -> true
      
-      | UTVchan , Qbit        -> true
-      | UTVchan , Channel t'  -> cu t'
-      | UTVchan , _           -> check UTVclass t
+      | UKchan  , Qbit        -> true
+      | UKchan  , Channel t'  -> cu t'
+      | UKchan  , _           -> check UKclass t
       
-      | UTVeq   , Qbit        
-      | UTVeq   , Qstate      
-      | UTVeq   , Channel _   
-      | UTVeq   , Fun     _   
-      | UTVeq   , Univ    _      (* Univ types are function types *)
-      | UTVeq   , Process _   -> bad ()
+      | UKeq    , Qbit        
+      | UKeq    , Qstate      
+      | UKeq    , Channel _   
+      | UKeq    , Fun     _   
+      | UKeq    , Poly    _      (* Poly types are function types *)
+      | UKeq    , Process _   -> bad ()
       
-      | UTVclass, Qbit        -> bad ()
+      | UKclass, Qbit        -> bad ()
       
-      | UTV     , Qbit        -> true
+      | UKall   , Qbit        -> true
       | _       , Qstate      -> true
       | _       , Tuple ts    -> List.for_all cu ts
-      | _       , Fun (t1,t2) -> check UTV t1 && check UTV t2 (* only the TypeVars matter *)
-      | _       , Process ts  -> List.for_all (check UTV) ts
+      | _       , Fun (t1,t2) -> check UKall t1 && check UKall t2 (* only the TypeVars matter *)
+      | _       , Process ts  -> List.for_all (check UKall) ts
       | _       , List t      -> cu t
-      | _       , Channel t   -> check UTVchan t                (* why not? *)
-      | _       , Univ (ns,t) -> true                           (* Univ types have no free variables *) 
+      | _       , Channel t   -> check UKchan t                (* why not? *)
+      | _       , Poly (ns,t) -> true                           (* Poly types have no free variables *) 
     in
     cu t
   in
-  check (unknown_kind n) t
+  check (kind_of_unknown n) t
 
 (* force_kind unifies the unknowns in t with appropriate unknowns *)  
 and force_kind kind cxt t =
   let rec fk cxt t =
     match t.inst with
-    | TypeVar n'      -> (match eval cxt n' with
-                          | None    -> if uincludes kind (unknown_kind n') then cxt else
-                                       (let n'' = new_TypeVar t.pos kind in cxt <@+> (n',n''))
+    | Unknown n'      -> (match eval cxt n' with
+                          | None    -> if kind_includes kind (kind_of_unknown n') then cxt else
+                                       (let n'' = new_Unknown t.pos kind in cxt <@+> (n',n''))
                           | Some t' -> fk cxt t'
                          )
     | Tuple ts        -> List.fold_left fk cxt ts
@@ -353,6 +372,7 @@ and force_kind kind cxt t =
     | Bit 
     | Unit
     | Basisv   
+    | Known   _
  (* | Range   _ *)
     | Gate    _       
     | Qbit            
@@ -360,23 +380,10 @@ and force_kind kind cxt t =
     | Fun _           
     | Process _       
     | Channel _       
-    | Univ _          -> cxt 
+    | Poly _          -> cxt 
   in
   fk cxt t
   
-(* when you think you have a complete type context, simplify it with evalcxt. 
-   Once threw away TypeVars: now it just shortens lookups. 
- *)
-let evalcxt cxt = 
-  let tpushes = List.map (fun (n,t) -> n, t &~~ (_Some <.> evaltype cxt)) cxt.tpushes in
-  let tmap = NameMap.map (evaltype cxt) cxt.tmap in
-  {tpushes=tpushes; tmap=tmap}
-
-let short_string_of_typecxt cxt = 
-  let cxt = evalcxt cxt in
-  let tmap = NameMap.filter (fun n t -> not (Stringutils.starts_with n "?")) cxt.tmap in
-  string_of_typecxt {cxt with tmap=tmap}
-
 (* *************************** typechecker starts here ********************************* *)
 
 let rec typecheck_pats tc cxt t pxs =
@@ -439,7 +446,7 @@ and assigntype_pat contn cxt t p =
                                         )
                                  )
 
-;; (* to give typecheck_pats and assigntype_pat a universal type *)
+;; (* to give typecheck_pats and assigntype_pat a polytype *)
 
 let rec assigntype_name pos cxt t n =
   match eval cxt n with
@@ -517,7 +524,7 @@ and assigntype_expr cxt t e =
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EApp    (e1,e2)      -> let atype = ntv e2.pos in
-                               let rtype = new_TypeVar e.pos UTVclass in
+                               let rtype = new_Unknown e.pos UKclass in
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let cxt = unifytypes cxt rtype t in
                                let cxt = assigntype_expr cxt ftype e1 in 
@@ -541,7 +548,7 @@ and assigntype_expr cxt t e =
      | EArith (e1,_,e2)     -> binary cxt (adorn_x e Int)  (adorn_x e1 Int)  (adorn_x e2 Int)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
-                                       let t = new_TypeVar e1.pos UTVeq in
+                                       let t = new_Unknown e1.pos UKeq in
                                        binary cxt (adorn_x e Bool) t t e1 e2
                                    | _ ->
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Int) (adorn_x e2 Int)  e1 e2
@@ -566,42 +573,43 @@ and assigntype_edecl cxt t e = function
   | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
                                     let cxt = assigntype_expr cxt wt we in
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
-  | EDFun (wfn,wfpats,wtopt, we) -> ok_funname wfn;
   | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;
-                                    let tf = inventtype_fun wfpats wtopt we in
+                                    let tf, tr = inventtype_fun wfpats !wtoptr we in
                                     let cxt = cxt <@++> (wfn.inst,tf) in
                                     let cxt = assigntype_fun cxt tf wfpats we in
+                                    let rt = new_Unknown we.pos UKclass in
+                                    let cxt = unifytypes cxt rt tr in
                                     let cxt = assigntype_expr cxt t e in
                                     wtoptr := Some tr;
                                     cxt <@--> wfn.inst
 
 and inventtype_fun pats topt e = 
-  let rec itf set = function
-  | pat::pats'  -> let set, ta = inventtype_pat set pat in
-                   let set, tr = itf set pats' in
-                   set, adorn (pos_of_instances pats) (Fun (ta,tr))
-  | []          -> (match topt with 
-                    | None   -> set, ntv e.pos 
-                    | Some t -> NameSet.union set (Type.freetvs t), t
-                   )
-  and inventtype_pat set pat =
+  let rec itf = function
+  | pat::pats'  -> let ta = inventtype_pat pat in
+                   let tr, trall = itf pats' in
+                   adorn (pos_of_instances pats) (Fun (ta,tr)), trall
+  | []          -> let tr = match topt with 
+                            | None   -> new_Unknown e.pos UKclass
+                            | Some t -> t
+                    in tr, tr
+  and inventtype_pat pat =
     match !(pat.inst.ptype) with
-      | Some t -> NameSet.union set (Type.freetvs t), t
+      | Some t -> t
       | None   -> match pat.inst.pnode with
                   | PatName _ 
-                  | PatAny          -> set, ntv pat.pos
-                  | PatUnit         -> set, adorn pat.pos Unit
-                  | PatTuple pats   -> let itp (set, ts) pat = 
-                                         let set, t = inventtype_pat set pat in
-                                         set, t::ts
-                                       in
-                                       let set, ts = List.fold_left itp (set,[]) pats in
-                                       set, adorn pat.pos (Tuple (List.rev ts))
+                  | PatAny          -> ntv pat.pos
+                  | PatUnit         -> adorn pat.pos Unit
+                  | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
+                                       let ts = List.fold_left itp [] pats in
+                                       adorn pat.pos (Tuple (List.rev ts))
                   | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
   in 
-  let set, t = itf NameSet.empty pats in
-  if NameSet.is_empty set then t else adorn t.pos (Univ (NameSet.elements set, t))
+  let t, tr = itf pats in
+  let vs = NameSet.union (freetvs t) (freetvs tr) in
+  (* change the knowns to new unknowns *)
+  let assoc = List.map (fun v -> v, new_Unknown dummy_spos (kind_of_unknown v)) (NameSet.elements vs) in
+  Type.rewrite assoc t, Type.rewrite assoc tr
   
 and check_distinct_fparams pats =
   let rec cdfp set pat =
@@ -620,9 +628,15 @@ and check_distinct_fparams pats =
   ignore (List.fold_left cdfp NameSet.empty pats)
   
 and assigntype_fun cxt t pats e =
+  if !verbose then
+    Printf.printf "assigntype_fun %s (%s) [%s] (%s)\n\n"
+                  (short_string_of_typecxt cxt)
+                  (string_of_type (evaltype cxt t))
+                  (string_of_list string_of_fparam " " pats)
+                  (string_of_expr e);
   match pats with
   | pat::pats'  -> let ta = ntv pat.pos in
-                   let tr = ntv (pos_of_instances pats') in
+                   let tr = new_Unknown (pos_of_instances pats') UKclass in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let cxt = unifytypes cxt t tf in
                    let contn cxt () = assigntype_fun cxt tr pats' e in
@@ -707,7 +721,7 @@ and typecheck_process cxt p =
       (* all the params have to be channels *)
       let cxt = 
         List.fold_left (fun cxt {pos=pos; inst=n,rt} -> 
-                          unify_paramtype cxt rt (adorn pos (Channel (new_TypeVar pos UTVchan))) 
+                          unify_paramtype cxt rt (adorn pos (Channel (new_Unknown pos UKchan))) 
                        )
                        cxt
                        params
@@ -764,11 +778,6 @@ and typecheck_process cxt p =
                        typecheck_pats typecheck_process cxt et pms
   | Par (ps)        -> List.fold_left typecheck_process cxt ps
 
-and typecheck_def cxt def =
-  if !verbose then
-    Printf.printf "typecheck_def %s %s\n\n" 
-                   (short_string_of_typecxt cxt)
-                   (string_of_def def);
 and typecheck_pdef cxt def =
   let cxt =
     match def with 
@@ -788,25 +797,6 @@ and typecheck_pdef cxt def =
           let cxt = do_procparams "processdef" cxt params proc in
           let cxt = evalcxt cxt in
           let tps = zip env_types params in
-          List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytypes cxt t (_The !rt)) cxt tps
-      | Functiondef (fn,pats,topt,expr) -> 
-          let env_type = let t = cxt<@>fn.inst in
-                         match t.inst with
-                         | Fun  _
-                         | Univ _ -> t
-                         | _     -> raise (Can'tHappen (Printf.sprintf "%s not a function name"
-                                                                       (string_of_name fn.inst)
-                                                       )
-                                          )
-          in
-          evalcxt (assigntype_fun cxt (Type.instantiate env_type) pats expr)
-  in
-  if !verbose then
-    (rewrite_def cxt def;
-     Printf.printf "after typecheck_def, def = %s\n\ncxt = %s\n\n" 
-                   (string_of_def def) 
-                   (short_string_of_typecxt cxt)
-    );
           let r = List.fold_left (fun cxt (t,{inst=n,rt}) -> unifytypes cxt t (_The !rt)) cxt tps in
           if !verbose then
             (rewrite_def cxt def;
@@ -891,38 +881,6 @@ let precheck_pdef cxt = function
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let cxt = make_library_cxt () in
-        let header_type cxt = function
-          | Processdef (pn,ps,_) ->
-              ok_procname pn;
-              let process_param param = 
-                let n,rt = param.inst in
-                match !rt with
-                | None   -> ntv param.pos
-                | Some t -> if (match t.inst with Univ _ -> true | _ -> false) ||
-                               not (NameSet.is_empty (Type.freetvs t)) 
-                            then raise (Error (t.pos,
-                                               Printf.sprintf "Error in %s: process parameter cannot be given a universal type"
-                                                              (string_of_param param)
-                                              )
-                                       );
-                            t
-              in
-              let process_params = List.map process_param in
-              if cxt<@?>pn.inst 
-              then raise (Error (pn.pos,
-                                 Printf.sprintf "there is a previous definition of %s" 
-                                                (string_of_name pn.inst)
-                                )
-                         )
-              else cxt <@+> (pn.inst, (adorn pn.pos (Process (process_params ps))))
-          | Functiondef (fn,pats,topt,e) ->
-              ok_funname fn;
-              check_distinct_fparams pats;
-              let t = inventtype_fun pats topt e in
-              cxt <@+> (fn.inst, t)
-        in
-        let cxt = List.fold_left header_type cxt defs in
-        let cxt = List.fold_left typecheck_def cxt defs in
         (* put the process names in cxt *)
         let cxt = List.fold_left precheck_pdef cxt defs in
         (* do the function defs in order and in groups *)

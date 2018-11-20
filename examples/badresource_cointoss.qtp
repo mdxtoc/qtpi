@@ -1,4 +1,4 @@
-(* bad use of x in Q *)
+(* bad use of x in Q -- even though it's the same qbit really *)
 
 proc P(fromQ:^qbit, toQ:^qbit) = | fromQ?(y) . toQ!y . _0
                                  | fromQ?(y) . y>>_X . toQ!y . _0

@@ -237,7 +237,7 @@ let rec boyd pq =
       if b then () else (PQueue.remove pq; boyd pq)
   with PQueue.Empty -> ()
 
-;; (* to give boyd a universal type *)
+;; (* to give boyd a polytype *)
 
 (* predefined channels *)
 let dispose_c = -1
@@ -758,9 +758,6 @@ let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
-let bind_def er = function
-  | Processdef  (n,params,p)    -> (n.inst, VProcess (strip_params params, p))
-  | Functiondef (n,pats,_,expr) -> bind_fun er n.inst pats expr
 let bind_fdefs env = function
   | Processdef   _      -> env 
   | Functiondefs fdefs  -> let er = ref env in
@@ -777,16 +774,12 @@ let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let stored_sysenv = ref [] in
-  let defassoc = List.map (bind_def stored_sysenv) defs in
-  let sysenv = defassoc @ knownassoc in
   let sysenv = List.fold_left bind_fdefs knownassoc defs in
   let sysenv = List.fold_left bind_pdefs sysenv defs in
   let sysenv = if sysenv <@?> "dispose" then sysenv else sysenv <@+> ("dispose", VChan (mkchan (dispose_c))) in
   let sysenv = if sysenv <@?> "out"     then sysenv else sysenv <@+> ("out"    , VChan (mkchan (out_c ))) in
   let sysenv = if sysenv <@?> "outq"    then sysenv else sysenv <@+> ("outq"   , VChan (mkchan (outq_c  ))) in
   let sysenv = if sysenv <@?> "in"      then sysenv else sysenv <@+> ("in"     , VChan (mkchan (in_c   ))) in
-  stored_sysenv := sysenv;
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"

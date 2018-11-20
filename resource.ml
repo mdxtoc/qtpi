@@ -69,14 +69,14 @@ let rec is_resource_type t =
   | String
   | Bit 
   | Basisv
-  | Gate    _
-  | Qstate              (* false, really *)
   | Gate    _       -> false
   | Qstate          -> false    (* really *)
   (* | Range   _ *)
-  | TypeVar _          (* can happen in Univ ... *)       
-                    -> false
-  | Univ (ns, t)    -> is_resource_type t 
+  | Unknown n          (* can happen in Poly ... *)       
+  | Known   n          (* can happen in Poly ... *)       
+                    -> let k = kind_of_unknown n in
+                       k=UKall || k=UKchan
+  | Poly (ns, t)    -> is_resource_type t 
   | List    t       -> is_resource_type t 
   | Channel t       -> false
   | Tuple   ts      -> List.exists is_resource_type ts
@@ -114,13 +114,14 @@ let rec ctfa_type classic t =
   | Qstate
   (* | Range   _ *)
   | Gate    _       -> ()
-  | TypeVar _       -> (* it really doesn't matter: type variables just correspond to unused variables *)
+  | Unknown _       
+  | Known _         -> (* it really doesn't matter: type variables just correspond to unused variables *)
                        ()
-  | Univ    (ns, t) -> ctfa_type classic t
+  | Poly    (ns, t) -> ctfa_type classic t
   | List    t       -> ctfa_type classic t
   | Tuple   ts    
   | Process ts      -> List.iter (ctfa_type classic) ts
-  | Channel t       -> (* this is wrong: universal types will trip it up *)
+  | Channel t       -> (* this is wrong: polytypes will trip it up *)
                        (match t.inst with
                         | Qbit      -> () (* always ok, even in classical channels *)
                         | _         -> try ctfa_type true t
@@ -249,11 +250,8 @@ let ctfa_def def =
 
   in
   match def with
-  | Processdef(pn, params, proc) ->
   | Processdef (pn, params, proc) ->
       List.iter ctfa_param params; ctfa_proc proc
-  | Functiondef(fn, pats, _, expr) ->
-      ctfa_expr expr (* don't check the type: will be checked on use *)
   | Functiondefs fdefs ->
       let ctfa_fdef (fn, pats, _, expr) = ctfa_expr expr in (* don't check the type: will be checked on use *)
       List.iter ctfa_fdef fdefs
@@ -331,8 +329,9 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Gate  _         
   | Qstate          -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
-  | TypeVar _       -> state, RNull  (* checked in ctfa *)
-  | Univ _          -> state, RNull  (* checked in cfta *)
+  | Unknown _       
+  | Known   _       -> state, RNull  (* checked in ctfa *)
+  | Poly _          -> state, RNull  (* checked in cfta *)
   | List t          -> let _, r = resource_of_type rid state t in
                        state, (if r=RNull then RNull else RList rid)
   | Tuple ts        -> let subrt (i,state,rs) t = 
@@ -449,7 +448,7 @@ and rck_pats rck state env reopt pxs =
   let rck_px (pat,x) = rck_pat (fun state env -> rck state env x) state env pat reopt in
   List.map rck_px pxs
     
-;; (* to give rck_pat and rck_pats a universal type *)
+;; (* to give rck_pat and rck_pats a polytype *)
 
 let rec r_o_e disjoint state env e =
   let rec re_env use env e =
@@ -699,7 +698,6 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef(pn, params, proc) -> 
   | Processdef (pn, params, proc) -> 
       let state, rparams = resource_of_params State.empty params in
       if !verbose then
@@ -710,8 +708,6 @@ let rck_def env def =
       (* here we go with the symbolic execution *)
       let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
       ()
-  | Functiondef(fn, pats, _, expr) -> 
-      ignore (rck_fun State.empty env pats expr)
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
@@ -722,7 +718,7 @@ let resourcecheck defs =
   (* defs have been rewritten to mark exprs with their types.
      
      We police parameters: channels take either a single qbit or a classical value. Functions and
-     applications must have nothing to do with qbits.
+     applications must have nothing to do with qbits. But the typechecker does this ...
    *)
   
   push_verbose !verbose_resource (fun () ->
@@ -736,11 +732,6 @@ let resourcecheck defs =
     in
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
-      let n = match def with
-              | Processdef  (pn, _, _)    -> pn.inst
-              | Functiondef (fn, _, _, _) -> fn.inst
-      in
-      env <@+> (n,RNull)
       match def with
       | Processdef   (pn, _, _) -> env <@+> (pn.inst,RNull)
       | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in

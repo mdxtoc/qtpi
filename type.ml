@@ -22,6 +22,7 @@
 *)
 
 open Settings
+open Sourcepos
 open Name
 open Stringutils
 open Listutils
@@ -40,8 +41,9 @@ and tnode =
   | Qstate
   | Basisv
   | Gate    of int              (* arity *)
-  | TypeVar of name             (* unknown type starts with '?', which doesn't appear in parseable names *)
-  | Univ    of name list * _type
+  | Unknown of name             (* unknowns start with '?', which doesn't appear in parseable names *)
+  | Known   of name             (* knowns start with '\'', which doesn't appear in parseable names *)
+  | Poly    of name list * _type
 (*| Range   of int * int *)
   | List    of _type
   | Tuple   of _type list
@@ -68,9 +70,10 @@ let typeprio t =
   | Qstate
   | Basisv
   | Gate    _
-  | TypeVar _ 
+  | Unknown _ 
+  | Known   _ 
 (*| Range   _ *) 
-  | Univ    _       -> primaryprio
+  | Poly    _       -> primaryprio
   | List    _       -> listprio
   | Tuple   _       -> tupleprio
   | Channel _       -> chanprio
@@ -87,7 +90,7 @@ let relist t =
   | Unit     -> [] 
   | Tuple ts -> ts
   | _        -> [t]
-
+  
 let rec string_of_type t = string_of_tnode t.inst
 
 and string_of_tnode = function
@@ -101,8 +104,9 @@ and string_of_tnode = function
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"
   | Gate    i        -> Printf.sprintf "gate(%d)" i
-  | TypeVar n        -> string_of_name n
-  | Univ    (ns,ut)  -> let nstrings = List.map string_of_name ns in
+  | Unknown n        -> (*"Unknown " ^*) string_of_name n
+  | Known   n        -> (*"Known " ^*) string_of_name n
+  | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
   | List    t        -> Printf.sprintf "%s list" (possbracket false listprio t)
@@ -139,14 +143,38 @@ and _freetvs s t =
   | Qstate
   | Basisv
 (*| Range   _ *)
-  | Gate    _       -> s
-  | TypeVar n      -> NameSet.add n s 
-  | Univ    (ns,t) -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
+  | Gate    _      -> s
+  | Unknown n      
+  | Known   n      -> NameSet.add n s 
+  | Poly    (ns,t) -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
   | Channel t   
   | List    t       -> _freetvs s t  
   | Process ts   
   | Tuple   ts      -> List.fold_left _freetvs s ts
   | Fun     (t1,t2) -> _freetvs (_freetvs s t1) t2
+
+let rec rewrite assoc t =
+  let replace tnode = {pos=t.pos; inst=tnode} in
+  match t.inst with
+  | Int
+  | Bool
+  | Char
+  | String
+  | Bit 
+  | Unit
+  | Qbit 
+  | Qstate
+  | Basisv
+(*| Range   _ *)
+  | Gate    _       -> t
+  | Unknown n        
+  | Known   n       -> (try replace ((assoc<@>n).inst) with Not_found -> t) 
+  | Poly    (ns,t)  -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
+  | List    t       -> replace (List (rewrite assoc t))   
+  | Channel t       -> replace (Channel (rewrite assoc t))
+  | Process ts      -> replace (Process (List.map (rewrite assoc) ts))
+  | Tuple   ts      -> replace (Tuple (List.map (rewrite assoc) ts))
+  | Fun     (t1,t2) -> replace (Fun (rewrite assoc t1, rewrite assoc t2))
 
 let rec rename assoc t = 
   let replace tnode = {pos=t.pos; inst=tnode} in
@@ -162,8 +190,9 @@ let rec rename assoc t =
   | Basisv
 (*| Range   _ *)
   | Gate    _       -> t
-  | TypeVar n       -> replace (let n' = assoc<@>n in TypeVar n') 
-  | Univ    (ns,t)  -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
+  | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
+  | Unknown _       
+  | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
   | List    t       -> replace (List (rename assoc t))   
   | Channel t       -> replace (Channel (rename assoc t))
   | Process ts      -> replace (Process (List.map (rename assoc) ts))
@@ -171,62 +200,75 @@ let rec rename assoc t =
   | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
 
 type unknownTV = 
-  | UTV
-  | UTVeq       (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
-  | UTVclass    (* classical: can't have qbit or value containing *)
-  | UTVchan     (* simply a qbit, or classical *)
 
 let string_of_unknownTV = function
-  | UTV         -> "(any type)"
-  | UTVeq       -> "(equality type)"
-  | UTVclass    -> "(classical type)"
-  | UTVchan     -> "(qbit or classical)"
+  | UKall         -> "(any type)"
+  | UKeq       -> "(equality type)"
+  | UKclass    -> "(classical type)"
+  | UKchan     -> "(qbit, ^qbit, classical)"
   
-let new_unknown_tv = (* hide the reference *)
-  (let tvcount = ref 0 in
-   let new_unknown_tv utv = 
-     let n = !tvcount in
-     tvcount := n+1;
-     (match utv with
-     | UTV          -> "?"
-     | UTVeq        -> "??"
-     | UTVclass     -> "?c"
-     | UTVchan      -> "?^"
      ) ^ string_of_int n 
    in
    new_unknown_tv
   )
   
-let unknown_kind n = (* just for ones we've created *)
   match n.[1] with
-  | '?' -> UTVeq
-  | 'c' -> UTVclass
-  | '^' -> UTVchan
-  | _   -> UTV
 
-let uincludes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
-  | UTV    , _       -> true
-  | _      , UTV     -> false
-  | UTVchan, _       -> true
-  | _      , UTVchan -> false
-  | UTVclass, _      -> true
   | _                -> false
   
+let result_type pos pars ft =
+  let bad () = raise (Can'tHappen (Printf.sprintf "%s: result_type (%d) %s"
+                                                  (string_of_sourcepos pos)
+                                                  (List.length pars)
+                                                  (string_of_type ft)
+                                  )
+                     )
+  in
+  let rec rt pars t =
+    match pars, t.inst with
+    | []     , _           -> t
+    | _::pars, Fun (ta,tr) -> rt pars tr
+    | _                    -> bad ()
+  in
+  match ft.inst with
+  | Poly (_,t) -> rt pars t
+  | _          -> rt pars ft
+  
 let generalise t = 
-  let ns = freetvs t in
-  if NameSet.is_empty ns then t 
-  else (adorn t.pos (Univ(NameSet.elements ns,t)))
+  let rec unknown_to_known t = 
+    let replace tnode = {pos=t.pos; inst=tnode} in
+    match t.inst with
+    | Int
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Qbit 
+    | Qstate
+    | Basisv
+  (*| Range   _ *)
+    | Gate    _       -> t
+    | Unknown n       -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
+                         replace (Known n')
+    | Known   _       -> t
+    | Poly    (ns,t)  -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
+    | List    t       -> replace (List (unknown_to_known t))   
+    | Channel t       -> replace (Channel (unknown_to_known t))
+    | Process ts      -> replace (Process (List.map unknown_to_known ts))
+    | Tuple   ts      -> replace (Tuple (List.map unknown_to_known ts))
+    | Fun     (t1,t2) -> replace (Fun (unknown_to_known t1, unknown_to_known t2))
+  in
+  let t = unknown_to_known t in
+  let nset = freetvs t in
+  if NameSet.is_empty nset then t 
+  else adorn t.pos (Poly(NameSet.elements nset,t))
 
 let instantiate t =
-  let kind n =
-    if Stringutils.starts_with "'''" n then UTVclass else
-    if Stringutils.starts_with "''"  n then UTVeq    else
-    if Stringutils.starts_with "'^"  n then UTVchan  else UTV
-  in
   match t.inst with
-  | Univ (ns, t)  -> let newns = List.map (fun n -> new_unknown_tv (kind n)) ns in
+  | Poly (ns, t)  -> let newns = List.map (fun n -> new_unknown (kind_of_unknown n)) ns in
                      (try rename (zip ns newns) t
                       with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
                      )

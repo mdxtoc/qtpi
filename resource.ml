@@ -75,7 +75,7 @@ let rec is_resource_type t =
   | Unknown n          (* can happen in Poly ... *)       
   | Known   n          (* can happen in Poly ... *)       
                     -> let k = kind_of_unknown n in
-                       k=UKall || k=UKchan
+                       k=UKall || k=UKqclas
   | Poly (ns, t)    -> is_resource_type t 
   | List    t       -> is_resource_type t 
   | Channel t       -> false

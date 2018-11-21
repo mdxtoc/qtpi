@@ -305,7 +305,7 @@ and canunifytype n cxt t =
     let s = match kind_of_unknown n with
             | UKclass -> "a classical type"
             | UKeq    -> "an equality type"
-            | UKchan  -> "suitable for a channel"
+            | UKqclas  -> "qbit or classical"
             | UKall   -> " (whoops: can't happen)"
     in
     raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
@@ -328,9 +328,8 @@ and canunifytype n cxt t =
    (* | _       , Range   _ *)
       | _       , Gate    _   -> true
      
-      | UKchan  , Qbit        -> true
-      | UKchan  , Channel t'  -> cu t'
-      | UKchan  , _           -> check UKclass t
+      | UKqclas  , Qbit        -> true
+      | UKqclas  , _           -> check UKclass t
       
       | UKeq    , Qbit        
       | UKeq    , Qstate      
@@ -344,11 +343,11 @@ and canunifytype n cxt t =
       | UKall   , Qbit        -> true
       | _       , Qstate      -> true
       | _       , Tuple ts    -> List.for_all cu ts
-      | _       , Fun (t1,t2) -> check UKall t1 && check UKall t2 (* only the TypeVars matter *)
-      | _       , Process ts  -> List.for_all (check UKall) ts
+      | _       , Fun (t1,t2) -> check UKclass t1 && check UKclass t2
+      | _       , Process ts  -> List.for_all (check UKqclas) ts
       | _       , List t      -> cu t
-      | _       , Channel t   -> check UKchan t                (* why not? *)
-      | _       , Poly (ns,t) -> true                           (* Poly types have no free variables *) 
+      | _       , Channel t   -> check UKqclas t                     
+      | _       , Poly (ns,t) -> true                               (* Poly types have no free variables, and they are classical *) 
     in
     cu t
   in
@@ -637,7 +636,7 @@ and assigntype_fun cxt t pats e =
                   (string_of_list string_of_fparam " " pats)
                   (string_of_expr e);
   match pats with
-  | pat::pats'  -> let ta = ntv pat.pos in
+  | pat::pats'  -> let ta = new_Unknown  pat.pos UKclass in (* even function arguments must be classical *)
                    let tr = new_Unknown (pos_of_instances pats') UKclass in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let cxt = unifytypes cxt t tf in
@@ -723,7 +722,7 @@ and typecheck_process cxt p =
       (* all the params have to be channels *)
       let cxt = 
         List.fold_left (fun cxt {pos=pos; inst=n,rt} -> 
-                          unify_paramtype cxt rt (adorn pos (Channel (new_Unknown pos UKchan))) 
+                          unify_paramtype cxt rt (adorn pos (Channel (new_Unknown pos UKqclas))) 
                        )
                        cxt
                        params
@@ -859,7 +858,7 @@ let precheck_pdef cxt = function
       ok_procname pn;
       let process_param param = 
         let n,rt = param.inst in
-        let unknown = new_unknown UKchan in
+        let unknown = new_unknown UKqclas in
         match !rt with
         | None   -> adorn param.pos (Unknown unknown)
         | Some t -> if (match t.inst with Poly _ -> true | _ -> false) ||

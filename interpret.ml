@@ -40,6 +40,7 @@ open Def
 open Qsim
 
 exception Error of sourcepos * string
+exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
 exception LibraryError of string
 
@@ -345,10 +346,10 @@ let rec evale env e =
     | EMatch (me,ems)     -> let v = evale env me in
                              (match matcher e.pos env ems v with
                               | Some (env, e) -> evale env e
-                              | None          -> raise (Error (e.pos, Printf.sprintf "match failed against %s"
-                                                                                     (string_of_value v)
-                                                              )
-                                                       )
+                              | None          -> raise (MatchError (e.pos, Printf.sprintf "match failed against %s"
+                                                                                          (string_of_value v)
+                                                                   )
+                                                            )
                              )  
     | EApp (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
@@ -408,12 +409,13 @@ let rec evale env e =
                                                env
                                  in
                                  evale env e
-  with exn ->
-    Printf.printf "evale %s %s sees exception %s\n" 
-                  (short_string_of_env env)
-                  (string_of_expr e)
-                  (Printexc.to_string exn);
-    raise exn
+  with 
+  | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
+  | exn                 -> Printf.printf "evale %s %s sees exception %s\n" 
+                                         (short_string_of_env env)
+                                         (string_of_expr e)
+                                         (Printexc.to_string exn);
+                           raise exn
 
 and fun_of expr env pats =
   match pats with
@@ -532,7 +534,8 @@ let rec interp sysenv proc =
         if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
            not (ChanSet.is_empty !stuck_chans)
         then
-          Printf.printf "All stuck!\n channels=%s\n %s\n\n"
+          Printf.printf "All %s!\n channels=%s\n %s\n\n"
+                        (if ChanSet.is_empty !stuck_chans then "done" else "stuck")
                         (string_of_stuck_chans ())
                         (String.concat "\n " (strings_of_qsystem ()))
         else ()
@@ -733,20 +736,22 @@ let rec interp sysenv proc =
                                                                                        (short_string_of_process proc)
                                                                                        (pstep_env env' env)
                                                       )
-                  | None              -> raise (Error (rproc.pos, Printf.sprintf "match failed against %s"
-                                                                                 (string_of_value v)
-                                               )
-                                        )
+                  | None              -> raise (MatchError (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                                      (string_of_value v)
+                                                           )
+                                                )
                  )  
              | Par ps            ->
                  List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps);
                  if !pstep then 
                    show_pstep (short_string_of_process rproc)
             ) (* end of match *)
-          with exn ->
-            Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
-            print_interp_state();
-            raise exn
+          with 
+          | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
+          | exn                 ->
+              Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
+              print_interp_state();
+              raise exn
          ); (* end of try *)
          step()
        ) (* end of else *)

@@ -62,7 +62,7 @@ let number = NUM+
 
 let name   = ALPHA (ALPHA | NUM | '_' | '\'')*
 
-let tvname = '\'' (name | '=' name | '^' name | '*' name)
+let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
 let eol = '\n'
 

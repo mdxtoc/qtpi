@@ -200,16 +200,8 @@ let rec rename assoc t =
   | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
 
 type unknownTV = 
-  | UKall         (* anything *)
-  | UKeq       (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
-  | UKclass    (* classical: can't have qbit or value containing *)
-  | UKchan     (* simply a qbit, or classical *)
 
 let string_of_unknownTV = function
-  | UKall         -> "(any type)"
-  | UKeq       -> "(equality type)"
-  | UKclass    -> "(classical type)"
-  | UKchan     -> "(qbit, ^qbit, classical)"
   
 let new_unknown = (* hide the reference *)
   (let ucount = ref 0 in
@@ -217,10 +209,9 @@ let new_unknown = (* hide the reference *)
      let n = !ucount in
      ucount := n+1;
      (match uk with
-     | UKall          -> "?*"
-     | UKeq        -> "?="
+     | UKall       -> "?*"
+     | UKeq        -> "?'"
      | UKclass     -> "?"
-     | UKchan      -> "?^"
      ) ^ string_of_int n 
    in
    new_unknown
@@ -228,18 +219,13 @@ let new_unknown = (* hide the reference *)
   
 let kind_of_unknown n = 
   match n.[1] with
-  | '=' -> UKeq
-  | '*' -> UKall
-  | '^' -> UKchan
-  | _   -> UKclass
+  | '\'' -> UKeq
 
 let kind_includes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
   | UKall    , _       -> true
   | _      , UKall     -> false
-  | UKchan, _       -> true
-  | _      , UKchan -> false
   | UKclass, _      -> true
   | _                -> false
   

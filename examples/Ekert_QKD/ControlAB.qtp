@@ -5,7 +5,7 @@ proc ControlAB(qcA,qcB,n,k,nq,m,verbose,nOK) =
     out![show n; " trials, "; show nOK; " OK\n"] .
     _0 
   else
-    out!if k=0 || (k+1) % 10 = 0 then ["trial number "; show (k+1); "\n"] else [] fi .
+    out!if k<>0 && k%10 = 0 then [show k; " trials\n"] else [] fi .
     (new ic,bc,logcA, logcB)
     | Alice (nq,m,qcA,ic,bc,logcA,verbose)
     | Bob   (nq,qcB,ic,bc,logcB,verbose)

@@ -741,7 +741,7 @@ and typecheck_process cxt p =
       check_distinct params;
       do_procparams "WithQbit" cxt params proc
   | WithLet ((pat,e),proc) ->
-      let t = ntv e.pos in
+      let t = new_Unknown e.pos UKclass in
       let cxt = assigntype_expr cxt t e in
       assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
   | WithQstep (qstep,proc) ->
@@ -774,7 +774,7 @@ and typecheck_process cxt p =
       let cxt = assigntype_expr cxt (adorn e.pos Bool) e in
       let cxt = typecheck_process cxt p1 in
       typecheck_process cxt p2
-  | PMatch (e,pms)  -> let et = ntv e.pos in
+  | PMatch (e,pms)  -> let et = new_Unknown e.pos UKclass in
                        let cxt = assigntype_expr cxt et e in
                        typecheck_pats typecheck_process cxt et pms
   | Par (ps)        -> List.fold_left typecheck_process cxt ps

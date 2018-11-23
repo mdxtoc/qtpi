@@ -262,7 +262,7 @@ let _show = function VQbit   _  -> "<qbit>"
             |        VProcess _ -> "<process>"
             |        v          -> string_of_value v
 
-let _ = Interpret.know ("show", "'a -> string", vfun (vstring <.> _show))   (* yup, it's a classical argument type *)
+let _ = Interpret.know ("show", "''a -> string", vfun (vstring <.> _show))   (* yup, it's an equality type *)
 
 let _qval q =
   let q = qbitv q in

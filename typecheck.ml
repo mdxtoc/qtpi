@@ -524,7 +524,7 @@ and assigntype_expr cxt t e =
                                in
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = ntv e2.pos in
+     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* this is a loophole: allows qval to take qbit arguments *)
                                let rtype = new_Unknown e.pos UKclass in
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let cxt = unifytypes cxt rtype t in

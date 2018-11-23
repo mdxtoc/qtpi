@@ -61,7 +61,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P* is no longer included. It was used exclusively for printing, and the output channels out and outq now do the job.  
-  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`. Should be a runtime error if *E* has unit type.
+  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`. 
   
 * Quantum step *Q*
   
@@ -72,7 +72,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
   * Measurement takes a pattern, either `_` or *x*. As you'd expect, if the pattern is a name then the result of the measurement (a bit 0b0 or 0b1) is bound to the name *and the qbit vanishes* (is used up). If it's `_` then the result of the measurement is ignored, but the qbit remains, transformed to `|0>` or `|1>`. That is, qbits are destroyed on *detection*, not on measurement (as in experiments with polaroid plastic film).
-  * The optional square-bracketed *E* list is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`.  
+  * The optional square-bracketed *E* list is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement use *G*`><`*G* and (*G*`><`*G*)* where `><` is tensor product, and so on for larger entanglements.) 
   * CQP had `*=` for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to `=?`.   
 
 * Input-output step *IO*  
@@ -81,8 +81,8 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* `?` `_`    
   | *E* `!` *E*    
 
-  * '`?`' is read, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- underscore allowed, no constants except `()`, no lists.   
-  * '`!`' is write, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)  
+  * '`?`' is receive, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- underscore allowed, no constants except `()`, no lists.   
+  * '`!`' is send, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)  
   * Channels each carry either a qbit or a classical value (one not including any qbits).  
   
 * Parameter *par*
@@ -194,7 +194,7 @@ There's an input channel *in*
 
   * *in*: ^*string*
   
-It reads a single line of input as a string. Writing to it is a run-time error, because I don't know how to typecheck read-only channels.
+It reads a single line of input as a string. Writing to it is a run-time error, because I don't know how to typecheck receive-only channels.
 
 There are functions which print out strings and *qstates*. But it's inelegant to use them in a process. So there are output channels.
 
@@ -203,13 +203,13 @@ There are functions which print out strings and *qstates*. But it's inelegant to
 
 outq is peculiar for peculiar reasons. There can't be an output channel which takes qbits, because if you send a qbit down a channel, you lose it. So there's a special type *qstate*, the result of *qval*: *qbit* -> *qstate*, which is a classical value that can be sent down a channel. To ensure no computational cheating, there's nothing else you can do with a *qstate* value. 
 
-Reading from an output channel is a runtime error, because I don't know how to typecheck write-only channels.
+Reading from an output channel is a runtime error, because I don't know how to typecheck send-only channels.
 
 To help with output, there is the special function *show*
 
-  * *show*: '*a* -> *string*
+  * *show*: ''*a* -> *string*
   
--- it takes any *classical* value and turns it into a string. Obviously it shouldn't have anything to do with qbits (or there could be computational cheating), but for functions, processes, qstates and channels (all classical values) it just prints \<function\>, \<process\>, \<qstate\> and \<channel\>.
+-- it takes any *equality* value and turns it into a string. Obviously it shouldn't have anything to do with qbits or qstates (or there could be computational cheating), but it couldn't do anything for functions, processes, qstates and channels either.
 
 For qbits there is *qval*
 
@@ -233,7 +233,7 @@ For weasely syntactic reasons, gate names start with an underscore. We recognise
 
   * `_H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
   * `_F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `g|0>-f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
-  * `_G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `f|0>-f|1>`. A kind of 22.5&deg; rotation (&pi;/8), in the opposite direction to `_F`.
+  * `_G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `f|0>-f|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
   * `_I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
   * `_X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
   * `_Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
@@ -249,7 +249,7 @@ Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remem
 
 Before I realised that qbits are destroyed on detection, I implemented a *dispose* channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](./ownership.html) for explanation).
 
-Reading from from the *dispose* channel is a run-time error, once again because I don't know how to typecheck write-only channels.
+Reading from from the *dispose* channel is a run-time error, once again because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
@@ -276,9 +276,11 @@ It is also impossible to branch according to the state or identity of a qbit. (I
   
   	This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and indeed the resource-checker can cope with it. But I think it's a better language without it.
     
-  * **A function application takes classical arguments and delivers a classical result**.
+  * **A function has classical arguments and delivers a classical result**.
   
   	Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit. (Because of the next restriction that cheating would do you no good, but it would still feel wrong.)
+  	
+  	There is a loophole: this restriction is applied to function *definitions*. This is to allow library functions (currently qval and show) to take non-classical arguments. But see restriction on library functions below (oh dear).
 
   * **No comparison of qbits, qstates, or values containing qbits or qstates**.
   
@@ -327,8 +329,8 @@ The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction t
   * *nth*: *'a list* -> *int* -> *'a*
   * *qval*: *qbit* -> *qstate*
   * *rev*: *'a list* -> *'a list*
-  * *show*: *'a* -> *string*
-	  * converts a value to a string. Takes a classical value so won't deal with qbits. Doesn't give interesting results if applied to a function, process, channel or qstate.  
+  * *show*: *''a* -> *string*
+	  * converts a value to a string. Takes an equality type, because it couldn't give interesting results if applied to a qbit, a function, process, channel or qstate.  
   * *sort*: *'a list* -> *'a list*
 	  * sorts in ascending order
   * *snd*: *'a*\**'b* -> *'b*  

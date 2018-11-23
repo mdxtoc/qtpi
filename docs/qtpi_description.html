@@ -51,7 +51,7 @@
 <li><code>let</code> expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.</li>
 <li><code>_0</code> is the null process (i.e. termination). I would have used <code>()</code> (null parallel or null guarded sum: same difference) but it would have caused parsing problems.</li>
 <li><code>{</code> <em>E</em> <code>}</code> <code>.</code> <em>P</em> is no longer included. It was used exclusively for printing, and the output channels out and outq now do the job.</li>
-<li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write <code>(let _ =</code> <em>E</em><code>)</code>. Should be a runtime error if <em>E</em> has unit type.</li>
+<li>You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write <code>(let _ =</code> <em>E</em><code>)</code>.</li>
 </ul>
 </li>
 <li>
@@ -63,7 +63,7 @@
 <li>'<code>&gt;&gt;</code>' is 'send through a gate'; each left-hand <em>E</em> must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).</li>
 <li><code>=?</code> is measure, in the computational basis defined by <code>|0&gt;</code> and <code>|1&gt;</code>.  The parameter <em>par</em> binds the single-bit result.</li>
 <li>Measurement takes a pattern, either <code>_</code> or <em>x</em>. As you'd expect, if the pattern is a name then the result of the measurement (a bit 0b0 or 0b1) is bound to the name <em>and the qbit vanishes</em> (is used up). If it's <code>_</code> then the result of the measurement is ignored, but the qbit remains, transformed to <code>|0&gt;</code> or <code>|1&gt;</code>. That is, qbits are destroyed on <em>detection</em>, not on measurement (as in experiments with polaroid plastic film).</li>
-<li>The optional square-bracketed <em>E</em> list is a gate expression controlling the measurement basis: for example <code>[_H]</code> specifies measurement in the Hadamard basis, and <code>[_I]</code> the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally <code>q=?[G](b)</code> is equivalent to <code>q&gt;&gt;G . q=?(b) . q&gt;&gt;G*</code> where <code>G*</code> is the conjugate transpose of <code>G</code>.</li>
+<li>The optional square-bracketed <em>E</em> list is a gate expression controlling the measurement basis: for example <code>[_H]</code> specifies measurement in the Hadamard basis, and <code>[_I]</code> the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally <code>q=?[G](b)</code> is equivalent to <code>q&gt;&gt;G . q=?(b) . q&gt;&gt;G*</code> where <code>G*</code> is the conjugate transpose of <code>G</code>. (Somewhat more complicated if <em>q</em> is part of an entanglement: for a two-bit entanglement we must use <code>G&gt;&lt;G</code> and <code>(G&gt;&lt;)*</code> where <code>&gt;&lt;</code> is tensor product, and so on for larger entanglements.)</li>
 <li>CQP had <code>*=</code> for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to <code>=?</code>.</li>
 </ul>
 </li>
@@ -73,9 +73,10 @@
 | <em>E</em> <code>?</code> <code>_</code><br />
 | <em>E</em> <code>!</code> <em>E</em></p>
 <ul>
-<li>'<code>?</code>' is read, as in many implementations of the pi calculus: <em>E</em> is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a <code>let</code>  binding -- underscore allowed, no constants except <code>()</code>, no lists.</li>
-<li>'<code>!</code>' is write, as in many implementations of the pi calculus: the first <em>E</em> is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)</li>
+<li>'<code>?</code>' is receive, as in many implementations of the pi calculus: <em>E</em> is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a <code>let</code>  binding -- underscore allowed, no constants except <code>()</code>, no lists.</li>
+<li>'<code>!</code>' is send, as in many implementations of the pi calculus: the first <em>E</em> is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)</li>
 <li>Channels each carry either a qbit or a classical value (one not including any qbits).</li>
+<li>Channels can be buffered. The level of buffering is controlled with the <code>-chanbuf_limit</code> switch. (The default is no buffering - i.e. synchronised message-passing -- because I think it makes most sense with guarded commands).</li>
 </ul>
 </li>
 <li>
@@ -191,19 +192,19 @@
 <ul>
 <li><em>in</em>: ^<em>string</em></li>
 </ul>
-<p>It reads a single line of input as a string. Writing to it is a run-time error, because I don't know how to typecheck read-only channels.</p>
+<p>It reads a single line of input as a string. Writing to it is a run-time error, because I don't know how to typecheck receive-only channels.</p>
 <p>There are functions which print out strings and <em>qstates</em>. But it's inelegant to use them in a process. So there are output channels.</p>
 <ul>
 <li><em>out</em>: ^<em>string list</em></li>
 <li><em>outq</em>: ^<em>qstate</em></li>
 </ul>
 <p>outq is peculiar for peculiar reasons. There can't be an output channel which takes qbits, because if you send a qbit down a channel, you lose it. So there's a special type <em>qstate</em>, the result of <em>qval</em>: <em>qbit</em> -&gt; <em>qstate</em>, which is a classical value that can be sent down a channel. To ensure no computational cheating, there's nothing else you can do with a <em>qstate</em> value.</p>
-<p>Reading from an output channel is a runtime error, because I don't know how to typecheck write-only channels.</p>
+<p>Reading from an output channel is a runtime error, because I don't know how to typecheck send-only channels.</p>
 <p>To help with output, there is the special function <em>show</em></p>
 <ul>
-<li><em>show</em>: '<em>a</em> -&gt; <em>string</em></li>
+<li><em>show</em>: ''<em>a</em> -&gt; <em>string</em></li>
 </ul>
-<p>-- it takes any <em>classical</em> value and turns it into a string. Obviously it shouldn't have anything to do with qbits (or there could be computational cheating), but for functions, processes, qstates and channels (all classical values) it just prints &lt;function&gt;, &lt;process&gt;, &lt;qstate&gt; and &lt;channel&gt;.</p>
+<p>-- it takes any <em>equality</em> value and turns it into a string. Obviously it shouldn't have anything to do with qbits or qstates (or there could be computational cheating), but it couldn't do anything for functions, processes, qstates and channels either.</p>
 <p>For qbits there is <em>qval</em></p>
 <ul>
 <li><em>qval</em>: <em>qbit</em> -&gt; <em>qstate</em></li>
@@ -219,7 +220,7 @@
 <ul>
 <li><code>_H</code>: the Hadamard gate, takes <code>|0&gt;</code> to <code>h|0&gt;+h|1&gt;</code>, <code>|1&gt;</code> to <code>h|0&gt;-h|1&gt;</code>. A kind of 45° rotation (π/4).</li>
 <li><code>_F</code>: takes <code>|0&gt;</code> to <code>f|0&gt;+g|1&gt;</code>, <code>|1&gt;</code> to <code>g|0&gt;-f|1&gt;</code>. A kind of 22.5° rotation (π/8).</li>
-<li><code>_G</code>: takes <code>|0&gt;</code> to <code>g|0&gt;+f|1&gt;</code>, <code>|1&gt;</code> to <code>f|0&gt;-f|1&gt;</code>. A kind of 22.5° rotation (π/8), in the opposite direction to <code>_F</code>.</li>
+<li><code>_G</code>: takes <code>|0&gt;</code> to <code>g|0&gt;+f|1&gt;</code>, <code>|1&gt;</code> to <code>f|0&gt;-f|1&gt;</code>. A kind of 67.5° rotation (3π/8).</li>
 <li><code>_I</code>: takes <code>|0&gt;</code> to <code>|0&gt;</code>, <code>|1&gt;</code> to <code>|1&gt;</code>. Identity.</li>
 <li><code>_X</code>: takes <code>|0&gt;</code> to <code>|1&gt;</code>, <code>|1&gt;</code> to <code>|0&gt;</code>. Exchange, inversion, not.</li>
 <li><code>_Z</code>: takes <code>|0&gt;</code> to <code>-|1&gt;</code>, <code>|1&gt;</code> to <code>|0&gt;</code>. (dunno what to call it.)</li>
@@ -231,7 +232,7 @@
 <h2>The <em>dispose</em> channel</h2>
 <p>Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection, and it vanishes from the simulation. A vanished qbit is in fact recycled: not quite garbage-collected, because conventional garbage collection doesn't understand how qbits work.</p>
 <p>Before I realised that qbits are destroyed on detection, I implemented a <em>dispose</em> channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the <em>dispose</em> channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see <a href="./ownership.html">the resourcing document</a> for explanation).</p>
-<p>Reading from from the <em>dispose</em> channel is a run-time error, once again because I don't know how to typecheck write-only channels.</p>
+<p>Reading from from the <em>dispose</em> channel is a run-time error, once again because I don't know how to typecheck send-only channels.</p>
 <p><a name="restrictions"></a></p>
 <h2>Restrictions</h2>
 <p>Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies <em>resourcing</em>: see <a href="./ownership.html">the resourcing document</a> for explanation.</p>
@@ -256,8 +257,9 @@
 <p>This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and indeed the resource-checker can cope with it. But I think it's a better language without it.</p>
 </li>
 <li>
-<p><strong>A function application takes classical arguments and delivers a classical result</strong>.</p>
+<p><strong>A function has classical arguments and delivers a classical result</strong>.</p>
 <p>Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit. (Because of the next restriction that cheating would do you no good, but it would still feel wrong.)</p>
+<p>There is a loophole: this restriction is applied to function <em>definitions</em>. This is to allow library functions (currently qval and show) to take non-classical arguments. But see restriction on library functions below (oh dear).</p>
 </li>
 <li>
 <p><strong>No comparison of qbits, qstates, or values containing qbits or qstates</strong>.</p>
@@ -308,9 +310,9 @@
 <li><em>nth</em>: <em>'a list</em> -&gt; <em>int</em> -&gt; <em>'a</em></li>
 <li><em>qval</em>: <em>qbit</em> -&gt; <em>qstate</em></li>
 <li><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></li>
-<li><em>show</em>: <em>'a</em> -&gt; <em>string</em>
+<li><em>show</em>: <em>''a</em> -&gt; <em>string</em>
 <ul>
-<li>converts a value to a string. Takes a classical value so won't deal with qbits. Doesn't give interesting results if applied to a function, process, channel or qstate.</li>
+<li>converts a value to a string. Takes an equality type, because it couldn't give interesting results if applied to a qbit, a function, process, channel or qstate.</li>
 </ul>
 </li>
 <li><em>sort</em>: <em>'a list</em> -&gt; <em>'a list</em>

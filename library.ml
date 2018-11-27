@@ -222,6 +222,12 @@ let v_nth vs n =
   with Failure _ -> raise (LibraryError (Printf.sprintf "nth %s %s" (string_of_value vs) (string_of_int i)))
 let _ = Interpret.know ("nth", "'a list -> num -> 'a", vfun2 v_nth)
 
+(* ********************* numbers ************************ *)
+
+let _ = Interpret.know ("floor", "num -> num", vfun (vnum <.> Number.floor <.> numv))
+
+let _ = Interpret.know ("sqrt", "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
+
 (* ********************* I/O ************************ *)
 
 (* I'm ashamed to say that all these read_.. functions are hacked to deal with BBEdit's weird shell worksheet
@@ -287,35 +293,3 @@ let _qval q =
   Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
   
 let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (*yup, that's a qbit argument *)
-
-(* ******************** cheats ********************* *)
-
-(* (* selecting bits from a sequence length n with probability p:
-   how large must n be to guarantee that we get k bits?
-   Well: we need to know how many standard deviations sigma you want to
-   allow: 6 sigma is plenty. Then 
-   
-     sigma = sqrt (n*p*(1-p))
-   
-   The mean number that will be picked is n*p; pick n so that the mean is
-   s sigmas larger than the number you need:
-   
-     k = n*p - s*sigma
-     
-   which is a quadratic in sqrt n, with a=p, b=-s*sqrt(p*(1-p)), c=-k.
-   Put q=p*(1-p) and we have
-   
-     sqrt n = (s*sqrt q + sqrt(s^2*q+4*k*p))/2*p
-     
-   We give p as a rational i/j
- *)
-let min_qbits (k:num) (p:num) (s:num) : num =
-  let q = p */ (one -/ p) in
-  let rootn = (s */ sqrt f_q +. sqrt((f_s *. f_s *. f_q) +. (4.0 *. f_k *. f_p))) /. (2.0 *. f_p) in
-  truncate ((f_rootn *. f_rootn) +. 0.5)
-
-let _min_qbits k p s =
-  let i,j = pairv p in
-  VNum (min_qbits (intv k) (intv i, intv j) (intv s))
-  
-let _ = Interpret.know ("min_qbits", "int -> int*int -> int -> int", vfun3 _min_qbits) *)

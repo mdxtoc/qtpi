@@ -63,7 +63,7 @@ let rec is_resource_type t =
   match t.inst with
   | Qbit            -> true            
   | Unit          
-  | Int 
+  | Num 
   | Bool
   | Char
   | String
@@ -105,7 +105,7 @@ let rec ctfa_type classic t =
   match t.inst with
   | Qbit            -> if classic then badtype "should be classical, includes qbit" else ()
   | Unit
-  | Int
+  | Num
   | Char
   | String
   | Bool
@@ -191,7 +191,7 @@ let ctfa_def def =
     | EUnit
     | ENil
     | EVar       _
-    | EInt       _
+    | ENum       _
     | EBool      _
     | EChar      _
     | EString    _
@@ -318,7 +318,7 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   if !verbose then
     Printf.printf "resource_of_type %s %s %s\n" (string_of_resourceid rid) (string_of_state state) (string_of_type t);
   match t.inst with
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -469,7 +469,7 @@ let rec r_o_e disjoint state env e =
       match e.inst.enode with
       | EUnit 
       | ENil
-      | EInt        _              
+      | ENum        _              
       | EBool       _
       | EChar       _
       | EString     _

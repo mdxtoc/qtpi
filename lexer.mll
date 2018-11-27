@@ -54,13 +54,13 @@ let BLANK = [' ' '\t']
 let NEWLINE = '\n'
 let LINE = [^ '\n']* ('\n' | eof)
 
-let NUM = ['0'-'9']
+let DIGIT = ['0'-'9']
 let ALPHA =  ['a'-'z'] | ['A'-'Z']
-let ALPHANUM = ALPHA | NUM | '_' 
+let ALPHANUM = ALPHA | DIGIT | '_' 
 
-let number = NUM+
+let number = DIGIT+ ('.' DIGIT+)? (['e' 'E'] '-'? DIGIT+ )?
 
-let name   = ALPHA (ALPHA | NUM | '_' | '\'')*
+let name   = ALPHA (ALPHA | DIGIT | '_' | '\'')*
 
 let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
@@ -94,7 +94,7 @@ rule make_token = parse
   | "elif"      {ELIF}
   | "fi"        {FI}
     
-  | "int"       {INTTYPE}
+  | "num"       {NUMTYPE}
   | "bool"      {BOOLTYPE}
   | "bit"       {BITTYPE}
   | "unit"      {UNITTYPE}
@@ -190,7 +190,7 @@ rule make_token = parse
                   STRING (string (get_loc lexbuf) lexbuf)
                 }
 
-  | number      {INT (Lexing.lexeme lexbuf)}
+  | number      {NUM (Lexing.lexeme lexbuf)}
   | name        {NAME (Lexing.lexeme lexbuf)}   (* should be interned *)
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
 

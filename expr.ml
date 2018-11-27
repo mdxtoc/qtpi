@@ -42,7 +42,7 @@ and einst = {etype: _type option ref; enode: enode}
 and enode = 
   | EUnit
   | EVar of name
-  | EInt of int
+  | ENum of Number.num
   | EBool of bool
   | EChar of char
   | EString of string
@@ -151,7 +151,7 @@ let rec exprprio e =
   | EUnit                   
   | ENil
   | EVar        _   
-  | EInt        _
+  | ENum        _
   | EBool       _
   | EChar       _
   | EString     _
@@ -185,7 +185,7 @@ let rec string_of_primary e =
   | EBit b          -> if b then "0b1" else "0b0"
   | EBasisv bv      -> string_of_basisv bv
   | EGate ug        -> string_of_ugate ug
-  | EInt i          -> string_of_int i
+  | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
   | EString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
@@ -226,7 +226,7 @@ and string_of_expr e =
   | EBit        _
   | EBasisv     _
   | EGate       _
-  | EInt        _
+  | ENum        _
   | EBool       _
   | EChar       _
   | EString     _ 

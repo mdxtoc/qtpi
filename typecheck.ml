@@ -36,6 +36,7 @@ open Param
 open Process
 open Step
 open Pattern
+open Number
 
 exception TypeUnifyError of _type * _type
 exception Error of sourcepos * string
@@ -87,7 +88,7 @@ and evaltype cxt t =
   let adorn tnode = {pos=t.pos; inst=tnode} in
   match t.inst with
   | Unit
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -130,7 +131,7 @@ let rec rewrite_expr cxt e =
        | EUnit
        | ENil
        | EVar        _
-       | EInt        _
+       | ENum        _
        | EBool       _
        | EChar       _
        | EString     _
@@ -319,7 +320,7 @@ and canunifytype n cxt t =
                                  )
       | _       , Known n'    -> kind_includes kind (kind_of_unknown n')
       | _       , Unit
-      | _       , Int
+      | _       , Num
       | _       , Bool
       | _       , Char
       | _       , String
@@ -364,7 +365,7 @@ and force_kind kind cxt t =
                          )
     | Tuple ts        -> List.fold_left fk cxt ts
     | List t          -> fk cxt t
-    | Int
+    | Num
     | Bool
     | Char
     | String
@@ -410,7 +411,7 @@ and assigntype_pat contn cxt t p =
       | PatNil          -> let vt = ntv p.pos in
                            let lt = adorn p.pos (List vt) in
                            contn (unifytypes cxt t lt)
-      | PatInt _        -> contn (unifytypes cxt t (adorn p.pos Int))
+      | PatInt _        -> contn (unifytypes cxt t (adorn p.pos Num))
       | PatBit _        -> contn (unifytypes cxt t (adorn p.pos Bit))
       | PatBool _       -> contn (unifytypes cxt t (adorn p.pos Bool))
       | PatChar _       -> contn (unifytypes cxt t (adorn p.pos Char))
@@ -420,7 +421,7 @@ and assigntype_pat contn cxt t p =
                             | PatH| PatF | PatG | PatI | PatX | PatY | PatZ 
                                                     -> contn (unifytypes cxt t (adorn p.pos (Gate (1))))
                             | PatCnot               -> contn (unifytypes cxt t (adorn p.pos (Gate (2))))
-                            | PatPhi p              -> let pt = adorn p.pos Int in
+                            | PatPhi p              -> let pt = adorn p.pos Num in
                                                        let cxt = unifytypes cxt t (adorn p.pos (Gate(1))) in
                                                        assigntype_pat contn cxt pt p
                            ) 
@@ -499,18 +500,18 @@ and assigntype_expr cxt t e =
      match e.inst.enode with
      | EUnit                -> unifytypes cxt t (adorn_x e Unit)
      | ENil                 -> unifytypes cxt t (adorn_x e (List (ntv e.pos)))
-     | EInt i               -> (match (evaltype cxt t).inst with 
-                                | Bit              -> if i=0||i=1 then cxt
-                                                      else unifytypes cxt t (adorn_x e Int)
+     | ENum i               -> (match (evaltype cxt t).inst with 
+                                | Bit              -> if i=/zero||i=/one then cxt
+                                                      else unifytypes cxt t (adorn_x e Num)
                                 (* | Range (j,k) as t -> if j<=i && i<=k then cxt 
-                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Int) *)
-                                | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Int)
+                                                      else unifytypes cxt (adorn_x e t) (adorn_x e Num) *)
+                                | t                -> unifytypes cxt (adorn_x e t) (adorn_x e Num)
                                )
      | EBool _              -> unifytypes cxt t (adorn_x e Bool)
      | EChar _              -> unifytypes cxt t (adorn_x e Char)
      | EString _            -> unifytypes cxt t (adorn_x e String)
      | EBit b               -> (match (evaltype cxt t).inst with 
-                                | Int              -> cxt
+                                | Num              -> cxt
                                 (* | Range (j,k) as t -> let i = if b then 1 else 0 in
                                                       if j<=i && i<=k then cxt 
                                                       else unifytypes cxt (adorn_x e t) (adorn_x e Bit) *)
@@ -520,7 +521,7 @@ and assigntype_expr cxt t e =
      | EGate   ug           -> let cxt = match ug.inst with
                                          | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
                                                         -> cxt
-                                         | UG_Phi e       -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Int) e
+                                         | UG_Phi e       -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Num) e
                                in
                                unifytypes cxt t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
@@ -530,7 +531,7 @@ and assigntype_expr cxt t e =
                                let cxt = unifytypes cxt rtype t in
                                let cxt = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
-     | EMinus  e            -> unary cxt (adorn_x e Int) (adorn_x e Int) e
+     | EMinus  e            -> unary cxt (adorn_x e Num) (adorn_x e Num) e
      | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
      | ETuple  es           -> let ts = List.map (fun e -> ntv e.pos) es in
                                let tes = List.combine ts es in
@@ -546,13 +547,13 @@ and assigntype_expr cxt t e =
                                let tc cxt e = assigntype_expr cxt t e in
                                typecheck_pats tc cxt et ems
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,_,e2)     -> binary cxt (adorn_x e Int)  (adorn_x e1 Int)  (adorn_x e2 Int)  e1 e2
+     | EArith (e1,_,e2)     -> binary cxt (adorn_x e Num)  (adorn_x e1 Num)  (adorn_x e2 Num)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
                                        let t = new_Unknown e1.pos UKeq in
                                        binary cxt (adorn_x e Bool) t t e1 e2
                                    | _ ->
-                                       binary cxt (adorn_x e Bool) (adorn_x e1 Int) (adorn_x e2 Int)  e1 e2
+                                       binary cxt (adorn_x e Bool) (adorn_x e1 Num) (adorn_x e2 Num)  e1 e2
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool)  (adorn_x e1 Bool)  (adorn_x e2 Bool)  e1 e2
      | EAppend (e1,e2)      -> let t' = adorn_x e (List (ntv e.pos)) in

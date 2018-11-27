@@ -62,7 +62,7 @@
 
 %token LPAR RPAR
 
-%token <string> INT
+%token <string> NUM
 %token <string> NAME 
 %token <string> TVNAME 
 %token <string> STRING 
@@ -72,7 +72,7 @@
 %token FUN PROC WHERE LAMBDA
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token INTTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
+%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token HADAMARD F G PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -202,7 +202,7 @@ tuple_typespec:
                                         {adorn (Tuple ($1::$3))}        
     
 simple_typespec:
-  | INTTYPE                             {adorn Int}
+  | NUMTYPE                             {adorn Num}
   | BOOLTYPE                            {adorn Bool}
   | CHARTYPE                            {adorn Char}
   | STRINGTYPE                          {adorn String}
@@ -365,7 +365,7 @@ simplepattern:
   | name                                {padorn (PatName $1)}
   | BIT0                                {padorn (PatBit false)}
   | BIT1                                {padorn (PatBit true)}
-  | INT                                 {padorn (PatInt (int_of_string $1))}
+  | NUM                                 {padorn (PatInt (int_of_string $1))}
   | TRUE                                {padorn (PatBool (true))}
   | FALSE                               {padorn (PatBool (false))}
   | CHAR                                {padorn (PatChar $1)}
@@ -421,7 +421,7 @@ primary:
   | name                                {eadorn (EVar $1)}
   | BIT0                                {eadorn (EBit false)}
   | BIT1                                {eadorn (EBit true)}
-  | INT                                 {eadorn (EInt (int_of_string $1))}
+  | NUM                                 {eadorn (ENum (Number.num_of_string $1))}
   | TRUE                                {eadorn (EBool (true))}
   | FALSE                               {eadorn (EBool (false))}
   | CHAR                                {eadorn (EChar $1)}

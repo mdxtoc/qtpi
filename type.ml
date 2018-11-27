@@ -32,7 +32,7 @@ type _type = tnode instance
 
 and tnode =
   | Unit
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -60,7 +60,7 @@ let primaryprio = 10
 
 let typeprio t = 
   match t.inst with  
-  | Int 
+  | Num 
   | Bool
   | Char
   | String
@@ -94,7 +94,7 @@ let relist t =
 let rec string_of_type t = string_of_tnode t.inst
 
 and string_of_tnode = function
-  | Int              -> "int"
+  | Num              -> "num"
   | Bit              -> "bit"
   | Char             -> "char"
   | String           -> "string"
@@ -133,7 +133,7 @@ let rec freetvs t = _freetvs NameSet.empty t
 
 and _freetvs s t = 
   match t.inst with
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -156,7 +156,7 @@ and _freetvs s t =
 let rec rewrite assoc t =
   let replace tnode = {pos=t.pos; inst=tnode} in
   match t.inst with
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -179,7 +179,7 @@ let rec rewrite assoc t =
 let rec rename assoc t = 
   let replace tnode = {pos=t.pos; inst=tnode} in
   match t.inst with
-  | Int
+  | Num
   | Bool
   | Char
   | String
@@ -265,7 +265,7 @@ let generalise t =
   let rec unknown_to_known t = 
     let replace tnode = {pos=t.pos; inst=tnode} in
     match t.inst with
-    | Int
+    | Num
     | Bool
     | Char
     | String

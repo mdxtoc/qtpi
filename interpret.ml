@@ -38,11 +38,15 @@ open Step
 open Process
 open Def
 open Qsim
+open Number
 
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
 exception LibraryError of string
+exception BitOverflow of string
+exception IntOverflow of string
+exception FractionalInt of string
 
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
@@ -53,7 +57,7 @@ let string_of_queue string_of_v sep q =
 
 type value =
   | VUnit
-  | VInt of int
+  | VNum of num
   | VBool of bool
   | VChar of char
   | VBasisv of basisv
@@ -92,7 +96,7 @@ let string_of_pqueue string_of sep pq =
 let rec string_of_value v =
   match v with
   | VUnit           -> "()"
-  | VInt i          -> string_of_int i
+  | VNum n          -> string_of_num n
   | VBool b         -> string_of_bool b
   | VBasisv bv      -> string_of_basisv bv
   | VGate ugv       -> string_of_ugv ugv
@@ -194,9 +198,8 @@ let (<@?>) = Listutils.(<@?>)
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
 let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
-let bitv    = function VInt    0       -> 0  
-                     | VInt    1       -> 1      | v -> miseval "bitv"     v
-let intv    = function VInt    i       -> i      | v -> miseval "intv"     v
+let bitv    = function VNum    b       -> b      | v -> miseval "bitv"     v
+let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
 let stringv = function VString s       -> s      | v -> miseval "stringv"  v
@@ -210,8 +213,9 @@ let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
 let funv    = function VFun    f       -> f      | v -> miseval "funv"     v
 
 let vunit   ()    = VUnit
-let vbit    i     = VInt    (i land 1)
-let vint    i     = VInt    i
+let vbit    b     = VNum    (match b with 0 -> zero | 1 -> one | _ -> raise (BitOverflow (string_of_int b))) (* int -> value *)
+let vint    i     = VNum    (num_of_int i)              (* int -> value *)
+let vnum    n     = VNum    n
 let vbool   b     = VBool   b
 let vchar   c     = VChar   c
 let vstring s     = VString s
@@ -282,18 +286,18 @@ let matcher pos env pairs value =
                                               (string_of_value v);
     let yes env = succeed env work rhs pairs in
     let no () = fail pairs in
-    let maybe v v' = if v=v' then yes env else no () in
+    let maybe b = if b then yes env else no () in
     match pat.inst.pnode, v with
     | PatAny            , _                 
     | PatUnit           , VUnit             
     | PatNil            , VList []          -> yes env
     | PatName   n       , _                 -> yes (env<@+>(n,v))
-    | PatInt    i       , VInt    i'        -> maybe i i'
-    | PatBit    b       , VInt    i'        -> maybe (if b then 1 else 0) i'
-    | PatBool   b       , VBool   b'        -> maybe b b'
-    | PatChar   c       , VChar   c'        -> maybe c c'
-    | PatString s       , VString s'        -> maybe s s'
-    | PatBasisv v       , VBasisv v'        -> maybe v v'
+    | PatInt    i       , VNum    n         -> maybe (is_int n && num_of_int i =/ n)
+    | PatBit    b       , VNum    n         -> maybe ((if b then one else zero) =/ n)
+    | PatBool   b       , VBool   b'        -> maybe (b=b')
+    | PatChar   c       , VChar   c'        -> maybe (c=c')
+    | PatString s       , VString s'        -> maybe (s=s')
+    | PatBasisv v       , VBasisv v'        -> maybe (v=v')
     | PatGate   pg      , VGate   vg        -> (match pg.inst, vg with
                                                 | PatH    , GateH 
                                                 | PatF    , GateF 
@@ -303,12 +307,12 @@ let matcher pos env pairs value =
                                                 | PatY    , GateY
                                                 | PatZ    , GateZ
                                                 | PatCnot , GateCnot  -> yes env
-                                                | PatPhi p, GatePhi i -> succeed env (([p],[VInt i])::work) rhs pairs
+                                                | PatPhi p, GatePhi i -> succeed env (([p],[VNum (num_of_int i)])::work) rhs pairs
                                                 | _                   -> no ()
                                                )
     | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
     | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
-    | _                                     -> no () (* can happen: PNil vs ::, PCons vs [] *)
+    | _                                     -> no () (* can happen: [] vs ::, :: vs [] *)
   in
   fail pairs
   
@@ -331,14 +335,14 @@ let rec evale env e =
                               with Invalid_argument _ -> 
                                 raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
                              )
-    | EInt i              -> VInt i
+    | ENum n              -> VNum n
     | EBool b             -> VBool b
     | EChar c             -> VChar c
     | EString s           -> VString s
-    | EBit b              -> VInt (if b then 1 else 0)
+    | EBit b              -> VNum (if b then one else zero)
     | EBasisv bv          -> VBasisv bv
     | EGate uge           -> VGate (ugev env uge)
-    | EMinus e            -> VInt (~- (intev env e))
+    | EMinus e            -> VNum (~-/ (numev env e))
     | ENot   e            -> VBool (not (boolev env e))
     | ETuple es           -> VTuple (List.map (evale env) es)
     | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
@@ -354,20 +358,26 @@ let rec evale env e =
     | EApp (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
-    | EArith (e1,op,e2)   -> let v1 = intev env e1 in
-                             let v2 = intev env e2 in
-                             VInt (match op with
-                                   | Plus    -> v1+v2    
-                                   | Minus   -> v1-v2
-                                   | Times   -> v1*v2
-                                   | Div     -> v1/v2
-                                   | Mod     -> v1 mod v2
+    | EArith (e1,op,e2)   -> let v1 = numev env e1 in
+                             let v2 = numev env e2 in
+                             VNum (match op with
+                                   | Plus    -> v1+/v2    
+                                   | Minus   -> v1-/v2
+                                   | Times   -> v1*/v2
+                                   | Div     -> v1//v2
+                                   | Mod     -> if is_int v1 && is_int v2 then
+                                                  rem v1 v2
+                                                else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"
+                                                                                         (string_of_num v1)
+                                                                                         (string_of_num v2)
+                                                                  )
+                                                           )
                                   )
     | ECompare (e1,op,e2) -> VBool (try match op with
                                         | Eq  -> evale env e1 =  evale env e2 (* all typechecked *)
                                         | Neq -> evale env e1 <> evale env e2 (* all typechecked *)
-                                        | _   -> let v1 = intev env e1 in
-                                                 let v2 = intev env e2 in
+                                        | _   -> let v1 = numev env e1 in
+                                                 let v2 = numev env e2 in
                                                  (match op with
                                                   | Lt    -> v1<v2
                                                   | Leq   -> v1<=v2
@@ -434,9 +444,9 @@ and unitev env e =
   | VUnit -> ()
   | v     -> mistyped e.pos (string_of_expr e) v "unit" 
 
-and intev env e =
+and numev env e =
   match evale env e with
-  | VInt i -> i
+  | VNum i -> i
   | v      -> mistyped e.pos (string_of_expr e) v "an integer" 
 
 and boolev env e = 
@@ -484,7 +494,9 @@ and ugev env ug =
   | UG_Y                  -> GateY
   | UG_Z                  -> GateZ
   | UG_Cnot               -> GateCnot
-  | UG_Phi  e             -> GatePhi(intev env e)
+  | UG_Phi  e             -> let v = numev env e in
+                             if v=/zero || v=/one || v=/two || v=/three then GatePhi (int_of_num v)
+                             else raise (Error (ug.pos, Printf.sprintf "_Phi(%s)" (string_of_value (VNum v))))
 
 let mkchan c = {cname=c; stream=Queue.create (); 
                          rwaiters=PQueue.create 10; (* 10 is a guess *)
@@ -608,7 +620,7 @@ let rec interp sysenv proc =
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let gvs = List.map (gatev <.> evale env) ges in
-                                              let v = VInt (qmeasure (qpat_binds pat) pn gvs q) in
+                                              let v = vbit (qmeasure (qpat_binds pat) pn gvs q) in
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)

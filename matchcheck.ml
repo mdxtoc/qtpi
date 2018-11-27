@@ -409,7 +409,7 @@ let rec matchcheck_expr e =
   match e.inst.enode with
   | EUnit
   | EVar        _
-  | EInt        _
+  | ENum        _
   | EBool       _
   | EChar       _
   | EString     _

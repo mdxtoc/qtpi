@@ -179,7 +179,7 @@ let ( >=/ ) = Q.geq;;
 let ( **/ ) = Local.pow
  
 let rem:                 num -> num -> num  = Local.rem;;
-let floor_num:           num -> num         = Local.floor;;
+let floor:               num -> num         = Local.floor;;
 let numden_num:          num -> num*num     = Local.numden;;
 let divmod_num:          num -> num*num     = Local.divmod;;
 let integer_num:         num -> num         = Local.integer;;

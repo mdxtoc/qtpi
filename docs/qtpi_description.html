@@ -91,10 +91,9 @@
 <p>Type <em>T</em></p>
 <p>| <code>qbit</code><br />
 | <code>unit</code><br />
-| <code>int</code><br />
+| <code>num</code><br />
 | <code>bool</code><br />
 | <code>bit</code><br />
-| <code>Range</code> <em>int</em><code>:</code> <em>int</em><br />
 | <code>string</code><br />
 | <code>char</code><br />
 | <code>basisv</code><br />
@@ -108,8 +107,10 @@
 | <em>T</em> <code>process</code><br />
 | <code>(</code> <em>T</em> <code>)</code></p>
 <ul>
-<li>These types are still ML style. Miranda style is neater (<code>[int]</code> rather than <code>int list</code>, <code>(int,bit)</code> rather than <code>int*bit</code>, and they don't need syntactic precedence). One day soon ...</li>
+<li>These types are still ML style. Miranda style is neater (<code>[num]</code> rather than <code>num list</code>, <code>(num,bit)</code> rather than <code>num*bit</code>, and they don't need syntactic precedence). One day soon ...</li>
+<li>'<em>num</em>' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using <em>num</em> rather than <em>int</em> can cause some problems: some library functions, such as <em>take</em> and <em>drop</em>, really don't work with fractional arguments (or, at least, I can't decide what they do), and you may have to make use of <em>floor</em>.</li>
 <li>Range types were in original CQP, but are no longer in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they may come back (I do hope so).</li>
+<li>'<em>bit</em>' ought to be a subtype of <em>int</em>, but I can't force the typechecker to agree.</li>
 <li><code>basisv</code> is the type of basis vectors (see below).</li>
 <li><code>qstate</code> is the type of the result of the <em>qval</em> function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a <em>qstate</em> is to send it down the outq output channel, which prints it out.</li>
 <li>'<code>*</code>' separates elements of a tuple type.</li>
@@ -280,6 +281,7 @@
 <p>We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples.</p>
 <p><strong>But</strong>, <em>but</em>, but. Functions take classical arguments and deliver classical results -- i.e. they have nothing to do with qbits. See restrictions above.</p>
 <p>The library is mostly inspired by Miranda and/or Bird &amp; Wadler's &quot;Introduction to Functional Programming&quot;. Easy to add more (see the file library.ml). Note that argument types <em>'a</em>, etc., are classical.</p>
+<p>Following the introduction of the <em>num</em> type in place of the old <em>int</em>, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: <em>bitand</em>, <em>drop</em>, <em>nth</em>, <em>num2bits</em>, <em>randbits</em>, <em>tabulate</em>, <em>take</em>. If this causes a problem, use <em>floor</em>, which converts fractions to integers.</p>
 <ul>
 <li><em>abandon</em>: <em>string</em> -&gt; <em>'a</em>
 <ul>
@@ -289,10 +291,11 @@
 <li><em>append</em>: <em>'a list</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>concat</em>: <em>'a list list</em> -&gt; <em>'a list</em></li>
 <li><em>const</em>: <em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em></li>
-<li><em>drop</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>drop</em>: <em>num</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>dropwhile</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>exists</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>bool</em></li>
 <li><em>filter</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>floor</em>: <em>num</em> -&gt; <em>num</em></li>
 <li><em>foldl</em>: (<em>'a</em> -&gt; <em>'b</em> -&gt; <em>'a</em>) -&gt; <em>'a</em> -&gt; <em>'b list</em> -&gt; <em>'a</em></li>
 <li><em>foldr</em>: (<em>'a</em> -&gt; <em>'b</em> -&gt; <em>'b</em>) -&gt; <em>'b</em> -&gt; <em>'a list</em> -&gt; <em>'b</em></li>
 <li><em>forall</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
@@ -303,12 +306,13 @@
 </ul>
 </li>
 <li><em>iter</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>unit</em></li>
-<li><em>length</em>: <em>'a list</em> -&gt; <em>int</em></li>
+<li><em>length</em>: <em>'a list</em> -&gt; <em>num</em></li>
 <li><em>map</em>: (<em>'a</em> -&gt; <em>'b</em>) -&gt; <em>'a list</em> -&gt; <em>'b list</em></li>
-<li><em>max</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
-<li><em>min</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
-<li><em>nth</em>: <em>'a list</em> -&gt; <em>int</em> -&gt; <em>'a</em></li>
+<li><em>max</em>: <em>num</em> -&gt; <em>num</em> -&gt; <em>num</em></li>
+<li><em>min</em>: <em>num</em> -&gt; <em>num</em> -&gt; <em>num</em></li>
+<li><em>nth</em>: <em>'a list</em> -&gt; <em>num</em> -&gt; <em>'a</em></li>
 <li><em>qval</em>: <em>qbit</em> -&gt; <em>qstate</em></li>
+<li><em>randbits</em>: <em>num</em> -&gt; <em>bit list</em></li>
 <li><em>rev</em>: <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>show</em>: <em>''a</em> -&gt; <em>string</em>
 <ul>
@@ -321,8 +325,8 @@
 </ul>
 </li>
 <li><em>snd</em>: <em>'a</em>*<em>'b</em> -&gt; <em>'b</em></li>
-<li><em>tabulate</em>: <em>int</em> -&gt; (<em>int</em> -&gt; <em>'a</em>) -&gt; <em>'a list</em></li>
-<li><em>take</em>: <em>int</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
+<li><em>tabulate</em>: <em>num</em> -&gt; (<em>num</em> -&gt; <em>'a</em>) -&gt; <em>'a list</em></li>
+<li><em>take</em>: <em>num</em> -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>takewhile</em>: (<em>'a</em> -&gt; <em>bool</em>) -&gt; <em>'a list</em> -&gt; <em>'a list</em></li>
 <li><em>tl</em>: <em>'a list</em> -&gt; <em>'a list</em>
 <ul>
@@ -336,9 +340,9 @@
 </ul>
 </li>
 <li></li>
-<li><em>bitand</em>: <em>int</em> -&gt; <em>int</em> -&gt; <em>int</em></li>
-<li><em>bits2int</em>: <em>bit list</em> -&gt; <em>int</em></li>
-<li><em>int2bits</em>: <em>int</em> -&gt; <em>bit list</em></li>
+<li><em>bitand</em>: <em>num</em> -&gt; <em>num</em> -&gt; <em>num</em></li>
+<li><em>bits2num</em>: <em>bit list</em> -&gt; <em>num</em></li>
+<li><em>num2bits</em>: <em>num</em> -&gt; <em>bit list</em></li>
 <li></li>
 <li><em>read_alternative</em>: <em>string</em> -&gt; <em>string</em> -&gt; (<em>string</em>*<em>'a</em>) <em>list</em> -&gt; <em>'a</em>
 <ul>
@@ -350,7 +354,7 @@
 <li>prompt, true_response, false_response</li>
 </ul>
 </li>
-<li><em>read_int</em>: <em>string</em> -&gt; <em>int</em></li>
+<li><em>read_num</em>: <em>string</em> -&gt; <em>num</em></li>
 <li><em>read_string</em>: <em>string</em> -&gt; <em>string</em>
 <ul>
 <li><em>read_int</em> and <em>read_string</em> take a prompt-string argument.</li>

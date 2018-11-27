@@ -98,10 +98,9 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   | `qbit`  
   | `unit`  
-  | `int`  
+  | `num`  
   | `bool`  
   | `bit`  
-  | `Range` *int*`:` *int*  
   | `string`  
   | `char`  
   | `basisv`  
@@ -115,8 +114,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *T* `process`  
   | `(` *T* `)`  
 
-  * These types are still ML style. Miranda style is neater (`[int]` rather than `int list`, `(int,bit)` rather than `int*bit`, and they don't need syntactic precedence). One day soon ...  
+  * These types are still ML style. Miranda style is neater (`[num]` rather than `num list`, `(num,bit)` rather than `num*bit`, and they don't need syntactic precedence). One day soon ... 
+  *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they do), and you may have to make use of *floor*.
   * Range types were in original CQP, but are no longer in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they may come back (I do hope so).  
+  * '*bit*' ought to be a subtype of *int*, but I can't force the typechecker to agree.
   * `basisv` is the type of basis vectors (see below).  
   * `qstate` is the type of the result of the *qval* function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a *qstate* is to send it down the outq output channel, which prints it out.
   * '`*`' separates elements of a tuple type.   
@@ -306,16 +307,19 @@ We need to be able to read and write stuff: reading to give initial values like 
 **But**, *but*, but. Functions take classical arguments and deliver classical results -- i.e. they have nothing to do with qbits. See restrictions above.
 
 The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). Note that argument types *'a*, etc., are classical.
+
+Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
     
   * *abandon*: *string* -> *'a*  
 	* stops the program and doesn't return (raises an exception).  
   * *append*: *'a list* -> *'a list* -> *'a list*
   * *concat*: *'a list list* -> *'a list*
   * *const*: *'a* -> *'b* -> *'a*
-  * *drop*: *int* -> *'a list* -> *'a list*
+  * *drop*: *num* -> *'a list* -> *'a list*
   * *dropwhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
   * *exists*: (*'a* -> *bool*) -> *'a list* -> *bool*
   * *filter*: (*'a* -> *bool*) -> *'a list* -> *'a list*
+  * *floor*: *num* -> *num*
   * *foldl*: (*'a* -> *'b* -> *'a*) -> *'a* -> *'b list* -> *'a*
   * *foldr*: (*'a* -> *'b* -> *'b*) -> *'b* -> *'a list* -> *'b*
   * *forall*: (*'a* -> *bool*) -> *'a list* -> *'a list*
@@ -323,20 +327,21 @@ The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction t
   * *hd*: *'a list* -> *'a*  
 	  * raises an exception if applied to `[]`  
   * *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
-  * *length*: *'a list* -> *int*  	
+  * *length*: *'a list* -> *num*  	
   * *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
-  * *max*: *int* -> *int* -> *int*
-  * *min*: *int* -> *int* -> *int*
-  * *nth*: *'a list* -> *int* -> *'a*
+  * *max*: *num* -> *num* -> *num*
+  * *min*: *num* -> *num* -> *num*
+  * *nth*: *'a list* -> *num* -> *'a*
   * *qval*: *qbit* -> *qstate*
+  * *randbits*: *num* -> *bit list*
   * *rev*: *'a list* -> *'a list*
   * *show*: *''a* -> *string*
 	  * converts a value to a string. Takes an equality type, because it couldn't give interesting results if applied to a qbit, a function, process, channel or qstate.  
   * *sort*: *'a list* -> *'a list*
 	  * sorts in ascending order
   * *snd*: *'a*\**'b* -> *'b*  
-  * *tabulate*: *int* -> (*int* -> *'a*) -> *'a list*
-  * *take*: *int* -> *'a list* -> *'a list*
+  * *tabulate*: *num* -> (*num* -> *'a*) -> *'a list*
+  * *take*: *num* -> *'a list* -> *'a list*
   * *takewhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
   * *tl*: *'a list* -> *'a list*  
 	  * raises an exception if applied to `[]`  
@@ -344,15 +349,15 @@ The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction t
   * *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
 	  * raises an exception if applied to lists of differing lengths (but probably shouldn't)
   * 
-  * *bitand*: *int* -> *int* -> *int*
-  * *bits2int*: *bit list* -> *int*
-  * *int2bits*: *int* -> *bit list*
+  * *bitand*: *num* -> *num* -> *num*
+  * *bits2num*: *bit list* -> *num*
+  * *num2bits*: *num* -> *bit list*
   * 
   * *read_alternative*: *string* -> *string* -> (*string*\**'a*) *list* -> *'a*
 	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user types
   * *read_bool*: *string* -> *string* -> *string* -> *bool*
 	  * prompt, true\_response, false\_response
-  * *read_int*: *string* -> *int*
+  * *read_num*: *string* -> *num*
   * *read_string*: *string* -> *string*
 	  * *read_int* and *read_string* take a prompt-string argument.  
   * 

@@ -1,5 +1,5 @@
 
-proc Alice(n:int, r:^bit, qB, vB, log) = 
+proc Alice(n:num, r:^bit, qB, vB, log) = 
     r?(basis) .
     (let vs = randbits n)
     log![basis] .
@@ -21,7 +21,7 @@ proc AliceSendBits (vs,basis,qB,done) =
               qB!q.
               AliceSendBits(vs,basis,qB,done)
 
-proc Bob(n:int, r:^bit, qA, vA, log) = 
+proc Bob(n:num, r:^bit, qA, vA, log) = 
   (new done,verified) 
   | BobReceive(n,[],qA,r,done)
   | done?(bvs) . 
@@ -61,8 +61,8 @@ proc Honest (done) = done!true  . _0
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 proc Random(r:^bit) = (newq q=|+>) q=?(v) . r!v . Random(r)
 
-proc System() = (let k = read_int "number of trials")
-           (let n = read_int "number of qbits")
+proc System() = (let k = read_num "number of trials")
+           (let n = read_num "number of qbits")
            (let verbose = read_bool "with commentary" "y" "n")
            (new r)
            | Run (k, verbose, n, r)

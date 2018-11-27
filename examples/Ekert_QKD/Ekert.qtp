@@ -52,21 +52,20 @@ fun frow xs (i,j)
        where ys = filter (lam ((i',_),(j',_)) . i=i' && j=j') xs
       
 fun crossprod xs ys
-   =match xs . + []    . []
-               + x::xs . row x ys @ crossprod xs ys
-                           where row x ys = match ys . + []    . []
-                                                       + y::ys . (x,y) :: row x ys
+   = match xs . + []    . []
+                + x::xs . row x ys @ crossprod xs ys
+                            where row x ys = match ys . + []    . []
+                                                        + y::ys . (x,y) :: row x ys
                                                      
 (* *************************************************************************************** *)
 
-(* produce pairs (h|01>-h|10> -- the '-' is crucial (well maybe not, but I do use anti-correlation in calculations) *)
+(* produce pairs (h|01>-h|10> -- the '-' is crucial, I think *)
 proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
 
 proc System() = 
-  (let n = read_int "number of trials")
-  (let m = read_int "length of message")
+  (let n = read_num "number of trials")
+  (let m = read_num "length of message")
   (let verbose = read_bool "with commentary" "y" "n")
-  (let nq = min_qbits m (2,9) 8)
   out![show nq; " qbit pairs per trial\n"] .
   (new qcA,qcB) | Source(qcA,qcB)
                 | Control(qcA,qcB,n,0,nq,m,verbose)

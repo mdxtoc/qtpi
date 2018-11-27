@@ -13,7 +13,7 @@ proc System() = (let n = read_min_int 1 "length of message")
                 Run (k, verbose, n, w, cMin, nSigma)
            
 proc Run (k, verbose, n, w, cMin, nSigma) = 
-  (let hks = tabulate 5 (lam _ . bits2int (randbits w)))
+  (let hks = tabulate 5 (lam _ . bits2num (randbits w)))
   Logger (k, 0, verbose, 0,  0, 
                          0,  0, 
                          [], [],
@@ -67,8 +67,8 @@ proc Logger (k, i, verbose, nAlice, nEve,
                                         else hkbsA, hkbsB
                                         fi
                   )
-                  (let hksAE, hksEB = map bits2int (packets [] w hkbsAE),
-                                      map bits2int (packets [] w hkbsEB)
+                  (let hksAE, hksEB = map bits2num (packets [] w hkbsAE),
+                                      map bits2num (packets [] w hkbsEB)
                   )
                   Logger (k, i+1, verbose, nAlice, nEve, 
                                            nRepsA+repsA, nRepsB+repsB, 

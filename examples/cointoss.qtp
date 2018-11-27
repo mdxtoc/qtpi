@@ -20,7 +20,7 @@ proc Q(q: qbit, toP:^qbit, fromP:^qbit, log) =
   out!["finally "] . outq!(qval q') . out!["\n"] .
   log!() . _0 
 
-proc System() = (let k = read_int "number of trials")
+proc System() = (let k = read_num "number of trials")
                 (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
                 (let verbose = read_bool "with commentary" "y" "n")
            out!["See output for results -- can print but can't examine qbit state\n"] .

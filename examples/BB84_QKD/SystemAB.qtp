@@ -12,7 +12,7 @@ proc System() = (let n = read_min_int 1 "length of message")
                 Run (k, verbose, n, w, cMin, nSigma)
            
 proc Run (k, verbose, n, w, cMin, nSigma) = 
-  (let hks = tabulate 5 (lam _ . bits2int (randbits w)))
+  (let hks = tabulate 5 (lam _ . bits2num (randbits w)))
   Logger (k, 0, verbose, 0, 0, 0, [], n, w, hks, cMin, nSigma)
 
 proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
@@ -40,7 +40,7 @@ proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
         (let nIntf = if intfseen then nIntf+1 else nIntf fi)
         (let nOk = if not q_intfseen && messageB=M then nOk+1 else nOk fi)
         (let hkbits = if not intfseen && hkbsA=hkbsB then hkbsA else randbits (5*w) fi)
-        (let hks = map bits2int (packets [] w hkbits))
+        (let hks = map bits2num (packets [] w hkbits))
         Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, w, hks, cMin, nSigma)
   else out!["all done: "; 
             show nIntf;          " interfered with; ";

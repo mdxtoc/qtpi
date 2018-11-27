@@ -72,7 +72,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
   * Measurement takes a pattern, either `_` or *x*. As you'd expect, if the pattern is a name then the result of the measurement (a bit 0b0 or 0b1) is bound to the name *and the qbit vanishes* (is used up). If it's `_` then the result of the measurement is ignored, but the qbit remains, transformed to `|0>` or `|1>`. That is, qbits are destroyed on *detection*, not on measurement (as in experiments with polaroid plastic film).
-  * The optional square-bracketed *E* list is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement use *G*`><`*G* and (*G*`><`*G*)* where `><` is tensor product, and so on for larger entanglements.) 
+  * The optional square-bracketed *E* list is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
   * CQP had `*=` for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to `=?`.   
 
 * Input-output step *IO*  
@@ -83,7 +83,8 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * '`?`' is receive, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- underscore allowed, no constants except `()`, no lists.   
   * '`!`' is send, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)  
-  * Channels each carry either a qbit or a classical value (one not including any qbits).  
+  * Channels each carry either a qbit or a classical value (one not including any qbits). 
+  * Channels can be buffered. The level of buffering is controlled with the `-chanbuf_limit` switch. (The default is no buffering - i.e. synchronised message-passing -- because I think it makes most sense with guarded commands).
   
 * Parameter *par*
 

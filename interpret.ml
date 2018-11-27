@@ -373,31 +373,26 @@ let rec evale env e =
                                                                   )
                                                            )
                                   )
-    | ECompare (e1,op,e2) -> VBool (try match op with
-                                        | Eq  -> evale env e1 =  evale env e2 (* all typechecked *)
-                                        | Neq -> evale env e1 <> evale env e2 (* all typechecked *)
-                                        | _   -> let v1 = numev env e1 in
-                                                 let v2 = numev env e2 in
-                                                 (match op with
-                                                  | Lt    -> v1<v2
-                                                  | Leq   -> v1<=v2
-                                                  | Eq    -> v1=v2  (* can't happen *)
-                                                  | Neq   -> v1<>v2 (* can't happen *)
-                                                  | Geq   -> v1>=v2
-                                                  | Gt    -> v1>v2
-                                                 )
-                                    with Expr.Error _ ->
-                                      (* this is dodgy because we can come across typevar types inside functions. Oh dear:
-                                         we seem to need equality types. And then we need classical types too. Oh dear.
-                                       *)
-                                      raise (Error (e.pos, Printf.sprintf "comparing %s:%s with %s:%s"
-                                                                          (string_of_expr e1)
+    | ECompare (e1,op,e2) -> let v1 = evale env e1 in
+                             let v2 = evale env e2 in
+                             (try let c = deepcompare (v1,v2) in
+                                  VBool (match op with
+                                         | Eq  -> c=0
+                                         | Neq -> c<>0
+                                         | Lt  -> c<0
+                                         | Leq -> c<=0
+                                         | Geq -> c>=0
+                                         | Gt  -> c>0
+                                        )
+                              with Disaster _ ->
+                                   raise (Disaster (e.pos, Printf.sprintf "equality type failure; comparing %s:%s with %s:%s"
+                                                                          (string_of_value v1)
                                                                           (string_of_type (type_of_expr e1))
-                                                                          (string_of_expr e2)
+                                                                          (string_of_value v2)
                                                                           (string_of_type (type_of_expr e2))
                                                    )
-                                            )
-                                   ) 
+                                         )
+                               ) 
     | EBoolArith (e1,op,e2) -> let v1 = boolev env e1 in
                                let v2 = boolev env e2 in
                                VBool (match op with
@@ -421,11 +416,41 @@ let rec evale env e =
                                  evale env e
   with 
   | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
-  | exn                 -> Printf.printf "evale %s %s sees exception %s\n" 
+  | exn                 -> Printf.printf "evale %s: %s %s sees exception %s\n" 
+                                         (string_of_sourcepos e.pos)
                                          (short_string_of_env env)
                                          (string_of_expr e)
                                          (Printexc.to_string exn);
                            raise exn
+
+(** Because we have nums in values we can't even use equality, I think.
+
+    Comparison.  [compare x y] returns 0 if [x] equals [y],
+    -1 if [x] is smaller than [y], and 1 if [x] is greater than [y].
+
+    Note that Pervasive.compare can be used to compare reliably two integers
+    only on OCaml 3.12.1 and later versions.
+ *)
+
+and deepcompare = function
+  | VNum     n1 , VNum     n2  -> Q.compare n1 n2
+  | VFun     _  , VFun     _
+  | VProcess _  , VProcess _
+  | VChan    _  , VChan    _
+  | VQstate  _  , VQstate  _
+  | VQbit    _  , VQbit    _   -> raise (Disaster (dummy_spos, "equality type failure"))
+  | VTuple   v1s, VTuple   v2s  
+  | VList    v1s, VList    v2s -> listcompare (v1s,v2s)
+  | v1          , v2           -> Pervasives.compare v1 v2    
+
+and listcompare = function
+| v1::v1s, v2::v2s -> (match deepcompare (v1,v2) with
+                       | 0 -> listcompare (v1s,v2s)
+                       | c -> c
+                      )
+| []     , []      -> 0
+| []     , _       -> -1
+| _      , []      -> 1
 
 and fun_of expr env pats =
   match pats with

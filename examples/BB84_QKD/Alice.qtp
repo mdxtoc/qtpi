@@ -1,3 +1,10 @@
+fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
+
+fun min_qbits k s cmin
+  = floor (max (rootn*rootn) (rootnmin*rootnmin))
+    where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
+    where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
+    
 proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) = 
   
   (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
@@ -11,30 +18,8 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
      The protocol uses about n/8 checkbits, but that's 
      included in the formula calculation.
    *)
-  (* this can/should be done with the min_qbits library function -- if I 
-     could get my head round the checkbits problem
-   *)
-  (let k = length M + 5*w)
-  (let s = nSigma)
-  (let qs = (806*s+500)/1000)      (* estimate, rounded *)
-  (let numerator = qs+int_sqrt (qs*qs +(3*k+1)/2))
-  (let rootn1 = (4*numerator+1)/3)       (* rounded *)
-  (let n1 = rootn1*rootn1) 
-  (let rootnmin = (s*1225+500)/1000 + int_sqrt ((3*s*s+1)/2+8*cMin))
-  (let nmin = rootnmin*rootnmin)
-  (let n = floor (max n1 nmin))
-  (* out![    "k="        ; show k; 
-                       "; qs="        ; show qs; 
-                       "; numerator=" ; show numerator;
-                       "; rootn1="    ; show rootn1;
-                       "; n1="        ; show n1; 
-                       "; rootnmin="  ; show rootnmin; 
-                       "; nmin="      ; show nmin; 
-                       "; n="         ; show n; 
-                       "\n"]
-     )                                         .
-   *)
-  
+  (* for the basis of the calculation in min_qbits, see QKD_results.md *)
+  (let n = min_qbits (length M + 5*w) nSigma cMin)  
   
   (* choose the basis and value for each qbit at random *)
   (let bs = randbits n) 

@@ -288,6 +288,13 @@ let _show = function VQbit   _  -> "<qbit>"
 
 let _ = Interpret.know ("show", "''a -> string", vfun (vstring <.> _show))   (* yup, it's an equality type *)
 
+let _showf k n =    (* print n as float with k digits *)
+  let k = mustbe_intv k in
+  let n = Q.to_float (numv n) in
+  vstring (Printf.sprintf "%.*f" k n)
+
+let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   
+  
 let _qval q =
   let q = qbitv q in
   Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))

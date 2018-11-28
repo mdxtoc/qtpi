@@ -82,9 +82,9 @@ proc Logger (k, i, verbose, nAlice, nEve,
                    show nCorrupt;            " undetected corrupt messages; ";
                    show nRepsA;              " repetitions (Alice-Eve); ";
                    show nRepsB;              " repetitions (Eve-Bob); ";
-                   "average check bits (Alice/Eve) "  ; show (listsum ncAs/k); 
+                   "average check bits (Alice/Eve) "  ; showf 2 (listsum ncAs/k); 
                    "; minimum check bits (Alice/Eve) "; show (listmin ncAs); 
-                   "; average check bits (Eve/Bob) "  ; show (listsum ncBs/k); 
+                   "; average check bits (Eve/Bob) "  ; showf 2 (listsum ncBs/k); 
                    "; minimum check bits (Eve/Bob) "  ; show (listmin ncBs); "\n";
                    "histogram of check-bit lengths (Alice/Eve) "; show (histogram ncAs); "\n";
                    "histogram of check-bit lengths (Eve/Bob) "; show (histogram ncBs); "\n"

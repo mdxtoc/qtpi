@@ -1,4 +1,9 @@
 (If you are reading the html version of this note, and the non-ASCII symbols like &rarr; &radic; and so on look funny in your browser, make sure it knows it's reading a UTF-8 file. I had that problem too.)
+(I've deleted the html version of this file because git's rendering of this file is superior to an html browser's. So it's available at  
+
+    github.com/mdxtoc/qtpi/blob/master/docs/QKD_results.md  
+    
+But if you are reading this then you already know that ...)
 
 # Experiments with QKD
 

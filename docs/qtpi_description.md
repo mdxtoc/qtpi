@@ -1,3 +1,9 @@
+(I used to distribute an html version of this file. But git's rendering is better than a browser's, so now it's exclusively at
+
+        github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md
+
+But if you are reading it you know that already ...)
+
 # qtpi language description
 
 Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.

@@ -173,7 +173,7 @@ let ( +/  ) = Q.(add);;
 let ( =/  ) = Q.equal;;
 let ( <>/ ) a b = not (a =/ b);;
 let ( </  ) = Q.lt;;
-let ( >/  ) = Q.lt;;
+let ( >/  ) = Q.gt;;
 let ( <=/ ) = Q.leq;;
 let ( >=/ ) = Q.geq;;
 let ( **/ ) = Local.pow

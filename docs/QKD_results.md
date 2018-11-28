@@ -1,4 +1,3 @@
-(If you are reading the html version of this note, and the non-ASCII symbols like &rarr; &radic; and so on look funny in your browser, make sure it knows it's reading a UTF-8 file. I had that problem too.)
 (I've deleted the html version of this file because git's rendering of this file is superior to an html browser's. So it's available at  
 
     github.com/mdxtoc/qtpi/blob/master/docs/QKD_results.md  
@@ -61,12 +60,7 @@ Taking the inequality as an equality, this is a quadratic in &radic;<span style=
 
 &emsp;&emsp;3/8*n* - *s*(&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+1/2)&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span> - *k* = 0
 
-One of the solutions of this equation is negative, so we ignore it; the positive solution is 
-
-&emsp;&emsp;&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span> = 4/3(*qs* + &radic;<span style="text-decoration:overline;">&nbsp;(*qs*)<sup>2</sup> + 3*k*/2&nbsp;</span>)
-&emsp;where *q* = &radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+1/2
-
-Tricky in integer arithmetic ... so we approximate *q* = 806/1000 and do a lot of rounding up, which means Alice wastes some qbits, but not too many. As you'd expect, she calculates about half a &sigma; too much padding. 
+One of the solutions of this equation is negative, so we ignore it and take the positive solution: now that qtpi's *num* type includes both integers and unbounded-precision rationals, she can calculate the root directly. (Of course we still use an approximation for *sqrt*.) 
 
 At this point Alice has to decide if she will get enough check-bits from Bob. She can be sure of
 
@@ -76,9 +70,7 @@ So, given a pre-arranged lower bound *cmin*, she can calculate a lower bound *nm
 
 &emsp;&emsp;*nmin*/8 - *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> - *cmin* = 0
 
-&emsp;&emsp;&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> = *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+&radic;<span style="text-decoration:overline;">&nbsp;3*s*<sup>2</sup>/2+8*cmin*&nbsp;</span>
-
-This is quite a large lower bound: e.g. with *cmin*=20, *s*=10, we have *nmin*=891. Once again, we approximate: &radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span> is about 1225/1000.
+This gives quite a large lower bound: e.g. with *cmin*=20, *s*=10, we have *nmin*=891. 
 
 The [no Eve trials](#noEve) show how many bits she uses for various values of *k*, *s* and *cmin*, and how it affects the repetition rate.
 
@@ -87,7 +79,7 @@ The [no Eve trials](#noEve) show how many bits she uses for various values of *k
 
 For verisimilitude I implement hash tagging. But it doesn't make a difference: in the simulation Eve can either hack it perfectly ([clever Eve](#cleverEve) and [cleverer Eve](#superEve)) or she doesn't even try ([naive Eve](#naiveEve)).
 
-Wegman-Carter tagging is too computationally expensive whilst qtpi is a naively interpreted language. So I do something simpler, because I'm not simulating security against code-crackers. It's still a hash, and experiment shows that if Eve accidentally gets her keys muddled up, Alice and Bob notice.
+Wegman-Carter tagging seems too computationally expensive whilst qtpi is a naively interpreted language (but watch this space now that qtpi can compute with rationals ...). So I do something simpler, because I'm not simulating security against code-crackers. It's still a hash, and experiment shows that if Eve accidentally gets her keys muddled up, Alice and Bob notice.
 
 For a hash-key size *w* choose packet size *p* = *w*/3\*4+1. Divide the bit sequence to be hashed into packets size 2*p*; convert each packet to an integer; multiply by the hash key; mask with 2<sup>*p*</sup>-1 to reduce the size of the result; convert back to bit strings and concatenate. That will have reduced the size of the bit-string by half. Repeat until you have no more than *p* bits, and that's the tag. 
 
@@ -112,19 +104,19 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         number of sigmas? 10
         number of trials? 100
 
-        13456 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1687 minimum check bits 1598
+        13306 qbits per trial
+        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1665.39 minimum check bits 1561
         histogram of check-bit lengths
-        [(1598,1);(1613,1);(1615,1);(1622,1);(1625,1);(1627,1);(1634,1);(1635,1);(1638,1);(1639,1);(1645,3);(1647,1);(1648,2);(1651,1
-        );(1654,1);(1655,1);(1657,2);(1658,1);(1661,1);(1662,1);(1663,2);(1664,1);(1665,1);(1666,3);(1668,1);(1669,1);(1670,2);(1673,
-        2);(1674,2);(1675,1);(1677,3);(1678,2);(1680,2);(1681,1);(1684,1);(1686,1);(1687,1);(1688,1);(1689,1);(1690,1);(1691,1);(1692
-        ,2);(1694,1);(1696,3);(1698,1);(1701,1);(1703,3);(1705,1);(1707,1);(1709,3);(1710,2);(1711,1);(1713,2);(1715,1);(1717,3);(
-        1718,1);(1719,1);(1720,1);(1722,1);(1723,1);(1724,1);(1727,1);(1729,2);(1736,2);(1737,1);(1738,2);(1741,1);(1749,1);(1754,1);
-        (1758,1);(1761,1);(1790,1)]
+        [(1561,1);(1577,1);(1580,1);(1587,1);(1589,1);(1591,1);(1598,1);(1600,1);(1606,1);(1609,1);(1612,1);(1615,1);(1617,1);(1619,2
+        );(1620,1);(1624,1);(1625,1);(1626,2);(1628,2);(1632,2);(1633,1);(1637,1);(1639,1);(1641,2);(1644,2);(1646,1);(1648,2);(1649,
+        2);(1650,1);(1653,2);(1654,1);(1655,1);(1657,3);(1659,1);(1660,2);(1663,2);(1664,2);(1665,1);(1666,1);(1668,1);(1670,1);(1672
+        ,2);(1673,2);(1674,2);(1675,2);(1676,1);(1679,1);(1680,1);(1681,1);(1682,1);(1683,1);(1684,1);(1685,1);(1686,1);(1688,1);(
+        1689,1);(1690,2);(1691,1);(1694,1);(1696,1);(1697,2);(1703,1);(1706,1);(1707,1);(1708,1);(1709,1);(1712,1);(1715,1);(1717,1);
+        (1719,1);(1721,1);(1727,1);(1733,1);(1734,1);(1745,1);(1754,2);(1762,1);(1789,1);(1790,1)]
 
-        real	1m19.446s
-        user	0m45.455s
-        sys	0m0.525s
+        real	1m6.485s
+        user	0m42.363s
+        sys	0m0.503s
   
   * That's about 4 seconds for each trial, but it is 1.3M qbits in 45 seconds. It is a quarter faster without hash tagging (zero-length keys turn it off) or, if you like, a third slower with hash tagging.
 
@@ -134,18 +126,19 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         number of sigmas? 10
         number of trials? 100
 
-        13225 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1651 minimum check bits 1570
+        13130 qbits per trial
+        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 1639.60 minimum check bits 1531
         histogram of check-bit lengths
-        [(1570,1);(1583,2);(1592,1);(1593,3);(1595,2);(1600,1);(1603,1);(1605,1);(1606,1);(1608,3);(1609,1);(1612,1);(1613,2);(1615,1
-        );(1618,1);(1619,3);(1620,1);(1621,1);(1625,1);(1626,1);(1630,1);(1631,3);(1633,1);(1636,2);(1638,1);(1639,2);(1640,1);(1641,
-        1);(1642,2);(1643,2);(1646,3);(1647,1);(1652,1);(1655,4);(1656,1);(1657,1);(1659,2);(1661,2);(1662,1);(1664,2);(1665,2);(1667
-        ,1);(1669,1);(1670,2);(1671,1);(1673,1);(1674,2);(1675,1);(1683,1);(1684,1);(1685,1);(1686,2);(1688,2);(1690,3);(1691,1);(
-        1693,2);(1694,1);(1695,1);(1697,1);(1702,1);(1703,2);(1705,1);(1708,1);(1714,1);(1716,1);(1732,1);(1733,1);(1743,1)]
+        [(1531,1);(1554,1);(1569,1);(1570,1);(1585,1);(1588,1);(1591,1);(1592,1);(1594,2);(1595,2);(1596,1);(1597,1);(1604,1);(1605,1
+        );(1606,1);(1607,2);(1609,1);(1611,1);(1613,1);(1614,1);(1617,3);(1618,1);(1619,1);(1620,1);(1621,2);(1622,1);(1624,1);(1626,
+        1);(1627,1);(1629,1);(1630,2);(1631,3);(1633,1);(1634,2);(1635,3);(1637,1);(1639,2);(1640,1);(1641,2);(1644,1);(1646,3);(1647
+        ,1);(1648,2);(1651,1);(1652,3);(1653,2);(1654,1);(1657,1);(1659,3);(1660,1);(1661,1);(1662,1);(1663,1);(1664,1);(1665,1);(
+        1666,2);(1667,1);(1668,2);(1670,1);(1671,1);(1672,1);(1673,1);(1676,2);(1679,1);(1681,1);(1682,2);(1689,1);(1694,1);(1698,1);
+        (1699,1);(1707,1);(1721,1);(1723,1);(1730,1)]
 
-        real	1m11.076s
-        user	0m37.433s
-        sys	0m0.440s
+        real	1m1.062s
+        user	0m33.069s
+        sys	0m0.434s
 
   * Even though the hash tagging mechanism is affordable it's turned off in many of the experiments below.
   

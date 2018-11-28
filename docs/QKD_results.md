@@ -71,9 +71,9 @@ So, given a pre-arranged lower bound *cmin*, she can calculate a lower bound *nm
 
 &emsp;&emsp;*nmin*/8 - *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> - *cmin* = 0
 
-&emsp;&emsp;&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> = *s*&radic;<span style="text-decoration:overline;">&nbsp;3/2&nbsp;</span>+&radic;<span style="text-decoration:overline;">&nbsp;3*s*<sup>2</sup>/2+8*cmin*&nbsp;</span>
+&emsp;&emsp;&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> = *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+&radic;<span style="text-decoration:overline;">&nbsp;3*s*<sup>2</sup>/2+8*cmin*&nbsp;</span>
 
-This is quite a large lower bound: e.g. with *cmin*=20, *s*=10, we have *nmin*=891. Once again, we approximate: &radic;<span style="text-decoration:overline;">&nbsp;3/2&nbsp;</span> is about 1225/1000.
+This is quite a large lower bound: e.g. with *cmin*=20, *s*=10, we have *nmin*=891. Once again, we approximate: &radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span> is about 1225/1000.
 
 The [no Eve trials](#noEve) show how many bits she uses for various values of *k*, *s* and *cmin*, and how it affects the repetition rate.
 

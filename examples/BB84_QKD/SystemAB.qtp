@@ -47,7 +47,7 @@ proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
             show nOk;            " exchanges succeeded; ";
             show (k-nOk);        " failed; ";
             show nReps;          " repetition(s); ";
-            "average check bits " ; show (listsum ncAs/k); 
+            "average check bits " ; showf 2 (listsum ncAs/k); 
             " minimum check bits "; show (listmin ncAs); "\n";
             "histogram of check-bit lengths "; show (histogram ncAs); "\n"
            ] . 

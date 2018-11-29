@@ -57,6 +57,7 @@ let string_of_queue string_of_v sep q =
 
 type value =
   | VUnit
+  | VBit of bool
   | VNum of num
   | VBool of bool
   | VChar of char
@@ -96,6 +97,7 @@ let string_of_pqueue string_of sep pq =
 let rec string_of_value v =
   match v with
   | VUnit           -> "()"
+  | VBit b          -> if b then "1" else "0"
   | VNum n          -> string_of_num n
   | VBool b         -> string_of_bool b
   | VBasisv bv      -> string_of_basisv bv
@@ -198,7 +200,7 @@ let (<@?>) = Listutils.(<@?>)
 let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
 
 let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
-let bitv    = function VNum    b       -> b      | v -> miseval "bitv"     v
+let bitv    = function VBit    b       -> b      | v -> miseval "bitv"     v
 let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
@@ -213,7 +215,7 @@ let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
 let funv    = function VFun    f       -> f      | v -> miseval "funv"     v
 
 let vunit   ()    = VUnit
-let vbit    b     = VNum    (match b with 0 -> zero | 1 -> one | _ -> raise (BitOverflow (string_of_int b))) (* int -> value *)
+let vbit    b     = VBit    b
 let vint    i     = VNum    (num_of_int i)              (* int -> value *)
 let vnum    n     = VNum    n
 let vbool   b     = VBool   b
@@ -293,7 +295,7 @@ let matcher pos env pairs value =
     | PatNil            , VList []          -> yes env
     | PatName   n       , _                 -> yes (env<@+>(n,v))
     | PatInt    i       , VNum    n         -> maybe (is_int n && num_of_int i =/ n)
-    | PatBit    b       , VNum    n         -> maybe ((if b then one else zero) =/ n)
+    | PatBit    b       , VBit    b'        -> maybe (b=b')
     | PatBool   b       , VBool   b'        -> maybe (b=b')
     | PatChar   c       , VChar   c'        -> maybe (c=c')
     | PatString s       , VString s'        -> maybe (s=s')
@@ -339,7 +341,7 @@ let rec evale env e =
     | EBool b             -> VBool b
     | EChar c             -> VChar c
     | EString s           -> VString s
-    | EBit b              -> VNum (if b then one else zero)
+    | EBit b              -> VBit b
     | EBasisv bv          -> VBasisv bv
     | EGate uge           -> VGate (ugev env uge)
     | EMinus e            -> VNum (~-/ (numev env e))
@@ -645,7 +647,7 @@ let rec interp sysenv proc =
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let gvs = List.map (gatev <.> evale env) ges in
-                                              let v = vbit (qmeasure (qpat_binds pat) pn gvs q) in
+                                              let v = vbit (qmeasure (qpat_binds pat) pn gvs q = 1) in
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)

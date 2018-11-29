@@ -38,11 +38,14 @@ let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
 
 let funv2 f = funv <.> funv f
 
+(* should this give an error if n is fractional? The purist in me says yes. 
+   The pragmatist says just take the floor and forget it.
+ *)
 let mustbe_intv v = 
   let n = numv v in
-  if is_int n then 
+  (*if is_int n then*) 
     try int_of_num n with Z.Overflow -> raise (IntOverflow (string_of_value v))
-  else raise (FractionalInt (string_of_value v))
+  (*else raise (FractionalInt (string_of_value v))*)
 
 (* ******************** lists ********************* *)
 
@@ -110,7 +113,7 @@ let v_randbits n =
   let rec randbits i =
     if i=0 then [] 
     else (let b = Random.bool () in
-          vbit (if b then 1 else 0)::randbits (i-1)
+          vbit b::randbits (i-1)
          ) 
   in
   vlist (randbits i)
@@ -176,7 +179,7 @@ let _ = Interpret.know ("sort"    , "'a list -> 'a list"                , vfun v
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
-let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> (fun b -> if b then 1 else 0) <.> Random.bool <.> unitv))
+let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "num -> bit list"                   , vfun v_randbits)
 
 let v_max a b =
@@ -203,14 +206,18 @@ let _ = Interpret.know ("bitand", "num -> num -> num", vfun2 v_bitand)
 
 (* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
 
-let v_bits2num bits = VNum (List.fold_left (fun sum b -> sum*/two+/bitv b) zero (listv bits))
+let v_bits2num bits = 
+  let zi = List.fold_left (fun sum b -> Z.(shift_left sum 1 + if bitv b then one else zero)) Z.zero (listv bits) in
+  vnum (num_of_zint zi)
+  
 let v_num2bits n = let rec num2bits bs zi = 
                      let q,b = Z.div_rem zi ztwo in
-                     let b = vnum (num_of_zint b) in
-                     if not (Z.equal q zzero) then num2bits (b::bs) q else List.rev (b::bs)
+                     let b = vbit Z.(b=one) in
+                     if not Z.(q=zero) then num2bits (b::bs) q else List.rev (b::bs)
                    in
                    let n = numv n in
                    if not (is_int n) then raise (FractionalInt (string_of_num n));
+                   if not (n>=/zero) then raise (IntOverflow (string_of_num n));
                    vlist (num2bits [] (zint_of_num n))
 
 let _ = Interpret.know ("bits2num", "bit list -> num", vfun v_bits2num)
@@ -224,9 +231,11 @@ let _ = Interpret.know ("nth", "'a list -> num -> 'a", vfun2 v_nth)
 
 (* ********************* numbers ************************ *)
 
-let _ = Interpret.know ("floor", "num -> num", vfun (vnum <.> Number.floor <.> numv))
+let _ = Interpret.know ("floor"  , "num -> num", vfun (vnum <.> Number.floor <.> numv))
+let _ = Interpret.know ("ceiling", "num -> num", vfun (vnum <.> Number.ceiling <.> numv))
+let _ = Interpret.know ("round"  , "num -> num", vfun (vnum <.> Number.round <.> numv))
 
-let _ = Interpret.know ("sqrt", "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
+let _ = Interpret.know ("sqrt"   , "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
 
 (* ********************* I/O ************************ *)
 
@@ -288,9 +297,12 @@ let _show = function VQbit   _  -> "<qbit>"
 
 let _ = Interpret.know ("show", "''a -> string", vfun (vstring <.> _show))   (* yup, it's an equality type *)
 
-let _showf k n =    (* print n as float with k digits *)
+let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in
-  let n = Q.to_float (numv n) in
+  let n = numv n in
+  let r = (pow ten (-k)) */ half in
+  let n = if Q.sign n < 0 then n-/r else n+/r in
+  let n = Q.to_float n in
   vstring (Printf.sprintf "%.*f" k n)
 
 let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   

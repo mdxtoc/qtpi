@@ -109,6 +109,12 @@ module Local = struct
       let num = n.num
       and den = n.den
       in Q.make (Z.(/) num den) one
+  
+  let ceiling: num -> num =
+      fun n ->
+      let num = n.num
+      and den = n.den
+      in Q.make (Z.cdiv num den) one
 
   let integer: num -> num =
       fun n ->
@@ -161,6 +167,7 @@ let zero:                num                = Q.zero;;
 let one:                 num                = Q.one;;
 let two:                 num                = num_of_zint Local.two;;
 let three:               num                = num_of_zint Local.three;;
+let ten:                 num                = num_of_zint Local.ten;;
 let zzero:               zint               = Local.zero;;
 let ztwo:                zint               = Local.two;;
 let num_of_int:          int -> num         = Q.of_int;;
@@ -179,13 +186,18 @@ let ( >=/ ) = Q.geq;;
 let ( **/ ) = Local.pow
  
 let rem:                 num -> num -> num  = Local.rem;;
+let pow:                 num -> int -> num  = Local.pow;;
 let floor:               num -> num         = Local.floor;;
+let ceiling:             num -> num         = Local.ceiling;;
 let numden_num:          num -> num*num     = Local.numden;;
 let divmod_num:          num -> num*num     = Local.divmod;;
 let integer_num:         num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
 let zint_of_num:         num -> zint        = Local.zint_of_num;;
 let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
+
+let half:                num                = one // two;;      
+let round:               num -> num         = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 
 
 

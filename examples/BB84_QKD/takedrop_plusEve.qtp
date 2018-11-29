@@ -5,7 +5,7 @@ proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB,
   if i=0 then out!["all done: "; 
                               show nGood; " Eve's; ";
                               show nBad; " Alice's; ";
-                              "average check bits "; show (sumChecks/k); 
+                              "average check bits "; showf 2 (sumChecks/k); 
                               " minimum check bits "; show minChecks; "\n"
                              ] . 
               _0
@@ -98,7 +98,7 @@ proc Bob(k, verbose, n:num, r:^bit, qA, bsA) =
       | Reconcile (bAs,bvs,[],done)
       | done?(vs) . (* the bits we agree on *)
         out!if verbose then ["Bob reconciled "; show vs; "\n"] else [] fi .
-        (let checklength = floor ((length vs)/4))
+        (let checklength = ceiling ((length vs)/4))
         bsA!take checklength vs . (* send her a sample *)
         (let code = drop checklength vs)
         out!if verbose then ["Bob's code is "; show code; "\n"] else [] fi .                                

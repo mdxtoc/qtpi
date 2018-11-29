@@ -117,7 +117,7 @@ fun hwc message keys i w : bit list
         where key = nth keys i
         where size = 2*s
         where mask = bits2num (tabulate s (const 0b1)) (* 2^s-1 *)
-        where s = floor ((w+1)/3*4+1)     (* odd, at least, and bigger than w *)
+        where s = ceiling ((w+1)/3*4+1)     (* odd, at least, and bigger than w *)
     fi
   
 fun tagged keys i w message = hwc message keys i w, message

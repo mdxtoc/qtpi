@@ -242,39 +242,36 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         user	1m18.910s
         sys	0m0.783s
   
-### 2 Sigma
+### 3 Sigma
 
-* With a long message and oodles of trials and only 2 &sigmas; we see no repetitions. Enough already: Alice is over-cautious. Which is good: it proves that she can definitely choose enough qbits to run the protocol reliably.
-* This test took an hour and 40 minutes. That's enough. I'm convinced.
-* Haven't rerun this one yet ...
+* With a reasonably long message and small oodles of trials and only 3 &sigma; we see no repetitions. Enough already: Alice is over-cautious. Which is good: it proves that she can definitely choose enough qbits to run the protocol reliably.
+* This test took over 12 minutes. That's enough. I'm convinced.
 
         length of message? 1000
         length of a hash key? 0
         minimum number of checkbits? 0
-        number of sigmas? 2
-        number of trials? 100000
+        number of sigmas? 3
+        number of trials? 10000
 
-        3025 qbits per trial
-        all done: 0 interfered with; 100000 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 378 minimum check bits 302
+        3022 qbits per trial
+        all done: 0 interfered with; 10000 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 377.47 minimum check
+        bits 306
         histogram of check-bit lengths
-        [(302,1);(307,1);(308,1);(309,5);(310,3);(311,2);(312,1);(313,2);(314,5);(315,4);(316,2);(317,5);(318,7);(319,12);(320,12);(
-        321,12);(322,12);(323,15);(324,25);(325,31);(326,26);(327,30);(328,34);(329,44);(330,63);(331,72);(332,81);(333,69);(334,90);
-        (335,120);(336,152);(337,158);(338,166);(339,197);(340,247);(341,276);(342,311);(343,336);(344,409);(345,414);(346,472);(347,
-        523);(348,582);(349,619);(350,641);(351,775);(352,781);(353,868);(354,894);(355,1010);(356,1020);(357,1143);(358,1226);(359,
-        1276);(360,1371);(361,1453);(362,1483);(363,1479);(364,1705);(365,1650);(366,1766);(367,1838);(368,1885);(369,1922);(370,2012
-        );(371,2061);(372,2100);(373,2064);(374,2116);(375,2173);(376,2224);(377,2254);(378,2156);(379,2168);(380,2221);(381,2221);(
-        382,2014);(383,2155);(384,2069);(385,1962);(386,1951);(387,1921);(388,1752);(389,1863);(390,1768);(391,1702);(392,1573);(393,
-        1567);(394,1537);(395,1496);(396,1368);(397,1225);(398,1144);(399,1170);(400,1088);(401,975);(402,916);(403,834);(404,790);(
-        405,689);(406,632);(407,604);(408,592);(409,557);(410,507);(411,467);(412,367);(413,389);(414,309);(415,271);(416,236);(417,
-        223);(418,218);(419,206);(420,164);(421,151);(422,127);(423,109);(424,99);(425,78);(426,71);(427,68);(428,57);(429,51);(430,
-        43);(431,42);(432,35);(433,30);(434,19);(435,28);(436,16);(437,22);(438,11);(439,12);(440,10);(441,8);(442,8);(443,5);(444,1)
-        ;(445,6);(446,5);(447,2);(448,2);(449,1);(450,2);(451,3);(452,2)]
+        [(306,1);(314,1);(316,1);(317,1);(318,1);(319,2);(320,3);(321,3);(322,1);(323,4);(324,3);(325,1);(326,6);(327,8);(328,7);(329
+        ,6);(330,1);(331,8);(332,9);(333,12);(334,16);(335,20);(336,20);(337,18);(338,24);(339,18);(340,25);(341,36);(342,39);(343,31
+        );(344,35);(345,39);(346,47);(347,48);(348,73);(349,76);(350,74);(351,71);(352,68);(353,101);(354,79);(355,89);(356,114);(357
+        ,124);(358,106);(359,134);(360,137);(361,168);(362,147);(363,168);(364,163);(365,190);(366,180);(367,160);(368,206);(369,177)
+        ;(370,188);(371,190);(372,218);(373,226);(374,222);(375,197);(376,222);(377,277);(378,234);(379,205);(380,218);(381,219);(382
+        ,203);(383,205);(384,195);(385,195);(386,206);(387,168);(388,187);(389,187);(390,168);(391,166);(392,178);(393,120);(394,134)
+        ;(395,136);(396,124);(397,116);(398,97);(399,114);(400,104);(401,97);(402,100);(403,106);(404,80);(405,78);(406,76);(407,55);
+        (408,47);(409,59);(410,44);(411,40);(412,39);(413,28);(414,25);(415,22);(416,30);(417,21);(418,22);(419,18);(420,10);(421,11)
+        ;(422,9);(423,8);(424,9);(425,4);(426,4);(427,7);(428,6);(429,4);(430,5);(431,2);(432,2);(433,2);(434,2);(435,1);(436,1);(438
+        ,2);(439,2);(448,1);(451,1);(474,1)]
 
-        real	99m41.799s
-        user	97m55.327s
-        sys	0m31.425s
-        
-    
+        real	13m42.688s
+        user	12m34.737s
+        sys	0m8.639s
+            
 <a name="naiveEve"></a>
 ## Alice, Bob and naive Eve
 
@@ -576,14 +573,14 @@ It seems likely that anything Alice can do online can be matched by Eve. So perh
 <a name="whataboutit"></a>
 ## But does the attack work in any implementations?
 
-If an implementation of the protocol is careless about the secrecy of the initial hash keys, an Eve could be successful. If it is careless with secrecy in dealing with recovery from hardware crashes, then one could imagine that an Eve-collaborator could provoke Bob or Alice to crash and allow an Eve to intervene. I should like to look at implementations to see if it's possible. If an attack is effective then, of course, it would provoke greater secrecy in future implementations. Which won't be a bad thing.
+If an implementation of the protocol is careless about the secrecy of the initial hash keys, an Eve could be successful. If it is careless with secrecy in dealing with recovery from hardware crashes, then one could imagine that an Eve-collaborator could provoke Bob or Alice to crash and allow an Eve to intervene. I should like to look at implementations to see if it's possible. If an attack is effective then, of course, it would provoke greater secrecy in future implementations. Which wouldn't be a bad thing.
 
 <a name="codswallop"></a>
 ## Oh no it isn't
 
 BB84 QKD is designed to daisy-chain A&harr;B, B&harr;C, ... Y&harr;Z. Breaking one of the links and inserting a new component, e.g. by making A&harr;E and E&harr;B  is of course possible, provided E knows the secret keys for that link, and can easily be transformed after the first iteration into two links with separate keys. That's how it's supposed to work. The problem is keeping the keys secret. In practice that may not be as difficult as I had thought it was, given privacy amplification techniques (see, for example, Renner and Wolf, _Unconditional Authenticity and Privacy from an Arbitrarily Weak Secret_).
 
-So I was silly. I'm not going to delete this stuff, though I probably should (and then you could recover it from the commit history or the Wayback Machine).
+So I was silly. But I'm not going to delete this stuff, though I probably should (and then you could recover it from the commit history or the Wayback Machine).
 
 <a name="whyEve"></a>
 ## Why "Eve"?

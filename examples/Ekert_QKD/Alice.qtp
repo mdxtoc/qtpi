@@ -41,7 +41,7 @@ proc AliceRead (nq,qc,rc,bvs) =
 
 proc AliceMeasure (q,r) =
   match rand4() . 
-    + 0 . q=?[]    (b) . r!0,b . _0
+    + 0 . q=?[]   (b) . r!0,b . _0
     + 1 . q=?[_F] (b) . r!1,b . _0
-    + 2 . q=?[_H]  (b) . r!2,b . _0
+    + 2 . q=?[_H] (b) . r!2,b . _0
     + _ . AliceMeasure (q,r) (* 3 - try again *)

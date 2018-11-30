@@ -32,6 +32,7 @@ type event =
   | EVDispose of name * value
   | EVGate of name * string list * ugv * string list
   | EVMeasure of name * string * ugv list * value * string list
+  | EVChangeId of name * name list
   
 let soqs = function
   | [s] -> s
@@ -61,6 +62,9 @@ let string_of_event = function
                                                                            (string_of_value v)
                                                                            (if null aqs then "" else " and " ^ soqs aqs)
                                                                            
+  | EVChangeId (pn, npns)       -> Printf.sprintf "%s morphs into %s" (string_of_name pn)
+                                                                      (string_of_list string_of_name ", " npns)
+                                                                 
 let tev q = Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
 
 let stored_trace = (ref [] : event list ref)

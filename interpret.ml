@@ -495,7 +495,9 @@ let rec interp sysenv proc =
                   try (match env<@>n.inst with
                        | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
                                                 deleteproc pn;
-                                                addrunner (addnewproc n.inst, proc, env);
+                                                let pn' = addnewproc n.inst in
+                                                addrunner (pn', proc, env);
+                                                if !showtrace then trace (EVChangeId (pn, [pn']));
                                                 if !pstep then
                                                   show_pstep (Printf.sprintf "%s(%s)" 
                                                                                      n.inst 
@@ -692,10 +694,15 @@ let rec interp sysenv proc =
                  )  
              | Par ps            ->
                  deleteproc pn;
-                 List.iter (fun (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
-                                            addrunner (n, proc, env)
-                           ) 
-                           (numbered ps);
+                 let npns = 
+                   List.fold_left  (fun ns (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
+                                                       addrunner (n, proc, env);
+                                                       n::ns
+                                   ) 
+                                   []
+                                   (numbered ps)
+                 in
+                 if !showtrace then trace (EVChangeId (pn, List.rev npns));
                  if !pstep then 
                    show_pstep (short_string_of_process rproc)
             ) (* end of match *)

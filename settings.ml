@@ -56,6 +56,8 @@ let show_final = ref false
 
 let symbq = ref true
 
+let showtrace = ref false
+
 let typereport = ref false
 
 let verboseopts = [("all"              , verbose                  );

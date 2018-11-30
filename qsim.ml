@@ -27,10 +27,10 @@ open Listutils
 open Functionutils
 open Optionutils
 open Tupleutils
+open Value (* for ugv and qbit *)
 
 exception Error of string
 
-type qbit = int
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
@@ -54,10 +54,6 @@ type prob =
   | Psum of prob list       (* associative *)
 
 type qval = qbit list * prob array (* with n qbits, 2^n probs in the array *)
-
-let string_of_qbit = string_of_int
-
-let short_string_of_qbit = string_of_int
 
 let rec string_of_prob p = 
   (* Everything is associative, but the normal form is sum of negated products.
@@ -683,28 +679,6 @@ let cjtrans_m m = (* square matrices only *)
   
 let m_IH = tensor_mm m_I m_H
 let m_HI = tensor_mm m_H m_I
-
-type ugv =
-  | GateH
-  | GateF
-  | GateG
-  | GateI
-  | GateX
-  | GateY
-  | GateZ
-  | GateCnot
-  | GatePhi of int
-
-let string_of_ugv = function
-  | GateH           -> "_H"
-  | GateF           -> "_F"
-  | GateG           -> "_G"
-  | GateI           -> "_I"
-  | GateX           -> "_X"
-  | GateY           -> "_Y"
-  | GateZ           -> "_Z"
-  | GateCnot        -> "_Cnot"
-  | GatePhi (i)     -> "_Phi(" ^ string_of_int i ^ ")"
 
 let matrix_of_ugv = function
   | GateH           -> m_H

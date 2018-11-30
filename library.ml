@@ -26,6 +26,7 @@ open Functionutils
 open Listutils
 open Interpret
 open Number
+open Value
 
 (* ******************** built-in functions ********************* *)
 
@@ -309,6 +310,6 @@ let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)
   
 let _qval q =
   let q = qbitv q in
-  Printf.sprintf "%s:%s" (Qsim.string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
+  Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
   
 let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (*yup, that's a qbit argument *)

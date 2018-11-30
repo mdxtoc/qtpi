@@ -83,3 +83,8 @@ let rec dropwhile p xs =
   | []     -> xs
   | x::xs' -> if p x then dropwhile p xs' else xs
 
+let rec remove x ys =
+  match ys with
+  | y::ys -> if x=y then ys else y::remove x ys
+  | []    -> []
+  

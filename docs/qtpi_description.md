@@ -49,6 +49,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Process *P* 
 
   | *Q* `.` *P*  
+  | *IO* `.` *P*  
   | `+` *IO* `.` *P* ... `+` *IO* `.` *P*   
   | `|` *P* ... `|` *P*   
   | `if` *E* `then` *P* `else` *P* `fi`  

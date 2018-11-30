@@ -48,143 +48,9 @@ exception BitOverflow of string
 exception IntOverflow of string
 exception FractionalInt of string
 
-let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
-                       List.rev vs
+open Value
+open Event
 
-let string_of_queue string_of_v sep q = 
-  let vs = queue_elements q in
-  "{" ^ string_of_list string_of_v sep vs ^ "}"
-
-type value =
-  | VUnit
-  | VBit of bool
-  | VNum of num
-  | VBool of bool
-  | VChar of char
-  | VBasisv of basisv
-  | VGate of Qsim.ugv
-  | VString of string
-  | VQbit of qbit
-  | VQstate of string
-  | VChan of chan
-  | VTuple of value list
-  | VList of value list
-  | VFun of (value -> value)        (* with the environment baked in for closures *)
-  | VProcess of name list * process
-
-(* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
-   to communicate is withdrawn from all guards by setting the shared boolean to false.
-   The channel list is to remove a space leak (blush): clear out the dead from those channels.
-   The space leak is because we keep a set stuck_chans (a set?) for diagnostic printing purposes.
- *)
- 
-and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) PQueue.t; rwaiters: (rwaiter*gsum_info) PQueue.t}
-
-and gsum_info = (bool * chan list) ref
-
-and runner = name * process * env
-
-and rwaiter = name * pattern * process * env
-
-and wwaiter = name * value * process * env
-
-and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
-
-let string_of_pqueue string_of sep pq = 
-  "{" ^ string_of_list string_of sep (PQueue.elements pq) ^ "}"
-;;
-
-let rec string_of_value v =
-  match v with
-  | VUnit           -> "()"
-  | VBit b          -> if b then "1" else "0"
-  | VNum n          -> string_of_num n
-  | VBool b         -> string_of_bool b
-  | VBasisv bv      -> string_of_basisv bv
-  | VGate ugv       -> string_of_ugv ugv
-  | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
-  | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-  | VQbit q         -> "Qbit " ^ string_of_qbit q
-  | VQstate s       -> s
-  | VChan c         -> "Chan " ^ string_of_chan c
-  | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
-  | VList vs        -> bracketed_string_of_list string_of_value vs
-  | VFun f          -> "<function>"
-  | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
-                                      (string_of_list string_of_name "," ns)
-                                      (string_of_process p)
-
-and short_string_of_value v =
-  match v with
-  | VQbit q         -> "Qbit " ^ short_string_of_qbit q
-  | VChan c         -> "Chan " ^ short_string_of_chan c
-  | VTuple vs       -> "(" ^ string_of_list short_string_of_value "," vs ^ ")"
-  | VList vs        -> bracketed_string_of_list short_string_of_value vs
-  | VProcess (ns,p) -> Printf.sprintf "process (%s)"
-                                      (string_of_list string_of_name "," ns)
-  | v               -> string_of_value v
-  
-and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
-    Printf.sprintf "%d = vs:{%s} rs:{%s} ws:{%s}"
-                   i
-                   (string_of_queue string_of_value "; " vs)
-                   (string_of_pqueue short_string_of_rwaiter "; " rq)
-                   (string_of_pqueue short_string_of_wwaiter "; " wq)
-
-and short_string_of_chan {cname=i} =
-    string_of_int i
-    
-and string_of_env env =
-  "{" ^ string_of_assoc string_of_name string_of_value ":" ";" env ^ "}"
-
-and short_string_of_env env =
-  "{" ^  string_of_assoc string_of_name short_string_of_value  ":" ";" 
-                         (List.filter (function 
-                                       | _, VFun     _ 
-                                       | _, VProcess _ -> false
-                                       | _             -> true
-                                      )
-                                      env 
-                         ) ^
-  "}"   
-  
-and string_of_runner (n, proc, env) =
-  Printf.sprintf "%s = (%s) %s" 
-                 (string_of_name n)
-                 (short_string_of_process proc)
-                 (short_string_of_env env)
-                 
-and string_of_rwaiter ((n, pat, proc, env),gsir) = 
-  Printf.sprintf "%s = (%s)%s %s%s" 
-                 (string_of_name n)
-                 (string_of_pattern pat)
-                 (short_string_of_process proc)
-                 (short_string_of_env env)
-                 (if fst !gsir then "" else "[dead]")
-                 
-and short_string_of_rwaiter ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
-  Printf.sprintf "%s(%s)%s" 
-                 (string_of_name n)
-                 (string_of_pattern pat)
-                 (if fst !gsir then "" else "[dead]")
-                 
-and string_of_wwaiter ((n, v, proc, env),gsir) = 
-  Printf.sprintf "%s = (%s)%s %s%s" 
-                 (string_of_name n)
-                 (string_of_value v)
-                 (short_string_of_process proc)
-                 (short_string_of_env env)
-                 (if fst !gsir then "" else "[dead]")
-                 
-and short_string_of_wwaiter ((n, v, proc, env),gsir) = (* infinite loop if we print the environment *)
-  Printf.sprintf "%s(%s)%s" 
-                 (string_of_name n)
-                 (string_of_value v)
-                 (if fst !gsir then "" else "[dead]")
-                 
-and string_of_runnerqueue sep rq =
-  string_of_pqueue string_of_runner sep rq
-  
 let empty_env = []
 
 let (<@>)  env n     = try Listutils.(<@>) env n 
@@ -560,8 +426,18 @@ let rec interp sysenv proc =
     let chan = mkchan c in
     VChan chan 
   in
+  let procnames = Hashtbl.create 100 in
   let runners = PQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = PQueue.push runners runner in
+  let addnewproc name = 
+    let rec adn i =
+      let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
+      try let _ = Hashtbl.find procnames n in adn (i+1)
+      with Not_found -> Hashtbl.add procnames n (); n
+    in 
+    adn 0
+  in
+  let deleteproc n = Hashtbl.remove procnames n in
   let print_interp_state () =
     Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
                   (string_of_runnerqueue ";\n  " runners)
@@ -570,14 +446,20 @@ let rec interp sysenv proc =
   in
   let rec step () =
       if PQueue.is_empty runners then 
-        if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
-           not (ChanSet.is_empty !stuck_chans)
-        then
-          Printf.printf "All %s!\n channels=%s\n %s\n\n"
-                        (if ChanSet.is_empty !stuck_chans then "done" else "stuck")
-                        (string_of_stuck_chans ())
-                        (String.concat "\n " (strings_of_qsystem ()))
-        else ()
+        (if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
+            not (ChanSet.is_empty !stuck_chans)
+         then
+           Printf.printf "All %s!\n channels=%s\n %s\n\n"
+                          (if ChanSet.is_empty !stuck_chans then "done" else "stuck")
+                          (string_of_stuck_chans ())
+                          (String.concat "\n " (strings_of_qsystem ()))
+         else 
+         if !pstep then
+           Printf.printf "all done\n"
+         else ();
+         if !showtrace then
+           Printf.printf "\nEvent Trace:\n\n%s\n" (Event.string_of_trace ())
+        )
       else
         ((try 
             if !verbose || !verbose_interpret then
@@ -607,12 +489,13 @@ let rec interp sysenv proc =
               else ""
             in
             (match rproc.inst with
-             | Terminate         -> if !pstep then show_pstep "_0"
+             | Terminate         -> deleteproc pn; if !pstep then show_pstep "_0"
              | Call (n, es)      -> 
                  (let vs = List.map (evale env) es in
                   try (match env<@>n.inst with
                        | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
-                                                addrunner (n.inst, proc, env);
+                                                deleteproc pn;
+                                                addrunner (addnewproc n.inst, proc, env);
                                                 if !pstep then
                                                   show_pstep (Printf.sprintf "%s(%s)" 
                                                                                      n.inst 
@@ -646,8 +529,16 @@ let rec interp sysenv proc =
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
+                                              let qv, aqs = 
+                                                if !showtrace then 
+                                                  let qs = fst (qval q) in
+                                                  tev q, (if qpat_binds pat then remove q qs else qs) 
+                                                else 
+                                                  "", [] 
+                                              in
                                               let gvs = List.map (gatev <.> evale env) ges in
                                               let v = vbit (qmeasure (qpat_binds pat) pn gvs q = 1) in
+                                              if !showtrace then trace (EVMeasure (pn, qv, gvs, v, List.map tev aqs));
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)
@@ -662,8 +553,10 @@ let rec interp sysenv proc =
                                                          )
                   | Ugatestep (es, ug)     -> let qs = List.map (qbitev env) es in
                                               let g = gatev (evale env ug) in
+                                              let qvs = if !showtrace then List.map tev qs else [] in
                                               ugstep pn qs g;
                                               addrunner (pn, proc, env);
+                                              if !showtrace then trace (EVGate (pn, qvs, g, List.map tev qs));
                                               if !pstep then 
                                                 show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
@@ -677,7 +570,10 @@ let rec interp sysenv proc =
                        if c.cname = out_c || c.cname = outq_c then can'tread "output"
                        else
                        if c.cname = in_c then 
-                         do_match (vstring (read_line ()))
+                         (let v = vstring (read_line ()) in
+                          if !showtrace then trace (EVInput (pn,v));
+                          do_match v
+                         )
                        else
                          let v' = Queue.pop c.stream in
                          (maybe_forget_chan c; do_match v')
@@ -689,6 +585,7 @@ let rec interp sysenv proc =
                        withdraw chans;
                        PQueue.excite c.wwaiters;
                        addrunner (pn', proc', env');
+                       if !showtrace then trace (EVMessage (c, pn', pn, v'));
                        do_match v'
                    with PQueue.Empty -> None
                  in
@@ -697,13 +594,24 @@ let rec interp sysenv proc =
                    if c.cname = in_c then can'twrite "input"
                    else
                    if c.cname = dispose_c then 
-                      (disposeqbit pn (qbitv v); true)
+                      (disposeqbit pn (qbitv v); 
+                       if !showtrace then trace (EVDispose (pn,v));
+                       true
+                      )
                    else
                    if c.cname = out_c then
-                     (print_string (String.concat "" (List.map stringv (listv v))); flush stdout; true)
+                     (let s = String.concat "" (List.map stringv (listv v)) in
+                      print_string s; flush stdout; 
+                      if !showtrace then trace (EVOutput (pn,vstring s));
+                      true
+                     )
                    else
                    if c.cname = outq_c then
-                     (print_string (qstatev v); flush stdout; true)
+                     (let s = qstatev v in
+                      print_string s; flush stdout; 
+                      if !showtrace then trace (EVOutput (pn,vstring s));
+                      true
+                     )
                    else
                    try boyd c.rwaiters;
                        let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
@@ -711,7 +619,9 @@ let rec interp sysenv proc =
                        gsir := false, [];
                        withdraw chans;
                        PQueue.excite c.rwaiters;
-                       addrunner (pn', proc', bmatch env' pat' v);
+                       let v' = bmatch env' pat' v in
+                       addrunner (pn', proc', v');
+                       if !showtrace then trace (EVMessage (c, pn, pn', v));
                        true
                    with PQueue.Empty -> 
                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
@@ -781,7 +691,11 @@ let rec interp sysenv proc =
                                                 )
                  )  
              | Par ps            ->
-                 List.iter (fun (i,proc) -> addrunner ((pn ^ "." ^ string_of_int i), proc, env)) (numbered ps);
+                 deleteproc pn;
+                 List.iter (fun (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
+                                            addrunner (n, proc, env)
+                           ) 
+                           (numbered ps);
                  if !pstep then 
                    show_pstep (short_string_of_process rproc)
             ) (* end of match *)

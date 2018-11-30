@@ -38,7 +38,7 @@ proc BobRead (nq,qc,rc,bvs) =
 
 proc BobMeasure (q,r) =
   match rand4() .
-    + 1 . q=?[_F]   (b) . r!1,b . _0
-    + 2 . q=?[_H]    (b) . r!2,b . _0
-    + 3 . q=?[_G](b) . r!3,b . _0
+    + 1 . q=?[_F] (b) . r!1,b . _0
+    + 2 . q=?[_H] (b) . r!2,b . _0
+    + 3 . q=?[_G] (b) . r!3,b . _0
     + _ . BobMeasure (q,r) (* 0 - try again *)

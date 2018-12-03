@@ -42,12 +42,16 @@ let opts = Arg.align
                     " show final state -- channels, stuck processes, qbit states");
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
-              ("-typereport"  , Arg.Set typereport, 
-					" show fully typed program");
               ("-pstep"  , Arg.Set pstep, 
 					" step through protocol execution");
               ("-traceevents"  , Arg.Set traceevents, 
+					" show trace of quantum events, messages, disposal, at end of execution");
+              ("-traceId"  , Arg.Set traceevents, 
+					" show trace of process ids (probably unnecessary), at end of execution");
+              ("-traceevents"  , Arg.Set traceevents, 
 					" show final trace of protocol execution");
+              ("-typereport"  , Arg.Set typereport, 
+					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
 					" verbose operation, various arguments, defaults false" ); 
              ]

@@ -8,7 +8,7 @@ But if you are reading it you know that already ...)
 
 Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.
 
-The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, eventually, laziness. The process language is beginning to exploit the offside parser.
+The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser.
 
 ## The offside rule
 

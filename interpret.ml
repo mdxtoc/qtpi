@@ -457,7 +457,7 @@ let rec interp sysenv proc =
          if !pstep then
            Printf.printf "all done\n"
          else ();
-         if !showtrace then
+         if !traceevents then
            Printf.printf "\nEvent Trace:\n\n%s\n" (Event.string_of_trace ())
         )
       else
@@ -497,7 +497,7 @@ let rec interp sysenv proc =
                                                 deleteproc pn;
                                                 let pn' = addnewproc n.inst in
                                                 addrunner (pn', proc, env);
-                                                if !showtrace then trace (EVChangeId (pn, [pn']));
+                                                if !traceId then trace (EVChangeId (pn, [pn']));
                                                 if !pstep then
                                                   show_pstep (Printf.sprintf "%s(%s)" 
                                                                                      n.inst 
@@ -532,7 +532,7 @@ let rec interp sysenv proc =
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               let qv, aqs = 
-                                                if !showtrace then 
+                                                if !traceevents then 
                                                   let qs = fst (qval q) in
                                                   tev q, (if qpat_binds pat then remove q qs else qs) 
                                                 else 
@@ -540,7 +540,7 @@ let rec interp sysenv proc =
                                               in
                                               let gvs = List.map (gatev <.> evale env) ges in
                                               let v = vbit (qmeasure (qpat_binds pat) pn gvs q = 1) in
-                                              if !showtrace then trace (EVMeasure (pn, qv, gvs, v, List.map tev aqs));
+                                              if !traceevents then trace (EVMeasure (pn, qv, gvs, v, List.map tev aqs));
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)
@@ -555,10 +555,10 @@ let rec interp sysenv proc =
                                                          )
                   | Ugatestep (es, ug)     -> let qs = List.map (qbitev env) es in
                                               let g = gatev (evale env ug) in
-                                              let qvs = if !showtrace then List.map tev qs else [] in
+                                              let qvs = if !traceevents then List.map tev qs else [] in
                                               ugstep pn qs g;
                                               addrunner (pn, proc, env);
-                                              if !showtrace then trace (EVGate (pn, qvs, g, List.map tev qs));
+                                              if !traceevents then trace (EVGate (pn, qvs, g, List.map tev qs));
                                               if !pstep then 
                                                 show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
@@ -573,7 +573,7 @@ let rec interp sysenv proc =
                        else
                        if c.cname = in_c then 
                          (let v = vstring (read_line ()) in
-                          if !showtrace then trace (EVInput (pn,v));
+                          if !traceIO then trace (EVInput (pn,v));
                           do_match v
                          )
                        else
@@ -587,7 +587,7 @@ let rec interp sysenv proc =
                        withdraw chans;
                        PQueue.excite c.wwaiters;
                        addrunner (pn', proc', env');
-                       if !showtrace then trace (EVMessage (c, pn', pn, v'));
+                       if !traceevents then trace (EVMessage (c, pn', pn, v'));
                        do_match v'
                    with PQueue.Empty -> None
                  in
@@ -597,21 +597,21 @@ let rec interp sysenv proc =
                    else
                    if c.cname = dispose_c then 
                       (disposeqbit pn (qbitv v); 
-                       if !showtrace then trace (EVDispose (pn,v));
+                       if !traceevents then trace (EVDispose (pn,v));
                        true
                       )
                    else
                    if c.cname = out_c then
                      (let s = String.concat "" (List.map stringv (listv v)) in
                       print_string s; flush stdout; 
-                      if !showtrace then trace (EVOutput (pn,vstring s));
+                      if !traceIO then trace (EVOutput (pn,vstring s));
                       true
                      )
                    else
                    if c.cname = outq_c then
                      (let s = qstatev v in
                       print_string s; flush stdout; 
-                      if !showtrace then trace (EVOutput (pn,vstring s));
+                      if !traceIO then trace (EVOutput (pn,vstring s));
                       true
                      )
                    else
@@ -623,7 +623,7 @@ let rec interp sysenv proc =
                        PQueue.excite c.rwaiters;
                        let v' = bmatch env' pat' v in
                        addrunner (pn', proc', v');
-                       if !showtrace then trace (EVMessage (c, pn, pn', v));
+                       if !traceevents then trace (EVMessage (c, pn, pn', v));
                        true
                    with PQueue.Empty -> 
                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
@@ -702,7 +702,7 @@ let rec interp sysenv proc =
                                    []
                                    (numbered ps)
                  in
-                 if !showtrace then trace (EVChangeId (pn, List.rev npns));
+                 if !traceId then trace (EVChangeId (pn, List.rev npns));
                  if !pstep then 
                    show_pstep (short_string_of_process rproc)
             ) (* end of match *)

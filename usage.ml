@@ -46,7 +46,7 @@ let opts = Arg.align
 					" show fully typed program");
               ("-pstep"  , Arg.Set pstep, 
 					" step through protocol execution");
-              ("-showtrace"  , Arg.Set showtrace, 
+              ("-traceevents"  , Arg.Set traceevents, 
 					" show final trace of protocol execution");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
 					" verbose operation, various arguments, defaults false" ); 

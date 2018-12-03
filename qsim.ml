@@ -915,7 +915,7 @@ let rec compute = function
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
 
-let rec qmeasure detects pn ugvs q = 
+let rec qmeasure disposes pn ugvs q = 
   match List.filter (fun ugv -> ugv<>GateI) ugvs with
   | []          -> (* computational measure *)
       let qs, v = qval q in
@@ -1005,7 +1005,7 @@ let rec qmeasure detects pn ugvs q =
             if !verbose || !verbose_qsim then Printf.printf "%s => %s\n" (string_of_qval qv) (string_of_qval qv');
             record qv'
            );
-      if detects then disposeqbit pn q;
+      if disposes then disposeqbit pn q;
       r
   | _ -> (* in gate-defined basis *)
       if List.exists (fun ugv -> arity_of_ugv ugv <> 1) ugvs then 
@@ -1029,7 +1029,7 @@ let rec qmeasure detects pn ugvs q =
       in
       let qv = qval q in
       ugstep_1 (id_string gate) q qv gate gate; 
-      let bit = qmeasure detects pn [] q in
+      let bit = qmeasure disposes pn [] q in
       (* that _must_ have broken any entanglement: rotate the parts back separately *)
       let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
       let rec rotate qs =
@@ -1041,5 +1041,5 @@ let rec qmeasure detects pn ugvs q =
       in
       rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
       (* rotate q as well, if it wasn't disposed *)
-      if not detects then ugstep_1 (id_string gate') q (qval q) gate' gate';
+      if not disposes then ugstep_1 (id_string gate') q (qval q) gate' gate';
       bit

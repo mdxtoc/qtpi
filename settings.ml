@@ -46,6 +46,8 @@ let verbose_typecheck = ref false
 
 let fancyvec = ref true
 
+let detectdisposes = ref true
+
 let interpret = ref true
 
 let matchcheck = ref true

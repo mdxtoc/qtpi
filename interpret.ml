@@ -531,15 +531,16 @@ let rec interp sysenv proc =
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
+                                              let disposed = qpat_binds pat && !detectdisposes in
                                               let qv, aqs = 
                                                 if !traceevents then 
                                                   let qs = fst (qval q) in
-                                                  tev q, (if qpat_binds pat then remove q qs else qs) 
+                                                  tev q, (if disposed then remove q qs else qs) 
                                                 else 
                                                   "", [] 
                                               in
                                               let gvs = List.map (gatev <.> evale env) ges in
-                                              let v = vbit (qmeasure (qpat_binds pat) pn gvs q = 1) in
+                                              let v = vbit (qmeasure disposed pn gvs q = 1) in
                                               if !traceevents then trace (EVMeasure (pn, qv, gvs, v, List.map tev aqs));
                                               let env' = (match pat.inst.pnode with
                                                           | PatAny    -> env

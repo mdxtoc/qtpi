@@ -253,7 +253,9 @@ let rewrite_def cxt def =
         doit cxt (result_type n.pos pats nt)
       in
       List.iter rewrite_fdef fdefs
-      
+  | Letdef (pat, e)                ->  
+      rewrite_pattern cxt pat; rewrite_expr cxt e
+     
 (* ********************************************** unification stuff ******************************** *)
 
 (* useful in error messages *)
@@ -386,17 +388,19 @@ and force_kind kind cxt t =
   
 (* *************************** typechecker starts here ********************************* *)
 
-let rec typecheck_pats tc cxt t pxs =
+(* indef means: in definition. True in letdef, false everywhere else. Sigh. *)
+let rec typecheck_pats indef tc cxt t pxs =
    if !verbose then 
      Printf.printf "typecheck_pats ... %s (%s) %s\n\n"
                    (short_string_of_typecxt cxt)
                    (string_of_type t)
                    (bracketed_string_of_list (string_of_pair string_of_pattern (fun _ -> "") "") pxs);
-   List.fold_left (fun cxt (pat, x) -> assigntype_pat ((revargs tc) x) cxt t pat) cxt pxs
+   List.fold_left (fun cxt (pat, x) -> assigntype_pat indef ((revargs tc) x) cxt t pat) cxt pxs
    
-and assigntype_pat contn cxt t p =
+and assigntype_pat indef contn cxt t p =
   if !verbose then
-    Printf.printf "assigntype_pat ... %s (%s) (%s)\n\n"
+    Printf.printf "assigntype_pat %B ... %s (%s) (%s)\n\n"
+                  indef
                   (short_string_of_typecxt cxt)
                   (string_of_type t)
                   (string_of_pattern p);
@@ -406,7 +410,8 @@ and assigntype_pat contn cxt t p =
   in
   try match p.inst.pnode with
       | PatAny          -> contn cxt
-      | PatName n       -> let cxt = contn (cxt<@++>(n,t)) in cxt<@-->n
+      | PatName n       -> let cxt = contn (if indef then cxt <@+> (n,t) else cxt<@++>(n,t)) in 
+                           if indef then cxt else cxt<@--> n
       | PatUnit         -> contn (unifytypes cxt t (adorn p.pos Unit))
       | PatNil          -> let vt = ntv p.pos in
                            let lt = adorn p.pos (List vt) in
@@ -423,19 +428,19 @@ and assigntype_pat contn cxt t p =
                             | PatCnot               -> contn (unifytypes cxt t (adorn p.pos (Gate (2))))
                             | PatPhi p              -> let pt = adorn p.pos Num in
                                                        let cxt = unifytypes cxt t (adorn p.pos (Gate(1))) in
-                                                       assigntype_pat contn cxt pt p
+                                                       assigntype_pat indef contn cxt pt p
                            ) 
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
                            let lt = adorn p.pos (List vt) in
                            let cf cxt = 
-                             assigntype_pat contn cxt t pt
+                             assigntype_pat indef contn cxt t pt
                            in
                            let cxt = unifytypes cxt t lt in
-                           assigntype_pat cf cxt vt ph
+                           assigntype_pat indef cf cxt vt ph
       | PatTuple ps     -> let ts = List.map (fun p -> ntv p.pos) ps in
                            let cxt = unifytypes cxt t (adorn p.pos (Tuple ts)) in
                            let rec tc cxt = function
-                             | (p,t)::pts -> assigntype_pat ((revargs tc) pts) cxt t p
+                             | (p,t)::pts -> assigntype_pat indef ((revargs tc) pts) cxt t p
                              | []         -> contn cxt
                            in
                            tc cxt (zip ps ts)
@@ -545,7 +550,7 @@ and assigntype_expr cxt t e =
      | EMatch (e,ems)       -> let et = ntv e.pos in
                                let cxt = assigntype_expr cxt et e in
                                let tc cxt e = assigntype_expr cxt t e in
-                               typecheck_pats tc cxt et ems
+                               typecheck_pats false tc cxt et ems
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
      | EArith (e1,_,e2)     -> binary cxt (adorn_x e Num)  (adorn_x e1 Num)  (adorn_x e2 Num)  e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
@@ -574,7 +579,7 @@ and assigntype_expr cxt t e =
 and assigntype_edecl cxt t e = function
   | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
                                     let cxt = assigntype_expr cxt wt we in
-                                    assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
+                                    assigntype_pat false (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
   | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;
                                     let tf, tr = inventtype_fun wfpats !wtoptr we in
@@ -642,7 +647,7 @@ and assigntype_fun cxt t pats e =
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let cxt = unifytypes cxt t tf in
                    let contn cxt () = assigntype_fun cxt tr pats' e in
-                   typecheck_pats contn cxt ta [pat,()]
+                   typecheck_pats false contn cxt ta [pat,()]
   | []          -> assigntype_expr cxt t e
   
 and ok_procname n = 
@@ -742,15 +747,13 @@ and typecheck_process cxt p =
       check_distinct params;
       do_procparams "WithQbit" cxt params proc
   | WithLet ((pat,e),proc) ->
-      let t = new_Unknown e.pos UKclass in
-      let cxt = assigntype_expr cxt t e in
-      assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
+      typecheck_letspec false (fun cxt -> typecheck_process cxt proc) cxt pat e
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
        | Measure (e, ges, pat) ->
            let cxt = assigntype_expr cxt (adorn e.pos Qbit) e in
            let cxt = List.fold_left (fun cxt ge -> assigntype_expr cxt (adorn ge.pos (Gate 1)) ge) cxt ges in
-           assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt (adorn pat.pos Bit) pat
+           assigntype_pat false (fun cxt -> typecheck_process cxt proc) cxt (adorn pat.pos Bit) pat
        | Ugatestep (es, uge) ->
            let cxt = List.fold_left (fun cxt e -> assigntype_expr cxt (adorn e.pos Qbit) e) cxt es in
            let arity = List.length es in
@@ -763,7 +766,7 @@ and typecheck_process cxt p =
          | Read (ce, pat) ->
              let t = ntv ce.pos in
              let cxt = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
-             assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
+             assigntype_pat false (fun cxt -> typecheck_process cxt proc) cxt t pat
          | Write (ce, e) ->
              let t = ntv ce.pos in 
              let cxt = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
@@ -777,7 +780,7 @@ and typecheck_process cxt p =
       typecheck_process cxt p2
   | PMatch (e,pms)  -> let et = new_Unknown e.pos UKclass in
                        let cxt = assigntype_expr cxt et e in
-                       typecheck_pats typecheck_process cxt et pms
+                       typecheck_pats false typecheck_process cxt et pms
   | Par (ps)        -> List.fold_left typecheck_process cxt ps
 
 and typecheck_pdef cxt def =
@@ -807,10 +810,16 @@ and typecheck_pdef cxt def =
                            (short_string_of_typecxt cxt)
             );
           r
-      | Functiondefs _ -> cxt
+      | Functiondefs _ 
+      | Letdef       _ -> cxt
    in
    cxt
       
+and typecheck_letspec indef contn cxt pat e =
+  let t = new_Unknown e.pos UKclass in
+  let cxt = assigntype_expr cxt t e in
+  assigntype_pat indef contn cxt t pat
+
 let make_library_cxt () =
   let knownassoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let cxt = new_cxt (NameMap.of_assoc knownassoc) in
@@ -853,6 +862,8 @@ let typecheck_fdefs cxt = function
         cxt <@+> (fn.inst, generalise t)
       in
       List.fold_left postcxt cxt fns
+  | Letdef (pat, e) ->
+      typecheck_letspec true id cxt pat e      
       
 let precheck_pdef cxt = function
   | Processdef   (pn,ps,_) -> 
@@ -878,7 +889,8 @@ let precheck_pdef cxt = function
                         )
                  )
       else cxt <@+> (pn.inst, (adorn pn.pos (Process (process_params ps))))
-  | Functiondefs _         -> cxt
+  | Functiondefs _         
+  | Letdef       _         -> cxt
 
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->

@@ -157,3 +157,21 @@ let qpat_binds pat =
   | Some _ -> true
   | None   -> false
   
+let names_of_pattern =
+  let rec nps set p =
+    match p.inst.pnode with
+    | PatAny
+    | PatUnit
+    | PatNil
+    | PatInt    _
+    | PatBit    _
+    | PatBool   _
+    | PatChar   _
+    | PatString _
+    | PatBasisv _
+    | PatGate   _       -> set
+    | PatName   n       -> NameSet.add n set 
+    | PatCons   (ph,pt) -> nps (nps set ph) pt
+    | PatTuple  ps      -> List.fold_left nps set ps
+  in
+  nps NameSet.empty

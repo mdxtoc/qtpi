@@ -727,15 +727,20 @@ let know dec = knowns := dec :: !knowns
 
 let bind_fdefs env = function
   | Processdef   _      -> env 
-  | Functiondefs fdefs  -> let er = ref env in
-                           let bind_fdef env (n,pats,_,expr) = env <@+> bind_fun er n.inst pats expr in
+  | Functiondefs fdefs  -> (* recursive, hence jollity with reference *)
+                           let er = ref env in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst pats expr in
                            let env = List.fold_left bind_fdef env fdefs in
                            er := env;
                            env
-
+  | Letdef (pat, e)     -> (* not recursive, evaluate now *)
+                           let v = evale env e in
+                           bmatch env pat v
+  
 let bind_pdefs env = function
   | Processdef  (n,params,p) -> env <@+> (n.inst, VProcess (strip_params params, p))
   | Functiondefs _           -> env
+  | Letdef _                 -> env
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)

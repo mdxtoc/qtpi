@@ -132,6 +132,7 @@ defs:
 def:
   | processdef                          {$1}
   | functiondefs                        {$1}
+  | letdef                              {$1}
   
 processdef:
   PROC procname LPAR procparams RPAR EQUALS process  
@@ -160,7 +161,7 @@ fdefs:
   | fdef fdefs                          {$1::$2}
 
 fdef:
-  funname fparams restypeopt EQUALS indentHere expr outdent    
+  funname fparams restypeopt EQUALS indentNext expr outdent    
                                         {let rt = ref $3 in ($1,$2,rt,$6)}
   
 funname:
@@ -182,6 +183,9 @@ restypeopt:
 
 name:
   NAME                                  {$1}
+
+letdef:
+  LETDEC letspec                        {let pat, e = $2 in Letdef (pat,e)}
   
 typespec:
   | func_typespec                       {$1}
@@ -339,7 +343,8 @@ qspec:
                                         }
   
 letspec:
-  | bpattern EQUALS expr                {$1, $3}
+  | bpattern EQUALS indentNext expr outdent
+                                        {$1, $4}
   
 args:
   |                                     {[]}

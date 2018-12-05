@@ -35,6 +35,7 @@ open Type
 type def = 
   | Processdef of name instance * param list * process
   | Functiondefs of fdef list
+  | Letdef of pattern * expr
   
 and fdef = name instance * pattern list * _type option ref * expr 
 
@@ -44,6 +45,9 @@ let rec string_of_def = function
                                         (String.concat "," (List.map string_of_param params))
                                         (string_of_process proc)
   | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
+  | Letdef (pat, e)             ->  Printf.sprintf "let %s = %s" 
+                                                   (string_of_pattern pat) 
+                                                   (string_of_expr e)
   
 and string_of_fdef (fn,pats,toptr,expr) =
   Printf.sprintf "fun %s %s%s = %s"

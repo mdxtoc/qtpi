@@ -91,7 +91,7 @@ let type_of_pattern p =
                                                      (string_of_pattern p)
                               )
                     )
-
+  
 (* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
 (* ******************************* also check that we don't compare qbits ******************************** *)
 
@@ -252,10 +252,12 @@ let ctfa_def def =
   match def with
   | Processdef (pn, params, proc) ->
       List.iter ctfa_param params; ctfa_proc proc
-  | Functiondefs fdefs ->
+  | Functiondefs fdefs            ->
       let ctfa_fdef (fn, pats, _, expr) = ctfa_expr expr in (* don't check the type: will be checked on use *)
       List.iter ctfa_fdef fdefs
-  
+  | Letdef (pat, e)               ->
+      ctfa_expr e
+      
 (* *************** phase 2: resource check (rck_...) *************************** *)
 
 (* with the new restrictions on process arguments, qbit-valued conditionals, bindings, 
@@ -712,7 +714,8 @@ let rck_def env def =
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
-
+  | Letdef (pat,e) -> () (* I think so: the typechecker has done the work *)
+      
 (* *************** main function: trigger the phases *************************** *)
 
 let resourcecheck defs = 
@@ -737,6 +740,8 @@ let resourcecheck defs =
       | Processdef   (pn, _, _) -> env <@+> (pn.inst,RNull)
       | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
                                    List.fold_left do_fdef env fdefs
+      | Letdef       (pat,e)    -> let ns = NameSet.elements (names_of_pattern pat) in
+                                   List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
     in
     let env = List.fold_left do_def env defs in
     let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in

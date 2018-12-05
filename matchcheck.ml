@@ -477,5 +477,6 @@ let matchcheck_def def =
   | Processdef   (pn, params, proc) -> matchcheck_proc proc
   | Functiondefs fdefs              -> let fcheck (fn, pats, _, expr) = matchcheck_expr expr in
                                        List.iter fcheck fdefs
-
+  | Letdef       (pat, e)           -> matchcheck_expr e
+  
 let matchcheck defs = push_verbose !verbose_matchcheck (fun () -> List.iter matchcheck_def defs)

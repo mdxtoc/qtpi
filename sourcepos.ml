@@ -40,6 +40,12 @@ let string_of_sourcepos spos =
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
 
+let string_of_stringpos spos = 
+  if spos = dummy_spos then "_" else
+  let _, startpos, endpos = spos in
+    Printf.sprintf "chars %d-%d" 
+      (charnum startpos) (charnum endpos)
+
 let startline (_,startpos,endpos) = linenum startpos
 let endline   (_,startpos,endpos) = linenum endpos
 

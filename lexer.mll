@@ -195,7 +195,7 @@ rule make_token = parse
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
 
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
-                                                  Lexing.lexeme lexbuf ^ 
+                                                  Char.escaped (Lexing.lexeme_char lexbuf 0) ^ 
                                                   "'"
                                  )
                        )

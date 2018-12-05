@@ -41,6 +41,15 @@ let parse_string entry string =
                        )
                 )
          )
+  | Lexer.LexError(spos,s) -> 
+        (raise (Error (Printf.sprintf "\n**%s: LEXING ERROR: %s \
+                                       when parsing string \"%s\""
+                                      (string_of_stringpos spos)
+                                      s
+                                      string
+                      )
+               )
+        )
   | exn -> 
         raise (Error (Printf.sprintf "**Unexpected exception %s \
                                       when parsing string \"%s\""

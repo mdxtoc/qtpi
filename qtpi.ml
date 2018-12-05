@@ -43,7 +43,11 @@ let parsefile opts usage filename =
 
 let _ = match !Usage.files with 
         | [] -> print_string ("\nno file specified") 
-        | fs -> try let defss = List.map (parsefile Usage.opts Usage.usage) (List.rev fs) in
+        | fs -> try (* check the library has parseable types *)
+                    (try List.iter (fun (n,s,v) -> ignore (Parseutils.parse_typestring s)) !Interpret.knowns
+                     with Parseutils.Error s -> raise (Parseutils.Error ("while checking types in built-in library: " ^ s))
+                    );
+                    let defss = List.map (parsefile Usage.opts Usage.usage) (List.rev fs) in
                     let defs = List.concat defss in
                     if !verbose then
                       print_endline (string_of_list string_of_def "\n\n" defs);

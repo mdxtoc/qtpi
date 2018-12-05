@@ -340,6 +340,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *min*: *num* -> *num* -> *num*
   * *nth*: *'a list* -> *num* -> *'a*
   * *qval*: *qbit* -> *qstate*
+  * *randbit*: *unit* -> *bit*
   * *randbits*: *num* -> *bit list*
   * *rev*: *'a list* -> *'a list*
   * *show*: *''a* -> *string*

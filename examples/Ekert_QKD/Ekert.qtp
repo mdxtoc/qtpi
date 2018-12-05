@@ -76,10 +76,10 @@ fun crossprod xs ys
      sqrt n = (s*sqrt q + sqrt(s^2*q+4*k*p))/2*p
  *)
  
-fun min_qbits (k:num) (p:num) (s:num) : num 
-  = rootn*rootn
-      where rootn = (s* sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
-      where q = p*(1-p)
+fun min_qbits (k:num) (p:num) (s:num) : num = 
+      rootn*rootn
+        where rootn = (s* sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
+        where q = p*(1-p)
     
 
 (* *************************************************************************************** *)

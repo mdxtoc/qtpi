@@ -24,6 +24,7 @@
 open Sourcepos
 open Functionutils
 open Listutils
+open Tupleutils
 open Interpret
 open Number
 open Value
@@ -36,8 +37,11 @@ open Value
 
 let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
 let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
+let vfun4 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> vfun (fun d -> f a b c d))))
 
 let funv2 f = funv <.> funv f
+let funv3 f = let f' a b c = funv (funv (funv f a) b) c in
+              f'
 
 (* should this give an error if n is fractional? The purist in me says yes. 
    The pragmatist says just take the floor and forget it.
@@ -308,6 +312,42 @@ let _showf k n =    (* print n as float with k digits, rounded away from zero *)
 
 let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   
   
+(* ********************* memoising, with an s ************************ *)
+
+module OneMap = MyMap.Make (struct type t        = value
+                                   let compare   = Pervasives.compare
+                                   let to_string = string_of_value
+                            end
+                           )
+
+let _memofun f = OneMap.memofun id (funv f)
+let _memorec f = OneMap.memorec id (funv2 f <.> vfun)
+
+let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
+let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b", vfun2 _memorec)
+  
+module TwoMap = MyMap.Make (struct type t        = value*value
+                                   let compare   = Pervasives.compare
+                                   let to_string = string_of_pair string_of_value string_of_value " " 
+                            end
+                           )
+
+let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
+
+let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c", vfun3 _memofun2)
+  
+module ThreeMap = MyMap.Make (struct type t        = value*value*value
+                                     let compare   = Pervasives.compare
+                                     let to_string = string_of_triple string_of_value string_of_value string_of_value " " 
+                              end
+                             )
+
+let _memofun3 f = curry3 (ThreeMap.memofun id (uncurry3 (funv3 f)))
+  
+let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
+
+(* ********************* special qbit functions ************************ *)
+
 let _qval q =
   let q = qbitv q in
   Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))

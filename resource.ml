@@ -503,7 +503,7 @@ let rec r_o_e disjoint state env e =
                                                else
                                                if State.find q state then r, ResourceSet.singleton r
                                                else
-                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away/detected qbit %s" 
+                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away/measured qbit %s" 
                                                                                      (string_of_name n)
                                                               )
                                                        )
@@ -625,7 +625,8 @@ and rck_proc state env proc =
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, ges, pattern) -> 
-                                        let detects = qpat_binds pattern in
+                                        (* measurement without detection is absurd, wrong. So detects is always true *)
+                                        let detects = (* qpat_binds pattern *) true in
                                         let rq, usedq = (if detects then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in

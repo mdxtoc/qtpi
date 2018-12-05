@@ -32,8 +32,8 @@ let set_arg aref v = aref:=v
 let opts = Arg.align 
              [("-chanbuf_limit"  , Arg.Int (set_arg chanbuf_limit), 
                     Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
-              ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
-                    Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes);
+              (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
+                    Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-interpret"  , Arg.Bool (set_arg interpret), 

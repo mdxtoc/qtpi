@@ -211,19 +211,58 @@ let _ = Interpret.know ("bitand", "num -> num -> num", vfun2 v_bitand)
 
 (* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
 
-let v_bits2num bits = 
-  let zi = List.fold_left (fun sum b -> Z.(shift_left sum 1 + if bitv b then one else zero)) Z.zero (listv bits) in
-  vnum (num_of_zint zi)
+(* let v_bits2num bits = 
+     let zi = List.fold_left (fun sum b -> Z.(shift_left sum 1 + if bitv b then one else zero)) Z.zero (listv bits) in
+     vnum (num_of_zint zi)
   
-let v_num2bits n = let rec num2bits bs zi = 
-                     let q,b = Z.div_rem zi ztwo in
-                     let b = vbit Z.(b=one) in
-                     if not Z.(q=zero) then num2bits (b::bs) q else List.rev (b::bs)
-                   in
-                   let n = numv n in
-                   if not (is_int n) then raise (FractionalInt (string_of_num n));
-                   if not (n>=/zero) then raise (IntOverflow (string_of_num n));
-                   vlist (num2bits [] (zint_of_num n))
+   let v_num2bits n = let rec num2bits bs zi = 
+                        let q,b = Z.div_rem zi ztwo in
+                        let b = vbit Z.(b=one) in
+                        if not Z.(q=zero) then num2bits (b::bs) q else List.rev (b::bs)
+                      in
+                      let n = numv n in
+                      if not (is_int n) then raise (FractionalInt (string_of_num n));
+                      if not (n>=/zero) then raise (IntOverflow (string_of_num n));
+                      vlist (num2bits [] (zint_of_num n))
+ *)
+
+(* little-endian: least-significant bit first *)
+let v_num2bits n =
+  let n = numv n in
+  if not (is_int n) then raise (FractionalInt (string_of_num n));
+  if Q.sign n < 0 then raise (NegInt (string_of_num n));
+  let s = Z.to_bits (Q.num n) in
+  let cs = (ref [] : int list ref) in
+  let ncs = String.length s - 1 in
+  for i = 0 to ncs do cs := Char.code s.[i] :: !cs done; (* big-endian: first byte last in !cs *)
+  let rec char2bits k bs byte =
+    let b = vbit ((byte land 1) = 1) in
+    let byte = byte lsr 1 in
+    if byte=k then List.rev (b::bs) else char2bits k (b::bs) byte
+  in
+  let rec cs2bits bits = function
+    | [byte]      -> List.concat (List.rev (char2bits 0 [] byte::bits))
+    | byte::bytes -> cs2bits (char2bits 1 [] (byte+256)::bits) bytes
+    | []          -> [vbit false]
+  in
+  vlist (cs2bits [] (List.rev (dropwhile (fun byte -> byte=0) !cs)))
+
+(* also little-endian, to match v_num2bits *)
+let v_bits2num bs =
+  let rec bytevalue bs = (* little-endian *)
+    let rec bv byte = function (* big-endian *)
+      | []    -> byte
+      | b::bs -> bv ((byte lsl 1)+(if bitv b then 1 else 0)) bs
+    in bv 0 (List.rev bs)
+  in
+  let rec listvalue bytes = function (* little-endian *)
+    | [] -> List.rev bytes 
+    | bs -> listvalue (bytevalue (take 8 bs)::bytes) (drop 8 bs) 
+  in
+  let a = Array.of_list (listvalue [] (listv bs)) in
+  let s = String.init (Array.length a) (fun i -> Char.chr a.(i)) in
+  let zn = Z.of_bits s in
+  vnum (num_of_zint zn)
 
 let _ = Interpret.know ("bits2num", "bit list -> num", vfun v_bits2num)
 let _ = Interpret.know ("num2bits", "num -> bit list", vfun v_num2bits)

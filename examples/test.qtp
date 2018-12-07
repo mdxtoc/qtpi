@@ -1,0 +1,5 @@
+proc System () =
+  (let n = read_num "number")
+  (let bs = num2bits n)
+  out![show bs; "; "; show (bits2num bs); "\n"] .
+  System ()

@@ -47,6 +47,7 @@ exception LibraryError of string
 exception BitOverflow of string
 exception IntOverflow of string
 exception FractionalInt of string
+exception NegInt of string
 
 open Value
 open Event

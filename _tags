@@ -1,5 +1,5 @@
 # true: use_menhir, explain
-true: package(Zarith)
+true: package(Zarith),safe_string
 # true: package(Unix), package(Ulex), package(MenhirLib)
 
 

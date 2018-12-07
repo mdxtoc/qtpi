@@ -1,6 +1,6 @@
 (I've deleted the html version of this file because git's rendering of this file is superior to an html browser's. So it's available at  
 
-    github.com/mdxtoc/qtpi/blob/master/docs/QKD_results.md  
+    https://github.com/mdxtoc/qtpi/blob/master/docs/QKD_results.md  
     
 But if you are reading this then you already know that ...)
 

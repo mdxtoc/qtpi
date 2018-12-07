@@ -1,7 +1,13 @@
+(I've deleted the html version of this file because git's rendering of this file is superior to an html browser's. So it's available at  
+
+    https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md  
+    
+But if you are reading this then you already know that ...)
+
 # Static treatment of ownership of qbits -- Resource-checking a program
 
 ## Hubris
-Oh, nemesis! I didn't read the Gay and Nagarajan paper properly (and/or I didn't read the right version). Much of this can be done with linear typing. And with the right language restrictions (see [the language description](./qtpi_description.html/#restrictions)) almost all of it can. 
+Oh, nemesis! I didn't read the Gay and Nagarajan paper properly (and/or I didn't read the right version). Much of this can be done with linear typing. And with the right language restrictions (see [the language description](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions)) almost all of it can. 
 
 Although I think that many of the problems below can't happen any more within the language I've kept the implementation in case I decide to lift some or all of those restrictions.
 
@@ -60,7 +66,7 @@ It is impossible to clone qbits. So a program should be incapable of making a co
 			
 			B(qt:qbit*qbit) = ...  
 	
-	Again, *B* doesn't own two separate qbits. (This example can't happen with [the language restrictions](./qtpi_description.html/#restrictions), because `let` can only bind classical values.) 
+	Again, *B* doesn't own two separate qbits. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.) 
 	
 3. How about sending the same qbit twice?
 
@@ -68,13 +74,13 @@ It is impossible to clone qbits. So a program should be incapable of making a co
 		
 			B(c:^qbit*qbit) = c?(q1,q2). ...
 		
-	*B* only owns one qbit, not two. (This example can't happen with [the language restrictions](./qtpi_description.html/#restrictions), because you can't have a `^qbit*qbit` channel.)
+	*B* only owns one qbit, not two. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because you can't have a `^qbit*qbit` channel.)
 	
 4. How about a *let* binding?
 
 			A() = (newq q) (let q'=q) ...
 		
-	*A* only creates one qbit to own. (This example can't happen with [the language restrictions](./qtpi_description.html/#restrictions), because `let` can only bind classical values.)
+	*A* only creates one qbit to own. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
 	
 ## Accounting problems
 
@@ -84,7 +90,7 @@ If we want to check ownership we have to account for the use of qbits. This thro
 	
 			A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi). ...
 	
-	Which qbit has been sent away, and which does *A* own after the send? (This example can't happen with [the language restrictions](./qtpi_description.html/#restrictions), because `let` can only bind classical values.)
+	Which qbit has been sent away, and which does *A* own after the send? (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
 	
 	(I 'solve' this problem by prohibiting it: see below.)
 	
@@ -93,7 +99,7 @@ If we want to check ownership we have to account for the use of qbits. This thro
 			(newq q) (let n = q,q) ...
 			(newq q) (let qs = [q;q]) ... 
 		
-	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit. (This example can't happen with [the language restrictions](./qtpi_description.html/#restrictions), because `let` can only bind classical values.)
+	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
 	
 	(This problem can be handled: see below.)
 	

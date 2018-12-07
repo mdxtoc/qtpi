@@ -1,6 +1,6 @@
 (I used to distribute an html version of this file. But git's rendering is better than a browser's, so now it's exclusively at
 
-        github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md
+        https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md
 
 But if you are reading it you know that already ...)
 
@@ -256,14 +256,14 @@ We don't yet have gate multiplication in the language. Nor tensor product. We sh
 
 Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection, and it vanishes from the simulation. A vanished qbit is in fact recycled: not quite garbage-collected, because conventional garbage collection doesn't understand how qbits work.
 
-Before I realised that qbits are destroyed on detection, I implemented a *dispose* channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](./ownership.html) for explanation).
+Before I realised that qbits are destroyed on detection, I implemented a *dispose* channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
 
 Reading from from the *dispose* channel is a run-time error, once again because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
 
-Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](./ownership.html) for explanation.
+Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation.
 
 These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's really there for aesthetic reasons.
 

@@ -148,17 +148,32 @@ Note that in this simulation Bob doesn't know the length of *M*, still less the 
         length of message? 1
         length of a hash key? 0
         minimum number of checkbits? 20
-        number of sigmas? 10
+        number of sigmas? 0
         number of trials? 1
-        with commentary (y/n)? n
 
-        891 qbits
-        all done: 0 interfered with; 1 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 106.00 minimum check bits 106
-        histogram of check-bit lengths [(106,1)]
+        161 qbits
+        all done: 0 interfered with; 1 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 26.00 minimum check bits 26
+        histogram of check-bit lengths [(26,1)]
 
-        real	0m28.372s
-        user	0m0.047s
-        sys	0m0.009s
+        real	0m14.753s
+        user	0m0.032s
+        sys	0m0.007s
+
+* But you can definitely get too few checkbits, because 0 &sigma;
+
+        length of message? 1
+        length of a hash key? 0
+        minimum number of checkbits? 40
+        number of sigmas? 0
+        number of trials? 1
+
+        321 qbits
+        all done: 0 interfered with; 1 exchanges succeeded; 0 failed; 0 repetition(s); average check bits 35.01 minimum check bits 35
+        histogram of check-bit lengths [(35,1)]
+
+        real	0m16.098s
+        user	0m0.034s
+        sys	0m0.006s
 
 * With a medium-length message we get an immense repetition rate. 
 

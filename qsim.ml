@@ -101,8 +101,12 @@ let string_of_cprob (C (x,y)) =
   let im y = 
     match y with
     | P_1     -> "i"
-    | Pprod _ -> "i" ^ string_of_prob y
-    | _       -> "i(" ^ string_of_prob y ^ ")"
+    | P_f  
+    | P_g 
+    | P_h   _ 
+    | Psymb _ 
+    | Pprod _ -> "i*" ^ string_of_prob y
+    | _       -> "i*(" ^ string_of_prob y ^ ")"
   in
   match x,y with
   | P_0, P_0    -> "0"
@@ -502,27 +506,23 @@ let m_I  = make_ug  [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
 let m_X  = make_ug  [[c_0       ; c_1        ];
                      [c_1       ; c_0        ]] 
-let m_Y  = make_ug  [[c_0       ; c_1        ];
-                     [cneg c_1  ; c_0        ]] 
-let mYi = make_ug   [[c_0       ; cneg c_i    ];
+let m_Y  = make_ug  [[c_0       ; cneg c_i   ];
                      [c_i       ; c_0        ]]
-let m_Z =  make_ug  [[c_1       ; c_0        ];
-                     [c_0       ; cneg c_1    ]] 
+let m_Z  = make_ug  [[c_1       ; c_0        ];
+                     [c_0       ; cneg c_1   ]] 
+let m_H  = make_ug  [[c_h        ; c_h       ];
+                     [c_h        ; cneg (c_h)]]
+let m_F  = make_ug  [[c_f        ; c_g       ];
+                     [c_g        ; cneg c_f  ]]
+let m_G  = make_ug  [[c_g        ; c_f       ];
+                     [c_f        ; cneg c_g  ]]
 
-let m_H  = make_ug [[c_h        ; c_h       ];
-                    [c_h        ; cneg (c_h)]]
 
-let m_F  = make_ug [[c_f        ; c_g        ];
-                    [c_g        ; cneg c_f    ]]
-
-let m_G  = make_ug [[c_g        ; c_f        ];
-                    [c_f        ; cneg c_g    ]]
-
-let m_Phi = function
+let m_Phi = function (* as Pauli *)
   | 0 -> m_I
   | 1 -> m_X
-  | 2 -> m_Z     (* Gay and Nagarajan had mYi *)
-  | 3 -> m_Y     (* Gay and Nagarajan had m_Z *)
+  | 2 -> m_Y  
+  | 3 -> m_Z  
   | i -> raise (Error ("** Disaster: _Phi(" ^ string_of_int i ^ ")"))
 
 let m_Cnot = make_ug [[c_1; c_0; c_0; c_0];

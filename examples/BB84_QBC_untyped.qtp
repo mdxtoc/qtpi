@@ -8,7 +8,7 @@ proc AliceChoose(n, r, vs, qB, bB, vB) =
 proc AliceSend(vs, ovs, basis, qB, bB, vB) =
     if vs=[] then AliceReport(basis,ovs,bB,vB)
     else (newq q)
-         q >> if hd(vs)=0b1 then _Phi(1) else _I fi.
+         q >> if hd(vs)=0b1 then _X else _I fi.
          q >> if basis=0b1 then _H else _I fi.
          qB!q.
          AliceSend(tl(vs),ovs,basis,qB,bB,vB)

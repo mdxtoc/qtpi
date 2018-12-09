@@ -2,8 +2,8 @@
    a channel: no longer allowed.
  *)
 
-proc P(s:^qbit*(^qbit)) =  | s?(y,t) . t!y . _0
-                           | s?(y,t) . y>>_Phi(1) . t!y . _0
+proc P(s:^qbit*(^qbit)) =  | s?(y,t) .         t!y . _0
+                           | s?(y,t) . y>>_X . t!y . _0
                      
 proc Q(x: qbit, s:^qbit*(^qbit)) = 
   x>>_H . (new t:^qbit) s!x,t . t?(z) . z>>_H . _0 

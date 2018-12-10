@@ -8,10 +8,12 @@ proc Alice (x:qbit, c:^bit*bit) =
 
 proc Bob(y:qbit, c:^bit*bit) = 
     c?(b1,b2) . 
-    y >> match b1,b2 . + 0b0,0b0 . _I
+    (*y >> match b1,b2 . + 0b0,0b0 . _I
                        + 0b0,0b1 . _X
                        + 0b1,0b0 . _Z
-                       + 0b1,0b1 . _Y    . 
+                       + 0b1,0b1 . _Z _X    .*) (* commented out till we have matrix multiplication *) 
+    y >> if b2=0b1 then _X else _I fi .
+    y >> if b1=0b1 then _Z else _I fi .
     out!["finally Bob's y is "] . 
     outq!(qval y) . out!["\n"] .
     _0 

@@ -7,8 +7,8 @@ proc Bob(y:qbit, c:^bit*bit) =
     c?(b1,b2) . y>>_Phi (match b1,b2 .
                          + 0b0,0b0 . 0
                          + 0b0,0b1 . 1
-                         + 0b1,0b0 . 3 (* i.e. Z *)
-                         + 0b1,0b1 . 2 (* i.e. Y *) (* this doesn't work *)
+                         + 0b1,0b0 . 2 (* i.e. Y *)
+                         + 0b1,0b1 . 3 (* i.e. Z *) (* this doesn't work *)
 						) . 
     out!["finally Bob's y is "] .  outq!(qval y) . out!["\n"] .
   	_0
@@ -20,6 +20,7 @@ proc Bob'(t:^qbit,c:^bit*bit) = t?(y:qbit) . Bob(y,c)
 proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
 
 proc System() = 
+    out!["This is teleportation using the Phi collection I, X, Y, Z. It doesn't work\n"] .
     (newq z)(new c:^bit*bit,s:^qbit,t:^qbit) | Alice'(s,c,z) 
     										 | Bob'(t,c) 
     										 | Source(s,t)

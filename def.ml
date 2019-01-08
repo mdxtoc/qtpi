@@ -50,7 +50,7 @@ let rec string_of_def = function
                                                    (string_of_expr e)
   
 and string_of_fdef (fn,pats,toptr,expr) =
-  Printf.sprintf "fun %s %s%s = %s"
+  Printf.sprintf "%s %s%s = %s"
   (string_of_name fn.inst)
   (String.concat " " (List.map string_of_fparam pats))
   (match !toptr with

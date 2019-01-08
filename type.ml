@@ -41,7 +41,7 @@ and tnode =
   | Qstate
   | Basisv
   | Gate    of int              (* arity *)
-  | Unknown of name             (* unknowns start with '?', which doesn't appear in parseable names *)
+  | Unknown of unknown          
   | Known   of name             (* knowns start with '\'', which doesn't appear in parseable names *)
   | Poly    of name list * _type
 (*| Range   of int * int *)
@@ -50,6 +50,8 @@ and tnode =
   | Channel of _type            (* cos if it's _type list, as in tuple, then typechecking is harder *)
   | Fun     of _type * _type
   | Process of _type list
+
+and unknown = name * _type option ref (* unknowns start with '?', which doesn't appear in parseable names *)
 
 let processprio = 0 (* lower than tuple, channel, function *)
 let funprio = 1     (* lower than tuple *)
@@ -104,7 +106,7 @@ and string_of_tnode = function
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"
   | Gate    i        -> Printf.sprintf "gate(%d)" i
-  | Unknown n        -> (*"Unknown " ^*) string_of_name n
+  | Unknown u        -> (*"Unknown " ^*) string_of_unknown u
   | Known   n        -> (*"Known " ^*) string_of_name n
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
@@ -116,6 +118,10 @@ and string_of_tnode = function
                                        (possbracket true funprio t1)
                                        (possbracket false funprio t2)
   | Process ts       -> Printf.sprintf "%s process" (string_of_tnode (delist ts))
+
+and string_of_unknown = function    (* unknowns are transparent *)
+  | _, {contents=Some t} -> string_of_type t
+  | n, _                 -> string_of_name n
 
 and string_of_typelist ifeq supprio = function
   | [t] -> string_of_type t
@@ -129,30 +135,36 @@ and possbracket' ifeq supprio subprio substring =
   then Printf.sprintf "(%s)" substring
   else substring
 
-let rec freetvs t = _freetvs NameSet.empty t
+let rec freetvs t = 
+  let rec _freetvs s t = 
+    match t.inst with
+    | Num
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Qbit 
+    | Qstate
+    | Basisv
+  (*| Range   _ *)
+    | Gate    _       -> s
+    | Unknown (_, {contents=Some t'})    
+                      -> _freetvs s t'      
+    | Unknown (n, _)  -> NameSet.add n s      
+    | Known   n       -> NameSet.add n s 
+    | Poly    (ns,t)  -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
+    | Channel t   
+    | List    t       -> _freetvs s t  
+    | Process ts   
+    | Tuple   ts      -> List.fold_left _freetvs s ts
+    | Fun     (t1,t2) -> _freetvs (_freetvs s t1) t2
+  in
+  _freetvs NameSet.empty t
 
-and _freetvs s t = 
-  match t.inst with
-  | Num
-  | Bool
-  | Char
-  | String
-  | Bit 
-  | Unit
-  | Qbit 
-  | Qstate
-  | Basisv
-(*| Range   _ *)
-  | Gate    _      -> s
-  | Unknown n      
-  | Known   n      -> NameSet.add n s 
-  | Poly    (ns,t) -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
-  | Channel t   
-  | List    t       -> _freetvs s t  
-  | Process ts   
-  | Tuple   ts      -> List.fold_left _freetvs s ts
-  | Fun     (t1,t2) -> _freetvs (_freetvs s t1) t2
-
+(* absolutely _all_ this does is to replace Knowns with Unknowns. (But why?)
+   (Answer: something to do with Typecheck.inventtype_fun. Sigh.)
+ *)
 let rec rewrite assoc t =
   let replace tnode = {pos=t.pos; inst=tnode} in
   match t.inst with
@@ -166,38 +178,46 @@ let rec rewrite assoc t =
   | Qstate
   | Basisv
 (*| Range   _ *)
-  | Gate    _       -> t
-  | Unknown n        
-  | Known   n       -> (try replace ((assoc<@>n).inst) with Not_found -> t) 
-  | Poly    (ns,t)  -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
-  | List    t       -> replace (List (rewrite assoc t))   
-  | Channel t       -> replace (Channel (rewrite assoc t))
-  | Process ts      -> replace (Process (List.map (rewrite assoc) ts))
-  | Tuple   ts      -> replace (Tuple (List.map (rewrite assoc) ts))
-  | Fun     (t1,t2) -> replace (Fun (rewrite assoc t1, rewrite assoc t2))
+  | Gate    _        
+  | Unknown _        -> t        
+  | Known   n        -> (try replace ((assoc<@>n).inst) with Not_found -> t) 
+  | Poly    (ns,t)   -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
+  | List    t        -> replace (List (rewrite assoc t))   
+  | Channel t        -> replace (Channel (rewrite assoc t))
+  | Process ts       -> replace (Process (List.map (rewrite assoc) ts))
+  | Tuple   ts       -> replace (Tuple (List.map (rewrite assoc) ts))
+  | Fun     (t1,t2)  -> replace (Fun (rewrite assoc t1, rewrite assoc t2))
+ 
+module OrderedUnknown = struct type t = unknown let compare (n1,_) (n2,_) = Pervasives.compare n1 n2 let to_string = string_of_unknown end
+module UnknownSet = MySet.Make(OrderedUnknown)
 
-let rec rename assoc t = 
-  let replace tnode = {pos=t.pos; inst=tnode} in
-  match t.inst with
-  | Num
-  | Bool
-  | Char
-  | String
-  | Bit 
-  | Unit
-  | Qbit 
-  | Qstate
-  | Basisv
-(*| Range   _ *)
-  | Gate    _       -> t
-  | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
-  | Unknown _       
-  | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
-  | List    t       -> replace (List (rename assoc t))   
-  | Channel t       -> replace (Channel (rename assoc t))
-  | Process ts      -> replace (Process (List.map (rename assoc) ts))
-  | Tuple   ts      -> replace (Tuple (List.map (rename assoc) ts))
-  | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
+let freeunknowns t = 
+  let rec _freeuks s t = 
+    match t.inst with
+    | Num
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Qbit 
+    | Qstate
+    | Basisv
+  (*| Range   _ *)
+    | Gate    _       -> s
+    | Unknown (_, {contents=Some t'})    
+                      -> _freeuks s t'      
+    | Unknown u       -> UnknownSet.add u s      
+    | Known   n       -> s 
+    | Poly    (ns,t)  -> raise (Invalid_argument ("freeunknowns " ^ string_of_type t))
+    | Channel t   
+    | List    t       -> _freeuks s t  
+    | Process ts   
+    | Tuple   ts      -> List.fold_left _freeuks s ts
+    | Fun     (t1,t2) -> _freeuks (_freeuks s t1) t2
+  in
+  _freeuks UnknownSet.empty t
+
 
 type unknownTV = 
   | UKall       (* anything *)
@@ -221,7 +241,8 @@ let new_unknown = (* hide the reference *)
      | UKeq        -> "?'"
      | UKclass     -> "?"
      | UKqclas      -> "?^"
-     ) ^ string_of_int n 
+     ) ^ string_of_int n, 
+     ref None
    in
    new_unknown
   )
@@ -261,8 +282,40 @@ let result_type pos pars ft =
   | Poly (_,t) -> rt pars t
   | _          -> rt pars ft
   
+(* not very clever this: ought to go 'a, 'b, 'c etc. *)
 let generalise t = 
   let rec unknown_to_known t = 
+    match t.inst with
+    | Num
+    | Bool
+    | Char
+    | String
+    | Bit 
+    | Unit
+    | Qbit 
+    | Qstate
+    | Basisv
+  (*| Range   _ *)
+    | Gate    _         -> ()
+    | Unknown (n, {contents=Some t'})  
+                        -> unknown_to_known t'  
+    | Unknown (n, tr)   -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
+                           tr := Some (adorn t.pos (Known n'))
+    | Known   _         -> ()
+    | Poly    _         -> raise (Invalid_argument ("Type.generalise " ^ string_of_type t))
+    | List    t            
+    | Channel t         -> unknown_to_known t
+    | Process ts        
+    | Tuple   ts        -> List.iter unknown_to_known ts
+    | Fun     (t1,t2)   -> unknown_to_known t1; unknown_to_known t2
+  in
+  unknown_to_known t;
+  let nset = freetvs t in
+  if NameSet.is_empty nset then t 
+  else adorn t.pos (Poly(NameSet.elements nset,t))
+
+let instantiate t =
+  let rec rename assoc t = 
     let replace tnode = {pos=t.pos; inst=tnode} in
     match t.inst with
     | Num
@@ -276,22 +329,15 @@ let generalise t =
     | Basisv
   (*| Range   _ *)
     | Gate    _       -> t
-    | Unknown n       -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
-                         replace (Known n')
-    | Known   _       -> t
-    | Poly    (ns,t)  -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
-    | List    t       -> replace (List (unknown_to_known t))   
-    | Channel t       -> replace (Channel (unknown_to_known t))
-    | Process ts      -> replace (Process (List.map unknown_to_known ts))
-    | Tuple   ts      -> replace (Tuple (List.map unknown_to_known ts))
-    | Fun     (t1,t2) -> replace (Fun (unknown_to_known t1, unknown_to_known t2))
+    | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
+    | Unknown _       
+    | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
+    | List    t       -> replace (List (rename assoc t))   
+    | Channel t       -> replace (Channel (rename assoc t))
+    | Process ts      -> replace (Process (List.map (rename assoc) ts))
+    | Tuple   ts      -> replace (Tuple (List.map (rename assoc) ts))
+    | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
   in
-  let t = unknown_to_known t in
-  let nset = freetvs t in
-  if NameSet.is_empty nset then t 
-  else adorn t.pos (Poly(NameSet.elements nset,t))
-
-let instantiate t =
   match t.inst with
   | Poly (ns, t)  -> let newns = List.map (fun n -> new_unknown (kind_of_unknown n)) ns in
                      (try rename (zip ns newns) t

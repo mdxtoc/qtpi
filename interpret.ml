@@ -533,7 +533,7 @@ let rec interp sysenv proc =
                  (match qstep.inst with
                   | Measure (e, ges, pat)  -> let q = qbitev env e in
                                               (* measurement without detection is absurd, wrong. So disposed is always true *)
-                                              let disposed = (* qpat_binds pat && !detectdisposes *) true in
+                                              let disposed = !measuredestroys in
                                               let qv, aqs = 
                                                 if !traceevents then 
                                                   let qs = fst (qval q) in

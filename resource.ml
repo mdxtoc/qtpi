@@ -72,11 +72,13 @@ let rec is_resource_type t =
   | Gate    _       -> false
   | Qstate          -> false    (* really *)
   (* | Range   _ *)
-  | Unknown n          (* can happen in Poly ... *)       
+  | Unknown (_, {contents=Some t})    
+                    -> is_resource_type t       
+  | Unknown _       -> raise (Disaster (t.pos, Printf.sprintf "is_resource_type %s" (string_of_type t)))       
   | Known   n          (* can happen in Poly ... *)       
                     -> let k = kind_of_unknown n in
                        k=UKall || k=UKqclas
-  | Poly (ns, t)    -> is_resource_type t 
+  | Poly    (ns, t) -> is_resource_type t 
   | List    t       -> is_resource_type t 
   | Channel t       -> false
   | Tuple   ts      -> List.exists is_resource_type ts
@@ -505,7 +507,8 @@ let rec r_o_e disjoint state env e =
                                                else
                                                if State.find q state then r, ResourceSet.singleton r
                                                else
-                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away/measured qbit %s" 
+                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away%s qbit %s" 
+                                                                                     (if !measuredestroys then "/measured" else "")
                                                                                      (string_of_name n)
                                                               )
                                                        )
@@ -627,9 +630,9 @@ and rck_proc state env proc =
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, ges, pattern) -> 
-                                        (* measurement without detection is absurd, wrong. So detects is always true *)
-                                        let detects = (* qpat_binds pattern *) true in
-                                        let rq, usedq = (if detects then disjoint_resources_of_expr else resources_of_expr) 
+                                        let destroys = !measuredestroys in
+                                        (* if destroys is false then qe can be ambiguously conditional *)
+                                        let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in
                                         let ugs = List.map (snd <.> resources_of_expr state env) ges in
@@ -640,11 +643,11 @@ and rck_proc state env proc =
                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
                                         in
                                         let state = 
-                                          match detects, rq with
+                                          match destroys, rq with
                                           | false, _       -> state
                                           | true , RQbit q -> State.add q false state
-                                          | true , _       -> 
-                                              raise (Error (qe.pos, "ambiguous qbit expression (which qbit is consumed?)"))
+                                          | true , _       -> (* belt and braces ... *)
+                                              raise (Error (qe.pos, "ambiguous qbit expression (which qbit is destroyed?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' proc))
                                     | Ugatestep (qes, ug)    -> 

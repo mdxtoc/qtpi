@@ -40,6 +40,8 @@ let opts = Arg.align
                     Printf.sprintf " interpret the program (default %B)" !interpret);
               ("-matchcheck" , Arg.Bool (set_arg matchcheck), 
                     Printf.sprintf " matchcheck the program (default %B)" !matchcheck);
+              ("-measuredestroys" , Arg.Bool (set_arg measuredestroys), 
+                    Printf.sprintf " measurement destroys a qbit (default %B)" !measuredestroys);
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qbit states");
               ("-symbq"  , Arg.Bool (set_arg symbq), 

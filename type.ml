@@ -162,32 +162,6 @@ let rec freetvs t =
   in
   _freetvs NameSet.empty t
 
-(* absolutely _all_ this does is to replace Knowns with Unknowns. (But why?)
-   (Answer: something to do with Typecheck.inventtype_fun. Sigh.)
- *)
-let rec rewrite assoc t =
-  let replace tnode = {pos=t.pos; inst=tnode} in
-  match t.inst with
-  | Num
-  | Bool
-  | Char
-  | String
-  | Bit 
-  | Unit
-  | Qbit 
-  | Qstate
-  | Basisv
-(*| Range   _ *)
-  | Gate    _        
-  | Unknown _        -> t        
-  | Known   n        -> (try replace ((assoc<@>n).inst) with Not_found -> t) 
-  | Poly    (ns,t)   -> raise (Invalid_argument ("Type.rewrite " ^ string_of_type t))
-  | List    t        -> replace (List (rewrite assoc t))   
-  | Channel t        -> replace (Channel (rewrite assoc t))
-  | Process ts       -> replace (Process (List.map (rewrite assoc) ts))
-  | Tuple   ts       -> replace (Tuple (List.map (rewrite assoc) ts))
-  | Fun     (t1,t2)  -> replace (Fun (rewrite assoc t1, rewrite assoc t2))
- 
 module OrderedUnknown = struct type t = unknown let compare (n1,_) (n2,_) = Pervasives.compare n1 n2 let to_string = string_of_unknown end
 module UnknownSet = MySet.Make(OrderedUnknown)
 

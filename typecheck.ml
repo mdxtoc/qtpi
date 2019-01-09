@@ -54,6 +54,7 @@ let new_cxt cxt = cxt
 
 let (<@>)  = Listutils.(<@>)       
 let (<@+>) = Listutils.(<@+>)       
+let (<@->) = Listutils.(<@->)       
 let (<@?>) = Listutils.(<@?>)       
 
 let new_Unknown pos uk = adorn pos (Unknown (new_unknown uk))
@@ -534,8 +535,8 @@ and assigntype_expr cxt t e =
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
                                unifytypes t t'
-     | ELambda (pats, e)    -> check_distinct_fparams pats; assigntype_fun cxt t pats e; ()
-     | EWhere  (e, ed)      -> assigntype_edecl cxt t e ed; ()
+     | ELambda (pats, e)    -> check_distinct_fparams pats; assigntype_fun cxt t pats e
+     | EWhere  (e, ed)      -> assigntype_edecl cxt t e ed
   with 
   | TypeUnifyError (t1,t2)  -> raise (Error (e.pos,
                                              Printf.sprintf "%s appears to be type %s, but in context should be %s"
@@ -551,40 +552,42 @@ and assigntype_edecl cxt t e = function
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
   | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;
-                                    let tf, tr = inventtype_fun wfpats !wtoptr we in
+                                    let tf, tr = read_funtype wfpats wtoptr we in
                                     let cxt = cxt <@+> (wfn.inst,tf) in
                                     let _ = assigntype_fun cxt tf wfpats we in
                                     let rt = new_Unknown we.pos UKclass in
                                     let _ = unifytypes rt tr in
-                                    let _ = assigntype_expr cxt t e in
-                                    wtoptr := Some tr
+                                    let cxt = (cxt <@-> wfn.inst) <@+> (wfn.inst, generalise tf) in
+                                    assigntype_expr cxt t e
 
-and inventtype_fun pats topt e = 
+and read_funtype pats toptr e = 
+  (* with mutually-recursive function definitions, read_funtype gets called more than once.
+     So the first on the scene gets to fill in the unknowns.
+     (Well actually it's only called once per definition, at present, but it does no harm.)
+   *)
   let rec itf = function
   | pat::pats'  -> let ta = inventtype_pat pat in
                    let tr, trall = itf pats' in
                    adorn (pos_of_instances pats) (Fun (ta,tr)), trall
-  | []          -> let tr = match topt with 
-                            | None   -> new_Unknown e.pos UKclass
+  | []          -> let tr = match !toptr with 
+                            | None   -> let t = new_Unknown e.pos UKclass in toptr := Some t; t
                             | Some t -> t
-                    in tr, tr
+                   in tr, tr
   and inventtype_pat pat =
+    let f = match pat.inst.pnode with
+            | PatName _ 
+            | PatAny          -> (fun () -> ntv pat.pos)
+            | PatUnit         -> (fun () -> adorn pat.pos Unit)
+            | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
+                                 let ts = List.fold_left itp [] pats in
+                                 (fun () -> adorn pat.pos (Tuple (List.rev ts)))
+            | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
+    in
     match !(pat.inst.ptype) with
-      | Some t -> t
-      | None   -> match pat.inst.pnode with
-                  | PatName _ 
-                  | PatAny          -> ntv pat.pos
-                  | PatUnit         -> adorn pat.pos Unit
-                  | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
-                                       let ts = List.fold_left itp [] pats in
-                                       adorn pat.pos (Tuple (List.rev ts))
-                  | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
+    | Some t -> t   (* not all that work for nothing: the PatNames have been typed *)
+    | None   -> let t = f () in pat.inst.ptype := Some t; t
   in 
-  let t, tr = itf pats in
-  let vs = NameSet.union (freetvs t) (freetvs tr) in
-  (* change the knowns to new unknowns *)
-  let assoc = List.map (fun v -> v, new_Unknown dummy_spos (kind_of_unknown v)) (NameSet.elements vs) in
-  Type.rewrite assoc t, Type.rewrite assoc tr
+  itf pats
   
 and check_distinct_fparams pats =
   let rec cdfp set pat =
@@ -799,7 +802,7 @@ let typecheck_fdefs cxt = function
       let precxt cxt (fn,pats,toptr,e) =
         ok_funname fn;
         check_distinct_fparams pats;
-        let t, rt = inventtype_fun pats !toptr e in
+        let t, rt = read_funtype pats toptr e in
         toptr := Some rt;
         cxt <@+> (fn.inst, t)
       in
@@ -823,7 +826,7 @@ let typecheck_fdefs cxt = function
       let cxt = List.fold_left tc_fdef cxt fdefs in
       let postcxt cxt fn =  
         let t = evaltype (cxt<@>fn.inst) in
-        cxt <@+> (fn.inst, generalise t)
+        (cxt <@-> fn.inst) <@+> (fn.inst, generalise t)
       in
       List.fold_left postcxt cxt fns
   | Letdef (pat, e) ->

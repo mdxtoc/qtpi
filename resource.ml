@@ -74,7 +74,8 @@ let rec is_resource_type t =
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    
                     -> is_resource_type t       
-  | Unknown _       -> raise (Disaster (t.pos, Printf.sprintf "is_resource_type %s" (string_of_type t)))       
+  | Unknown (n, _)  -> let k = kind_of_unknown n in
+                       k=UKall || k=UKqclas      
   | Known   n          (* can happen in Poly ... *)       
                     -> let k = kind_of_unknown n in
                        k=UKall || k=UKqclas

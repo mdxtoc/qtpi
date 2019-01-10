@@ -220,10 +220,6 @@ let rewrite_def cxt def =
                  )
         in
         let doit cxt rt = rewrite_fparams cxt pats; rewrite_expr cxt expr; toptr := Some (evaltype rt) in
-        (* let freeprimetvs t = let set = freetvs t in NameSet.filter (fun n -> Stringutils.starts_with n "'") set in
-        let freeset = NameMap.fold (fun n t set -> NameSet.union set (freeprimetvs t)) cxt.tmap NameSet.empty in
-        if not (NameSet.is_empty freeset) then 
-          raise (Can'tHappen (string_of_sourcepos n.pos ^": cxt=" ^ string_of_typecxt cxt ^ "\nfrees " ^ NameSet.to_string freeset)); *)
         doit cxt (result_type n.pos pats nt)
       in
       List.iter rewrite_fdef fdefs

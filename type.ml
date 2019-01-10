@@ -257,9 +257,12 @@ let result_type pos pars ft =
   | _          -> rt pars ft
   
 (* not very clever this: ought to go 'a, 'b, 'c etc. *)
+(* but it's too hard to fix, so sorry *)
+(* and it's inefficient, but it doesn't matter *)
 let generalise t = 
   let rec unknown_to_known t = 
-    match t.inst with
+   let replace tnode = {pos=t.pos; inst=tnode} in
+   match t.inst with
     | Num
     | Bool
     | Char
@@ -270,20 +273,20 @@ let generalise t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate    _         -> ()
+    | Gate    _         -> t
     | Unknown (n, {contents=Some t'})  
-                        -> unknown_to_known t'  
-    | Unknown (n, tr)   -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
-                           tr := Some (adorn t.pos (Known n'))
-    | Known   _         -> ()
+                        -> replace (unknown_to_known t').inst  
+    | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
+                           replace (Known n')
+    | Known   _         -> t
     | Poly    _         -> raise (Invalid_argument ("Type.generalise " ^ string_of_type t))
-    | List    t            
-    | Channel t         -> unknown_to_known t
-    | Process ts        
-    | Tuple   ts        -> List.iter unknown_to_known ts
-    | Fun     (t1,t2)   -> unknown_to_known t1; unknown_to_known t2
+    | List    t         -> replace (List (unknown_to_known t))  
+    | Channel t         -> replace (Channel (unknown_to_known t))
+    | Process ts        -> replace (Process (List.map unknown_to_known ts))
+    | Tuple   ts        -> replace (Tuple (List.map unknown_to_known ts))
+    | Fun     (t1,t2)   -> replace (Fun (unknown_to_known t1, unknown_to_known t2))
   in
-  unknown_to_known t;
+  let t = unknown_to_known t in
   let nset = freetvs t in
   if NameSet.is_empty nset then t 
   else adorn t.pos (Poly(NameSet.elements nset,t))

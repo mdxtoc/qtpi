@@ -251,8 +251,14 @@ let rec unifytypes t1 t2 =
   match t1.inst, t2.inst with
   | Unknown (n1,r1) , Unknown (n2,r2)   -> if n1<>n2 then
                                              (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
-                                              then r1:=Some t2 
-                                              else r2:=Some t1
+                                              then r1 := Some t2 
+                                              else 
+                                              if kind_includes (kind_of_unknown n2) (kind_of_unknown n1) 
+                                              then r2 := Some t1
+                                              else (* we have Class, Comm or Comm, Class. Both include CommC *)
+                                                   (let t = new_Unknown t1.pos UnkCommC in
+                                                    r1 := Some t; r2 := Some t
+                                                   )
                                              )
   | Unknown (n1,r1) , _                 -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _               , Unknown (n2,r2)   -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
@@ -274,21 +280,24 @@ and unifylists exn t1s t2s =
    and now also that channel types are qbit or classical and that classicals are classical. ISWIM
  *)  
 and canunifytype n t =
-  let bad () = 
+  let bad prefix = 
     let s = match kind_of_unknown n with
             | UnkClass -> "a classical type"
             | UnkEq    -> "an equality type"
-            | UnkComm -> "qbit or classical"
+            | UnkComm  -> "qbit or non-function classical"
+            | UnkCommC -> "non-function classical"
             | UnkAll   -> " (whoops: can't happen)"
     in
-    raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
+    raise (Error (t.pos, string_of_type t ^ " is not " ^ prefix ^ s))
   in
   let rec check kind t = 
     let rec cu t = 
       match kind, t.inst with
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
-      | _       , Unknown (n',_) -> n<>n'
+      | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
+      
+      (* everybody takes the basic ones *)
       | _       , Unit
       | _       , Num
       | _       , Bool
@@ -299,26 +308,37 @@ and canunifytype n t =
    (* | _       , Range   _ *)
       | _       , Gate    _     -> true
      
-      | UnkComm  , Qbit         -> true
-      | UnkComm  , _            -> check UnkClass t
+      (* All takes everything *)
+      | UnkAll  , _             -> true
       
-      | UnkEq    , Qbit        
-      | UnkEq    , Qstate      
-      | UnkEq    , Channel _   
-      | UnkEq    , Fun     _   
-      | UnkEq    , Poly    _        (* Poly types are function types *)
-      | UnkEq    , Process _     -> bad ()
+      (* Comm takes Qbit or otherwise behaves as CommC *)
+      | UnkComm , Qbit         -> true
+      | UnkComm , _            -> check UnkCommC t
+
+      (* there remain Class, CommC, Eq *)
       
-      | UnkClass, Qbit           -> bad ()
+      (* none of which take Qbit *)
+      | _       , Qbit          -> bad ""
       
-      | UnkAll   , Qbit          -> true
+      (* only Class takes Fun and Poly *)
+      | UnkClass, Fun _        
+      | UnkClass, Poly _       -> true
+      | _       , Fun _        
+      | _       , Poly _       -> bad ""
+      
+      (* Eq cuts out three more *)
+      | UnkEq   , Qstate      
+      | UnkEq   , Channel _   
+      | UnkEq   , Process _   -> bad ""
+      
+      (* Class and CommC are happy with Qstate *)
       | _       , Qstate        -> true
+      
+      (* and otherwise it's a structural recursion *)
       | _       , Tuple ts      -> List.for_all cu ts
-      | _       , Fun (t1,t2)   -> check UnkClass t1 && check UnkClass t2
       | _       , Process ts    -> List.for_all (check UnkComm) ts
       | _       , List t        -> cu t
-      | _       , Channel t     -> check UnkComm t                     
-      | _       , Poly (ns,t)   -> true     (* Poly types have no free variables, and they are classical *) 
+      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ")                    
     in
     cu t
   in
@@ -330,9 +350,10 @@ and force_kind kind t =
     match t.inst with
     | Unknown (n,{contents=Some t'})    
                     -> fk t'
-    | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
+    | Unknown (n,r) -> let k' = kind_of_unknown n in
+                       if kind_includes kind k' 
                        then () 
-                       else (let u' = new_Unknown t.pos kind in r:=Some u')
+                       else (let u' = new_Unknown t.pos (subkind k' kind) in r:=Some u')
     | Tuple ts      -> List.iter fk ts
     | List t        -> fk t
     | Num

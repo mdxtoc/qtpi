@@ -193,17 +193,17 @@ let freeunknowns t =
   _freeuks UnknownSet.empty t
 
 
-type unknownTV = 
-  | UKall       (* anything *)
-  | UKeq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
-  | UKclass     (* classical: can't have qbit or value containing *)
-  | UKqclas     (* simply a qbit, or classical *)
+type unknownkind = 
+  | UnkAll       (* anything *)
+  | UnkEq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
+  | UnkClass     (* classical: can't have qbit or value containing *)
+  | UnkComm     (* simply a qbit, or classical *)
 
-let string_of_unknownTV = function
-  | UKall       -> "(any type)"
-  | UKeq        -> "(equality type)"
-  | UKclass     -> "(classical type)"
-  | UKqclas     -> "(qbit or classical)"
+let string_of_unknownkind = function
+  | UnkAll       -> "(any type)"
+  | UnkEq        -> "(equality type)"
+  | UnkClass     -> "(classical type)"
+  | UnkComm     -> "(qbit or classical)"
   
 let new_unknown = (* hide the reference *)
   (let ucount = ref 0 in
@@ -211,10 +211,10 @@ let new_unknown = (* hide the reference *)
      let n = !ucount in
      ucount := n+1;
      (match uk with
-     | UKall       -> "?*"
-     | UKeq        -> "?'"
-     | UKclass     -> "?"
-     | UKqclas      -> "?^"
+     | UnkAll       -> "?*"
+     | UnkEq        -> "?'"
+     | UnkClass     -> "?"
+     | UnkComm      -> "?^"
      ) ^ string_of_int n, 
      ref None
    in
@@ -223,19 +223,19 @@ let new_unknown = (* hide the reference *)
   
 let kind_of_unknown n = 
   match n.[1] with
-  | '\'' -> UKeq
-  | '*'  -> UKall
-  | '^'  -> UKqclas
-  | _    -> UKclass
+  | '\'' -> UnkEq
+  | '*'  -> UnkAll
+  | '^'  -> UnkComm
+  | _    -> UnkClass
 
 let kind_includes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
-  | UKall    , _       -> true
-  | _      , UKall     -> false
-  | UKqclas, _       -> true
-  | _      , UKqclas -> false
-  | UKclass, _      -> true
+  | UnkAll    , _       -> true
+  | _      , UnkAll     -> false
+  | UnkComm, _       -> true
+  | _      , UnkComm -> false
+  | UnkClass, _      -> true
   | _                -> false
   
 let result_type pos pars ft =

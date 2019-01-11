@@ -6,9 +6,9 @@ But if you are reading it you know that already ...)
 
 # qtpi language description
 
-Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.
+Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I felt that quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.
 
-The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser.
+The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. (This movement has paused for the time being, while we concentrate on giving the notation a formal semantics in Coq.)
 
 ## The offside rule
 
@@ -16,7 +16,7 @@ Most languages use lots of brackets in their syntax. You often have to use brack
 
 When I began to implement Qtpi I thought that I'd do the Algol 68 thing and include `fi`. When I realised I needed pattern matching, I introduced a construct which started `match` and ended `hctam`. It looked horrible.
 
-Landin's *offside rule* makes closing brackets unnecessary. In the Miranda expression *E* `where` *E'*, *E'* mustn't be left of `where`, and can't be left of its own first token. This disambiguates things like 
+Landin's *offside rule* often makes closing brackets unnecessary. In the Miranda expression *E* `where` *E'*, *E'* mustn't be left of `where`, and can't be left of its own first token. This disambiguates things like 
 
 		hwc key message
 		  where message = packets [] bits
@@ -24,9 +24,9 @@ Landin's *offside rule* makes closing brackets unnecessary. In the Miranda expre
 		                    where f = g k
 		  where key = ...
 	
--- the first and fourth `where`s attach to hwc key message; the second and third attach to packets [] bits.
+-- the first and fourth `where`s attach to `hwc key message`; the second and third attach to `packets [] bits`.
 
-So far the offside parser applies to function definitions (expression to the right of '='), to `where` clauses, to `match`es in processes and expressions, to guarded sums, and to parallel process compositions.
+So far the offside parser applies to function definitions (expression to the right of '='), to `where` clauses, to `match`es in processes and expressions, to guarded sums, and to parallel process compositions. There still is `fi`.
 
 ## Grammar 
 
@@ -39,12 +39,13 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  
   | `fun` *x* *pat* ... *pat*  = *E*  
   | `fun` *x* *pat* ... *pat* `:` *T* = *E*  
+  | `let` *pat* `=` *E*  
   
   * Types are optional in process parameters, as everywhere.
-  * As with `let` and with reads `E?(pat)`, function parameters are bullet-proof: underscore `_`, names and unit, but otherwise no constants and definitely no lists.
-  * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `bit list -> 'a list -> 'a list`.
-  * The arguments and result of a function must be entirely classical -- i.e. have nothing to do with qbits.
-  * To allow mutually-recursive definitions, one `fun` can be followed with several definitions.
+  * As with reads `E?(pat)`, *let* patterns and function parameter-patterns are bullet-proof: underscore `_`, names and unit, but otherwise no constants and definitely no lists.
+  * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `bit list &rarr; 'a list &rarr; 'a list`. (One way this will be done more elegantly, as in Miranda.)
+  * The result of a function must be entirely classical -- i.e. have nothing to do with qbits.
+  * To allow mutually-recursive definitions, one `fun` can be followed by several definitions.
   
 * Process *P* 
 
@@ -62,13 +63,13 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `_0`
 
   * A guarded sum starts with a `+`, and a parallel composition starts with a `|`. Neither needs to be bracketed, because the offside parser ensures that everything is to the right of the `+` or `|`, as appropriate.  
-  * matches also use the `+` separator, and the offside parser.  
-  * `new` creates channels, as in the pi calculus &nu;.    
-  * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a<sub>i</sub>*`|0>`+*b<sub>i</sub>*`|1>`), for unknown *a<sub>i</sub>* and *b<sub>i</sub>*, where *a<sub>i</sub>*<sup>2</sup>+*b<sub>i</sub>*<sup>2</sup>=1).  
+  * matches also use the `+` separator, and use the offside parser.  
+  * `new` creates channels, like the pi calculus &nu;.    
+  * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
-  * `{` *E* `}` `.` *P* is no longer included. It was used exclusively for printing, and the output channels out and outq now do the job.  
-  * You can execute an arbitrary expression via a 'let' binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`. 
+  * `{` *E* `}` `.` *P*, part of CQP, is no longer included. It had become used exclusively for printing, and the output channels `out` and `outq` now do the job.  
+  * You can execute an arbitrary expression via a `let` binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`, where *E* prints stuff. 
   
 * Quantum step *Q*
   
@@ -78,8 +79,8 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
-  * Measurement takes a pattern, either `_` or *x*. As you'd expect, if the pattern is a name then the result of the measurement (a bit 0b0 or 0b1) is bound to the name *and the qbit vanishes* (is used up). If it's `_` then the result of the measurement is ignored, but the qbit remains, transformed to `|0>` or `|1>`. That is, qbits are destroyed on *detection*, not on measurement (as in experiments with polaroid plastic film).
-  * The optional square-bracketed *E* list is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
+  * Measurement takes a pattern, either `_` or *x*. 
+  * The optional square-bracketed *E* list in a measurement is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
   * CQP had `*=` for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to `=?`.   
 
 * Input-output step *IO*  
@@ -88,9 +89,9 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* `?` `_`    
   | *E* `!` *E*    
 
-  * '`?`' is receive, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- underscore allowed, no constants except `()`, no lists.   
-  * '`!`' is send, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one.)  
-  * Channels each carry either a qbit or a classical value (one not including any qbits). 
+  * '`?`' is receive, as in many implementations of the pi calculus: *E* is a channel; the pattern is bracketed, as is the name in the pi calculus. The pattern is restricted as in a `let`  binding -- underscore allowed, no constants except `()`, no lists. Values read from the channel `E` are bound by *pat*.   
+  * '`!`' is send, as in many implementations of the pi calculus: the first *E* is a channel; the output expression can of course be an unbracketed tuple. (Miranda style says tuples must be bracketed: not this one. Sorry.)  
+  * Channels each carry either a qbit or a non-functional classical value (one not including any qbits or functions). 
   * Channels can be buffered. The level of buffering is controlled with the `-chanbuf_limit` switch. (The default is no buffering - i.e. synchronised message-passing -- because I think it makes most sense with guarded commands).
   
 * Parameter *par*
@@ -114,6 +115,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `qstate`  
   | `'`*x*  
   | `''`*x*  
+  | `'*`*x*  
   | *T* `list`  
   | *T* `*` ... `*` *T*  
   | `^` *T*  
@@ -131,9 +133,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * Process types are necessary in typechecking, but I think they are more or less useless. Process names do have a type, however ...  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
   * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It may be pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
-  * Type variables / unknown types `'`*x* and `''`*x* are for function definitions. As in ML, `''`*x* is an equality type.  
+  * Type variables / unknown types `'`*x* and `''`*x* are for function definitions. `'`*x* is a classical type: no qbits. As in ML, `''`*x* is an equality type: no qbits, qstates, functions, processes, channels. `'*`*x* is an everything type (includes qbits). 
   * Classical types are everything except *qbit* or those involving *qbit* (but function, process and channel types are classical whatever their internal types).  
   * Equality types are everything except *qbit*, *qstate*, function, process and channel (or anything involving those).  
+  * Channel types (types following `^`) are restricted: they may be qbit or they may be non-functional classical (no qbits, no functions).
 
 * Pattern *pat*
 
@@ -174,10 +177,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `lam` *pat* ... *pat* `.` *E*  
   
   * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`; gates `_H`, `_CNot`, `_I`, `_X`, `_Y`, `_Z`, `_F` and `_G`.
-  * The gate `_Phi(*E*)` is not a constant. (I suppose it is a constructor -- the only one so far.)  
+  * The gate `_Phi(`*E*`)` is not a constant. (I suppose it is a constructor -- the only one so far.)  
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
-  * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (They will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
+  * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
   * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and perhaps one day there will be downloadable bundles of functions.  
   * Absolutely no process stuff, no manipulation of qbits. But see *print_string*, *print_strings* and *print_qbit* below.  
   
@@ -210,19 +213,19 @@ There are functions which print out strings and *qstates*. But it's inelegant to
   * *out*: ^*string list*
   * *outq*: ^*qstate*
 
-outq is peculiar for peculiar reasons. There can't be an output channel which takes qbits, because if you send a qbit down a channel, you lose it. So there's a special type *qstate*, the result of *qval*: *qbit* -> *qstate*, which is a classical value that can be sent down a channel. To ensure no computational cheating, there's nothing else you can do with a *qstate* value. 
+outq is peculiar for peculiar reasons. There can't be an output channel which takes qbits, because if you send a qbit down a channel, you lose it. So there's a special type *qstate*, the result of *qval*: *qbit* &rarr; *qstate*, which is a classical value that can be sent down a channel. To ensure no computational cheating, there's nothing else you can do with a *qstate* value. 
 
 Reading from an output channel is a runtime error, because I don't know how to typecheck send-only channels.
 
 To help with output, there is the special function *show*
 
-  * *show*: ''*a* -> *string*
+  * *show*: '\**a* &rarr; *string*
   
--- it takes any *equality* value and turns it into a string. Obviously it shouldn't have anything to do with qbits or qstates (or there could be computational cheating), but it couldn't do anything for functions, processes, qstates and channels either.
+-- it takes any value and turns it into a string. It doesn't do anything useful qbits or qstates (or there could be computational cheating), and it doesn't do anything for functions, processes, qstates and channels either.
 
 For qbits there is *qval*
 
-  * *qval*: *qbit* -> *qstate*
+  * *qval*: *qbit* &rarr; *qstate*
 
 The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string *q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a probability vector in the computational basis.
 
@@ -230,11 +233,15 @@ The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints
 
 Qtpi uses a symbolic quantum calculator: only at the point of measurement does it calculate numerically. This enables it to do some nice tricks, like 'teleporting' an unknown qbit.
 
-Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`). A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[*i*; *j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (some of *A*, *B*, *C* and *D* will be zero, of course). And so on for larger entanglements.
+Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`). A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[*i*; *j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (some of *A*, *B*, *C* and *D* will be zero, because of entanglement). And so on for larger entanglements.
 
 The constant `h` is *sqrt*(1/2), and `h(`*k*`)` means `h`<sup>*k*</sup>.  *h* is also *cos*(&pi;/4) and *sin*(&pi;/4). The constant `f` is *sqrt*((1+`h`)/2), which is *cos*(&pi;/8), and `g` is *sqrt*((1-`h`)/2), which is *sin*(&pi;/8).
 
-An unknown qbit with index *i* starts life as the vector (`a`<sub>i</sub>`|0>`+`b`<sub>i</sub>`|1>`), and the evaluator knows that `a`<sub>i</sub><sup>2</sup>+`b`<sub>i</sub><sup>2</sup>=1.
+An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that `a`<sub>k</sub><sup>2</sup>+`b`<sub>k</sub><sup>2</sup>=1.
+
+### Complex probabilities
+
+Probability expressions represent complex numbers *x*+*iy*. Good luck.
 
 ## Gates
 
@@ -246,7 +253,7 @@ For weasely syntactic reasons, gate names start with an underscore. We recognise
   * `_I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
   * `_X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
   * `_Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
-  * `_Y`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it, but equivalent to the product `_Z_X`).
+  * `_Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `_Y` was equivalent to the product `_Z_X`. No longer.)
   * `_Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
   * `_Phi(`*i*`)`: *i*=0 is `_I`; *i*=1 is `_X`; *i*=2 is `_Z`; *i*=3 is `_Y`.
 
@@ -269,11 +276,13 @@ These restrictions give you a language in which qbits are known only by a single
 
 It is also impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...). Likewise on the identity or equality of a function or a process.
 
-  * **A channel is either `^qbit` or `^classical`**.
+To prevent subversive inter-process communication, you can't send a function down a channel, or provide it as a process argument. (In earlier days I permitted this but tried to restrict function arguments to classical values. Then I thought of free variables ...)
+
+  * **A channel is either `^qbit` or `^(non-functional classical)`**.
     	
-  * **A process argument is either `qbit`, or classical**.
+  * **A process argument is either `qbit`, or non-functional classical**.
   
-  	Note that a channel is a classical value, whatever its type. So is a function or a process.
+  	Note that a channel is a classical value, whatever its type. So is a function or a process. (Process types exist, but currently process values can't be exploited.)
   
   * **No qbit-valued conditionals as  process argument or send argument**.
   
@@ -285,15 +294,13 @@ It is also impossible to branch according to the state or identity of a qbit. (I
   
   	This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and indeed the resource-checker can cope with it. But I think it's a better language without it.
     
-  * **A function has classical arguments and delivers a classical result**.
+  * **A function delivers a classical result**.
   
-  	Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit. (Because of the next restriction that cheating would do you no good, but it would still feel wrong.)
-  	
-  	There is a loophole: this restriction is applied to function *definitions*. This is to allow library functions (currently qval and show) to take non-classical arguments. But see restriction on library functions below (oh dear).
+  	Without the result restriction resource-checking simply wouldn't work.
 
   * **No comparison of qbits, qstates, or values containing qbits or qstates**.
   
-  	This stops programs doing anything, apart from quantum measurement, to branch on the value or identity of a qbit.
+  	This stops programs doing anything, apart from quantum measurement, to exploit the value or identity of a qbit.
   
   * **No comparison of functions, processes or channels, or values containing functions, processes or channels**.
   
@@ -313,66 +320,68 @@ We need to be able to read and write stuff: reading to give initial values like 
 
 **But**, *but*, but. Functions take classical arguments and deliver classical results -- i.e. they have nothing to do with qbits. See restrictions above.
 
-The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). Note that argument types *'a*, etc., are classical.
+The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). Note that argument types *'a*, etc., are classical, and *'\*a* allows qbit values.
 
 Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
+
+Most of these functions deal in classical values only (*'a* rather than *'\*a*). But none (except for the absurd case of *abandon*) returns a value of a non-classical type.
     
-  * *abandon*: *string* -> *'a*  
-	* stops the program and doesn't return (raises an exception).  
-  * *append*: *'a list* -> *'a list* -> *'a list*
-  * *concat*: *'a list list* -> *'a list*
-  * *const*: *'a* -> *'b* -> *'a*
-  * *drop*: *num* -> *'a list* -> *'a list*
-  * *dropwhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
-  * *exists*: (*'a* -> *bool*) -> *'a list* -> *bool*
-  * *filter*: (*'a* -> *bool*) -> *'a list* -> *'a list*
-  * *floor*: *num* -> *num*
-  * *foldl*: (*'a* -> *'b* -> *'a*) -> *'a* -> *'b list* -> *'a*
-  * *foldr*: (*'a* -> *'b* -> *'b*) -> *'b* -> *'a list* -> *'b*
-  * *forall*: (*'a* -> *bool*) -> *'a list* -> *'a list*
-  * *fst*: *'a*\**'b* -> *'a*  
-  * *hd*: *'a list* -> *'a*  
+  * *abandon*: *string* &rarr; *'\*a*  
+	* stops the program and doesn't return (raises an exception). 'Returns' a non-classical type, if necessary 
+  * *append*: *'a list* &rarr; *'a list* &rarr; *'a list*
+  * *concat*: *'a list list* &rarr; *'a list*
+  * *const*: *'a* &rarr; *'\*b* &rarr; *'a*
+  * *drop*: *num* &rarr; *'a list* &rarr; *'a list*
+  * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *exists*: (*'*a* &rarr; *bool*) &rarr; *'*a list* &rarr; *bool*
+  * *filter*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *floor*: *num* &rarr; *num*
+  * *foldl*: (*'a* &rarr; *'b* &rarr; *'a*) &rarr; *'a* &rarr; *'b list* &rarr; *'a*
+  * *foldr*: (*'a* &rarr; *'b* &rarr; *'b*) &rarr; *'b* &rarr; *'a list* &rarr; *'b*
+  * *forall*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *fst*: *'a* \* *'\*b* &rarr; *'a*  
+  * *hd*: *'a list* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
-  * *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
-  * *length*: *'a list* -> *num*  	
-  * *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
-  * *max*: *num* -> *num* -> *num*
-  * *min*: *num* -> *num* -> *num*
-  * *nth*: *'a list* -> *num* -> *'a*
-  * *qval*: *qbit* -> *qstate*
-  * *randbit*: *unit* -> *bit*
-  * *randbits*: *num* -> *bit list*
-  * *rev*: *'a list* -> *'a list*
-  * *show*: *''a* -> *string*
-	  * converts a value to a string. Takes an equality type, because it couldn't give interesting results if applied to a qbit, a function, process, channel or qstate.  
-  * *sort*: *'a list* -> *'a list*
+  * *iter*: (*'\*a* &rarr; *unit*) &rarr; *'\*a list* &rarr; *unit*
+  * *length*: *'\*a list* &rarr; *num*  	
+  * *map*: (*'\*a* &rarr; *'b*) &rarr; *'\*a list* &rarr; *'b list*
+  * *max*: *num* &rarr; *num* &rarr; *num*
+  * *min*: *num* &rarr; *num* &rarr; *num*
+  * *nth*: *'a list* &rarr; *num* &rarr; *'a*
+  * *qval*: *qbit* &rarr; *qstate*
+  * *randbit*: *unit* &rarr; *bit*
+  * *randbits*: *num* &rarr; *bit list*
+  * *rev*: *'a list* &rarr; *'a list*
+  * *show*: *'\*a* &rarr; *string*
+	  * converts a value to a string. Takes any type, but doesn't give interesting results when applied to a qbit, a function, process, channel or qstate.  
+  * *sort*: *'a list* &rarr; *'a list*
 	  * sorts in ascending order
-  * *snd*: *'a*\**'b* -> *'b*  
-  * *tabulate*: *num* -> (*num* -> *'a*) -> *'a list*
-  * *take*: *num* -> *'a list* -> *'a list*
-  * *takewhile*: (*'a* -> *bool*) -> *'a list* -> *'a list*
-  * *tl*: *'a list* -> *'a list*  
+  * *snd*: *'\*a* \* *'b* &rarr; *'b*  
+  * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*
+  * *take*: *num* &rarr; *'a list* &rarr; *'a list*
+  * *takewhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *tl*: *'a list* &rarr; *'a list*  
 	  * raises an exception if applied to `[]`  
-  * *unzip*: *'a*\**'b* *list* -> *'a* *list* \* *'b* *list*
-  * *zip*: *'a* *list* -> *'b* *list* -> *'a*\**'b* *list*
+  * *unzip*: *'a*\**'b* *list* &rarr; *'a* *list* \* *'b* *list*
+  * *zip*: *'a* *list* &rarr; *'b* *list* &rarr; *'a*\**'b* *list*
 	  * raises an exception if applied to lists of differing lengths (but probably shouldn't)
   * 
-  * *bitand*: *num* -> *num* -> *num*
-  * *bits2num*: *bit list* -> *num*
-  * *num2bits*: *num* -> *bit list*
+  * *bitand*: *num* &rarr; *num* &rarr; *num*
+  * *bits2num*: *bit list* &rarr; *num*
+  * *num2bits*: *num* &rarr; *bit list*
   * 
-  * *read_alternative*: *string* -> *string* -> (*string*\**'a*) *list* -> *'a*
+  * *read_alternative*: *string* &rarr; *string* &rarr; (*string*\**'a*) *list* &rarr; *'a*
 	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user types
-  * *read_bool*: *string* -> *string* -> *string* -> *bool*
+  * *read_bool*: *string* &rarr; *string* &rarr; *string* &rarr; *bool*
 	  * prompt, true\_response, false\_response
-  * *read_num*: *string* -> *num*
-  * *read_string*: *string* -> *string*
+  * *read_num*: *string* &rarr; *num*
+  * *read_string*: *string* &rarr; *string*
 	  * *read_int* and *read_string* take a prompt-string argument.  
   * 
-  * *print_qbit*: *qbit* -> *unit*
+  * *print_qbit*: *qbit* &rarr; *unit*
 	  * *print_qbit* *q* has the same effect as *outq*!(*qval* *q*)
-  * *print_string*: *string* -> *unit*
+  * *print_string*: *string* &rarr; *unit*
 	* *print_string* *E* has the same effect as *out*!\[*E*\]
-  * *print_strings*: *string list* -> *unit*
+  * *print_strings*: *string list* &rarr; *unit*
 	* *print_strings* *Es* has the same effect as *out*!*Es*
 

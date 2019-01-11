@@ -137,7 +137,7 @@ let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
 
 let v_concat xss = vlist (List.concat (List.map listv (listv xss)))
 
-let _ = Interpret.know ("length"   , "'a list -> num                        ", vfun (vint <.> List.length <.> listv))
+let _ = Interpret.know ("length"   , "'*a list -> num                        ", vfun (vint <.> List.length <.> listv))
 
 let _ = Interpret.know ("hd"       , "'a list -> 'a                         ", vfun v_hd)
 let _ = Interpret.know ("tl"       , "'a list -> 'a list                    ", vfun v_tl)
@@ -146,7 +146,7 @@ let _ = Interpret.know ("rev"      , "'a list -> 'a list                    ", v
 let _ = Interpret.know ("append"   , "'a list -> 'a list -> 'a list         ", vfun2 v_append)
 
 let _ = Interpret.know ("iter"     , "('a -> unit) -> 'a list -> unit       ", vfun2 v_iter)
-let _ = Interpret.know ("map"      , "('a -> 'b) -> 'a list -> 'b list      ", vfun2 v_map)
+let _ = Interpret.know ("map"      , "('*a -> 'b) -> '*a list -> 'b list      ", vfun2 v_map)
 
 let _ = Interpret.know ("take"     , "num -> 'a list -> 'a list             ", vfun2 v_take)
 let _ = Interpret.know ("drop"     , "num -> 'a list -> 'a list             ", vfun2 v_drop)
@@ -176,13 +176,13 @@ let v_tabulate n f =
 let v_const a b = a
   
 let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> 'a list"    , vfun2 v_tabulate)
-let _ = Interpret.know ("const"   , "'a -> 'b -> 'a"                   , vfun2 v_const)
+let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                  , vfun2 v_const)
 
 let v_sort vs = vlist (List.sort (fun a b -> ~- (Pervasives.compare a b)) (listv vs))
 let _ = Interpret.know ("sort"    , "'a list -> 'a list"                , vfun v_sort)
 
-let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
+let _ = Interpret.know ("fst"     , "'a*'*b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'*a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
 let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "num -> bit list"                   , vfun v_randbits)
@@ -322,7 +322,7 @@ let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3
 exception Abandon of string
 
 let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
-let _ = Interpret.know ("abandon", "string list -> 'a", vfun abandon) (* note classical result type ... *)
+let _ = Interpret.know ("abandon", "string list -> '*a", vfun abandon) (* note classical result type ... *)
 
 
 let print_string s = vunit (Pervasives.print_string (stringv s); flush stdout)

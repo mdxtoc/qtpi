@@ -566,13 +566,13 @@ and read_funtype pats toptr e =
                    let tr, trall = itf pats' in
                    adorn (pos_of_instances pats) (Fun (ta,tr)), trall
   | []          -> let tr = match !toptr with 
-                            | None   -> let t = new_Unknown e.pos UnkClass in toptr := Some t; t
+                            | None   -> let t = new_Unknown e.pos UnkClass in toptr := Some t; t (* result must be classical *)
                             | Some t -> t
                    in tr, tr
   and inventtype_pat pat =
     let f = match pat.inst.pnode with
             | PatName _ 
-            | PatAny          -> (fun () -> ntv pat.pos)
+            | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument *)
             | PatUnit         -> (fun () -> adorn pat.pos Unit)
             | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
                                  let ts = List.fold_left itp [] pats in

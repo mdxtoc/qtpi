@@ -197,13 +197,15 @@ type unknownkind =
   | UnkAll       (* anything *)
   | UnkEq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
   | UnkClass     (* classical: can't have qbit or value containing *)
-  | UnkComm     (* simply a qbit, or classical *)
+  | UnkComm      (* simply a qbit, or classical (but not function) *)
+  | UnkCommC     (* classical (but not function) -- needed to make the partial order work during unification *)
 
 let string_of_unknownkind = function
   | UnkAll       -> "(any type)"
   | UnkEq        -> "(equality type)"
   | UnkClass     -> "(classical type)"
-  | UnkComm     -> "(qbit or classical)"
+  | UnkComm      -> "(qbit or non-function classical)"
+  | UnkCommC     -> "(non-function classical)" 
   
 let new_unknown = (* hide the reference *)
   (let ucount = ref 0 in
@@ -215,6 +217,7 @@ let new_unknown = (* hide the reference *)
      | UnkEq        -> "?'"
      | UnkClass     -> "?"
      | UnkComm      -> "?^"
+     | UnkCommC     -> "?%"
      ) ^ string_of_int n, 
      ref None
    in
@@ -226,17 +229,40 @@ let kind_of_unknown n =
   | '\'' -> UnkEq
   | '*'  -> UnkAll
   | '^'  -> UnkComm
+  | '%'  -> UnkCommC
   | _    -> UnkClass
 
+(* this is the partial order 
+
+            All
+            / \
+           /   \
+         Comm Class
+           \   /
+            \ /
+           CommC
+             |
+             |
+             Eq 
+             
+ *)
+ 
 let kind_includes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
-  | UnkAll    , _       -> true
-  | _      , UnkAll     -> false
-  | UnkComm, _       -> true
-  | _      , UnkComm -> false
-  | UnkClass, _      -> true
-  | _                -> false
+  | UnkAll  , _          
+  | UnkClass, UnkCommC   
+  | UnkClass, UnkEq      
+  | UnkComm , UnkCommC   
+  | UnkComm , UnkEq      
+  | UnkCommC, UnkEq     -> true
+  | _                   -> false
+
+let subkind k1 k2 =  
+  match k1, k2 with
+  | UnkComm , UnkClass
+  | UnkClass, UnkComm   -> UnkCommC
+  | _                   -> if kind_includes k1 k2 then k2 else k1
   
 let result_type pos pars ft =
   let bad () = raise (Can'tHappen (Printf.sprintf "%s: result_type (%d) %s"

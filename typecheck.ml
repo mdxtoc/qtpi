@@ -308,37 +308,38 @@ and canunifytype n t =
    (* | _       , Range   _ *)
       | _       , Gate    _     -> true
      
-      (* All takes everything *)
-      | UnkAll  , _             -> true
-      
+      (* Unkall takes Qbit *)
+      | UnkAll  , Qbit         -> true
       (* Comm takes Qbit or otherwise behaves as CommC *)
       | UnkComm , Qbit         -> true
       | UnkComm , _            -> check UnkCommC t
-
-      (* there remain Class, CommC, Eq *)
       
-      (* none of which take Qbit *)
-      | _       , Qbit          -> bad ""
+      (* Class, CommC, Eq don't take Qbit *)
+      | UnkClass, Qbit          
+      | UnkCommC, Qbit          
+      | UnkEq   , Qbit          -> bad ""
       
-      (* only Class takes Fun and Poly *)
-      | UnkClass, Fun _        
-      | UnkClass, Poly _       -> true
-      | _       , Fun _        
-      | _       , Poly _       -> bad ""
+      (* CommC and Eq cut out Fun and Poly *)
+      | UnkCommC, Fun _        
+      | UnkCommC, Poly _       
+      | UnkEq   , Fun _        
+      | UnkEq   , Poly _       -> bad ""
       
       (* Eq cuts out three more *)
       | UnkEq   , Qstate      
       | UnkEq   , Channel _   
       | UnkEq   , Process _   -> bad ""
       
-      (* Class and CommC are happy with Qstate *)
+      (* Everybody but Eq is happy with Qstate *)
       | _       , Qstate        -> true
       
       (* and otherwise it's a structural recursion *)
       | _       , Tuple ts      -> List.for_all cu ts
       | _       , Process ts    -> List.for_all (check UnkComm) ts
       | _       , List t        -> cu t
-      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ")                    
+      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ") 
+      | _       , Fun (t1,t2)   -> check UnkAll t1 && check UnkClass t2
+      | _       , Poly (ns,t)   -> check UnkClass t
     in
     cu t
   in

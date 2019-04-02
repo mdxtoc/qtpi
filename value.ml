@@ -31,9 +31,9 @@ open Pattern
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
 
-let string_of_queue string_of_v sep q = 
+let string_of_queue string_of sep q = 
   let vs = queue_elements q in
-  "{" ^ string_of_list string_of_v sep vs ^ "}"
+  "{" ^ string_of_list string_of sep vs ^ "}"
 
 type value =
   | VUnit
@@ -83,55 +83,62 @@ and wwaiter = name * value * process * env
 
 and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
 
-let string_of_pqueue string_of sep pq = 
-  "{" ^ string_of_list string_of sep (PQueue.elements pq) ^ "}"
+let string_of_pqueue stringof sep pq = 
+  "{" ^ string_of_list stringof sep (PQueue.elements pq) ^ "}"
 ;;
 
-let rec string_of_value v =
-  match v with
-  | VUnit           -> "()"
-  | VBit b          -> if b then "1" else "0"
-  | VNum n          -> string_of_num n
-  | VBool b         -> string_of_bool b
-  | VBasisv bv      -> string_of_basisv bv
-  | VGate ugv       -> string_of_ugv ugv
-  | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
-  | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-  | VQbit q         -> "Qbit " ^ string_of_qbit q
-  | VQstate s       -> s
-  | VChan c         -> "Chan " ^ string_of_chan c
-  | VTuple vs       -> "(" ^ string_of_list string_of_value "," vs ^ ")"
-  | VList vs        -> bracketed_string_of_list string_of_value vs
-  | VFun f          -> "<function>"
-  | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
-                                      (string_of_list string_of_name "," ns)
-                                      (string_of_process p)
-
-and short_string_of_value v =
-  match v with
-  | VQbit q         -> "Qbit " ^ short_string_of_qbit q
-  | VChan c         -> "Chan " ^ short_string_of_chan c
-  | VTuple vs       -> "(" ^ string_of_list short_string_of_value "," vs ^ ")"
-  | VList vs        -> bracketed_string_of_list short_string_of_value vs
-  | VProcess (ns,p) -> Printf.sprintf "process (%s)"
-                                      (string_of_list string_of_name "," ns)
-  | v               -> string_of_value v
+(* so_value takes an argument optf to winnow out those things we don't want it to deal with directly *)
+(* this is to allow the library function 'show' to work properly. The rest of the world can use string_of_value *)
+let rec so_value optf v =
+  match optf v with
+  | Some s -> s
+  | None   -> (match v with
+               | VUnit           -> "()"
+               | VBit b          -> if b then "1" else "0"
+               | VNum n          -> string_of_num n
+               | VBool b         -> string_of_bool b
+               | VBasisv bv      -> string_of_basisv bv
+               | VGate ugv       -> string_of_ugv ugv
+               | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
+               | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
+               | VQbit q         -> "Qbit " ^ string_of_qbit q
+               | VQstate s       -> s
+               | VChan c         -> "Chan " ^ so_chan optf c
+               | VTuple vs       -> "(" ^ string_of_list (so_value optf) "," vs ^ ")"
+               | VList vs        -> bracketed_string_of_list (so_value optf) vs
+               | VFun f          -> "<function>"
+               | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
+                                                   (string_of_list string_of_name "," ns)
+                                                   (string_of_process p)
+              )
+and short_so_value optf v =
+  match optf v with
+  | Some s -> s
+  | None   -> (match v with
+               | VQbit q         -> "Qbit " ^ short_string_of_qbit q
+               | VChan c         -> "Chan " ^ short_so_chan optf c
+               | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
+               | VList vs        -> bracketed_string_of_list (short_so_value optf) vs
+               | VProcess (ns,p) -> Printf.sprintf "process (%s)"
+                                                   (string_of_list string_of_name "," ns)
+               | v               -> so_value optf v
+              )
   
-and string_of_chan {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
+and so_chan optf {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
     Printf.sprintf "%d = vs:{%s} rs:{%s} ws:{%s}"
                    i
-                   (string_of_queue string_of_value "; " vs)
-                   (string_of_pqueue short_string_of_rwaiter "; " rq)
-                   (string_of_pqueue short_string_of_wwaiter "; " wq)
+                   (string_of_queue (so_value optf) "; " vs)
+                   (string_of_pqueue (short_so_rwaiter optf) "; " rq)
+                   (string_of_pqueue (short_so_wwaiter optf) "; " wq)
 
-and short_string_of_chan {cname=i} =
+and short_so_chan optf {cname=i} =
     string_of_int i
     
-and string_of_env env =
-  "{" ^ string_of_assoc string_of_name string_of_value ":" ";" env ^ "}"
+and so_env optf env =
+  "{" ^ string_of_assoc string_of_name (so_value optf) ":" ";" env ^ "}"
 
-and short_string_of_env env =
-  "{" ^  string_of_assoc string_of_name short_string_of_value  ":" ";" 
+and short_so_env optf env =
+  "{" ^  string_of_assoc string_of_name (short_so_value optf)  ":" ";" 
                          (List.filter (function 
                                        | _, VFun     _ 
                                        | _, VProcess _ -> false
@@ -141,42 +148,42 @@ and short_string_of_env env =
                          ) ^
   "}"   
   
-and string_of_runner (n, proc, env) =
+and so_runner optf (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
                  (short_string_of_process proc)
-                 (short_string_of_env env)
+                 (short_so_env optf env)
                  
-and string_of_rwaiter ((n, pat, proc, env),gsir) = 
+and so_rwaiter optf ((n, pat, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_pattern pat)
                  (short_string_of_process proc)
-                 (short_string_of_env env)
+                 (short_so_env optf env)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_string_of_rwaiter ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
+and short_so_rwaiter optf ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_pattern pat)
                  (if fst !gsir then "" else "[dead]")
                  
-and string_of_wwaiter ((n, v, proc, env),gsir) = 
+and so_wwaiter optf ((n, v, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
-                 (string_of_value v)
+                 (so_value optf v)
                  (short_string_of_process proc)
-                 (short_string_of_env env)
+                 (short_so_env optf env)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_string_of_wwaiter ((n, v, proc, env),gsir) = (* infinite loop if we print the environment *)
+and short_so_wwaiter optf ((n, v, proc, env),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
-                 (string_of_value v)
+                 (so_value optf v)
                  (if fst !gsir then "" else "[dead]")
                  
-and string_of_runnerqueue sep rq =
-  string_of_pqueue string_of_runner sep rq
+and so_runnerqueue optf sep rq =
+  string_of_pqueue (so_runner optf) sep rq
 
 and string_of_ugv = function
   | GateH           -> "_H"
@@ -193,4 +200,18 @@ and string_of_qbit = string_of_int
 
 and short_string_of_qbit = string_of_int
 
+(* ********************************************************************************************************** *)
+
+let doptf s = None
+
+let string_of_value = so_value doptf
+let short_string_of_value = short_so_value doptf 
+
+let string_of_env = so_env doptf
+let short_string_of_env = short_so_env doptf 
+
+let string_of_chan = so_chan doptf
+let short_string_of_chan = short_so_chan doptf 
+
+let string_of_runnerqueue = so_runnerqueue doptf
 

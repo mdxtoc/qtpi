@@ -332,14 +332,17 @@ let _ = Interpret.know ("print_string" , "string -> unit"       , vfun (print_st
 let _ = Interpret.know ("print_strings", "string list -> unit"  , vfun (v_iter (vfun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> unit"         , vfun print_qbit)
 
-let _show = function VQbit   _  -> "<qbit>"
-            |        VQstate _  -> "<qstate>"
-            |        VFun    _  -> "<function>"
-            |        VChan    _ -> "<channel>"
-            |        VProcess _ -> "<process>"
-            |        v          -> string_of_value v
-
-let _ = Interpret.know ("show", "''a -> string", vfun (vstring <.> _show))   (* yup, it's an equality type *)
+let _show v = 
+  let optf = function VQbit   _  -> Some "<qbit>"
+             |        VQstate _  -> Some "<qstate>"
+             |        VFun    _  -> Some "<function>"
+             |        VChan    _ -> Some "<channel>"
+             |        VProcess _ -> Some "<process>"
+             |        _          -> None
+  in
+  so_value optf v
+  
+let _ = Interpret.know ("show", "'*a -> string", vfun (vstring <.> _show))   (* yup, it's a non-classical argument *)
 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in
@@ -391,4 +394,4 @@ let _qval q =
   let q = qbitv q in
   Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
   
-let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (*yup, that's a qbit argument *)
+let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (* yup, that's a qbit argument *)

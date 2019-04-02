@@ -503,7 +503,7 @@ and assigntype_expr cxt t e =
                                in
                                unifytypes t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* this is a loophole: allows qval to take qbit arguments *)
+     | EApp    (e1,e2)      -> let atype = ntv e2.pos in 
                                let rtype = new_Unknown e.pos UnkClass in
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let _ = unifytypes rtype t in
@@ -617,7 +617,7 @@ and assigntype_fun cxt t pats e =
                   (string_of_list string_of_fparam " " pats)
                   (string_of_expr e);
   match pats with
-  | pat::pats'  -> let ta = new_Unknown  pat.pos UnkClass in (* even function arguments must be classical *)
+  | pat::pats'  -> let ta = new_Unknown  pat.pos UnkAll in (* function arguments need not be classical *)
                    let tr = new_Unknown (pos_of_instances pats') UnkClass in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let _ = unifytypes t tf in

@@ -197,7 +197,7 @@ type unknownkind =
   | UnkAll       (* anything *)
   | UnkEq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
   | UnkClass     (* classical: can't have qbit or value containing *)
-  | UnkComm     (* simply a qbit, or classical *)
+  | UnkComm      (* simply a qbit, or classical *)
 
 let string_of_unknownkind = function
   | UnkAll       -> "(any type)"
@@ -211,16 +211,28 @@ let new_unknown = (* hide the reference *)
      let n = !ucount in
      ucount := n+1;
      (match uk with
-     | UnkAll       -> "?*"
      | UnkEq        -> "?'"
      | UnkClass     -> "?"
      | UnkComm      -> "?^"
+     | UnkAll       -> "?*"
      ) ^ string_of_int n, 
      ref None
    in
    new_unknown
   )
-  
+
+(* 
+   Eq(ality)       < Class(ical)     (because Class includes functions)
+   Class(ical)     < Comm(unication) (because Comm includes single qbits)
+   Comm(unication) < All             (because All allows qbits in lists and tuples, heaven forbid)
+   
+   We require that functional values are classical, and so cannot have free qbit variables.
+   This means restrictions on function definitions, 
+   and restrictions on partial applications -- f q is non-classical if q is a qbit.
+   
+   But I think functions can take non-classical arguments.
+ *)
+ 
 let kind_of_unknown n = 
   match n.[1] with
   | '\'' -> UnkEq

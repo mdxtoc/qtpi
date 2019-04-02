@@ -274,21 +274,22 @@ and unifylists exn t1s t2s =
    and now also that channel types are qbit or classical and that classicals are classical. ISWIM
  *)  
 and canunifytype n t =
-  let bad () = 
+  let bad prefix = 
     let s = match kind_of_unknown n with
             | UnkClass -> "a classical type"
             | UnkEq    -> "an equality type"
-            | UnkComm -> "qbit or classical"
+            | UnkComm  -> "qbit or classical"
             | UnkAll   -> " (whoops: can't happen)"
     in
-    raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
+    raise (Error (t.pos, string_of_type t ^ " is not " ^ prefix ^ s))
   in
   let rec check kind t = 
     let rec cu t = 
       match kind, t.inst with
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
-      | _       , Unknown (n',_) -> n<>n'
+      | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
+      (* everybody takes the basic ones *)
       | _       , Unit
       | _       , Num
       | _       , Bool
@@ -297,28 +298,35 @@ and canunifytype n t =
       | _       , Bit 
       | _       , Basisv   
    (* | _       , Range   _ *)
-      | _       , Gate    _     -> true
+      | _       , Gate    _      -> true
      
-      | UnkComm  , Qbit         -> true
-      | UnkComm  , _            -> check UnkClass t
+      (* Unkall takes anything *)
+      | UnkAll  , _             -> true
       
-      | UnkEq    , Qbit        
-      | UnkEq    , Qstate      
-      | UnkEq    , Channel _   
-      | UnkEq    , Fun     _   
-      | UnkEq    , Poly    _        (* Poly types are function types *)
-      | UnkEq    , Process _     -> bad ()
+      (* there remain Comm, Class, Eq *)
+      (* Comm takes Qbit or otherwise behaves as Class *)
+      | UnkComm , Qbit          -> true
+      | UnkComm , _             -> check UnkClass t
       
-      | UnkClass, Qbit           -> bad ()
+      (* there remain Class and Eq *)
+      (* neither allows Qbit *)
+      |_        , Qbit          -> bad ""
+      (* Eq doesn't allow several things *)
+      | UnkEq   , Qstate      
+      | UnkEq   , Channel _   
+      | UnkEq   , Fun     _   
+      | UnkEq   , Poly    _        (* Poly types are function types *)
+      | UnkEq   , Process _     -> bad ""
+      (* but Class does *)
+      | UnkClass, Qstate      
+      | UnkClass, Fun     _        (* check the classical free-variable condition later *)
+      | UnkClass, Poly    _     -> true
       
-      | UnkAll   , Qbit          -> true
-      | _       , Qstate        -> true
+      (* otherwise some recursions *)
       | _       , Tuple ts      -> List.for_all cu ts
-      | _       , Fun (t1,t2)   -> check UnkClass t1 && check UnkClass t2
       | _       , Process ts    -> List.for_all (check UnkComm) ts
       | _       , List t        -> cu t
-      | _       , Channel t     -> check UnkComm t                     
-      | _       , Poly (ns,t)   -> true     (* Poly types have no free variables, and they are classical *) 
+      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ")                    
     in
     cu t
   in

@@ -478,23 +478,29 @@ and assigntype_expr cxt t e =
      match e.inst.enode with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
-     | ENum i               -> (match (evaltype t).inst with 
-                                | Bit              -> if i=/zero||i=/one then ()
-                                                      else unifytypes t (adorn_x e Num)
-                                (* | Range (j,k) as t -> if j<=i && i<=k then () 
-                                                      else unifytypes (adorn_x e t) (adorn_x e Num) *)
-                                | t                -> unifytypes (adorn_x e t) (adorn_x e Num)
-                               )
+     | ENum i               -> (* no longer is Bit a subtype of Num
+                                (match (evaltype t).inst with 
+                                 | Bit              -> if i=/zero||i=/one then ()
+                                                       else unifytypes t (adorn_x e Num)
+                                 (* | Range (j,k) as t -> if j<=i && i<=k then () 
+                                                       else unifytypes (adorn_x e t) (adorn_x e Num) *)
+                                 | t                -> unifytypes (adorn_x e t) (adorn_x e Num)
+                                )
+                                *)
+                               unifytypes t (adorn_x e Num) 
      | EBool _              -> unifytypes t (adorn_x e Bool)
      | EChar _              -> unifytypes t (adorn_x e Char)
      | EString _            -> unifytypes t (adorn_x e String)
-     | EBit b               -> (match (evaltype t).inst with 
-                                | Num              -> ()
-                                (* | Range (j,k) as t -> let i = if b then 1 else 0 in
-                                                      if j<=i && i<=k then cxt 
-                                                      else unifytypes (adorn_x e t) (adorn_x e Bit) *)
-                                | t                -> unifytypes (adorn_x e t) (adorn_x e Bit)
-                               )
+     | EBit b               -> (* no longer is Bit a subtype of Num
+                                (match (evaltype t).inst with 
+                                 | Num              -> ()
+                                 (* | Range (j,k) as t -> let i = if b then 1 else 0 in
+                                                       if j<=i && i<=k then cxt 
+                                                       else unifytypes (adorn_x e t) (adorn_x e Bit) *)
+                                 | t                -> unifytypes (adorn_x e t) (adorn_x e Bit)
+                                )
+                                *)
+                               unifytypes t (adorn_x e Bit) 
      | EBasisv _            -> unifytypes t (adorn_x e Basisv)
      | EGate   ug           -> let _   = match ug.inst with
                                          | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 

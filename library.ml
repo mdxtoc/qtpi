@@ -217,8 +217,8 @@ let _ = Interpret.know ("bitand", "num -> num -> num", vfun2 v_bitand)
   
    let v_num2bits n = let rec num2bits bs zi = 
                         let q,b = Z.div_rem zi ztwo in
-                        let b = vbit Z.(b=one) in
-                        if not Z.(q=zero) then num2bits (b::bs) q else List.rev (b::bs)
+                        let b = vbit Z.(equal b one) in
+                        if not Z.(equal q zero) then num2bits (b::bs) q else List.rev (b::bs)
                       in
                       let n = numv n in
                       if not (is_int n) then raise (FractionalInt (string_of_num n));

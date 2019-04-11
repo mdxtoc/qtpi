@@ -129,7 +129,7 @@ proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(b) .
-         q=?[if b=0 then _I else _H fi](v) . 
+         q=?[if b=0b0 then _I else _H fi](v) . 
          (newq q = match b,v .
                    + 0b0,0b0 . |0>
                    + 0b0,0b1 . |1>

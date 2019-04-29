@@ -203,7 +203,7 @@ let string_of_unknownkind = function
   | UnkAll       -> "(any type)"
   | UnkEq        -> "(equality type)"
   | UnkClass     -> "(classical type)"
-  | UnkComm     -> "(qbit or classical)"
+  | UnkComm      -> "(qbit or classical)"
   
 let new_unknown = (* hide the reference *)
   (let ucount = ref 0 in

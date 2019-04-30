@@ -8,7 +8,7 @@ But if you are reading it you know that already ...)
 
 Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I felt that quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.
 
-The expression language is moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. (This movement has paused for the time being, while we concentrate on giving the notation a formal semantics in Coq.)
+The expression language was once moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. I'm not actively pursuing that avenue at present.
 
 ## The offside rule
 
@@ -231,7 +231,7 @@ The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints
 
 ## Probability vectors and symbolic calculation
 
-Qtpi uses a symbolic quantum calculator: only at the point of measurement does it calculate numerically. This enables it to do some nice tricks, like 'teleporting' an unknown qbit.
+Qtpi uses a symbolic quantum calculator: only at the point of measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose vector is unknown.
 
 Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`). A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[*i*; *j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (some of *A*, *B*, *C* and *D* will be zero, because of entanglement). And so on for larger entanglements.
 
@@ -265,16 +265,18 @@ Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remem
 
 Before I realised that qbits are destroyed on detection, I implemented a *dispose* channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
 
+Actually dispose-on-detection is a switch: `-measuredestroys false` makes qbits stay in existence once measured.
+
 Reading from from the *dispose* channel is a run-time error, once again because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
 
-Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation.
+Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.
 
-These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's really there for aesthetic reasons.
+These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's also there for aesthetic reasons.
 
-It is also impossible to branch according to the state or identity of a qbit. (In unsimulated real life you couldn't ...). Likewise on the identity or equality of a function or a process.
+It is impossible to branch according to the state or identity of a qbit unless you measure it first. (In unsimulated real life you couldn't ...). Likewise on the identity or equality of a function or a process.
 
 To prevent subversive inter-process communication, you can't send a function down a channel, or provide it as a process argument. (In earlier days I permitted this but tried to restrict function arguments to classical values. Then I thought of free variables ...)
 
@@ -296,7 +298,9 @@ To prevent subversive inter-process communication, you can't send a function dow
     
   * **A function delivers a classical result**.
   
-  	Without the result restriction resource-checking simply wouldn't work.
+  	Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit.
+  	
+  	There is a deliberate loophole: this restriction is applied to function *definitions*. This is to allow library functions (e.g. qval and show) to take non-classical arguments. But be careful with it: see below.
 
   * **No comparison of qbits, qstates, or values containing qbits or qstates**.
   
@@ -311,6 +315,8 @@ To prevent subversive inter-process communication, you can't send a function dow
   	There used to be a function *qbit_state* which gave you a string representation of a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of *qbit_state* on them. Horror!
   	
   	Not all is lost: there's *qval* which gives a *qstate*, there's the *outq* channel which accepts a *qstate*, and the `-verbose qsim` switch on Qtpi allows you to watch the simulation in any case.
+  	
+  	If you define a library function with a non-classical parameter, please make it the *last* parameter and don't deliver a functional result. This is to stop partial application baking-in access to qbits.
   	
   	This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.
   	
@@ -342,19 +348,19 @@ Most of these functions deal in classical values only (*'a* rather than *'\*a*).
   * *fst*: *'a* \* *'\*b* &rarr; *'a*  
   * *hd*: *'a list* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
-  * *iter*: (*'\*a* &rarr; *unit*) &rarr; *'\*a list* &rarr; *unit*
-  * *length*: *'\*a list* &rarr; *num*  	
-  * *map*: (*'\*a* &rarr; *'b*) &rarr; *'\*a list* &rarr; *'b list*
-  * *max*: *num* &rarr; *num* &rarr; *num*
-  * *min*: *num* &rarr; *num* &rarr; *num*
-  * *nth*: *'a list* &rarr; *num* &rarr; *'a*
-  * *qval*: *qbit* &rarr; *qstate*
-  * *randbit*: *unit* &rarr; *bit*
-  * *randbits*: *num* &rarr; *bit list*
-  * *rev*: *'a list* &rarr; *'a list*
-  * *show*: *'\*a* &rarr; *string*
-	  * converts a value to a string. Takes any type, but doesn't give interesting results when applied to a qbit, a function, process, channel or qstate.  
-  * *sort*: *'a list* &rarr; *'a list*
+  * *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
+  * *length*: *'a list* -> *num*  	
+  * *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
+  * *max*: *num* -> *num* -> *num*
+  * *min*: *num* -> *num* -> *num*
+  * *nth*: *'a list* -> *num* -> *'a*
+  * *qval*: *qbit* -> *qstate*
+  * *randbit*: *unit* -> *bit*
+  * *randbits*: *num* -> *bit list*
+  * *rev*: *'a list* -> *'a list*
+  * *show*: *'\*a* -> *string*
+	  * converts a value to a string. Gives a deliberately opaque result if applied to a qbit, function, process, channel or qstate.  
+  * *sort*: *'a list* -> *'a list*
 	  * sorts in ascending order
   * *snd*: *'\*a* \* *'b* &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*

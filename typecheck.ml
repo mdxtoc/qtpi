@@ -137,7 +137,8 @@ let rec rewrite_expr cxt e =
                            )
                     )
 
-and rewrite_edecl cxt = function
+and rewrite_edecl cxt edecl = 
+  match edecl.inst with
   | EDPat (wpat,_,we)        -> rewrite_pattern cxt wpat; rewrite_expr cxt we
   | EDFun (wfn,wfpats,_, we) -> rewrite_fparams cxt wfpats; rewrite_expr cxt we
 
@@ -284,8 +285,7 @@ and canunifytype n t =
     let s = match kind_of_unknown n with
             | UnkClass -> "a classical type"
             | UnkEq    -> "an equality type"
-            | UnkComm  -> "qbit or non-function classical"
-            | UnkCommC -> "non-function classical"
+            | UnkComm  -> "qbit or classical"
             | UnkAll   -> " (whoops: can't happen)"
     in
     raise (Error (t.pos, string_of_type t ^ " is not " ^ prefix ^ s))
@@ -296,7 +296,7 @@ and canunifytype n t =
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
-      
+
       (* everybody takes the basic ones *)
       | _       , Unit
       | _       , Num
@@ -306,40 +306,35 @@ and canunifytype n t =
       | _       , Bit 
       | _       , Basisv   
    (* | _       , Range   _ *)
-      | _       , Gate    _     -> true
+      | _       , Gate    _      -> true
      
-      (* Unkall takes Qbit *)
-      | UnkAll  , Qbit         -> true
-      (* Comm takes Qbit or otherwise behaves as CommC *)
-      | UnkComm , Qbit         -> true
-      | UnkComm , _            -> check UnkCommC t
+      (* Unkall takes anything *)
+      | UnkAll  , _             -> true
       
-      (* Class, CommC, Eq don't take Qbit *)
-      | UnkClass, Qbit          
-      | UnkCommC, Qbit          
-      | UnkEq   , Qbit          -> bad ""
+      (* there remain Comm, Class, Eq *)
+      (* Comm takes Qbit or otherwise behaves as Class *)
+      | UnkComm , Qbit          -> true
+      | UnkComm , _             -> check UnkClass t
       
-      (* CommC and Eq cut out Fun and Poly *)
-      | UnkCommC, Fun _        
-      | UnkCommC, Poly _       
-      | UnkEq   , Fun _        
-      | UnkEq   , Poly _       -> bad ""
-      
-      (* Eq cuts out three more *)
+      (* there remain Class and Eq *)
+      (* neither allows Qbit *)
+      |_        , Qbit          -> bad ""
+      (* Eq doesn't allow several things *)
       | UnkEq   , Qstate      
       | UnkEq   , Channel _   
-      | UnkEq   , Process _   -> bad ""
+      | UnkEq   , Fun     _   
+      | UnkEq   , Poly    _        (* Poly types are function types *)
+      | UnkEq   , Process _     -> bad ""
+      (* but Class does *)
+      | UnkClass, Qstate      
+      | UnkClass, Fun     _        (* check the classical free-variable condition later *)
+      | UnkClass, Poly    _     -> true
       
-      (* Everybody but Eq is happy with Qstate *)
-      | _       , Qstate        -> true
-      
-      (* and otherwise it's a structural recursion *)
+      (* otherwise some recursions *)
       | _       , Tuple ts      -> List.for_all cu ts
       | _       , Process ts    -> List.for_all (check UnkComm) ts
       | _       , List t        -> cu t
-      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ") 
-      | _       , Fun (t1,t2)   -> check UnkAll t1 && check UnkClass t2
-      | _       , Poly (ns,t)   -> check UnkClass t
+      | _       , Channel t     -> (try check UnkComm t with Error _ -> bad "channel of ")                    
     in
     cu t
   in
@@ -492,7 +487,7 @@ and assigntype_expr cxt t e =
      match e.inst.enode with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
-     | ENum i               -> (* no longer can Bit be a subtype of Num
+     | ENum i               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Bit              -> if i=/zero||i=/one then ()
                                                        else unifytypes t (adorn_x e Num)
@@ -501,11 +496,11 @@ and assigntype_expr cxt t e =
                                  | t                -> unifytypes (adorn_x e t) (adorn_x e Num)
                                 )
                                 *)
-                               unifytypes t (adorn_x e Num)
+                               unifytypes t (adorn_x e Num) 
      | EBool _              -> unifytypes t (adorn_x e Bool)
      | EChar _              -> unifytypes t (adorn_x e Char)
      | EString _            -> unifytypes t (adorn_x e String)
-     | EBit b               -> (* no longer can Bit be a subtype of Num
+     | EBit b               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Num              -> ()
                                  (* | Range (j,k) as t -> let i = if b then 1 else 0 in
@@ -514,7 +509,7 @@ and assigntype_expr cxt t e =
                                  | t                -> unifytypes (adorn_x e t) (adorn_x e Bit)
                                 )
                                 *)
-                               unifytypes t (adorn_x e Bit)
+                               unifytypes t (adorn_x e Bit) 
      | EBasisv _            -> unifytypes t (adorn_x e Basisv)
      | EGate   ug           -> let _   = match ug.inst with
                                          | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
@@ -523,7 +518,7 @@ and assigntype_expr cxt t e =
                                in
                                unifytypes t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* this is a loophole: allows qval to take qbit arguments *)
+     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = new_Unknown e.pos UnkClass in
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let _ = unifytypes rtype t in
@@ -555,7 +550,7 @@ and assigntype_expr cxt t e =
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Num) (adorn_x e2 Num) e1 e2
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
-     | EAppend (e1,e2)      -> let t' = adorn_x e (List (ntv e.pos)) in
+     | EAppend (e1,e2)      -> let t' = adorn_x e (List (new_Unknown e.pos UnkClass)) in (* append has to deal in classical lists *)
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
                                unifytypes t t'
@@ -570,7 +565,8 @@ and assigntype_expr cxt t e =
                                             )
                                      )
   
-and assigntype_edecl cxt t e = function
+and assigntype_edecl cxt t e ed = 
+  match ed.inst with
   | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
                                     let _ = assigntype_expr cxt wt we in
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
@@ -600,7 +596,7 @@ and read_funtype pats toptr e =
   and inventtype_pat pat =
     let f = match pat.inst.pnode with
             | PatName _ 
-            | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument *)
+            | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument. Hmmm. *)
             | PatUnit         -> (fun () -> adorn pat.pos Unit)
             | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
                                  let ts = List.fold_left itp [] pats in
@@ -637,7 +633,7 @@ and assigntype_fun cxt t pats e =
                   (string_of_list string_of_fparam " " pats)
                   (string_of_expr e);
   match pats with
-  | pat::pats'  -> let ta = new_Unknown  pat.pos UnkClass in (* even function arguments must be classical *)
+  | pat::pats'  -> let ta = new_Unknown pat.pos UnkClass in (* function arguments must be classical *)
                    let tr = new_Unknown (pos_of_instances pats') UnkClass in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let _ = unifytypes t tf in
@@ -687,7 +683,7 @@ let rec do_procparams s cxt params proc =
 and fix_paramtype pos rt =
   match !rt with
   | Some t -> t
-  | None   -> let t = ntv pos in rt := Some t; t
+  | None   -> let t = new_Unknown pos UnkComm in rt := Some t; t (* process params are, like messages, qbits or classical *)
   
 and unify_paramtype rt t =
   match !rt with
@@ -758,11 +754,11 @@ and typecheck_process cxt p =
       let check_g (iostep,proc) =
         match iostep.inst with
          | Read (ce, pat) ->
-             let t = ntv ce.pos in
+             let t = new_Unknown ce.pos UnkComm in
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
          | Write (ce, e) ->
-             let t = ntv ce.pos in 
+             let t = new_Unknown ce.pos UnkComm in 
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              let _ = assigntype_expr cxt t e in
              typecheck_process cxt proc

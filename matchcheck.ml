@@ -433,7 +433,8 @@ let rec matchcheck_expr e =
   | ELambda     (pats,e)    -> matchcheck_expr e
   | EWhere      (e,ed)      -> matchcheck_expr e; matchcheck_edecl ed
   
-and matchcheck_edecl = function
+and matchcheck_edecl edecl = 
+  match edecl.inst with
   | EDPat (wpat,_,we)        -> matchcheck_expr we
   | EDFun (wfn,wfpats,_, we) -> matchcheck_expr we
 

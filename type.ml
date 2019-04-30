@@ -197,15 +197,13 @@ type unknownkind =
   | UnkAll       (* anything *)
   | UnkEq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
   | UnkClass     (* classical: can't have qbit or value containing *)
-  | UnkComm      (* simply a qbit, or classical (but not function) *)
-  | UnkCommC     (* classical (but not function) -- needed to make the partial order work during unification *)
+  | UnkComm      (* simply a qbit, or classical *)
 
 let string_of_unknownkind = function
   | UnkAll       -> "(any type)"
   | UnkEq        -> "(equality type)"
   | UnkClass     -> "(classical type)"
-  | UnkComm      -> "(qbit or non-function classical)"
-  | UnkCommC     -> "(non-function classical)" 
+  | UnkComm      -> "(qbit or classical)"
   
 let new_unknown = (* hide the reference *)
   (let ucount = ref 0 in
@@ -213,56 +211,44 @@ let new_unknown = (* hide the reference *)
      let n = !ucount in
      ucount := n+1;
      (match uk with
-     | UnkAll       -> "?*"
      | UnkEq        -> "?'"
      | UnkClass     -> "?"
      | UnkComm      -> "?^"
-     | UnkCommC     -> "?%"
+     | UnkAll       -> "?*"
      ) ^ string_of_int n, 
      ref None
    in
    new_unknown
   )
-  
+
+(* 
+   Eq(ality)       < Class(ical)     (because Class includes functions)
+   Class(ical)     < Comm(unication) (because Comm includes single qbits)
+   Comm(unication) < All             (because All allows qbits in lists and tuples, heaven forbid)
+   
+   We require that functional values are classical, and so cannot have free qbit variables.
+   This means restrictions on function definitions, 
+   and restrictions on partial applications -- f q is non-classical if q is a qbit.
+   
+   But I think functions can take non-classical arguments.
+ *)
+ 
 let kind_of_unknown n = 
   match n.[1] with
   | '\'' -> UnkEq
   | '*'  -> UnkAll
   | '^'  -> UnkComm
-  | '%'  -> UnkCommC
   | _    -> UnkClass
 
-(* this is the partial order 
-
-            All
-            / \
-           /   \
-         Comm Class
-           \   /
-            \ /
-           CommC
-             |
-             |
-             Eq 
-             
- *)
- 
 let kind_includes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
-  | UnkAll  , _          
-  | UnkClass, UnkCommC   
-  | UnkClass, UnkEq      
-  | UnkComm , UnkCommC   
-  | UnkComm , UnkEq      
-  | UnkCommC, UnkEq     -> true
-  | _                   -> false
-
-let subkind k1 k2 =  
-  match k1, k2 with
-  | UnkComm , UnkClass
-  | UnkClass, UnkComm   -> UnkCommC
-  | _                   -> if kind_includes k1 k2 then k2 else k1
+  | UnkAll    , _       -> true
+  | _      , UnkAll     -> false
+  | UnkComm, _       -> true
+  | _      , UnkComm -> false
+  | UnkClass, _      -> true
+  | _                -> false
   
 let result_type pos pars ft =
   let bad () = raise (Can'tHappen (Printf.sprintf "%s: result_type (%d) %s"

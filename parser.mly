@@ -463,9 +463,9 @@ expr:
   
 edecl:
   | bpattern restypeopt EQUALS indentNext expr outdent
-                                        {EDPat($1,$2,$5)}
+                                        {adorn (EDPat($1,$2,$5))}
   | funname fparams restypeopt EQUALS indentNext expr outdent   
-                                        {let rt = ref $3 in EDFun($1,$2,rt,$6)}
+                                        {let rt = ref $3 in adorn (EDFun($1,$2,rt,$6))}
 
 nwexpr:  
   | ntexpr                              {$1}

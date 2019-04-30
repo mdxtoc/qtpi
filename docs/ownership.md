@@ -6,20 +6,18 @@ But if you are reading this then you already know that ...)
 
 # Static treatment of ownership of qbits -- Resource-checking a program
 
-## Hubris
-Oh, nemesis! I didn't read the Gay and Nagarajan paper properly (and/or I didn't read the right version). Much of this can be done with linear typing. And with the right language restrictions (see [the language description](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions)) almost all of it can. 
-
-Although I think that many of the problems below can't happen any more within the language I've kept the implementation in case I decide to lift some or all of those restrictions.
-
-## To begin
-
-My original inspiration was the ownership problem, triggered by a remark of Guillaume Poly's. He'd noticed that a treatment of qbit-ownership transfer between processes was impossible in Microsoft's Q#, which was all about efficient simulation of quantum computation. But quantum protocols are mostly about passing quantum bits between processes, and hardly do any quantum computation.
+I began to develop qtpi because of a remark of Guillaume Poly's. He'd noticed that a treatment of qbit-ownership transfer between processes was impossible in Microsoft's Q#, which was all about efficient simulation of quantum computation. But quantum protocols are mostly about passing quantum bits between processes, and hardly do any quantum computation.
 
 A process calculus like CQP seemed like it might provide a solution to the ownership problem. Then I realised that the cloning problem is another side of the same coin, and therefore might also be treated at the same time.
 
-The phrase *resource checking* harks back to my background in separation logic (I was there when ...). It was always something I wanted to do with heap programs, though I never knew how to do it accurately enough. (Others, of course, ...)
+The phrase *resource checking* harks back to my background in separation logic (I was there when ...). It was always something I wanted to do with heap programs, though I never knew how to do it accurately enough. (Others, of course, did better ...)
 
 Qbits are the resource manipulated by quantum-protocol programs. Qtpi checks the correct use of those resources.
+
+## Hubris
+Oh, nemesis! I didn't read the Gay and Nagarajan paper properly (actually I wasn't given the right version to read). Much of this can be done with linear typing. And with the right language restrictions (see [the language description](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions)) almost all of it can. 
+
+Although I think that many of the problems below can't happen any more within the language I've kept the implementation in case I decide to lift some or all of those restrictions.
 
 ## The ownership problem
 
@@ -66,7 +64,7 @@ It is impossible to clone qbits. So a program should be incapable of making a co
 			
 			B(qt:qbit*qbit) = ...  
 	
-	Again, *B* doesn't own two separate qbits. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.) 
+	Again, *B* doesn't own two separate qbits. 
 	
 3. How about sending the same qbit twice?
 
@@ -74,13 +72,13 @@ It is impossible to clone qbits. So a program should be incapable of making a co
 		
 			B(c:^qbit*qbit) = c?(q1,q2). ...
 		
-	*B* only owns one qbit, not two. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because you can't have a `^qbit*qbit` channel.)
+	*B* only owns one qbit, not two. 
 	
 4. How about a *let* binding?
 
 			A() = (newq q) (let q'=q) ...
 		
-	*A* only creates one qbit to own. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
+	*A* only creates one qbit to own. 
 	
 ## Accounting problems
 
@@ -90,18 +88,14 @@ If we want to check ownership we have to account for the use of qbits. This thro
 	
 			A(q1:qbit, q2:qbit, c:^qbit) = ... c!(if ... then q1 else q2 fi). ...
 	
-	Which qbit has been sent away, and which does *A* own after the send? (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
-	
-	(I 'solve' this problem by prohibiting it: see below.)
+	Which qbit has been sent away, and which does *A* own after the send? 
 	
 2. Values containing qbits?
 
 			(newq q) (let n = q,q) ...
 			(newq q) (let qs = [q;q]) ... 
 		
-	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit. (This example can't happen with [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions), because `let` can only bind classical values.)
-	
-	(This problem can be handled: see below.)
+	In the first example a single qbit has three names: *q*, *fst n* and *snd n*. In the second we have three names as well: *q*, *hd qs* and *hd (tl qs)*. But in each case only one qbit. 
 	
 3. Conditional cloning?
 	
@@ -119,7 +113,7 @@ If we want to check ownership we have to account for the use of qbits. This thro
 	
 	There *might* be a cloning violation, or there might be good reason that the `b?(y)` arm of the guarded sum never actually executes when *condition* is true.
 	
-	(I don't suppose I can solve this problem. My algorithm will object to this program.) (But an approach using continuations _might_ work.)
+	(I don't suppose I can solve this problem. But an approach using continuations _might_ work.)
 	
 ## Restrictions
 
@@ -156,5 +150,14 @@ Inaccuracies arise with conditional expressions and guarded sums. Conditional ex
 There remains a problem. The resources used by a conditional process are assessed as the union of the resources used by each of its arms. The resources used by a guarded sum are assessed as the union of the resources of all its arms. Then a parallel composition *P*|*P*|...|*P* of guarded sums and/or conditional processes may cause more cloning objections than an actual execution could actually exploit. But this will be over-caution: incompleteness, not unsoundness.
 
 Quantum protocols are perhaps computationally rather simple. I have hope that a simple treatment will be useful, even though it sometimes complains when it shouldn't, provided it is always right when it approves.
+
+## Functions and qbits: more nemesis
+
+Late on in the game, I realised that the resource-checking algorithm doesn't deal properly with functions. A function definition which has  non-classical free variables provides access, when it's applied, to those free variables. So a function sent in a message could provide access from the receiving process to a qbit in the sender's space. Within a single process a function could provide access to a sent-away qbit or attempt access to an already-measured qbit.
+
+Partially-applied functions complicate things too: *f q*, where *f* has more than one parameter, bakes in access to *q* even if *f*'s definition has no non-classical free variables.
+
+Perhaps this could be dealt with, but none of the schemes I have considered seem to work. So I have reluctantly concluded that it is best to apply a very severe language restriction: no non-classical free variables, and no non-classical parameters. See [the language restrictions](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md/#restrictions) for details.
+
 
   

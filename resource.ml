@@ -33,9 +33,18 @@
    
    Provided, of course, we police the use of qbits that are sent away down channels.
    
-   To begin, channels take either a single qbit or a classical value. Seems to make
-   practical sense. And function applications must not deliver a qbit, or a value containing
-   a qbit.
+   Channels take either a single qbit or a classical value. This is a simplification of
+   the language, and seems to suit the needs of clear description of quantum protocols. 
+   
+   Function applications must not deliver a qbit, or a value containing a qbit. 
+   
+   Functional values may not have free variables which are a qbit or a value containing
+   a qbit. That's hard to assess during typechecking (or at least, the error messages
+   make sense if we delay the check until now).
+   
+   This is all done with a symbolic execution, which made sense when I was trying to do
+   resource-checking without syntactic restrictions. Now, perhaps, it's overkill, but
+   it seems to work.
    
    Good luck to us all.
  *)
@@ -83,7 +92,7 @@ let rec is_resource_type t =
   | List    t       -> is_resource_type t 
   | Channel t       -> false
   | Tuple   ts      -> List.exists is_resource_type ts
-  | Fun     (t1,t2) -> is_resource_type t1 || is_resource_type t2
+  | Fun     (t1,t2) -> false (* yes *)
                      
   | Process _       -> false
 
@@ -95,177 +104,13 @@ let type_of_pattern p =
                               )
                     )
   
-(* *************** phase 1: channel types and function applications (ctfa_...) *************************** *)
-(* ******************************* also check that we don't compare qbits ******************************** *)
-
-let rec ctfa_type classic t = 
-  let badtype s = raise (Error (t.pos, Printf.sprintf "type %s: %s"
-                                                      (string_of_type t)
-                                                      s
-                               )
-                         )
-  in
-  match t.inst with
-  | Qbit            -> if classic then badtype "should be classical, includes qbit" else ()
-  | Unit
-  | Num
-  | Char
-  | String
-  | Bool
-  | Bit 
-  | Basisv
-  | Qstate
-  (* | Range   _ *)
-  | Gate    _       -> ()
-  | Unknown _       
-  | Known _         -> (* it really doesn't matter: type variables just correspond to unused variables *)
-                       ()
-  | Poly    (ns, t) -> ctfa_type classic t
-  | List    t       -> ctfa_type classic t
-  | Tuple   ts    
-  | Process ts      -> List.iter (ctfa_type classic) ts
-  | Channel t       -> (* this is wrong: polytypes will trip it up *)
-                       (match t.inst with
-                        | Qbit      -> () (* always ok, even in classical channels *)
-                        | _         -> try ctfa_type true t
-                                       with _ -> badtype "should be a channel of qbit or a classical channel"
-                       )
-  | Fun  _          -> () (* function types are classical, always *)
-
-let ctfa_def def = 
-  let ctfa_param p =
-    let bad_param s = raise (Error (p.pos, Printf.sprintf "parameter %s: %s"
-                                                          (string_of_param p)
-                                                          s
-                                   )
-                            )
-    in
-    let _, tor = p.inst in
-    (match !tor with
-     | Some t -> if t.inst=Qbit then () else ctfa_type true t
-     | _      -> bad_param "Disaster (typechecked type expected)"
-    )
-  in
-  let rec ctfa_proc proc =
-    match proc.inst with
-    | Terminate                  -> ()
-    | Call      (pn', es)        -> List.iter (ctfa_arg "process argument") es; List.iter ctfa_expr es
-    | WithNew   (params, proc)   -> List.iter ctfa_param params; ctfa_proc proc
-    | WithQbit  (qspecs, proc)   -> List.iter (fun (param,_) -> ctfa_param param) qspecs;
-                                    ctfa_proc proc
-    | WithLet   (letspec, proc)  -> let pat, e = letspec in
-                                    ctfa_pat "'let'" pat;
-                                    ctfa_expr e;
-                                    ctfa_proc proc
-    | WithQstep (qstep, proc)    -> ctfa_qstep qstep; ctfa_proc proc
-    | Cond      (ce,p1,p2)       -> ctfa_expr ce; List.iter ctfa_proc [p1;p2]
-    | GSum      gs               -> let ctfa_g (iostep, proc) =
-                                      ctfa_iostep iostep; ctfa_proc proc
-                                    in
-                                    List.iter ctfa_g gs
-    | PMatch    (e,pms)          -> ctfa_expr e; List.iter (function pat,proc -> ctfa_pat "pattern" pat; ctfa_proc proc) pms
-    | Par       procs            -> List.iter ctfa_proc procs
-  
-  and ctfa_arg s e =
-    let t = type_of_expr e in
-    if t.inst = Qbit then 
-      match e.inst.enode with
-      | ECond  _
-      | EMatch _ -> raise (Error (e.pos,
-                                  "qbit-valued conditional expression as " ^ s
-                                 )
-                          )
-      | _        -> ()
-    else ctfa_type true t 
-
-  and ctfa_qstep qstep =
-    match qstep.inst with
-    | Measure   (qe,ges,param) -> ctfa_expr qe; List.iter ctfa_expr ges
-    | Ugatestep (qes, ug)      -> List.iter ctfa_expr qes
-  
-  and ctfa_iostep iostep =
-    (* if the channel types are right then we don't need to type-police the steps. But check the exprs for use of functions *)
-    match iostep.inst with
-    | Read      (ce,pat) -> ctfa_expr ce
-    | Write     (ce,e)   -> ctfa_expr ce; ctfa_arg "send argument" e; ctfa_expr e
-  
-  and ctfa_expr e =
-    match e.inst.enode with
-    | EUnit
-    | ENil
-    | EVar       _
-    | ENum       _
-    | EBool      _
-    | EChar      _
-    | EString    _
-    | EBit       _          
-    | EBasisv    _          -> ()   (* constants *)
-    | EGate      ug         -> (match ug.inst with
-                                  | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot -> ()
-                                  | UG_Phi e                               -> ctfa_expr e
-                               )
-    | EMinus     e          
-    | ENot       e          -> ctfa_expr e
-    | ETuple     es         -> List.iter ctfa_expr es
-    | EMatch     (e,ems)    -> ctfa_expr e; 
-                               (* we don't apply the pattern restriction in expressions, because they don't matter IMHO *)
-                               List.iter (function pat,e -> (* ctfa_pat "pattern" pat; *) ctfa_expr e) ems
-    | ECond      (ce,e1,e2) -> if is_resource_type (type_of_expr e1) then
-                                 raise (Error (e.pos, "comparison of qbits, or values containing qbits, not allowed"))
-                               else ();
-                               List.iter ctfa_expr [ce;e1;e2]
-    | EApp        (ea,er)   -> if is_resource_type (type_of_expr e) then
-                                 raise (Error (e.pos, "a function application may not deliver a qbit, or a value containing a qbit"))
-                               else ();
-                               List.iter ctfa_expr [ea; er]
-    | EArith      (e1,_,e2)
-    | ECompare    (e1,_,e2)
-    | EBoolArith  (e1,_,e2) -> List.iter ctfa_expr [e1;e2]
-    | ECons       (e1,e2)   -> List.iter ctfa_expr [e1;e2]
-    | EAppend     (e1,e2)   -> if is_resource_type (type_of_expr e) then
-                                raise (Error (e.pos, "list append may not be applied to lists including qbits"))
-                               else ();
-                               List.iter ctfa_expr [e1;e2]
-    | ELambda     (pats,e)  -> ctfa_expr e (* in expressions 'lambda' can bind what it likes *)
-    | EWhere      (e,ed)    -> ctfa_expr e; ctfa_edecl ed
-    
-  and ctfa_edecl = function
-  | EDPat (wpat,_,we)        -> ctfa_expr we (* in expressions 'where' can bind what it likes *)
-  | EDFun (wfn,wfpats,_, we) -> ctfa_expr we (* function parameters can bind whatever they like *)
-    
-  and ctfa_pat s pat = (* check binding restriction *)
-    match pat.inst.pnode with
-    | PatName     _       -> (try ctfa_type true (type_of_pattern pat) 
-                              with _ -> raise (Error (pat.pos, s ^ " may only bind classical values"))
-                             )
-    | PatAny
-    | PatUnit
-    | PatNil
-    | PatInt      _
-    | PatBit      _ 
-    | PatBool     _
-    | PatChar     _
-    | PatString   _
-    | PatBasisv   _
-    | PatGate     _       -> ()
-    | PatCons     (p1,p2) -> ctfa_pat s p1; ctfa_pat s p2
-    | PatTuple    ps      -> List.iter (ctfa_pat s) ps
-
-  in
-  match def with
-  | Processdef (pn, params, proc) ->
-      List.iter ctfa_param params; ctfa_proc proc
-  | Functiondefs fdefs            ->
-      let ctfa_fdef (fn, pats, _, expr) = ctfa_expr expr in (* don't check the type: will be checked on use *)
-      List.iter ctfa_fdef fdefs
-  | Letdef (pat, e)               ->
-      ctfa_expr e
-      
-(* *************** phase 2: resource check (rck_...) *************************** *)
+(* *************** phase 1: resource check (rck_...) *************************** *)
 
 (* with the new restrictions on process arguments, qbit-valued conditionals, bindings, 
    all this can be done _very_ simply. And will be done, when I get round to it.
  *)
+ 
+(* by which I think I mean: an expression is classical if it uses no resource *)
 
 type resource =
   | RNull
@@ -483,7 +328,7 @@ let rec r_o_e disjoint state env e =
       | EGate       ug        -> (match ug.inst with
                                     | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
                                                     -> RNull, ResourceSet.empty
-                                    | UG_Phi e        -> let _, used = re use e in
+                                    | UG_Phi e      -> let _, used = re use e in
                                                        RNull, used
                                  )                    
       | EMinus      e         -> re Uarith e
@@ -555,7 +400,8 @@ let rec r_o_e disjoint state env e =
       | EWhere      (e,ed)    -> rck_edecl state env e ed
             
     
-    and rck_edecl state env e = function
+    and rck_edecl state env e ed = 
+      match ed.inst with
       | EDPat (wpat,_,we)        -> let wr, wused = re use we in
                                     let r, used = rck_pat (fun state env -> resources_of_expr state env e) state env wpat (Some wr) in
                                     r, ResourceSet.union used wused
@@ -720,18 +566,131 @@ let rck_def env def =
       List.iter rck_fdef fdefs
   | Letdef (pat,e) -> () (* I think so: the typechecker has done the work *)
       
+(* *************** phase 1: function free variables (ffv_...) *************************** *)
+
+(* delayed until this point in the hope of better error messages *)
+
+module OrderedNE = struct type t = name*expr 
+                          let compare = Pervasives.compare 
+                          let to_string = bracketed_string_of_pair string_of_name (fun e -> string_of_sourcepos (e.pos)) 
+                   end
+module NESet = MySet.Make(OrderedNE)
+
+let ne_filter nset s = NESet.filter (fun (n,_) -> not (NameSet.mem n nset)) s
+
+let frees = Expr.frees_fun ne_filter
+                           (fun n e s -> NESet.add (n, e) s)
+                           NESet.union
+                           NESet.empty
+
+let rec ffv_expr expr =
+  match expr.inst.enode with
+  | EUnit
+  | EVar       _
+  | ENum       _
+  | EBool      _
+  | EChar      _
+  | EString    _
+  | EBit       _
+  | EBasisv    _
+  | ENil                   -> ()
+  | EGate      ug          -> (match ug.inst with
+                               | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot -> ()
+                               | UG_Phi e                                                 -> ffv_expr e
+                              )
+  | EMinus     e
+  | ENot       e            -> ffv_expr e
+  | ETuple     es           -> List.iter ffv_expr es  
+  | ECons      (e1,e2)
+  | EAppend    (e1,e2)
+  | EApp       (e1,e2)      -> List.iter ffv_expr [e1;e2]
+  | ECond      (e1,e2,e3)   -> List.iter ffv_expr [e1;e2;e3]
+  | EMatch     (e,ems)      -> ffv_expr e; List.iter (fun (pat,e) -> ffv_expr e) ems
+  | EArith     (e1, _, e2)
+  | ECompare   (e1, _, e2)
+  | EBoolArith (e1, _, e2)  -> List.iter ffv_expr [e1;e2]
+  | ELambda    (pats, e)    -> ffv_fundef expr.pos None pats e
+  | EWhere     (e, edecl)   -> (match edecl.inst with
+                                | EDPat (pat, _, e)      -> ffv_expr e;
+                                | EDFun (fn, pats, _, e) -> ffv_fundef edecl.pos (Some fn) pats e 
+                               );
+                               ffv_expr e
+
+and ffv_fundef pos fnopt pats e =
+  (* now actually we can ignore pats and fn, because both are classical anyway, but to
+     keep sane, let's do this right
+   *)
+  let veset = frees e in
+  let veset = ne_filter (names_of_pats pats) veset in
+  let veset = match fnopt with
+              | None -> veset
+              | Some fn -> ne_filter (NameSet.singleton fn.inst) veset
+  in
+  let bad_veset = NESet.filter (fun (n,e) -> is_resource_type (type_of_expr e)) veset in
+  if not (NESet.is_empty bad_veset) then
+    (let bad_v (n,e) = Printf.sprintf "%s:%s (at %s)"
+                          (string_of_name n)
+                          (string_of_type (type_of_expr e))
+                          (string_of_sourcepos e.pos)
+     in
+     let ss = List.map bad_v (NESet.elements bad_veset) in
+     raise (Error (pos, Printf.sprintf "function definition has non-classical free variable(s)\n    %s"
+                                          (String.concat "\n    " ss)
+                  )
+           )
+    );
+  ffv_expr e
+
+and ffv_proc proc =
+  match proc.inst with
+  | Terminate                      -> ()
+  | Call      (pn,es)              -> List.iter ffv_expr es
+  | WithNew   (params, proc)       -> ffv_proc proc
+  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc proc
+  | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc proc
+  | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc proc
+  | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc proc1; ffv_proc proc2
+  | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter (ffv_proc <.> snd) patprocs
+  | GSum      ioprocs              -> List.iter ffv_ioproc ioprocs
+  | Par       procs                -> List.iter ffv_proc procs
+
+and ffv_qspec qspec =
+  match qspec with
+  | param, None      -> ()
+  | param, Some expr -> ffv_expr expr
+
+and ffv_letspec (pattern, expr) = ffv_expr expr
+
+and ffv_qstep qstep =
+  match qstep.inst with
+  | Measure (expr, exprs, pattern) -> List.iter ffv_expr (expr::exprs)
+  | Ugatestep (exprs, expr)        -> List.iter ffv_expr (exprs@[expr])
+  
+and ffv_ioproc (iostep, proc) =
+  (match iostep.inst with
+   | Read (expr, pat)   -> ffv_expr expr
+   | Write (expr1, expr2) -> ffv_expr expr1; ffv_expr expr2
+  );
+  ffv_proc proc
+  
+and ffv_def def =
+  if !verbose then 
+    Printf.printf "\nffv_def %s\n"
+                  (string_of_def def);
+  match def with
+  | Processdef (pn, params, proc) -> ffv_proc proc
+  | Functiondefs fdefs            -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)                -> ffv_expr e
+  
+and ffv_fdef (fn, pats, _, e) =
+  ffv_fundef fn.pos (Some fn) pats e
+  
 (* *************** main function: trigger the phases *************************** *)
 
 let resourcecheck defs = 
-  (* defs have been rewritten to mark exprs with their types.
-     
-     We police parameters: channels take either a single qbit or a classical value. Functions and
-     applications must have nothing to do with qbits. But the typechecker does this ...
-   *)
+  (* defs have been rewritten to mark exprs with their types. I hope. *)
   
-  push_verbose !verbose_resource (fun () ->
-    List.iter ctfa_def defs;
-  
+  push_verbose !verbose_resource (fun () ->  
     let knownassoc = 
       List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
                                n, r
@@ -748,10 +707,15 @@ let resourcecheck defs =
                                    List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
     in
     let env = List.fold_left do_def env defs in
-    let env = if env <@?> "dispose" then env else env <@+> ("dispose",RNull) in
-    let env = if env <@?> "out"     then env else env <@+> ("out"    ,RNull) in
-    let env = if env <@?> "outq"    then env else env <@+> ("outq"   ,RNull) in
-    let env = if env <@?> "in"      then env else env <@+> ("in"     ,RNull) in
+    let add_std_channel env name =
+      if env <@?> name then env else env <@+> (name,RNull)
+    in
+    let env = add_std_channel env "dispose" in
+    let env = add_std_channel env "out"     in
+    let env = add_std_channel env "outq"    in
+    let env = add_std_channel env "in"      in
 
     List.iter (rck_def env) defs
+    
+    (* and then we check function defs for non-classical free variables *)
   )

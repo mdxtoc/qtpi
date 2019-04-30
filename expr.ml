@@ -25,6 +25,7 @@ open Stringutils
 open Functionutils
 open Optionutils
 open Listutils
+open Tupleutils
 open Name
 open Sourcepos
 open Instance
@@ -100,8 +101,10 @@ and boolop =
 
 and ematch = pattern * expr
 
-and edecl =  
-  | EDPat of pattern* _type option * expr
+and edecl = edeclnode instance
+
+and edeclnode = 
+  | EDPat of pattern * _type option * expr
   | EDFun of name instance * pattern list * _type option ref * expr 
 
 let ewrap opt enode = {etype=ref opt; enode=enode}
@@ -245,12 +248,12 @@ and string_of_expr e =
   | ELambda     (pats, expr)        -> Printf.sprintf "lam %s.%s" (string_of_list string_of_fparam " " pats) (string_of_expr expr)
   | EWhere      (e, ed)             -> Printf.sprintf "(%s where %s)" (string_of_expr e) (string_of_edecl ed)
   
-and string_of_edecl = 
+and string_of_edecl edecl = 
   let sot = function
     | Some t -> Printf.sprintf " :%s" (string_of_type t)
     | None   -> ""
   in
-  function
+  match edecl.inst with
   | EDPat (pat,topt,e)       -> Printf.sprintf "%s%s=%s" 
                                                (string_of_pattern pat) 
                                                (sot topt)
@@ -324,3 +327,58 @@ let type_of_expr e =
   match !(e.inst.etype) with
   | Some t -> t
   | None   -> raise (Error (e.pos, Printf.sprintf "typecheck didn't mark expr %s" (string_of_expr e)))
+  
+(* this is parameterised to allow various kinds of sets. Well, a few anyway: sets of names / types / source locations. More? *)
+
+let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> 't) (s_union: 't -> 't -> 't) (s_empty: 't) : expr -> 't =
+  let rec frees e =
+    let rec _frees s e =
+      match e.inst.enode with
+      | EVar        n          -> s_add n e s
+      | EUnit  
+      | ENum        _ 
+      | EBool       _ 
+      | EChar       _ 
+      | EString     _ 
+      | EBit        _ 
+      | EBasisv     _ 
+      | EGate       _ 
+      | ENil                   -> s
+      | EMinus      e 
+      | ENot        e          -> _frees s e
+      | ETuple      es         -> List.fold_left _frees s es
+      | ECons       (e1,e2)
+      | EAppend     (e1,e2) 
+      | EApp        (e1,e2)    -> List.fold_left _frees s [e1;e2]
+      | ECond       (e1,e2,e3) -> List.fold_left _frees s [e1;e2;e3]
+      | EMatch      (e,ems)    -> (let ss = List.map (fun (pat,e) -> _frees_pats [pat] e) ems in
+                                   let s' = List.fold_left s_union s_empty ss in
+                                   s_union s s'
+                                  )
+      | EArith      (e1,_,e2) 
+      | ECompare    (e1,_,e2) 
+      | EBoolArith  (e1,_,e2)  -> List.fold_left _frees s [e1;e2]
+      | ELambda     (pats,e)   -> s_union s (_frees_pats pats e)
+      | EWhere      (e,edecl)  -> (match edecl.inst with
+                                   | EDPat (pat,_,e')      -> let s = _frees s e' in            (* frees of e' (pat irrelevant) *)
+                                                              let s' = _frees_pats [pat] e in   (* frees of e - binders of pat) *)
+                                                              s_union s s'
+                                   | EDFun (fn,pats, _,e') -> let s' = _frees_pats pats e' in   (* frees of e' - binders of pats *)
+                                                              let s'' = _frees_pats pats e in   (* frees of e - binders of pats *)
+                                                              s_exclude (NameSet.singleton (fn.inst)) (s_union s (s_union s' s''))
+                                                                                              (* frees of the lot - function name *)
+                                  )
+  
+    and _frees_pats pats e =
+      let s = frees e in 
+      s_exclude (names_of_pats pats) s
+  
+    in 
+      _frees s_empty e
+  in
+  frees
+
+let frees = frees_fun (fun nset s -> NameSet.diff s nset)
+                      (fun n _ s -> NameSet.add n s)
+                      NameSet.union
+                      NameSet.empty

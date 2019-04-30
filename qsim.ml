@@ -1039,6 +1039,7 @@ let rec qmeasure disposes pn ugvs q =
                  | g::gs -> List.fold_left mult_mm g gs
                  | []    -> m_I (* shut up compiler -- can't happen *)
       in
+      let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
       let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? %s (%s)"
                                              (Name.string_of_name pn)
                                              (string_of_qbit q)
@@ -1046,18 +1047,18 @@ let rec qmeasure disposes pn ugvs q =
                                              (string_of_matrix gate)
       in
       let qv = qval q in
-      ugstep_1 (id_string gate) q qv gate gate; 
+      (* first of all rotate with gate' *)
+      ugstep_1 (id_string gate') q qv gate' gate'; 
       let bit = qmeasure disposes pn [] q in
       (* that _must_ have broken any entanglement: rotate the parts back separately *)
-      let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
       let rec rotate qs =
         match qs with
         | []    -> () (* done it *)
         | q::qs -> let qqs, qqv = qval q in
-                   ugstep_1 (id_string gate') q (qqs,qqv) gate' gate';
+                   ugstep_1 (id_string gate) q (qqs,qqv) gate gate;
                    rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
       in
       rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
       (* rotate q as well, if it wasn't disposed *)
-      if not disposes then ugstep_1 (id_string gate') q (qval q) gate' gate';
+      if not disposes then ugstep_1 (id_string gate) q (qval q) gate gate;
       bit

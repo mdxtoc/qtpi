@@ -175,3 +175,7 @@ let names_of_pattern =
     | PatTuple  ps      -> List.fold_left nps set ps
   in
   nps NameSet.empty
+  
+let names_of_pats pats = 
+  List.fold_left NameSet.union NameSet.empty (List.map names_of_pattern pats) 
+    

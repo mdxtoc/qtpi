@@ -137,7 +137,8 @@ let rec rewrite_expr cxt e =
                            )
                     )
 
-and rewrite_edecl cxt = function
+and rewrite_edecl cxt edecl = 
+  match edecl.inst with
   | EDPat (wpat,_,we)        -> rewrite_pattern cxt wpat; rewrite_expr cxt we
   | EDFun (wfn,wfpats,_, we) -> rewrite_fparams cxt wfpats; rewrite_expr cxt we
 
@@ -509,7 +510,7 @@ and assigntype_expr cxt t e =
                                in
                                unifytypes t (adorn_x e (Gate(arity_of_ugate ug)))
      | EVar    n            -> assigntype_name e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = ntv e2.pos in 
+     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = new_Unknown e.pos UnkClass in
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let _ = unifytypes rtype t in
@@ -541,7 +542,7 @@ and assigntype_expr cxt t e =
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Num) (adorn_x e2 Num) e1 e2
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
-     | EAppend (e1,e2)      -> let t' = adorn_x e (List (ntv e.pos)) in
+     | EAppend (e1,e2)      -> let t' = adorn_x e (List (new_Unknown e.pos UnkClass)) in (* append has to deal in classical lists *)
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
                                unifytypes t t'
@@ -556,7 +557,8 @@ and assigntype_expr cxt t e =
                                             )
                                      )
   
-and assigntype_edecl cxt t e = function
+and assigntype_edecl cxt t e ed = 
+  match ed.inst with
   | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
                                     let _ = assigntype_expr cxt wt we in
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
@@ -586,7 +588,7 @@ and read_funtype pats toptr e =
   and inventtype_pat pat =
     let f = match pat.inst.pnode with
             | PatName _ 
-            | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument *)
+            | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument. Hmmm. *)
             | PatUnit         -> (fun () -> adorn pat.pos Unit)
             | PatTuple pats   -> let itp ts pat = inventtype_pat pat :: ts in
                                  let ts = List.fold_left itp [] pats in
@@ -623,7 +625,7 @@ and assigntype_fun cxt t pats e =
                   (string_of_list string_of_fparam " " pats)
                   (string_of_expr e);
   match pats with
-  | pat::pats'  -> let ta = new_Unknown  pat.pos UnkAll in (* function arguments need not be classical *)
+  | pat::pats'  -> let ta = new_Unknown pat.pos UnkClass in (* function arguments must be classical *)
                    let tr = new_Unknown (pos_of_instances pats') UnkClass in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
                    let _ = unifytypes t tf in
@@ -673,7 +675,7 @@ let rec do_procparams s cxt params proc =
 and fix_paramtype pos rt =
   match !rt with
   | Some t -> t
-  | None   -> let t = ntv pos in rt := Some t; t
+  | None   -> let t = new_Unknown pos UnkComm in rt := Some t; t (* process params are, like messages, qbits or classical *)
   
 and unify_paramtype rt t =
   match !rt with
@@ -744,11 +746,11 @@ and typecheck_process cxt p =
       let check_g (iostep,proc) =
         match iostep.inst with
          | Read (ce, pat) ->
-             let t = ntv ce.pos in
+             let t = new_Unknown ce.pos UnkComm in
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt t pat
          | Write (ce, e) ->
-             let t = ntv ce.pos in 
+             let t = new_Unknown ce.pos UnkComm in 
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              let _ = assigntype_expr cxt t e in
              typecheck_process cxt proc

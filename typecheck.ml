@@ -252,14 +252,8 @@ let rec unifytypes t1 t2 =
   match t1.inst, t2.inst with
   | Unknown (n1,r1) , Unknown (n2,r2)   -> if n1<>n2 then
                                              (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
-                                              then r1 := Some t2 
-                                              else 
-                                              if kind_includes (kind_of_unknown n2) (kind_of_unknown n1) 
-                                              then r2 := Some t1
-                                              else (* we have Class, Comm or Comm, Class. Both include CommC *)
-                                                   (let t = new_Unknown t1.pos UnkCommC in
-                                                    r1 := Some t; r2 := Some t
-                                                   )
+                                              then r1:=Some t2 
+                                              else r2:=Some t1
                                              )
   | Unknown (n1,r1) , _                 -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _               , Unknown (n2,r2)   -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn

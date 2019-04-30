@@ -272,7 +272,7 @@ let rec evale env e =
                                      )
     | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
     | ELambda (pats, e)       -> fun_of e env pats
-    | EWhere  (e, ed)         -> let env = match ed with
+    | EWhere  (e, ed)         -> let env = match ed.inst with
                                            | EDPat (pat,_,we) ->
                                                let v = evale env we in
                                                bmatch env pat v

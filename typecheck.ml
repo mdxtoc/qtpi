@@ -290,7 +290,6 @@ and canunifytype n t =
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
-
       (* everybody takes the basic ones *)
       | _       , Unit
       | _       , Num
@@ -340,10 +339,9 @@ and force_kind kind t =
     match t.inst with
     | Unknown (n,{contents=Some t'})    
                     -> fk t'
-    | Unknown (n,r) -> let k' = kind_of_unknown n in
-                       if kind_includes kind k' 
+    | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
                        then () 
-                       else (let u' = new_Unknown t.pos (subkind k' kind) in r:=Some u')
+                       else (let u' = new_Unknown t.pos kind in r:=Some u')
     | Tuple ts      -> List.iter fk ts
     | List t        -> fk t
     | Num

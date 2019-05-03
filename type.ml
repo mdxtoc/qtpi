@@ -115,9 +115,11 @@ and string_of_tnode = function
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"
   | Gate             -> "gate"
-  | Unknown u        -> (*"Unknown " ^*) string_of_unknown u
+  | Unknown (_, {contents=Some t})        -> string_of_type t
+  | Unknown u                             -> (*"Unknown " ^*) string_of_unknown u
+  | OneOf   ((_, {contents=Some t}), _)   -> string_of_type t
+  | OneOf   (u,ts)                        -> (*"OneOf "^*) string_of_unknown u ^ "<" ^ bracketed_string_of_list string_of_type ts
   | Known   n        -> (*"Known " ^*) string_of_name n
-  | OneOf   (u,ts)   -> (*"OneOf "^*) string_of_unknown u ^ "<" ^ bracketed_string_of_list string_of_type ts
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
@@ -130,7 +132,6 @@ and string_of_tnode = function
   | Process ts       -> Printf.sprintf "%s process" (string_of_tnode (delist ts))
 
 and string_of_unknown = function    (* unknowns are transparent *)
-  | _, {contents=Some t} -> string_of_type t
   | n, _                 -> string_of_name n
 
 and string_of_typelist ifeq supprio = function

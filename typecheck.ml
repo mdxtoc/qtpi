@@ -65,6 +65,10 @@ let rec eval cxt n =
 
 and evaltype t = 
   let adorn tnode = {pos=t.pos; inst=tnode} in
+  let evu = function
+    | (_, {contents=Some t}) -> evaltype t
+    | _                      -> t
+  in
   match t.inst with
   | Unit
   | Num
@@ -73,13 +77,12 @@ and evaltype t =
   | String
   | Bit 
   | Basisv
-  | Gate    _       
+  | Gate            
   | Qbit            
   | Qstate          -> t
-  | Unknown (_, {contents=Some t}) 
-                    -> evaltype t
-  | Unknown _       -> t
+  | Unknown u       -> evu u 
   | Known n         -> t
+  | OneOf (u, _)    -> evu u
   | Poly (ns,t')    -> adorn (Poly (ns,evaltype t'))
 (*| Range _         -> t *)
   | List t          -> adorn (List (evaltype t))
@@ -158,8 +161,7 @@ and rewrite_pattern cxt p =
        | PatBool    _
        | PatChar    _
        | PatString  _
-       | PatBasisv  _
-       | PatGate    _       -> ()
+       | PatBasisv  _       -> ()
        | PatCons    (ph,pt) -> List.iter (rewrite_pattern cxt) [ph;pt]
        | PatTuple   ps      -> List.iter (rewrite_pattern cxt) ps
        
@@ -179,8 +181,7 @@ let rewrite_params cxt = List.iter (rewrite_param cxt)
 
 let rewrite_qstep cxt qstep = 
   match qstep.inst with
-  | Measure   (e,ges,pattern) -> rewrite_expr cxt e; List.iter (rewrite_expr cxt) ges;
-                                 rewrite_pattern cxt pattern
+  | Measure   (e,ge,pattern)  -> rewrite_expr cxt e; rewrite_expr cxt ge; rewrite_pattern cxt pattern
   | Ugatestep (es, ug)        -> List.iter (rewrite_expr cxt) es; rewrite_expr cxt ug
 
 let rewrite_iostep cxt iostep = 
@@ -250,20 +251,24 @@ let rec unifytypes t1 t2 =
   in
   (* because of evaltype above, Unknowns must be ref None *)
   match t1.inst, t2.inst with
-  | Unknown (n1,r1) , Unknown (n2,r2)   -> if n1<>n2 then
-                                             (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
-                                              then r1:=Some t2 
-                                              else r2:=Some t1
-                                             )
-  | Unknown (n1,r1) , _                 -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
-  | _               , Unknown (n2,r2)   -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
-  | Tuple t1s       , Tuple t2s             
-  | Process t1s     , Process t2s       -> unifylists exn t1s t2s 
-  | Channel t1      , Channel t2        
-  | List t1         , List t2           -> (* (try *)unifytypes t1 t2(* with _ -> raise exn)*)
-  | Fun (t1a,t1b)   , Fun (t2a,t2b)     -> unifylists exn [t1a;t1b] [t2a;t2b]
-(*| Range (i,j)     , Range (m,n)       -> if m<=i && j<=n then () else raise exn *)
-  | _                                   -> if t1.inst=t2.inst then () else raise exn
+  | Unknown (n1,r1)     , Unknown (n2,r2)       -> if n1<>n2 then
+                                                     (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
+                                                      then r1:=Some t2 
+                                                      else r2:=Some t1
+                                                     )
+  | Unknown (n1,r1)     , OneOf (_,ts)          -> if List.for_all (canunifytype n1) ts then ut n1 r1 t2 else raise exn (* I think *)
+  | OneOf (_,ts)        , Unknown (n2,r2)       -> if List.for_all (canunifytype n2) ts then ut n2 r2 t1 else raise exn (* I think *)
+  | Unknown (n1,r1)     , _                     -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
+  | _                   , Unknown (n2,r2)       -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
+  | OneOf ((n1,r1),ts)  , _                     -> if List.mem t2 ts then ut n1 r1 t2 else raise exn (* I think *)
+  | _                   , OneOf ((n2,r2),ts)    -> if List.mem t1 ts then ut n2 r2 t1 else raise exn (* I think *)
+  | Tuple t1s           , Tuple t2s             
+  | Process t1s         , Process t2s           -> unifylists exn t1s t2s 
+  | Channel t1          , Channel t2        
+  | List t1             , List t2               -> (* (try *)unifytypes t1 t2(* with _ -> raise exn)*)
+  | Fun (t1a,t1b)       , Fun (t2a,t2b)         -> unifylists exn [t1a;t1b] [t2a;t2b]
+(*| Range (i,j)         , Range (m,n)           -> if m<=i && j<=n then () else raise exn *)
+  | _                                           -> if t1.inst=t2.inst then () else raise exn
 
 and unifypair (t1,t2) = unifytypes t1 t2
 
@@ -290,6 +295,11 @@ and canunifytype n t =
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
+      
+      (* try OneOf one at a time: they must all be ok *)
+      | _       , OneOf ((_, {contents=Some t'}), _) -> cu t'
+      | _       , OneOf (_, ts) -> List.for_all cu ts
+      
       (* everybody takes the basic ones *)
       | _       , Unit
       | _       , Num
@@ -299,7 +309,7 @@ and canunifytype n t =
       | _       , Bit 
       | _       , Basisv   
    (* | _       , Range   _ *)
-      | _       , Gate    _      -> true
+      | _       , Gate          -> true
      
       (* Unkall takes anything *)
       | UnkAll  , _             -> true
@@ -318,6 +328,7 @@ and canunifytype n t =
       | UnkEq   , Fun     _   
       | UnkEq   , Poly    _        (* Poly types are function types *)
       | UnkEq   , Process _     -> bad ""
+
       (* but Class does *)
       | UnkClass, Qstate      
       | UnkClass, Fun     _        (* check the classical free-variable condition later *)
@@ -342,6 +353,8 @@ and force_kind kind t =
     | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
                        then () 
                        else (let u' = new_Unknown t.pos kind in r:=Some u')
+    | OneOf ((n,{contents=Some t'}), _)  -> fk t'
+    | OneOf ((n,r),ts)                   -> List.iter fk ts
     | Tuple ts      -> List.iter fk ts
     | List t        -> fk t
     | Num
@@ -353,7 +366,7 @@ and force_kind kind t =
     | Basisv   
     | Known   _
  (* | Range   _ *)
-    | Gate    _       
+    | Gate           
     | Qbit            
     | Qstate          
     | Fun _           
@@ -396,14 +409,6 @@ and assigntype_pat contn cxt t p : unit =
       | PatChar _       -> unifytypes t (adorn p.pos Char); contn cxt
       | PatString _     -> unifytypes t (adorn p.pos String); contn cxt
       | PatBasisv _     -> unifytypes t (adorn p.pos Basisv); contn cxt
-      | PatGate pg      -> (match pg.inst with
-                            | PatH| PatF | PatG | PatI | PatX | PatY | PatZ 
-                                                    -> unifytypes t (adorn p.pos (Gate (1))); contn cxt
-                            | PatCnot               -> unifytypes t (adorn p.pos (Gate (2))); contn cxt
-                            | PatPhi p              -> let pt = adorn p.pos Num in
-                                                       unifytypes t (adorn p.pos (Gate(1)));
-                                                       assigntype_pat contn cxt pt p
-                           ) 
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
                            let lt = adorn p.pos (List vt) in
                            let cf cxt = 
@@ -508,7 +513,7 @@ and assigntype_expr cxt t e =
                                                         -> ()
                                          | UG_Phi e     -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Num) e
                                in
-                               unifytypes t (adorn_x e (Gate(arity_of_ugate ug)))
+                               unifytypes t (adorn_x e Gate)
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = new_Unknown e.pos UnkClass in
@@ -533,7 +538,11 @@ and assigntype_expr cxt t e =
                                let _ = typecheck_pats tc cxt et ems in
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,_,e2)     -> binary cxt (adorn_x e Num) (adorn_x e1 Num) (adorn_x e2 Num) e1 e2
+     | EArith (e1,op,e2)    -> let tnode = 
+                                 if op=Times then OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
+                                 else Num 
+                               in
+                               binary cxt (adorn_x e tnode) (adorn_x e1 tnode) (adorn_x e2 tnode) e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
                                        let t = new_Unknown e1.pos UnkEq in
@@ -732,14 +741,13 @@ and typecheck_process cxt p =
       typecheck_letspec (fun cxt -> typecheck_process cxt proc) cxt pat e
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, ges, pat) ->
+       | Measure (e, ge, pat) ->
            let _ = assigntype_expr cxt (adorn e.pos Qbit) e in
-           let _ = List.iter (fun ge -> assigntype_expr cxt (adorn ge.pos (Gate 1)) ge) ges in
+           let _ = assigntype_expr cxt (adorn ge.pos Gate) ge in
            assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt (adorn pat.pos Bit) pat
        | Ugatestep (es, uge) ->
            let _ = List.iter (fun e -> assigntype_expr cxt (adorn e.pos Qbit) e) es in
-           let arity = List.length es in
-           let _ = assigntype_expr cxt (adorn uge.pos (Gate(arity))) uge in
+           let _ = assigntype_expr cxt (adorn uge.pos Gate) uge in
            typecheck_process cxt proc
       )
   | GSum gs ->

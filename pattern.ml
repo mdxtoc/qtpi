@@ -47,24 +47,8 @@ and pnode =
   | PatChar of char
   | PatString of string
   | PatBasisv of basisv
-  | PatGate of gatepat
   | PatCons of pattern * pattern
   | PatTuple of pattern list
-
-and gatepat = gpnode instance
-
-and gpnode =
-  | PatH
-  | PatF
-  | PatG
-  | PatI
-  | PatX
-  | PatY
-  | PatZ
-  | PatCnot
-  | PatPhi of pattern 
-  
-let nGatepat = 8  (* for matchchecker *)
 
 let constprio = NonAssoc, 10
 let listprio  = Right   , 6
@@ -81,7 +65,6 @@ let patprio p =
   | PatBool     _
   | PatChar     _
   | PatBasisv   _
-  | PatGate     _
   | PatString   _   -> constprio
   | PatTuple    _   -> tupleprio
   | PatCons     _   -> listprio
@@ -114,25 +97,12 @@ let rec string_of_pattern p =
     | PatChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
     | PatString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
     | PatBasisv bv      -> string_of_basisv bv
-    | PatGate   g       -> string_of_gatepat g
   and spb mb p =
     let s = sp p in
     if mb (patprio p) then "(" ^ s ^ ")" else s
   in 
   sp p
 
-and string_of_gatepat g =
-  match g.inst with 
-  | PatH        -> "_H"
-  | PatF        -> "_F"
-  | PatG        -> "_G"
-  | PatI        -> "_I"
-  | PatX        -> "_X"
-  | PatY        -> "_Y"
-  | PatZ        -> "_Z"
-  | PatCnot     -> "_Cnot"
-  | PatPhi p    -> Printf.sprintf "_Phi(%s)" (string_of_pattern p)
-  
 let string_of_fparam pat =
   let {pnode=pn; ptype=tor} = pat.inst in
   match pn, !tor with
@@ -168,8 +138,7 @@ let names_of_pattern =
     | PatBool   _
     | PatChar   _
     | PatString _
-    | PatBasisv _
-    | PatGate   _       -> set
+    | PatBasisv _       -> set
     | PatName   n       -> NameSet.add n set 
     | PatCons   (ph,pt) -> nps (nps set ph) pt
     | PatTuple  ps      -> List.fold_left nps set ps

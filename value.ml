@@ -21,13 +21,50 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
 open Listutils
+open Functionutils
 open Basisv
 open Number
 open Name
 open Process
 open Pattern
 
+exception Disaster of string
+
+let vsize = Array.length
+let msize = Array.length
+
+let _for i inc n f = (* n is size, so up to n-1 *)
+  let rec rf i =
+    if i<n then (f i; rf (i+inc)) (* else skip *)
+  in
+  rf i
+  
+let _for_leftfold i inc n f v =
+  let rec ff i v =
+    if i<n then ff (i+inc) (f i v) else v
+  in
+  ff i v
+
+let rec _for_rightfold i inc n f v =
+  let rec ff i v =
+    if i<n then f i (ff (i+inc) v) else v
+  in
+  ff i v
+
+let _for_all i inc n f = 
+  let rec ff i =
+    if i<n then f i && ff (i+inc) else true
+  in
+  ff i 
+  
+let _for_exists i inc n f v = 
+  let rec ff i =
+    if i<n then f i || ff (i+inc) else false
+  in
+  ff i 
+  
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
 
@@ -42,7 +79,7 @@ type value =
   | VBool of bool
   | VChar of char
   | VBasisv of basisv
-  | VGate of ugv
+  | VGate of gate
   | VString of string
   | VQbit of qbit
   | VQstate of string
@@ -51,6 +88,33 @@ type value =
   | VList of value list
   | VFun of (value -> value)        (* with the environment baked in for closures *)
   | VProcess of name list * process
+
+(* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
+   f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
+   g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
+   i = sqrt -1; will be useful if we ever go complex. For now commented out.
+   
+   Note h^2=1/2; 
+        f^2=h^2+h^3;
+        g^2=h^2-h^3;
+        fg = 1/2h = h^3  
+ *)
+and prob = 
+  | P_0
+  | P_1
+  | P_f              
+  | P_g 
+  | P_h of int              
+  | Psymb of qbit * bool    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
+  | Pneg of prob
+  | Pprod of prob list      (* associative *)
+  | Psum of prob list       (* associative *)
+
+and cprob = C of prob*prob (* complex prob A + iB *)
+
+and probvec = cprob array
+
+and gate = cprob array array
 
 and ugv =
   | GateH
@@ -83,6 +147,60 @@ and wwaiter = name * value * process * env
 
 and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
 
+(* *********************** defining vectors, matrices ************************************ *)
+
+let make_v = Array.of_list
+
+let c_of_p p = C (p, P_0)
+
+let c_0 = c_of_p P_0
+let c_1 = c_of_p P_1
+let c_h = c_of_p (P_h 1)
+let c_f = c_of_p P_f
+let c_g = c_of_p P_g
+
+let c_i = C (P_0, P_1)
+
+let pcneg  (C (x,y)) = C (Pneg x, Pneg y) (* only for local use, please *)
+
+let v_0     = make_v [c_1   ; c_0         ]
+let v_1     = make_v [c_0   ; c_1         ]
+let v_plus  = make_v [c_h   ; c_h         ]
+let v_minus = make_v [c_h   ; pcneg c_h   ]
+
+let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+
+let m_I  = make_ug  [[c_1       ; c_0        ];
+                     [c_0       ; c_1        ]] 
+let m_X  = make_ug  [[c_0       ; c_1        ];
+                     [c_1       ; c_0        ]] 
+let m_Y  = make_ug  [[c_0       ; pcneg c_i  ];
+                     [c_i       ; c_0        ]]
+let m_Z  = make_ug  [[c_1       ; c_0        ];
+                     [c_0       ; pcneg c_1  ]] 
+let m_H  = make_ug  [[c_h       ; c_h        ];
+                     [c_h       ; pcneg (c_h)]]
+let m_F  = make_ug  [[c_f       ; c_g        ];
+                     [c_g       ; pcneg c_f  ]]
+let m_G  = make_ug  [[c_g       ; c_f        ];
+                     [c_f       ; pcneg c_g  ]]
+
+let m_Phi = function (* as Pauli *)
+  | 0 -> m_I
+  | 1 -> m_X
+  | 2 -> m_Y  
+  | 3 -> m_Z  
+  | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
+
+let m_Cnot = make_ug [[c_1; c_0; c_0; c_0];
+                      [c_0; c_1; c_0; c_0];
+                      [c_0; c_0; c_0; c_1];
+                      [c_0; c_0; c_1; c_0]]
+                     
+let m_1 = make_ug [[c_1]] (* a unit for folding *)
+let m_0 = make_ug [[c_0]] (* another unit for folding *)
+
+(* string_of_ functions *)
 let string_of_pqueue stringof sep pq = 
   "{" ^ string_of_list stringof sep (PQueue.elements pq) ^ "}"
 ;;
@@ -98,7 +216,7 @@ let rec so_value optf v =
                | VNum n          -> string_of_num n
                | VBool b         -> string_of_bool b
                | VBasisv bv      -> string_of_basisv bv
-               | VGate ugv       -> string_of_ugv ugv
+               | VGate gate      -> string_of_gate gate
                | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
                | VQbit q         -> "Qbit " ^ string_of_qbit q
@@ -199,6 +317,123 @@ and string_of_ugv = function
 and string_of_qbit = string_of_int
 
 and short_string_of_qbit = string_of_int
+
+and string_of_prob p = 
+  (* Everything is associative, but the normal form is sum of negated products.
+   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
+   *)
+  let prio = function
+    | P_0
+    | P_1
+    | P_f  
+    | P_g 
+    | P_h  _ 
+    | Psymb _         -> 10
+    | Pprod _         -> 8
+    | Pneg  _         -> 6
+    | Psum  _         -> 4
+  in
+  let possbra p' = 
+    let supprio = prio p in
+    let subprio = prio p' in
+    let s = string_of_prob p' in
+    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
+  in
+  match p with
+  | P_0             -> "0"
+  | P_1             -> "1"
+  | P_f             -> "f"
+  | P_g             -> "g"
+  | P_h 1           -> "h"
+  | P_h n           -> Printf.sprintf "h(%d)" n
+  | Psymb (q,b)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
+  | Pneg p'         -> "-" ^ possbra p'
+  | Pprod ps        -> String.concat "*" (List.map possbra ps)
+  | Psum  ps        -> sum_separate (List.map possbra ps)    
+
+and sum_separate = function
+ | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
+                 else p1 ^ "+" ^ sum_separate (p2::ps) 
+ | [p]        -> p
+ | []         -> raise (Can'tHappen "sum_separate []")
+
+and string_of_cprob (C (x,y)) =
+  let im y = 
+    match y with
+    | P_1     -> "i"
+    | P_f  
+    | P_g 
+    | P_h   _ 
+    | Psymb _ 
+    | Pprod _ -> "i*" ^ string_of_prob y
+    | _       -> "i*(" ^ string_of_prob y ^ ")"
+  in
+  match x,y with
+  | P_0, P_0    -> "0"
+  | _  , P_0    -> string_of_prob x
+  | P_0, Pneg p -> "-" ^ im p
+  | P_0, _      -> im y
+  | _  , Pneg p -> string_of_prob x ^ "-" ^ im p
+  | _  , _      -> string_of_prob x ^ "+" ^ im y
+  
+and string_of_probvec v =
+  if !Settings.fancyvec then 
+    (let n = vsize v in
+     let rec ln2 n r = if n=1 then r
+                       else ln2 (n lsr 1) (r+1)
+     in
+     let width = ln2 n 0 in
+     let string_of_bin i =
+       let rec sb i k =
+         if k=width then ""
+         else sb (i/2) (k+1) ^ (if i mod 2 = 0 then "0" else "1")
+       in
+       sb i 0
+     in
+     let string_of_basis_idx i =
+       Printf.sprintf "|%s>" (string_of_bin i)
+     in
+     let estrings = _for_leftfold 0 1 n
+                      (fun i ss -> match string_of_cprob v.(i) with
+                                   | "0"  -> ss
+                                   | "1"  -> (string_of_basis_idx i) :: ss
+                                   | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
+                                   | s   ->  (Printf.sprintf "%s%s" 
+                                                             s 
+                                                             (string_of_basis_idx i)
+                                             ) :: ss
+                      )
+                      []
+     in
+     match estrings with
+     | []  -> "??empty probvec??"
+     | [e] -> e
+     | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
+    )
+  else
+    (let estrings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
+     Printf.sprintf "(%s)" (String.concat " <,> " estrings)
+    )
+  
+and string_of_matrix m =
+  let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
+  let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
+  let rwidth r = List.fold_left max 0 (List.map String.length r) in
+  let width = List.fold_left max 0 (List.map rwidth block) in
+  let pad s = s ^ String.make (width - String.length s) ' ' in
+  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
+  Printf.sprintf "\n{%s}" block
+  
+and string_of_gate g = 
+  if g=m_I then "_I" else
+  if g=m_X then "_X" else
+  if g=m_Y then "_Y" else
+  if g=m_Z then "_Z" else
+  if g=m_H then "_H" else
+  if g=m_F then "_F" else
+  if g=m_G then "_G" else
+  if g=m_Cnot then "_Cnot" else
+  string_of_matrix g
 
 (* ********************************************************************************************************** *)
 

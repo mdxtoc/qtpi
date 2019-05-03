@@ -28,176 +28,13 @@ open Functionutils
 open Optionutils
 open Tupleutils
 open Value (* for ugv and qbit *)
+open Number (* for num *)
 
 exception Error of string
 
-(* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
-   f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
-   g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
-   i = sqrt -1; will be useful if we ever go complex. For now commented out.
-   
-   Note h^2=1/2; 
-        f^2=h^2+h^3;
-        g^2=h^2-h^3;
-        fg = 1/2h = h^3  
- *)
-type prob = 
-  | P_0
-  | P_1
-  | P_f              
-  | P_g 
-  | P_h of int              
-  | Psymb of qbit * bool    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
-  | Pneg of prob
-  | Pprod of prob list      (* associative *)
-  | Psum of prob list       (* associative *)
-
-type cprob = C of prob*prob (* complex prob A + iB *)
-
-type probvec = cprob array
-
 type qval = qbit list * probvec (* with n qbits, 2^n probs in the array *)
 
-let rec sum_separate = function
- | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
-                 else p1 ^ "+" ^ sum_separate (p2::ps) 
- | [p]        -> p
- | []         -> raise (Can'tHappen "sum_separate []")
-
-let rec string_of_prob p = 
-  (* Everything is associative, but the normal form is sum of negated products.
-   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
-   *)
-  let prio = function
-    | P_0
-    | P_1
-    | P_f  
-    | P_g 
-    | P_h  _ 
-    | Psymb _         -> 10
-    | Pprod _         -> 8
-    | Pneg  _         -> 6
-    | Psum  _         -> 4
-  in
-  let possbra p' = 
-    let supprio = prio p in
-    let subprio = prio p' in
-    let s = string_of_prob p' in
-    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
-  in
-  match p with
-  | P_0             -> "0"
-  | P_1             -> "1"
-  | P_f             -> "f"
-  | P_g             -> "g"
-  | P_h 1           -> "h"
-  | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
-  | Pneg p'         -> "-" ^ possbra p'
-  | Pprod ps        -> String.concat "*" (List.map possbra ps)
-  | Psum  ps        -> sum_separate (List.map possbra ps)    
-
-let string_of_cprob (C (x,y)) =
-  let im y = 
-    match y with
-    | P_1     -> "i"
-    | P_f  
-    | P_g 
-    | P_h   _ 
-    | Psymb _ 
-    | Pprod _ -> "i*" ^ string_of_prob y
-    | _       -> "i*(" ^ string_of_prob y ^ ")"
-  in
-  match x,y with
-  | P_0, P_0    -> "0"
-  | _  , P_0    -> string_of_prob x
-  | P_0, Pneg p -> "-" ^ im p
-  | P_0, _      -> im y
-  | _  , Pneg p -> string_of_prob x ^ "-" ^ im p
-  | _  , _      -> string_of_prob x ^ "+" ^ im y
-  
-let vsize = Array.length
-let msize = Array.length
-
-let _for i inc n f = (* n is size, so up to n-1 *)
-  let rec rf i =
-    if i<n then (f i; rf (i+inc)) (* else skip *)
-  in
-  rf i
-  
-let _for_leftfold i inc n f v =
-  let rec ff i v =
-    if i<n then ff (i+inc) (f i v) else v
-  in
-  ff i v
-
-let rec _for_rightfold i inc n f v =
-  let rec ff i v =
-    if i<n then f i (ff (i+inc) v) else v
-  in
-  ff i v
-
-let _for_all i inc n f = 
-  let rec ff i =
-    if i<n then f i && ff (i+inc) else true
-  in
-  ff i 
-  
-let _for_exists i inc n f v = 
-  let rec ff i =
-    if i<n then f i || ff (i+inc) else false
-  in
-  ff i 
-  
-let rec string_of_probvec v =
-  if !Settings.fancyvec then 
-    (let n = vsize v in
-     let rec ln2 n r = if n=1 then r
-                       else ln2 (n lsr 1) (r+1)
-     in
-     let width = ln2 n 0 in
-     let string_of_bin i =
-       let rec sb i k =
-         if k=width then ""
-         else sb (i/2) (k+1) ^ (if i mod 2 = 0 then "0" else "1")
-       in
-       sb i 0
-     in
-     let string_of_basis_idx i =
-       Printf.sprintf "|%s>" (string_of_bin i)
-     in
-     let estrings = _for_leftfold 0 1 n
-                      (fun i ss -> match string_of_cprob v.(i) with
-                                   | "0"  -> ss
-                                   | "1"  -> (string_of_basis_idx i) :: ss
-                                   | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
-                                   | s   ->  (Printf.sprintf "%s%s" 
-                                                             s 
-                                                             (string_of_basis_idx i)
-                                             ) :: ss
-                      )
-                      []
-     in
-     match estrings with
-     | []  -> "??empty probvec??"
-     | [e] -> e
-     | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
-    )
-  else
-    (let estrings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
-     Printf.sprintf "(%s)" (String.concat " <,> " estrings)
-    )
-  
-and string_of_matrix m =
-  let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
-  let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
-  let rwidth r = List.fold_left max 0 (List.map String.length r) in
-  let width = List.fold_left max 0 (List.map rwidth block) in
-  let pad s = s ^ String.make (width - String.length s) ' ' in
-  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
-  Printf.sprintf "\n{%s}" block
-  
-and string_of_qval (qs,v) =
+let string_of_qval (qs,v) =
   match qs with
   | [_] -> string_of_probvec v
   | _   -> Printf.sprintf "[%s]%s"
@@ -480,58 +317,6 @@ let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
 
 let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
 let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
-
-(* *********************** defining vectors, matrices ************************************ *)
-
-let make_v = Array.of_list
-
-let c_of_p p = C (p, P_0)
-
-let c_0 = c_of_p P_0
-let c_1 = c_of_p P_1
-let c_h = c_of_p (P_h 1)
-let c_f = c_of_p P_f
-let c_g = c_of_p P_g
-
-let c_i = C (P_0, P_1)
-
-let v_0     = make_v [c_1   ; c_0         ]
-let v_1     = make_v [c_0   ; c_1         ]
-let v_plus  = make_v [c_h   ; c_h         ]
-let v_minus = make_v [c_h   ; cneg c_h    ]
-
-let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
-
-let m_I  = make_ug  [[c_1       ; c_0        ];
-                     [c_0       ; c_1        ]] 
-let m_X  = make_ug  [[c_0       ; c_1        ];
-                     [c_1       ; c_0        ]] 
-let m_Y  = make_ug  [[c_0       ; cneg c_i   ];
-                     [c_i       ; c_0        ]]
-let m_Z  = make_ug  [[c_1       ; c_0        ];
-                     [c_0       ; cneg c_1   ]] 
-let m_H  = make_ug  [[c_h        ; c_h       ];
-                     [c_h        ; cneg (c_h)]]
-let m_F  = make_ug  [[c_f        ; c_g       ];
-                     [c_g        ; cneg c_f  ]]
-let m_G  = make_ug  [[c_g        ; c_f       ];
-                     [c_f        ; cneg c_g  ]]
-
-
-let m_Phi = function (* as Pauli *)
-  | 0 -> m_I
-  | 1 -> m_X
-  | 2 -> m_Y  
-  | 3 -> m_Z  
-  | i -> raise (Error ("** Disaster: _Phi(" ^ string_of_int i ^ ")"))
-
-let m_Cnot = make_ug [[c_1; c_0; c_0; c_0];
-                      [c_0; c_1; c_0; c_0];
-                      [c_0; c_0; c_0; c_1];
-                      [c_0; c_0; c_1; c_0]]
-                     
-let m_1 = make_ug [[c_1]] (* a unit for folding *)
-let m_0 = make_ug [[c_0]] (* another unit for folding *)
 
 (* from here on down, I just assume (hope) that we are working with square matrices *)
 (* maybe later that typechecking trick ... *)
@@ -853,11 +638,11 @@ let qval_combine q1 q2 =
   let qs',v' = if qv1=qv2 then q1s,v1 else q1s @ q2s, tensor_vv v1 v2 in
   qs',v'
   
-let ugstep pn qs ugv = 
+let ugstep pn qs g = 
   let id_string () = Printf.sprintf (if List.length qs = 1 then "%s ugstep %s >> %s" else "%s ugstep [%s] >> %s")
                                     (Name.string_of_name pn)
                                     (string_of_list string_of_qbit ";" qs)
-                                    (string_of_ugv ugv)
+                                    (string_of_gate g)
   in
   (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
 
@@ -894,17 +679,13 @@ let ugstep pn qs ugv =
                     (string_of_qval qv);
     record qv
   in
-  match qs, ugv with
-  | [q]    , GateH       
-  | [q]    , GateI      
-  | [q]    , GateX      
-  | [q]    , GateY      
-  | [q]    , GateZ      
-  | [q]    , GatePhi _  -> ugstep_1 id_string q (qval q) (matrix_of_ugv ugv) m_I
-  | [q1;q2], GateCnot   -> doit_Cnot q1 q2 
-  | _                   -> raise (Error (Printf.sprintf "** Disaster: ugstep [%s] %s"
+  match qs, msize g with
+  | [q]    , 2       -> ugstep_1 id_string q (qval q) g m_I
+  | [q1;q2], 4 
+      when g=m_Cnot -> doit_Cnot q1 q2 
+  | _                -> raise (Error (Printf.sprintf "** Disaster: ugstep [%s] %s"
                                                         (string_of_list string_of_qbit ";" qs)
-                                                        (string_of_ugv ugv)
+                                                        (string_of_gate g)
                                         )
                                  )
 
@@ -933,132 +714,126 @@ let rec compute = function
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
 
-let rec qmeasure disposes pn ugvs q = 
-  match List.filter (fun ugv -> ugv<>GateI) ugvs with
-  | []          -> (* computational measure *)
-      let qs, v = qval q in
-      let nv = vsize v in
-      let imask = ibit q qs in
-      let prob = 
-        _for_leftfold 0 1 nv (fun i p -> if i land imask<>0 then 
-                                           rsum (absq v.(i)) p 
-                                         else p
-                             ) 
-                             P_0 
-      in
-      if !verbose || !verbose_qsim then 
-        Printf.printf "%s qmeasure [] %s; %s|->%s; prob |1> = %s;"
-                      (Name.string_of_name pn)
-                      (string_of_qbit q)
-                      (string_of_qbit q)
-                      (string_of_qval (qval q))
-                      (string_of_prob prob);
-      let guess () =
-        let r = if Random.bool () then 0 else 1 in
-        if !verbose || !verbose_qsim then Printf.printf " guessing %d;" r;
-        r  
-      in
-      let r = try let v = compute prob in
-                  if v=1.0 then 1 else
-                  let rg = Random.float 1.0 in
-                  let r = if v>rg then 1 else 0 in
-                  if !verbose || !verbose_qsim then Printf.printf " test %f>%f: choosing %d;" v rg r;
-                  r
-              with Compute -> guess ()
-      in
-      (* set the relevant probs to zero, normalise *)
-      _for 0 1 nv (fun i -> if (r=1 && i land imask=0) || (r=0 && i land imask<>0)
-                            then v.(i) <- c_0 (* else skip *)
-                  );
-      let modulus = _for_leftfold 0 1 nv (fun i p -> rsum (absq v.(i)) p) P_0 in
-      if !verbose_qcalc then 
-        Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
-      (match modulus with
-       | P_1                -> ()
-       | P_h k  when k mod 2 = 0 
-                            -> let n = k/2 in
-                               (* multiply by 2**(n/2) *)
-                               _for 0 1 (n/2) (fun _ -> _for 0 1 nv (fun i -> v.(i) <- csum v.(i) v.(i)));
-                               (* and then by 1/h if n is odd *)
-                               if n mod 2 = 1 then
-                                 _for 0 1 nv (fun i -> v.(i) <- c_r_div_h v.(i))
-       | Pprod [p1;p2] when p1=p2 
-                            -> _for 0 1 nv (fun i -> v.(i) <- c_r_div v.(i) p1)
-       (* at this point it _could_ be necessary to guess roots of squares. 
-        * Or maybe a better solution is required ...
-        *)
-       | _                  -> 
-           (* is there just one possibility? If so, set it to P_1. *)
-           let nzs = List.map (fun p -> if p<>c_0 then 1 else 0) (Array.to_list v) in
-           if List.fold_left (+) 0 nzs = 1 then
-             _for 0 1 nv (fun i -> if v.(i)<>c_0 then v.(i)<-c_1)
-           else
-             (if !verbose || !verbose_qsim then
-                Printf.printf " oh dear!\n"; 
-              raise (Error (Printf.sprintf "can't guess sqrt(%s)" 
-                                           (string_of_prob modulus)
-                           )
+let rec qmeasure disposes pn gate q = 
+  if gate = m_I then (* computational measure *)
+    (let qs, v = qval q in
+     let nv = vsize v in
+     let imask = ibit q qs in
+     let prob = 
+       _for_leftfold 0 1 nv (fun i p -> if i land imask<>0 then 
+                                          rsum (absq v.(i)) p 
+                                        else p
+                            ) 
+                            P_0 
+     in
+     if !verbose || !verbose_qsim then 
+       Printf.printf "%s qmeasure [] %s; %s|->%s; prob |1> = %s;"
+                     (Name.string_of_name pn)
+                     (string_of_qbit q)
+                     (string_of_qbit q)
+                     (string_of_qval (qval q))
+                     (string_of_prob prob);
+     let guess () =
+       let r = if Random.bool () then 0 else 1 in
+       if !verbose || !verbose_qsim then Printf.printf " guessing %d;" r;
+       r  
+     in
+     let r = try let v = compute prob in
+                 if v=1.0 then 1 else
+                 let rg = Random.float 1.0 in
+                 let r = if v>rg then 1 else 0 in
+                 if !verbose || !verbose_qsim then Printf.printf " test %f>%f: choosing %d;" v rg r;
+                 r
+             with Compute -> guess ()
+     in
+     (* set the relevant probs to zero, normalise *)
+     _for 0 1 nv (fun i -> if (r=1 && i land imask=0) || (r=0 && i land imask<>0)
+                           then v.(i) <- c_0 (* else skip *)
+                 );
+     let modulus = _for_leftfold 0 1 nv (fun i p -> rsum (absq v.(i)) p) P_0 in
+     if !verbose_qcalc then 
+       Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
+     (match modulus with
+      | P_1                -> ()
+      | P_h k  when k mod 2 = 0 
+                           -> let n = k/2 in
+                              (* multiply by 2**(n/2) *)
+                              _for 0 1 (n/2) (fun _ -> _for 0 1 nv (fun i -> v.(i) <- csum v.(i) v.(i)));
+                              (* and then by 1/h if n is odd *)
+                              if n mod 2 = 1 then
+                                _for 0 1 nv (fun i -> v.(i) <- c_r_div_h v.(i))
+      | Pprod [p1;p2] when p1=p2 
+                           -> _for 0 1 nv (fun i -> v.(i) <- c_r_div v.(i) p1)
+      (* at this point it _could_ be necessary to guess roots of squares. 
+       * Or maybe a better solution is required ...
+       *)
+      | _                  -> 
+          (* is there just one possibility? If so, set it to P_1. *)
+          let nzs = List.map (fun p -> if p<>c_0 then 1 else 0) (Array.to_list v) in
+          if List.fold_left (+) 0 nzs = 1 then
+            _for 0 1 nv (fun i -> if v.(i)<>c_0 then v.(i)<-c_1)
+          else
+            (if !verbose || !verbose_qsim then
+               Printf.printf " oh dear!\n"; 
+             raise (Error (Printf.sprintf "can't guess sqrt(%s)" 
+                                          (string_of_prob modulus)
+                          )
+                   )
+            ) 
+     );
+     let qv = qs, v in
+     if !verbose || !verbose_qsim then 
+       Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
+     if q=List.hd qs then record qv
+     else (let nqs = List.length qs in
+           let iq = idx q qs in
+           let i0 = ibit (List.hd qs) qs in
+           let lmask = (mask iq) lsl (nqs-iq) in
+           let rmask = mask (nqs-iq-1) in
+           if !verbose || !verbose_qsim then Printf.printf "iq %d i0 %d lmask %d rmask %d\n" iq i0 lmask rmask;
+           let v' = Array.copy v in
+           for i=0 to nv-1 do
+             let j = ((i land lmask) lsr 1) lor (i land rmask) lor (if i land imask<>0 then i0 else 0) in
+             if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
+             v'.(j) <- v.(i)
+           done;
+           let ne q' = q<>q' in
+           let qs' = q :: (takewhile ne qs @ List.tl (dropwhile ne qs)) in
+           let qv' = qs',v' in
+           if !verbose || !verbose_qsim then Printf.printf "%s => %s\n" (string_of_qval qv) (string_of_qval qv');
+           record qv'
+          );
+     if disposes then disposeqbit pn q;
+     r
+    )
+  else (* in gate-defined basis *)
+    (if msize gate <> 2 then 
+       raise (Error (Printf.sprintf "** Disaster: (arity) qmeasure %s %s %s"
+                                    pn
+                                    (string_of_gate gate)
+                                    (string_of_qbit q)
                     )
-             ) 
-      );
-      let qv = qs, v in
-      if !verbose || !verbose_qsim then 
-        Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
-      if q=List.hd qs then record qv
-      else (let nqs = List.length qs in
-            let iq = idx q qs in
-            let i0 = ibit (List.hd qs) qs in
-            let lmask = (mask iq) lsl (nqs-iq) in
-            let rmask = mask (nqs-iq-1) in
-            if !verbose || !verbose_qsim then Printf.printf "iq %d i0 %d lmask %d rmask %d\n" iq i0 lmask rmask;
-            let v' = Array.copy v in
-            for i=0 to nv-1 do
-              let j = ((i land lmask) lsr 1) lor (i land rmask) lor (if i land imask<>0 then i0 else 0) in
-              if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
-              v'.(j) <- v.(i)
-            done;
-            let ne q' = q<>q' in
-            let qs' = q :: (takewhile ne qs @ List.tl (dropwhile ne qs)) in
-            let qv' = qs',v' in
-            if !verbose || !verbose_qsim then Printf.printf "%s => %s\n" (string_of_qval qv) (string_of_qval qv');
-            record qv'
-           );
-      if disposes then disposeqbit pn q;
-      r
-  | _ -> (* in gate-defined basis *)
-      if List.exists (fun ugv -> arity_of_ugv ugv <> 1) ugvs then 
-        raise (Error (Printf.sprintf "** Disaster: (arity) qmeasure %s %s %s"
-                                     pn
-                                     (bracketed_string_of_list string_of_ugv ugvs)
-                                     (string_of_qbit q)
-                     )
-              );
-      let gs = List.map matrix_of_ugv ugvs in
-      let gate = match gs with 
-                 | [g]   -> g
-                 | g::gs -> List.fold_left mult_mm g gs
-                 | []    -> m_I (* shut up compiler -- can't happen *)
-      in
-      let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
-      let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? %s (%s)"
-                                             (Name.string_of_name pn)
-                                             (string_of_qbit q)
-                                             (bracketed_string_of_list string_of_ugv ugvs)
-                                             (string_of_matrix gate)
-      in
-      let qv = qval q in
-      (* first of all rotate with gate' *)
-      ugstep_1 (id_string gate') q qv gate' gate'; 
-      let bit = qmeasure disposes pn [] q in
-      (* that _must_ have broken any entanglement: rotate the parts back separately *)
-      let rec rotate qs =
-        match qs with
-        | []    -> () (* done it *)
-        | q::qs -> let qqs, qqv = qval q in
-                   ugstep_1 (id_string gate) q (qqs,qqv) gate gate;
-                   rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
-      in
-      rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
-      (* rotate q as well, if it wasn't disposed *)
-      if not disposes then ugstep_1 (id_string gate) q (qval q) gate gate;
-      bit
+             );
+     let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
+     let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? [%s]"
+                                            (Name.string_of_name pn)
+                                            (string_of_qbit q)
+                                            (string_of_gate gate)
+     in
+     let qv = qval q in
+     (* first of all rotate with gate' *)
+     ugstep_1 (id_string gate') q qv gate' gate'; 
+     let bit = qmeasure disposes pn m_I q in
+     (* that _must_ have broken any entanglement: rotate the parts back separately *)
+     let rec rotate qs =
+       match qs with
+       | []    -> () (* done it *)
+       | q::qs -> let qqs, qqv = qval q in
+                  ugstep_1 (id_string gate) q (qqs,qqv) gate gate;
+                  rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
+     in
+     rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
+     (* rotate q as well, if it wasn't disposed *)
+     if not disposes then ugstep_1 (id_string gate) q (qval q) gate gate;
+     bit
+    )

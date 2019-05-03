@@ -382,3 +382,11 @@ let frees = frees_fun (fun nset s -> NameSet.diff s nset)
                       (fun n _ s -> NameSet.add n s)
                       NameSet.union
                       NameSet.empty
+
+let is_UG_I e =
+  match e.inst.enode with
+  | EGate g -> (match g.inst with 
+                | UG_I -> true
+                | _    -> false
+               )
+  | _       -> false

@@ -40,9 +40,17 @@ and tnode =
   | Qbit
   | Qstate
   | Basisv
-  | Gate    of int              (* arity *)
+  | Gate                            (* arity is no longer a static property, because of multiplication *)
   | Unknown of unknown          
-  | Known   of name             (* knowns start with '\'', which doesn't appear in parseable names *)
+  | Known   of name                 (* knowns start with '\'', which doesn't appear in parseable names *)
+  | OneOf   of unknown * _type list (* constrained unknown, for overloading *)
+                                    (* and the typechecker won't work unless those are straightforward types:
+                                       no unknowns, no OneOfs.
+                                     *)
+                                    (* at the moment OneOf is used for Num and Gate.
+                                       This simpifies the treatment in typecheck and resource. If it gets
+                                       used more, I shall have to think again.
+                                     *)
   | Poly    of name list * _type
 (*| Range   of int * int *)
   | List    of _type
@@ -71,9 +79,10 @@ let typeprio t =
   | Qbit
   | Qstate
   | Basisv
-  | Gate    _
+  | Gate     
   | Unknown _ 
   | Known   _ 
+  | OneOf   _
 (*| Range   _ *) 
   | Poly    _       -> primaryprio
   | List    _       -> listprio
@@ -105,9 +114,10 @@ and string_of_tnode = function
   | Qbit             -> "qbit"
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"
-  | Gate    i        -> Printf.sprintf "gate(%d)" i
+  | Gate             -> "gate"
   | Unknown u        -> (*"Unknown " ^*) string_of_unknown u
   | Known   n        -> (*"Known " ^*) string_of_name n
+  | OneOf   (u,ts)   -> (*"OneOf "^*) string_of_unknown u ^ "<" ^ bracketed_string_of_list string_of_type ts
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
@@ -148,11 +158,12 @@ let rec freetvs t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate    _       -> s
+    | Gate            -> s
     | Unknown (_, {contents=Some t'})    
                       -> _freetvs s t'      
     | Unknown (n, _)  -> NameSet.add n s      
     | Known   n       -> NameSet.add n s 
+    | OneOf   ((n, _), _)  -> NameSet.add n s
     | Poly    (ns,t)  -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
     | Channel t   
     | List    t       -> _freetvs s t  
@@ -178,11 +189,12 @@ let freeunknowns t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate    _       -> s
+    | Gate           -> s
     | Unknown (_, {contents=Some t'})    
                       -> _freeuks s t'      
     | Unknown u       -> UnknownSet.add u s      
     | Known   n       -> s 
+    | OneOf   (u, _) -> UnknownSet.add u s
     | Poly    (ns,t)  -> raise (Invalid_argument ("freeunknowns " ^ string_of_type t))
     | Channel t   
     | List    t       -> _freeuks s t  
@@ -191,7 +203,6 @@ let freeunknowns t =
     | Fun     (t1,t2) -> _freeuks (_freeuks s t1) t2
   in
   _freeuks UnknownSet.empty t
-
 
 type unknownkind = 
   | UnkAll       (* anything *)
@@ -285,12 +296,13 @@ let generalise t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate    _         -> t
+    | Gate              -> t
     | Unknown (n, {contents=Some t'})  
                         -> replace (unknown_to_known t').inst  
     | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
                            replace (Known n')
     | Known   _         -> t
+    | OneOf   _         -> t (* I think *)
     | Poly    _         -> raise (Invalid_argument ("Type.generalise " ^ string_of_type t))
     | List    t         -> replace (List (unknown_to_known t))  
     | Channel t         -> replace (Channel (unknown_to_known t))
@@ -317,10 +329,11 @@ let instantiate t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate    _       -> t
+    | Gate            -> t
     | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
     | Unknown _       
     | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
+    | OneOf   _       -> t (* I think *)
     | List    t       -> replace (List (rename assoc t))   
     | Channel t       -> replace (Channel (rename assoc t))
     | Process ts      -> replace (Process (List.map (rename assoc) ts))

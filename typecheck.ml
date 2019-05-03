@@ -260,8 +260,13 @@ let rec unifytypes t1 t2 =
   | OneOf (_,ts)        , Unknown (n2,r2)       -> if List.for_all (canunifytype n2) ts then ut n2 r2 t1 else raise exn (* I think *)
   | Unknown (n1,r1)     , _                     -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _                   , Unknown (n2,r2)       -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
-  | OneOf ((n1,r1),ts)  , _                     -> if List.mem t2 ts then ut n1 r1 t2 else raise exn (* I think *)
-  | _                   , OneOf ((n2,r2),ts)    -> if List.mem t1 ts then ut n2 r2 t1 else raise exn (* I think *)
+  | OneOf ((n1,r1),t1s)  , OneOf ((n2,r2),t2s)  -> if List.for_all (fun t2 -> List.exists (fun t1 -> t1.inst=t2.inst) t1s) t2s
+                                                    then ut n1 r1 t2 else 
+                                                   if List.for_all (fun t1 -> List.exists (fun t2 -> t1.inst=t2.inst) t2s) t1s
+                                                    then ut n2 r2 t1 else 
+                                                   raise exn 
+  | OneOf ((n1,r1),t1s)  , _                    -> if List.exists (fun t1 -> t1.inst=t2.inst) t1s then ut n1 r1 t2 else raise exn
+  | _                   , OneOf ((n2,r2),t2s)   -> if List.exists (fun t2 -> t1.inst=t2.inst) t2s then ut n2 r2 t1 else raise exn
   | Tuple t1s           , Tuple t2s             
   | Process t1s         , Process t2s           -> unifylists exn t1s t2s 
   | Channel t1          , Channel t2        
@@ -298,7 +303,7 @@ and canunifytype n t =
       
       (* try OneOf one at a time: they must all be ok *)
       | _       , OneOf ((_, {contents=Some t'}), _) -> cu t'
-      | _       , OneOf (_, ts) -> List.for_all cu ts
+      | _       , OneOf ((n',_), ts) -> n<>n' && List.for_all cu ts
       
       (* everybody takes the basic ones *)
       | _       , Unit

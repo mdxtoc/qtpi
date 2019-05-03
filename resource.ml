@@ -78,7 +78,7 @@ let rec is_resource_type t =
   | String
   | Bit 
   | Basisv
-  | Gate    _       -> false
+  | Gate            -> false
   | Qstate          -> false    (* really *)
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    
@@ -89,6 +89,8 @@ let rec is_resource_type t =
                     -> let k = kind_of_unknown n in
                        k=UnkAll || k=UnkComm
   | Poly    (ns, t) -> is_resource_type t 
+  | OneOf   ((_, {contents=Some t}), _) -> is_resource_type t 
+  | OneOf   (_, ts) -> List.exists is_resource_type ts
   | List    t       -> is_resource_type t 
   | Channel t       -> false
   | Tuple   ts      -> List.exists is_resource_type ts
@@ -176,12 +178,16 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Unit  
   | Basisv         
   (* | Range _ *)
-  | Gate  _         
+  | Gate            
   | Qstate          -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
   | Unknown _       
-  | Known   _       -> state, RNull  (* checked in ctfa *)
-  | Poly _          -> state, RNull  (* checked in cfta *)
+  | Known   _       -> state, RNull  
+  | Poly _          -> state, RNull  
+  | OneOf (_, ts)   -> let srs = List.map (resource_of_type rid state) ts in
+                       if List.exists (fun (_,r) -> r<>RNull) srs then
+                         raise (Disaster (t.pos, "resource checker sees type " ^ string_of_type t))
+                       else state, RNull
   | List t          -> let _, r = resource_of_type rid state t in
                        state, (if r=RNull then RNull else RList rid)
   | Tuple ts        -> let subrt (i,state,rs) t = 
@@ -264,8 +270,7 @@ let rec rck_pat contn state env pat resopt =
   | PatBool   _
   | PatChar   _
   | PatString _
-  | PatBasisv _
-  | PatGate   _       -> contn state env
+  | PatBasisv _       -> contn state env
   | PatName   n       -> let state, res = match resopt with
                            | Some res -> state, res
                            | None     -> resource_of_type (pat.pos,n) state (type_of_pattern pat) 
@@ -476,14 +481,13 @@ and rck_proc state env proc =
                                    let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, ges, pattern) -> 
+                                    | Measure (qe, ge, pattern) -> 
                                         let destroys = !measuredestroys in
                                         (* if destroys is false then qe can be ambiguously conditional *)
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in
-                                        let ugs = List.map (snd <.> resources_of_expr state env) ges in
-                                        let usedg = List.fold_left ResourceSet.union ResourceSet.empty ugs in
+                                        let usedg = (snd <.> resources_of_expr state env) ge in
                                         let env' = match pattern.inst.pnode with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)
@@ -663,8 +667,8 @@ and ffv_letspec (pattern, expr) = ffv_expr expr
 
 and ffv_qstep qstep =
   match qstep.inst with
-  | Measure (expr, exprs, pattern) -> List.iter ffv_expr (expr::exprs)
-  | Ugatestep (exprs, expr)        -> List.iter ffv_expr (exprs@[expr])
+  | Measure (expr, ge, pattern) -> List.iter ffv_expr [expr; ge]
+  | Ugatestep (exprs, ge)       -> List.iter ffv_expr (exprs@[ge])
   
 and ffv_ioproc (iostep, proc) =
   (match iostep.inst with

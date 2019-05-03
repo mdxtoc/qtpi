@@ -40,6 +40,9 @@ open Def
 open Qsim
 open Number
 
+open Value
+open Event
+
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
@@ -48,9 +51,6 @@ exception BitOverflow of string
 exception IntOverflow of string
 exception FractionalInt of string
 exception NegInt of string
-
-open Value
-open Event
 
 let empty_env = []
 
@@ -167,18 +167,6 @@ let matcher pos env pairs value =
     | PatChar   c       , VChar   c'        -> maybe (c=c')
     | PatString s       , VString s'        -> maybe (s=s')
     | PatBasisv v       , VBasisv v'        -> maybe (v=v')
-    | PatGate   pg      , VGate   vg        -> (match pg.inst, vg with
-                                                | PatH    , GateH 
-                                                | PatF    , GateF 
-                                                | PatG    , GateG 
-                                                | PatI    , GateI
-                                                | PatX    , GateX
-                                                | PatY    , GateY
-                                                | PatZ    , GateZ
-                                                | PatCnot , GateCnot  -> yes env
-                                                | PatPhi p, GatePhi i -> succeed env (([p],[VNum (num_of_int i)])::work) rhs pairs
-                                                | _                   -> no ()
-                                               )
     | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
     | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
     | _                                     -> no () (* can happen: [] vs ::, :: vs [] *)
@@ -227,21 +215,28 @@ let rec evale env e =
     | EApp (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
-    | EArith (e1,op,e2)   -> let v1 = numev env e1 in
-                             let v2 = numev env e2 in
-                             VNum (match op with
-                                   | Plus    -> v1+/v2    
-                                   | Minus   -> v1-/v2
-                                   | Times   -> v1*/v2
-                                   | Div     -> v1//v2
-                                   | Mod     -> if is_int v1 && is_int v2 then
-                                                  rem v1 v2
-                                                else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"
-                                                                                         (string_of_num v1)
-                                                                                         (string_of_num v2)
-                                                                  )
-                                                           )
-                                  )
+    | EArith (e1,op,e2)   -> let v1 = evale env e1 in
+                             (match v1, op with
+                              | VGate v1, Times ->
+                                  let v2 = gateev env e2 in
+                                  VGate (mult_mm v1 v2)
+                              | VNum  v1, _     -> 
+                                  let v2 = numev env e2 in
+                                  VNum (match op with
+                                        | Plus    -> v1+/v2    
+                                        | Minus   -> v1-/v2
+                                        | Times   -> v1*/v2
+                                        | Div     -> v1//v2
+                                        | Mod     -> if is_int v1 && is_int v2 then
+                                                       rem v1 v2
+                                                     else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"
+                                                                                              (string_of_num v1)
+                                                                                              (string_of_num v2)
+                                                                       )
+                                                                )
+                                       )
+                              | _ -> raise (Disaster (e.pos, "neither Num op Num nor Gate * Gate"))
+                             )
     | ECompare (e1,op,e2) -> let v1 = evale env e1 in
                              let v2 = evale env e2 in
                              (try let c = deepcompare (v1,v2) in
@@ -378,19 +373,25 @@ and funev env e =
   | VFun f -> f
   | v      -> mistyped e.pos (string_of_expr e) v "a function"
 
+and gateev env e = 
+  match evale env e with
+  | VGate g -> g
+  | v       -> mistyped e.pos (string_of_expr e) v "a gate"
+
 and ugev env ug = 
-  match ug.inst with
-  | UG_H                  -> GateH
-  | UG_F                  -> GateF
-  | UG_G                  -> GateG
-  | UG_I                  -> GateI
-  | UG_X                  -> GateX
-  | UG_Y                  -> GateY
-  | UG_Z                  -> GateZ
-  | UG_Cnot               -> GateCnot
-  | UG_Phi  e             -> let v = numev env e in
-                             if v=/zero || v=/one || v=/two || v=/three then GatePhi (int_of_num v)
-                             else raise (Error (ug.pos, Printf.sprintf "_Phi(%s)" (string_of_value (VNum v))))
+  Qsim.matrix_of_ugv (match ug.inst with
+                      | UG_H       -> GateH
+                      | UG_F       -> GateF
+                      | UG_G       -> GateG
+                      | UG_I       -> GateI
+                      | UG_X       -> GateX
+                      | UG_Y       -> GateY
+                      | UG_Z       -> GateZ
+                      | UG_Cnot    -> GateCnot
+                      | UG_Phi  e  -> let v = numev env e in
+                                      if v=/zero || v=/one || v=/two || v=/three then GatePhi (int_of_num v)
+                                      else raise (Error (ug.pos, Printf.sprintf "_Phi(%s)" (string_of_value (VNum v))))
+                     )
 
 let mkchan c = {cname=c; stream=Queue.create (); 
                          rwaiters=PQueue.create 10; (* 10 is a guess *)
@@ -531,33 +532,33 @@ let rec interp sysenv proc =
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
-                  | Measure (e, ges, pat)  -> let q = qbitev env e in
-                                              (* measurement without detection is absurd, wrong. So disposed is always true *)
-                                              let disposed = !measuredestroys in
-                                              let qv, aqs = 
-                                                if !traceevents then 
-                                                  let qs = fst (qval q) in
-                                                  tev q, (if disposed then remove q qs else qs) 
-                                                else 
-                                                  "", [] 
-                                              in
-                                              let gvs = List.map (gatev <.> evale env) ges in
-                                              let v = vbit (qmeasure disposed pn gvs q = 1) in
-                                              if !traceevents then trace (EVMeasure (pn, qv, gvs, v, List.map tev aqs));
-                                              let env' = (match pat.inst.pnode with
-                                                          | PatAny    -> env
-                                                          | PatName n -> env <@+> (n,v)
-                                                          | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
-                                                         )
-                                              in
-                                              addrunner (pn, proc, env');
-                                              if !pstep then 
-                                                show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
-                                                                                      (pstep_state env')
-                                                                                      (pstep_env env' env)
-                                                         )
-                  | Ugatestep (es, ug)     -> let qs = List.map (qbitev env) es in
-                                              let g = gatev (evale env ug) in
+                  | Measure (e, g, pat) -> let q = qbitev env e in
+                                           (* measurement without detection is absurd, wrong. So disposed is always true *)
+                                           let disposed = !measuredestroys in
+                                           let qv, aqs = 
+                                             if !traceevents then 
+                                               let qs = fst (qval q) in
+                                               tev q, (if disposed then remove q qs else qs) 
+                                             else 
+                                               "", [] 
+                                           in
+                                           let gv = gateev env g in
+                                           let v = vbit (qmeasure disposed pn gv q = 1) in
+                                           if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
+                                           let env' = (match pat.inst.pnode with
+                                                       | PatAny    -> env
+                                                       | PatName n -> env <@+> (n,v)
+                                                       | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                                      )
+                                           in
+                                           addrunner (pn, proc, env');
+                                           if !pstep then 
+                                             show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
+                                                                                   (pstep_state env')
+                                                                                   (pstep_env env' env)
+                                                      )
+                  | Ugatestep (es, g)      -> let qs = List.map (qbitev env) es in
+                                              let g = gateev env g in
                                               let qvs = if !traceevents then List.map tev qs else [] in
                                               ugstep pn qs g;
                                               addrunner (pn, proc, env);

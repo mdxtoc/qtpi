@@ -30,8 +30,8 @@ type event =
   | EVInput of name * value
   | EVOutput of name * value
   | EVDispose of name * value
-  | EVGate of name * string list * ugv * string list
-  | EVMeasure of name * string * ugv list * value * string list
+  | EVGate of name * string list * gate * string list
+  | EVMeasure of name * string * gate * value * string list
   | EVChangeId of name * name list
   
 let soqs = function
@@ -48,19 +48,14 @@ let string_of_event = function
   | EVDispose (pn,v)            -> Printf.sprintf "%s disposes %s" (string_of_name pn) (string_of_value v)
   | EVGate (pn, ss, g, ss')     -> Printf.sprintf "%s %s >> %s; result %s" (string_of_name pn)
                                                                            (soqs ss)
-                                                                           (string_of_ugv g)
+                                                                           (string_of_gate g)
                                                                            (soqs ss')
-  | EVMeasure (pn, qv, gvs, v, aqs)  
-                                -> let sogs = function
-                                     | []      
-                                     | [GateI] -> ""
-                                     | gs      -> " " ^ bracketed_string_of_list string_of_ugv gs
-                                   in
-                                   Printf.sprintf "%s: %s =?%s; result %s%s" (string_of_name pn)
-                                                                           qv
-                                                                           (sogs gvs)
-                                                                           (string_of_value v)
-                                                                           (if null aqs then "" else " and " ^ soqs aqs)
+  | EVMeasure (pn, qv, g, v, aqs)  
+                                -> Printf.sprintf "%s: %s =?%s; result %s%s" (string_of_name pn)
+                                     qv
+                                     (if g=m_I then "" else ("[" ^ string_of_gate g ^ "]"))
+                                     (string_of_value v)
+                                     (if null aqs then "" else " and " ^ soqs aqs)
                                                                            
   | EVChangeId (pn, npns)       -> Printf.sprintf "%s morphs into %s" (string_of_name pn)
                                                                       (string_of_list string_of_name ", " npns)

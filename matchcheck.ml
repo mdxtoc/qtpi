@@ -360,12 +360,6 @@ let matchcheck_pats string_of_rhs rules =
                  | PatChar   c      -> Some ({con=CChar   c ; arity=0             ; span=128     }, []   )
                  | PatString s      -> Some ({con=CString s ; arity=0             ; span=(-1)    }, []   )
                  | PatBasisv bv     -> Some ({con=CBasisv bv; arity=0             ; span=nBasisv }, []   )
-                 | PatGate   gp     -> 
-                     let s = string_of_gatepat gp in
-                      (match gp.inst with
-                       | PatPhi pat -> Some ({con=CGate"Phi"; arity=1             ; span=nGatepat}, [pat])
-                       | _          -> Some ({con=CGate    s; arity=0             ; span=nGatepat}, []   )
-                      )
                  | PatCons   (h,t)  -> Some ({con=CCons     ; arity=2             ; span=2       }, [h;t])
                  | PatTuple  ps     -> Some ({con=CTuple    ; arity=List.length ps; span=1       }, ps   )
     in
@@ -453,7 +447,7 @@ let rec matchcheck_proc proc =
                                matchcheck_proc proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc proc (* binding pattern doesn't need check *)
   | WithQstep (qstep,proc)  -> (match qstep.inst with
-                                | Measure   (qe, ges, _)  -> matchcheck_expr qe; List.iter matchcheck_expr ges
+                                | Measure   (qe, ge, _)   -> matchcheck_expr qe; matchcheck_expr ge
                                 | Ugatestep (qes,ge)      -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc proc 

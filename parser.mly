@@ -267,8 +267,8 @@ sumproc:
                                         {$4,$6}
 
 qstep:
-  | expr MEASURE mpat                   {adorn (Measure ($1,[],$3))}
-  | expr MEASURE LSQPAR exprs RSQPAR mpat       
+  | expr MEASURE mpat                   {adorn (Measure ($1,eadorn (EGate (adorn UG_I)),$3))}
+  | expr MEASURE LSQPAR expr RSQPAR mpat       
                                         {adorn (Measure ($1,$4,$6))}
   | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
 
@@ -376,15 +376,6 @@ simplepattern:
   | CHAR                                {padorn (PatChar $1)}
   | STRING                              {padorn (PatString $1)}
   | basisv                              {padorn (PatBasisv $1) }
-  | HADAMARD                            {padorn (PatGate (adorn PatH))}
-  | F                                   {padorn (PatGate (adorn PatF))}
-  | G                                   {padorn (PatGate (adorn PatG))}
-  | CNOT                                {padorn (PatGate (adorn PatCnot))}
-  | I                                   {padorn (PatGate (adorn PatI))}
-  | X                                   {padorn (PatGate (adorn PatX))}
-  | Y                                   {padorn (PatGate (adorn PatY))}
-  | Z                                   {padorn (PatGate (adorn PatZ))}
-  | PHI LPAR pattern RPAR               {padorn (PatGate (adorn (PatPhi ($3))))}
   | LSQPAR patternlist RSQPAR           {$2}
   | LPAR RPAR                           {padorn PatUnit}
   | LPAR pattern RPAR                   {$2}

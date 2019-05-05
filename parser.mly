@@ -268,6 +268,7 @@ sumproc:
 
 qstep:
   | expr MEASURE mpat                   {adorn (Measure ($1,eadorn (EGate (adorn UG_I)),$3))}
+  | expr MEASURE LSQPAR RSQPAR mpat     {adorn (Measure ($1,eadorn (EGate (adorn UG_I)),$5))}
   | expr MEASURE LSQPAR expr RSQPAR mpat       
                                         {adorn (Measure ($1,$4,$6))}
   | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}

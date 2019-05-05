@@ -506,6 +506,7 @@ let arity_of_ugv = function
   | GatePhi _       -> 1
   | GateCnot        -> 2
 
+(* idx: the index position of q in qs *)
 let idx q qs = 
   let rec f i = function
     | q'::qs -> if q = q' then i else f (i+1) qs
@@ -518,37 +519,83 @@ let idx q qs =
   in
   f 0 qs
 
+(* given an index, a mask to pick it out *)
 let bitmask iq qs = 1 lsl (List.length qs-iq-1)
 
-let ibit q qs = (* a single-bit mask to pick out q from qs *)
+(* a single-bit mask to pick out q from qs *)
+let ibit q qs = 
   let iq = idx q qs in
   bitmask iq qs
 
-let mask n = (* an n-bit mask *)
+(* an n-bit mask, given an index *)
+let mask n = 
   let rec f m i =
     if i=0 then m else f ((m lsl 1) lor 1) (i-1)
   in
   f 0 n
 
-let make_first qs v iq =
+let make_nth qs v n iq = 
+  let bad s = 
+    raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
+                                        (bracketed_string_of_list string_of_qbit qs)
+                                        (string_of_probvec v)
+                                        n
+                                        iq
+                                        s
+                    )
+          )
+  in
+  if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d\n"
+                                                        (bracketed_string_of_list string_of_qbit qs)
+                                                        (string_of_probvec v)
+                                                        n
+                                                        iq;
   let nqs = List.length qs in
+  if n<0 || n>=nqs then bad "bad n";
   let nv = vsize v in
-  let imask = bitmask iq qs in
-  let i0 = bitmask 0 qs in
-  let lmask = (mask iq) lsl (nqs-iq) in
-  let rmask = mask (nqs-iq-1) in
-  (* if !verbose || !verbose_qsim then Printf.printf "iq %d i0 %d lmask %d rmask %d\n" iq i0 lmask rmask; *)
-  let v' = Array.copy v in
-  for i=0 to nv-1 do
-    let j = ((i land lmask) lsr 1) lor (i land rmask) lor (if i land imask<>0 then i0 else 0) in
-    (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
-    v'.(j) <- v.(i)
-  done;
-  let seg1 = take iq qs in
-  let seg2 = drop iq qs in
-  let qs' = List.hd seg2 :: (seg1 @ List.tl seg2) in
-  qs', v'
-
+  if iq=n then qs, v
+  else
+    (let qmask = bitmask iq qs in
+     let nmask = bitmask n qs in
+     let hdmask, midmask, tlmask =
+       if n<iq then (mask n) lsl (nqs-n),
+                    (mask (iq-n)) lsl (nqs-iq),
+                    mask (nqs-iq-1)
+               else (mask iq) lsl (nqs-iq),
+                    (mask (n-iq-1)) lsl (nqs-iq),
+                    mask (nqs-n)
+     in
+     if !verbose || !verbose_qsim then Printf.printf "iq %d qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" iq qmask nmask hdmask midmask tlmask;
+     let v' = Array.copy v in
+     for i=0 to nv-1 do
+       let midbits = i land midmask in
+       let midbits = if n<iq then midbits lsr 1 else midbits lsl 1 in
+       let j = (i land hdmask) lor 
+               midbits         lor 
+               (i land tlmask) lor
+               if i land qmask<>0 then nmask else 0
+       in
+       if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
+       v'.(j) <- v.(i)
+     done;
+     let qs' =
+       if n<iq then let hdseg, tlseg = take n qs, drop n qs in
+                    let midseg, tlseg = take (iq-n) tlseg, drop (iq-n) tlseg in
+                    let q, tlseg = List.hd tlseg, List.tl tlseg in
+                    hdseg@[q]@midseg@tlseg
+               else let hdseg, tlseg = take iq qs, drop iq qs in
+                    let q, tlseg = List.hd tlseg, List.tl tlseg in
+                    let midseg, tlseg = take (n-iq-1) tlseg, drop (n-iq-1) tlseg in
+                    hdseg@midseg@[q]@tlseg
+     in
+     if !verbose || !verbose_qsim then Printf.printf "=> qs' %s v' %s\n" 
+                                                        (bracketed_string_of_list string_of_qbit qs')
+                                                        (string_of_probvec v');
+     qs', v'
+    )
+    
+let make_first qs v iq = make_nth qs v 0 iq
+   
 let rotate_left qs v = make_first qs v (List.length qs - 1)
 
 let try_split qs v =

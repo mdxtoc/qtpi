@@ -54,7 +54,10 @@ let numbered xs = Array.to_list (Array.mapi (fun i x -> i,x) (Array.of_list xs))
 let tabulate n f = 
   let a = Array.init n f in
   Array.to_list a
-  
+
+(* this sort of belongs here *)
+let const a b = a
+
 let take n xs =
   let rec take rs n xs =
     match n, xs with
@@ -87,4 +90,9 @@ let rec remove x ys =
   match ys with
   | y::ys -> if x=y then ys else y::remove x ys
   | []    -> []
+
+(* as Turner says, this isn't efficient. But I only apply it to very short lists *)  
+let rec mkset = function
+  | [] -> []
+  | x::xs -> x::mkset (List.filter (fun x' -> x<>x') xs)
   

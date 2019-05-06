@@ -161,28 +161,36 @@ let c_g = c_of_p P_g
 
 let c_i = C (P_0, P_1)
 
-let pcneg  (C (x,y)) = C (Pneg x, Pneg y) (* only for local use, please *)
+let pcneg  (C (x,y)) = (* only for local use, please *)
+  let negate = function
+    | P_0 -> P_0
+    | p   -> Pneg p
+  in
+  C (negate x, negate y) 
 
-let v_0     = make_v [c_1   ; c_0         ]
-let v_1     = make_v [c_0   ; c_1         ]
+let v_zero  = make_v [c_1   ; c_0         ]
+let v_one   = make_v [c_0   ; c_1         ]
 let v_plus  = make_v [c_h   ; c_h         ]
 let v_minus = make_v [c_h   ; pcneg c_h   ]
 
-let make_ug rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+let v_1 = make_v [c_1] (* a unit for folding *)
+let v_0 = make_v [c_0] (* another unit for folding *)
 
-let m_I  = make_ug  [[c_1       ; c_0        ];
+let make_m rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+
+let m_I  = make_m   [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
-let m_X  = make_ug  [[c_0       ; c_1        ];
+let m_X  = make_m   [[c_0       ; c_1        ];
                      [c_1       ; c_0        ]] 
-let m_Y  = make_ug  [[c_0       ; pcneg c_i  ];
+let m_Y  = make_m   [[c_0       ; pcneg c_i  ];
                      [c_i       ; c_0        ]]
-let m_Z  = make_ug  [[c_1       ; c_0        ];
+let m_Z  = make_m   [[c_1       ; c_0        ];
                      [c_0       ; pcneg c_1  ]] 
-let m_H  = make_ug  [[c_h       ; c_h        ];
+let m_H  = make_m   [[c_h       ; c_h        ];
                      [c_h       ; pcneg (c_h)]]
-let m_F  = make_ug  [[c_f       ; c_g        ];
+let m_F  = make_m   [[c_f       ; c_g        ];
                      [c_g       ; pcneg c_f  ]]
-let m_G  = make_ug  [[c_g       ; c_f        ];
+let m_G  = make_m   [[c_g       ; c_f        ];
                      [c_f       ; pcneg c_g  ]]
 
 let m_Phi = function (* as Pauli *)
@@ -192,13 +200,13 @@ let m_Phi = function (* as Pauli *)
   | 3 -> m_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
-let m_Cnot = make_ug [[c_1; c_0; c_0; c_0];
+let m_Cnot = make_m  [[c_1; c_0; c_0; c_0];
                       [c_0; c_1; c_0; c_0];
                       [c_0; c_0; c_0; c_1];
                       [c_0; c_0; c_1; c_0]]
                      
-let m_1 = make_ug [[c_1]] (* a unit for folding *)
-let m_0 = make_ug [[c_0]] (* another unit for folding *)
+let m_1 = make_m [[c_1]] (* a unit for folding *)
+let m_0 = make_m [[c_0]] (* another unit for folding *)
 
 (* string_of_ functions *)
 let string_of_pqueue stringof sep pq = 

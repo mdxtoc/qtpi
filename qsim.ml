@@ -568,12 +568,10 @@ let make_nth qs v n iq =
      if !verbose || !verbose_qsim then Printf.printf "iq %d qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" iq qmask nmask hdmask midmask tlmask;
      let v' = Array.copy v in
      for i=0 to nv-1 do
-       let midbits = i land midmask in
-       let midbits = if n<iq then midbits lsr 1 else midbits lsl 1 in
-       let j = (i land hdmask) lor 
-               midbits         lor 
-               (i land tlmask) lor
-               if i land qmask<>0 then nmask else 0
+       let j = (i land hdmask)                                    lor 
+               (if n<iq then (lsr) else (lsl)) (i land midmask) 1 lor 
+               (i land tlmask)                                    lor
+               (if i land qmask<>0 then nmask else 0)
        in
        if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
        v'.(j) <- v.(i)

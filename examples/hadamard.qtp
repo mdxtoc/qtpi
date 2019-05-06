@@ -1,7 +1,8 @@
 
 proc System () = (newq q) 
-            out!["initially "] . outq!(qval q) . out!["; "] .
-            q>>_H . 
-            q>>_H . 
-            out!["finally "] . outq!(qval q) . out![".\n"] .
-            _0
+  out!["to prove to Raja that qtpi can calculate H*H="; show (_H*_H); "\n"] .
+  out!["initially "] . outq!(qval q) . out!["; "] .
+  q>>_H . 
+  q>>_H . 
+  out!["finally "] . outq!(qval q) . out![".\n"] .
+  _0

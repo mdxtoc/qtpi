@@ -34,13 +34,15 @@ exception Error of string
 
 type qval = qbit list * probvec (* with n qbits, 2^n probs in the array *)
 
-let string_of_qval (qs,v) =
-  match qs with
-  | [_] -> string_of_probvec v
-  | _   -> Printf.sprintf "[%s]%s"
+let string_of_qval_full full (qs,v) =
+  match full, qs with
+  | false, [_] -> string_of_probvec v
+  | _          -> Printf.sprintf "[%s]%s"
                           (string_of_list string_of_qbit ";" qs)
                           (string_of_probvec v)
                 
+let string_of_qval = string_of_qval_full false
+
 let qstate = Hashtbl.create ?random:(Some true) 100 (* 100? a guess *)
 
 let init () = Hashtbl.reset qstate
@@ -430,16 +432,16 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
                          q
     in
     let vec = match vopt with
-              | Some Basisv.BVzero  -> Array.copy v_0
-              | Some Basisv.BVone   -> Array.copy v_1
+              | Some Basisv.BVzero  -> Array.copy v_zero
+              | Some Basisv.BVone   -> Array.copy v_one
               | Some Basisv.BVplus  -> Array.copy v_plus
               | Some Basisv.BVminus -> Array.copy v_minus
               | None                -> if !Settings.symbq then
                                          Array.init 2 (fun i -> c_of_p (Psymb (q, i=1))) (* this could be a bug if we used qfrees *)
                                        else (* random basis, random fixed value *)
                                          Array.copy (match Random.bool (), Random.bool ()  with
-                                                     | false, false -> v_0 
-                                                     | false, true  -> v_1
+                                                     | false, false -> v_zero 
+                                                     | false, true  -> v_one
                                                      | true , false -> v_plus 
                                                      | true , true  -> v_minus
                                                     )
@@ -608,13 +610,13 @@ let try_split qs v =
          Printf.printf "t_s %s\n" (string_of_qval (qs,v));
        let n = vsize v in
        let nh = vsize v / 2 in
-       (* if the first half is all zeros then use v_1, which is 0+1 *)
+       (* if the first half is all zeros then use v_one, which is 0+1 *)
        if _for_all 0 1 nh (fun i -> v.(i)=c_0) then
-         Some (qs, Array.copy v_1, Array.init nh (fun i -> v.(nh+i)))
+         Some (qs, Array.copy v_one, Array.init nh (fun i -> v.(nh+i)))
        else
-       (* if the second half is all zeros then use v_0, which is 1+0 *)
+       (* if the second half is all zeros then use v_zero, which is 1+0 *)
        if _for_all nh 1 n (fun i -> v.(i)=c_0) then
-         Some (qs, Array.copy v_0, Array.init nh (fun i -> v.(i)))
+         Some (qs, Array.copy v_zero, Array.init nh (fun i -> v.(i)))
        else
          (let qs, v = rotate_left qs v in 
           t_s (i+1) qs v
@@ -648,91 +650,68 @@ let rec record ((qs, vq) as qv) =
                | Some (q'::qs',vq,v') -> record ([q'], vq); record (qs', v')
                | _                    -> List.iter accept qs
 
-let ugstep_1 id_string q (qs, v) m m' =
-  let nqs = List.length qs in
-  let i = idx q qs in
-  let m_op =
-    if i=0 && nqs=1 then m 
-    else (let pre_m = _for_leftfold 0 1 i (fun _ m's -> tensor_mm m' m's) m_1 in
-          let post_m = _for_leftfold (i+1) 1 nqs (fun _ m's -> tensor_mm m' m's) m_1 in
-          let m_op = tensor_mm (tensor_mm pre_m m) post_m in
-          if !verbose_qcalc then
-            Printf.printf "pre_m = %s, m= %s, post_m = %s, m_op = %s\n" 
-                          (string_of_matrix pre_m)
-                          (string_of_matrix m)
-                          (string_of_matrix post_m)
-                          (string_of_matrix m_op);
-           m_op
-          )
-  in
-  let v' = mult_mv m_op v in
-  if !verbose || !verbose_qsim then 
-    Printf.printf "%s : was %s|->%s; now %s->%s\n"
-                  (id_string ())
-                  (string_of_qbit q)
-                  (string_of_qval (qs, v))
-                  (string_of_qbit q)
-                  (string_of_qval (qs, v'));
-  record (qs,v')
-
-let qval_combine q1 q2 = 
-  let qv1, qv2 = qval q1, qval q2 in 
-  let q1s,v1 = qv1 in
-  let q2s,v2 = qv2 in
-  (* q1s and q2s are either identical or disjoint. *)
-  let qs',v' = if qv1=qv2 then q1s,v1 else q1s @ q2s, tensor_vv v1 v2 in
-  qs',v'
-  
-let ugstep pn qs g = 
-  let id_string () = Printf.sprintf (if List.length qs = 1 then "%s ugstep %s >> %s" else "%s ugstep [%s] >> %s")
-                                    (Name.string_of_name pn)
-                                    (string_of_list string_of_qbit ";" qs)
-                                    (string_of_gate g)
-  in
+let ugstep_padded pn qs g gpad = 
   (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
-
-  let doit_Cnot q1 q2 =
-    if q1=q2 then raise (Error (Printf.sprintf "** Disaster (same qbit twice in Cnot) %s" (id_string ())));
-    let qs, v = qval_combine q1 q2 in
-    let bit1 = ibit q1 qs in
-    let bit2 = ibit q2 qs in
-    let m_Cnot = bigI (vsize v) in
-    if !verbose_qcalc then
-      Printf.printf "bit1=%d, bit2=%d\n" bit1 bit2;
-    Array.iteri (fun i r -> if (i land bit1)<>0 && (i land bit2)=0 then 
-                                (let i' = i lor bit2 in
-                                 if !verbose_qcalc then 
-                                   Printf.printf "swapping rows %d and %d\n" i i';
-                                 let temp = m_Cnot.(i) in
-                                 m_Cnot.(i) <- m_Cnot.(i');
-                                 m_Cnot.(i') <- temp
-                                )
-                 ) m_Cnot;
-    if !verbose_qcalc then
-      Printf.printf "m_Cnot = %s\n" (string_of_matrix m_Cnot);
-    let v' = mult_mv m_Cnot v in
-    let qv = qs, v' in
-    if !verbose || !verbose_qsim then 
-      Printf.printf "%s : %s|->%s; %s|->%s; now %s,%s|->%s\n"
-                    (id_string ())
-                    (string_of_qbit q1)
-                    (string_of_qval (qval q1))
-                    (string_of_qbit q2)
-                    (string_of_qval (qval q2))
-                    (string_of_qbit q1)
-                    (string_of_qbit q2)
-                    (string_of_qval qv);
-    record qv
+  let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
+                                                    pn
+                                                    (bracketed_string_of_list string_of_qbit qs)
+                                                    (string_of_gate g)
+                                                    s
+                              )
+                    ) 
   in
-  match qs, msize g with
-  | [q]    , 2       -> ugstep_1 id_string q (qval q) g m_I
-  | [q1;q2], 4 
-      when g=m_Cnot -> doit_Cnot q1 q2 
-  | _                -> raise (Error (Printf.sprintf "** Disaster: ugstep [%s] %s"
-                                                        (string_of_list string_of_qbit ";" qs)
-                                                        (string_of_gate g)
-                                        )
-                                 )
+  
+  (* qs must be distinct *)
+  let rec check_distinct = function
+    | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct qs
+    | []    -> ()
+  in
+  check_distinct qs;
+  
+  (* size of matrix must be 2^(length qs) *)
+  let nqs = List.length qs in
+  let veclength = 1 lsl nqs in
+  if veclength=0 then bad "far too many qbits";
+  (* I think our matrices are always square: we start with square gates and multiply and/or tensor *)
+  if veclength<>msize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
+                                                    veclength
+                                                    nqs
+                                 );
+  
+  let show_change qs' v' g' =
+    Printf.printf "we took ugstep %s %s %s and made %s*(%s,%s)\n"
+                                pn
+                                (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
+                                                                        (string_of_qbit q)
+                                                                        (string_of_qval (qval q))
+                                                          ) 
+                                                          qs
+                                )
+                                (string_of_gate g)
+                                (string_of_gate g')
+                                (bracketed_string_of_list string_of_qbit qs')
+                                (string_of_probvec v')
+  in
+  
+  (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
+  let qvals = Listutils.mkset (List.map qval qs) in
+  let qss, vs = List.split qvals in
+  let qs', v' = List.concat qss, List.fold_left tensor_vv v_1 vs in
+  
+  (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
+  let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
+  let qs', v' = List.fold_left reorder (qs',v') (Listutils.numbered qs) in
+  
+  (* add enough pads to g to deal with g' *)
+  let gpads = Listutils.tabulate (List.length qs' - List.length qs) (Listutils.const gpad) in
+  let g' = List.fold_left tensor_mm m_1 (g::gpads) in
+  
+  if !verbose || !verbose_qsim then show_change qs' v' g';
+  
+  let v'' = mult_mv g' v' in
+  record (qs',v'')
+
+let ugstep pn qs g = ugstep_padded pn qs g m_I
 
 let fp_h2 = 0.5
 let fp_h = sqrt fp_h2
@@ -860,25 +839,20 @@ let rec qmeasure disposes pn gate q =
                     )
              );
      let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
-     let id_string gate () = Printf.sprintf "rotation from %s qmeasure %s =? [%s]"
-                                            (Name.string_of_name pn)
-                                            (string_of_qbit q)
-                                            (string_of_gate gate)
-     in
      let qv = qval q in
      (* first of all rotate with gate' *)
-     ugstep_1 (id_string gate') q qv gate' gate'; 
+     ugstep_padded pn [q] gate' gate'; 
      let bit = qmeasure disposes pn m_I q in
      (* that _must_ have broken any entanglement: rotate the parts back separately *)
      let rec rotate qs =
        match qs with
        | []    -> () (* done it *)
        | q::qs -> let qqs, qqv = qval q in
-                  ugstep_1 (id_string gate) q (qqs,qqv) gate gate;
+                  ugstep_padded pn [q] gate gate;
                   rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
      in
      rotate (List.filter (fun q' -> q'<>q) (fst qv)); 
      (* rotate q as well, if it wasn't disposed *)
-     if not disposes then ugstep_1 (id_string gate) q (qval q) gate gate;
+     if not disposes then ugstep_padded pn [q] gate gate;
      bit
     )

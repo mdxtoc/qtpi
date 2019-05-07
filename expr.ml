@@ -68,6 +68,7 @@ and arithop =
   | Plus
   | Minus
   | Times
+  | TensorP
   | Div
   | Mod
   
@@ -124,6 +125,7 @@ let arithprio = function
   | Minus                   -> Left    , 200
   | Times                   -> Assoc   , 210
   | Div | Mod               -> Left    , 210
+  | TensorP                 -> Left    , 250
 
 let consprio                =  Right,    300
 let unaryprio               =  NonAssoc, 400
@@ -251,6 +253,7 @@ and string_of_arithop = function
   | Plus    -> "+"
   | Minus   -> "-"
   | Times   -> "*"
+  | TensorP -> "><"
   | Div     -> "/"
   | Mod     -> "%"
   

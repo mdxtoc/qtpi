@@ -216,6 +216,9 @@ let rec evale env e =
 
     | EArith (e1,op,e2)   -> let v1 = evale env e1 in
                              (match v1, op with
+                              | VGate v1, TensorP ->
+                                  let v2 = gateev env e2 in
+                                  VGate (tensor_mm v1 v2)
                               | VGate v1, Times ->
                                   let v2 = gateev env e2 in
                                   VGate (mult_mm v1 v2)
@@ -233,6 +236,7 @@ let rec evale env e =
                                                                                               (string_of_num v2)
                                                                        )
                                                                 )
+                                        | TensorP -> raise (Can'tHappen ("tensor product of nums"))
                                        )
                               | _ -> raise (Disaster (e.pos, "neither Num op Num nor Gate * Gate"))
                              )

@@ -533,8 +533,10 @@ and assigntype_expr cxt t e =
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
      | EArith (e1,op,e2)    -> let tnode = 
-                                 if op=Times then OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
-                                 else Num 
+                                 match op with
+                                 | Times   -> OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
+                                 | TensorP -> Gate
+                                 | _       -> Num 
                                in
                                binary cxt (adorn_x e tnode) (adorn_x e1 tnode) (adorn_x e2 tnode) e1 e2
      | ECompare (e1,op,e2)  -> (match op with 

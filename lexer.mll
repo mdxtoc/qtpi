@@ -79,11 +79,10 @@ rule make_token = parse
   | '['         {LSQPAR}
   | ']'         {RSQPAR}
   | '|'         {PARSEP}
-  | "<+>"       {SUMSEP}
-  | "<m>"       {MATCHSEP}
   | ':'         {COLON}
   | '='         {EQUALS}
   | '*'         {STAR}
+  | "><"        {TENSORP}
   
   | "true"      {TRUE}
   | "false"     {FALSE}

@@ -21,10 +21,10 @@ Landin's *offside rule* often makes closing brackets unnecessary. In the Miranda
 		hwc key message
 		  where message = packets [] bits
 		                    where bits = f message
-		                    where f = g k
+		                    where f = g key
 		  where key = ...
 	
--- the first and fourth `where`s attach to `hwc key message`; the second and third attach to `packets [] bits`.
+-- the first `where` attaches to `hwc key message`; the second and third attach only to `packets [] bits`; the fourth attaches to everything.
 
 So far the offside parser applies to function definitions (expression to the right of '='), to `where` clauses, to `match`es in processes and expressions, to guarded sums, and to parallel process compositions. There still is `fi`.
 
@@ -77,10 +77,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* `=?` (*pat*)    
   | *E* `=?` `[` *E* `;` ... `;` *E* `]` (*pat*)    
 
-  * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. _H takes one qbit, _Cnot takes 2, _Fredkin if we had it would take 3, and so on).  
+  * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. H takes one qbit, Cnot takes 2, Fredkin if we had it would take 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
   * Measurement takes a pattern, either `_` or *x*. 
-  * The optional square-bracketed *E* list in a measurement is a gate expression controlling the measurement basis: for example `[_H]` specifies measurement in the Hadamard basis, and `[_I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
+  * The optional square-bracketed *E* list in a measurement is a gate expression controlling the measurement basis: for example `[H]` specifies measurement in the Hadamard basis, and `[I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
   * CQP had `*=` for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to `=?`.   
 
 * Input-output step *IO*  
@@ -111,6 +111,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `bit`  
   | `string`  
   | `char`  
+  | `gate`  
   | `basisv`  
   | `qstate`  
   | `'`*x*  
@@ -158,7 +159,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Expression *E*
 
   | *constant*  
-  | `_Phi(` *E* `)`  
   | *x*  
   | `if` *E* `then` *E* `else` *E* `fi`  
   | `if` *E* `then` *E* `elif` *E* `then` *E* ... `else` *E* `fi`  
@@ -176,8 +176,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* *bop* *E*  
   | `lam` *pat* ... *pat* `.` *E*  
   
-  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`; gates `_H`, `_CNot`, `_I`, `_X`, `_Y`, `_Z`, `_F` and `_G`.
-  * The gate `_Phi(`*E*`)` is not a constant. (I suppose it is a constructor -- the only one so far.)  
+  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`.
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
   * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
@@ -188,9 +187,10 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples; it's still included.  
     * `::` (cons) is now included.  
-    * `+`, `-`, `*`, `/` arithmetic operators *aop*.  
+    * `+`, `-`, `*`, `/` arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates).
     * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*.
     * `&&`, `||`, boolean operators *bop*.
+    * `><` tensor multiplication.
     
 * Process name *N*
 
@@ -243,21 +243,24 @@ An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`
 
 Probability expressions represent complex numbers *x*+*iy*. Good luck.
 
-## Gates
+## Gates *gate*
 
-For weasely syntactic reasons, gate names start with an underscore. We recognise the following (for meaning of `f`, `g` and `h`, see above). All arity 1, except `_Cnot` which is arity 2.
+Gates are now a proper kind of value: square matrices. We have both matrix and tensor multiplication: matrix multiplication uses the operator `*`; tensor multiplication uses `><`. (I don't know how to overload juxtaposition for matrix multiplication: sorry.)
 
-  * `_H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
-  * `_F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `g|0>-f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
-  * `_G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `f|0>-f|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
-  * `_I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
-  * `_X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
-  * `_Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
-  * `_Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `_Y` was equivalent to the product `_Z_X`. No longer.)
-  * `_Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
-  * `_Phi(`*i*`)`: *i*=0 is `_I`; *i*=1 is `_X`; *i*=2 is `_Z`; *i*=3 is `_Y`.
+The built-in library defines various named gates(for meaning of `f`, `g` and `h`, see above). All arity 1, except `Cnot` which is arity 2.
 
-We don't yet have gate multiplication in the language. Nor tensor product. We should have both, I think.
+  * `H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
+  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `g|0>-f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
+  * `G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `f|0>-f|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
+  * `I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
+  * `X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
+  * `Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
+  * `Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `Y` was equivalent to the product `Z*X`. No longer.)
+  * `Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
+  
+There's also a built-in function *phi: num &rarr; gate*:
+
+  * `phi 0` is `I`; `phi 1` is `X`; `phi 2` is `Z`; `phi 3` is `Y`.
 
 ## The *dispose* channel
 
@@ -290,7 +293,7 @@ To prevent subversive inter-process communication, you can't send a function dow
   
   	Conditionals include `if` and pattern-matching. It's ok to have qbit-valued conditionals in other positions, such as
   	
-  			if a=0 then q1 else q2 fi >> _H
+  			if a=0 then q1 else q2 fi >> H
 
   * **`let` and pattern-matching can only bind classical values**.
   
@@ -348,19 +351,21 @@ Most of these functions deal in classical values only (*'a* rather than *'\*a*).
   * *fst*: *'a* \* *'\*b* &rarr; *'a*  
   * *hd*: *'a list* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
-  * *iter*: (*'a* -> *'b*) -> *'a list* -> *unit*
-  * *length*: *'a list* -> *num*  	
-  * *map*: (*'a* -> *'b*) -> *'a list* -> *'b list*
-  * *max*: *num* -> *num* -> *num*
-  * *min*: *num* -> *num* -> *num*
-  * *nth*: *'a list* -> *num* -> *'a*
-  * *qval*: *qbit* -> *qstate*
-  * *randbit*: *unit* -> *bit*
-  * *randbits*: *num* -> *bit list*
-  * *rev*: *'a list* -> *'a list*
-  * *show*: *'\*a* -> *string*
+  * *iter*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *unit*
+  * *length*: *'a list* &rarr; *num*  	
+  * *map*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *'b list*
+  * *max*: *num* &rarr; *num* &rarr; *num*
+  * *min*: *num* &rarr; *num* &rarr; *num*
+  * *nth*: *'a list* &rarr; *num* &rarr; *'a*
+  * *phi*: *num* &rarr; *gate*
+      * see 'Gates' above.
+  * *qval*: *qbit* &rarr; *qstate*
+  * *randbit*: *unit* &rarr; *bit*
+  * *randbits*: *num* &rarr; *bit list*
+  * *rev*: *'a list* &rarr; *'a list*
+  * *show*: *'\*a* &rarr; *string*
 	  * converts a value to a string. Gives a deliberately opaque result if applied to a qbit, function, process, channel or qstate.  
-  * *sort*: *'a list* -> *'a list*
+  * *sort*: *'a list* &rarr; *'a list*
 	  * sorts in ascending order
   * *snd*: *'\*a* \* *'b* &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*

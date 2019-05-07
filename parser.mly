@@ -70,13 +70,13 @@
 
 %token EOP OFFSIDE /* could it be EOP? No. */
 %token FUN PROC WHERE LAMBDA
-%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP SUMSEP MATCHSEP COLON EQUALS
+%token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUS MINUS DIV MOD
+%token PLUS MINUS DIV MOD TENSORP
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -96,6 +96,7 @@
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS
 %left mult_op STAR DIV MOD
+%left TENSORP
 %left APPEND
 
 %right TYPEARROW
@@ -239,12 +240,6 @@ typevars:
   
 parsep:
   | PARSEP                              {}
-  
-sumsep:
-  | SUMSEP                              {}
-  
-matchsep:
-  | SUMSEP                              {}
   
 process:
   | sumprocess                          {adorn (GSum $1)}
@@ -487,6 +482,7 @@ app:
   | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
+  | ntexpr TENSORP ntexpr               {$1,TensorP,$3}
   | ntexpr STAR ntexpr                  {$1,Times,$3}
   | ntexpr DIV ntexpr                   {$1,Div,$3}
   | ntexpr MOD ntexpr                   {$1,Mod,$3}

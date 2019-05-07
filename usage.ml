@@ -44,6 +44,8 @@ let opts = Arg.align
                     Printf.sprintf " measurement destroys a qbit (default %B)" !measuredestroys);
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qbit states");
+              ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
+					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-pstep"  , Arg.Set pstep, 

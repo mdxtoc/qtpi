@@ -433,15 +433,18 @@ and string_of_matrix m =
   Printf.sprintf "\n{%s}" block
   
 and string_of_gate g = 
-  if g=m_I then "_I" else
-  if g=m_X then "_X" else
-  if g=m_Y then "_Y" else
-  if g=m_Z then "_Z" else
-  if g=m_H then "_H" else
-  if g=m_F then "_F" else
-  if g=m_G then "_G" else
-  if g=m_Cnot then "_Cnot" else
-  string_of_matrix g
+  if !Settings.showsymbolicgate then
+    (if g=m_I then "I" else
+     if g=m_X then "X" else
+     if g=m_Y then "Y" else
+     if g=m_Z then "Z" else
+     if g=m_H then "H" else
+     if g=m_F then "F" else
+     if g=m_G then "G" else
+     if g=m_Cnot then "Cnot" else
+     string_of_matrix g
+    )
+  else string_of_matrix g
 
 (* ********************************************************************************************************** *)
 

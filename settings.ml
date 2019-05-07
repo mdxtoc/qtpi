@@ -58,6 +58,8 @@ let pstep = ref false
 
 let show_final = ref false
 
+let showsymbolicgate = ref true
+
 let symbq = ref true
 
 let traceevents = ref false

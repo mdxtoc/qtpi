@@ -23,6 +23,7 @@
 
 open Settings
 open Stringutils
+open Optionutils
 open Instance
 open Name
 open Expr
@@ -39,7 +40,7 @@ and iostumble =
 type qstep = qstumble instance
 
 and qstumble =
-  | Measure of expr * expr * pattern  (* qbit, gate, pattern (restricted: see parser) *)
+  | Measure of expr * expr option * pattern  (* qbit, gate, pattern (restricted: see parser) *)
   | Ugatestep of expr list * expr
   
 let string_of_iostep iostep =
@@ -52,9 +53,9 @@ let string_of_iostep iostep =
                                           (string_of_expr e)
 let string_of_qstep qstep =
   match qstep.inst with
-  | Measure (e,g,p)      -> Printf.sprintf "%s=?%s(%s)"
+  | Measure (e,gopt,p)   -> Printf.sprintf "%s=?%s(%s)"
                                           (string_of_expr e)
-                                          (if is_UG_I g then "" else ("[" ^ string_of_expr g ^ "]"))
+                                          (((fun g -> "[" ^ string_of_expr g ^ "]") ||~~ "") gopt)
                                           (string_of_pattern p)
   | Ugatestep (es,u)    -> Printf.sprintf "%s>>%s"
                                           (commasep (List.map string_of_expr es))

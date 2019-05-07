@@ -109,19 +109,6 @@ rule make_token = parse
   | '.'         {DOT}
   | ".."        {DOTDOT}
     
-  | "_H"        {HADAMARD}
-  | "_F"        {F}
-  | "_G"        {G}
-  | "_I"        {I}
-  | "_X"        {X}
-  | "_Y"        {Y}
-  | "_Z"        {Z}
-  | "_Cnot"     {CNOT}
-  | "_CNot"     {CNOT}
-  | "_CNOT"     {CNOT}
-  | "_phi"      {PHI}
-  | "_Phi"      {PHI}
-  | "_PHI"      {PHI}
   | "new"       {NEWDEC}
   | "newq"      {QBITDEC}
   | "let"       {LETDEC}

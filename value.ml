@@ -116,17 +116,6 @@ and probvec = cprob array
 
 and gate = cprob array array
 
-and ugv =
-  | GateH
-  | GateF
-  | GateG
-  | GateI
-  | GateX
-  | GateY
-  | GateZ
-  | GateCnot
-  | GatePhi of int
-
 and qbit = int
 
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
@@ -310,17 +299,6 @@ and short_so_wwaiter optf ((n, v, proc, env),gsir) = (* infinite loop if we prin
                  
 and so_runnerqueue optf sep rq =
   string_of_pqueue (so_runner optf) sep rq
-
-and string_of_ugv = function
-  | GateH           -> "_H"
-  | GateF           -> "_F"
-  | GateG           -> "_G"
-  | GateI           -> "_I"
-  | GateX           -> "_X"
-  | GateY           -> "_Y"
-  | GateZ           -> "_Z"
-  | GateCnot        -> "_Cnot"
-  | GatePhi (i)     -> "_Phi(" ^ string_of_int i ^ ")"
 
 and string_of_qbit = string_of_int
 

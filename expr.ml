@@ -49,7 +49,6 @@ and enode =
   | EString of string
   | EBit of bool        (* 1=true *)
   | EBasisv of basisv
-  | EGate of ugate
   | EMinus of expr
   | ENot of expr
   | ETuple of expr list
@@ -64,19 +63,6 @@ and enode =
   | EBoolArith of expr * boolop * expr
   | ELambda of pattern list * expr
   | EWhere of expr * edecl
-
-and ugate = ugnode instance
-
-and ugnode =
-  | UG_H
-  | UG_F
-  | UG_G
-  | UG_I
-  | UG_X
-  | UG_Y
-  | UG_Z
-  | UG_Cnot
-  | UG_Phi of expr
 
 and arithop =
   | Plus
@@ -160,7 +146,6 @@ let rec exprprio e =
   | EString     _
   | EBit        _ 
   | EBasisv     _
-  | EGate       _
   | ECond       _           
   | EMatch      _           -> primaryprio
   | EMinus      _           
@@ -187,7 +172,6 @@ let rec string_of_primary e =
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBasisv bv      -> string_of_basisv bv
-  | EGate ug        -> string_of_ugate ug
   | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
@@ -228,7 +212,6 @@ and string_of_expr e =
   | EVar        _
   | EBit        _
   | EBasisv     _
-  | EGate       _
   | ENum        _
   | EBool       _
   | EChar       _
@@ -285,32 +268,8 @@ and string_of_boolop = function
   | Implies -> "=>"
   | Iff     -> "<=>"
 
-and string_of_ugate ug = 
-  match ug.inst with
-  | UG_H              -> "_H"  
-  | UG_F              -> "_F"  
-  | UG_G              -> "_G"  
-  | UG_I              -> "_I"
-  | UG_X              -> "_X"
-  | UG_Y              -> "_Y"
-  | UG_Z              -> "_Z"
-  | UG_Cnot           -> "_CNot"
-  | UG_Phi (e)        -> Printf.sprintf "_Phi(%s)" (string_of_expr e)
-
 and string_of_ematch (pat,e) =
   Printf.sprintf "%s.%s" (string_of_pattern pat) (string_of_expr e)
-
-let arity_of_ugate ug =
-  match ug.inst with
-  | UG_H
-  | UG_F
-  | UG_G
-  | UG_I
-  | UG_X
-  | UG_Y
-  | UG_Z
-  | UG_Phi _  -> 1
-  | UG_Cnot   -> 2
 
 let delist = function
   | []  -> EUnit
@@ -342,7 +301,6 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       | EString     _ 
       | EBit        _ 
       | EBasisv     _ 
-      | EGate       _ 
       | ENil                   -> s
       | EMinus      e 
       | ENot        e          -> _frees s e
@@ -382,11 +340,3 @@ let frees = frees_fun (fun nset s -> NameSet.diff s nset)
                       (fun n _ s -> NameSet.add n s)
                       NameSet.union
                       NameSet.empty
-
-let is_UG_I e =
-  match e.inst.enode with
-  | EGate g -> (match g.inst with 
-                | UG_I -> true
-                | _    -> false
-               )
-  | _       -> false

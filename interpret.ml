@@ -198,7 +198,6 @@ let rec evale env e =
     | EString s           -> VString s
     | EBit b              -> VBit b
     | EBasisv bv          -> VBasisv bv
-    | EGate uge           -> VGate (ugev env uge)
     | EMinus e            -> VNum (~-/ (numev env e))
     | ENot   e            -> VBool (not (boolev env e))
     | ETuple es           -> VTuple (List.map (evale env) es)
@@ -378,21 +377,6 @@ and gateev env e =
   | VGate g -> g
   | v       -> mistyped e.pos (string_of_expr e) v "a gate"
 
-and ugev env ug = 
-  Qsim.matrix_of_ugv (match ug.inst with
-                      | UG_H       -> GateH
-                      | UG_F       -> GateF
-                      | UG_G       -> GateG
-                      | UG_I       -> GateI
-                      | UG_X       -> GateX
-                      | UG_Y       -> GateY
-                      | UG_Z       -> GateZ
-                      | UG_Cnot    -> GateCnot
-                      | UG_Phi  e  -> let v = numev env e in
-                                      if v=/zero || v=/one || v=/two || v=/three then GatePhi (int_of_num v)
-                                      else raise (Error (ug.pos, Printf.sprintf "_Phi(%s)" (string_of_value (VNum v))))
-                     )
-
 let mkchan c = {cname=c; stream=Queue.create (); 
                          rwaiters=PQueue.create 10; (* 10 is a guess *)
                          wwaiters=PQueue.create 10; (* 10 is a guess *)
@@ -532,30 +516,30 @@ let rec interp sysenv proc =
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
-                  | Measure (e, g, pat) -> let q = qbitev env e in
-                                           (* measurement without detection is absurd, wrong. So disposed is always true *)
-                                           let disposed = !measuredestroys in
-                                           let qv, aqs = 
-                                             if !traceevents then 
-                                               let qs = fst (qval q) in
-                                               tev q, (if disposed then remove q qs else qs) 
-                                             else 
-                                               "", [] 
-                                           in
-                                           let gv = gateev env g in
-                                           let v = vbit (qmeasure disposed pn gv q = 1) in
-                                           if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
-                                           let env' = (match pat.inst.pnode with
-                                                       | PatAny    -> env
-                                                       | PatName n -> env <@+> (n,v)
-                                                       | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
-                                                      )
-                                           in
-                                           addrunner (pn, proc, env');
-                                           if !pstep then 
-                                             show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
-                                                                                   (pstep_state env')
-                                                                                   (pstep_env env' env)
+                  | Measure (e, gopt, pat) -> let q = qbitev env e in
+                                              (* measurement without detection is absurd, wrong. So disposed is always true *)
+                                              let disposed = !measuredestroys in
+                                              let qv, aqs = 
+                                                if !traceevents then 
+                                                  let qs = fst (qval q) in
+                                                  tev q, (if disposed then remove q qs else qs) 
+                                                else 
+                                                  "", [] 
+                                              in
+                                              let gv = (gateev env ||~~ m_I) gopt in
+                                              let v = vbit (qmeasure disposed pn gv q = 1) in
+                                              if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
+                                              let env' = (match pat.inst.pnode with
+                                                          | PatAny    -> env
+                                                          | PatName n -> env <@+> (n,v)
+                                                          | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
+                                                         )
+                                              in
+                                              addrunner (pn, proc, env');
+                                              if !pstep then 
+                                                show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
+                                                                                      (pstep_state env')
+                                                                                      (pstep_env env' env)
                                                       )
                   | Ugatestep (es, g)      -> let qs = List.map (qbitev env) es in
                                               let g = gateev env g in

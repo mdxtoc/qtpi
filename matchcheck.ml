@@ -27,6 +27,7 @@ open Sourcepos
 open Listutils
 open Tupleutils
 open Functionutils
+open Optionutils
 open Expr
 open Basisv
 open Process
@@ -409,7 +410,6 @@ let rec matchcheck_expr e =
   | EString     _
   | EBit        _
   | EBasisv     _
-  | EGate       _       
   | ENil                    -> ()
   | EMinus      e           
   | ENot        e           -> matchcheck_expr e
@@ -447,8 +447,8 @@ let rec matchcheck_proc proc =
                                matchcheck_proc proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc proc (* binding pattern doesn't need check *)
   | WithQstep (qstep,proc)  -> (match qstep.inst with
-                                | Measure   (qe, ge, _)   -> matchcheck_expr qe; matchcheck_expr ge
-                                | Ugatestep (qes,ge)      -> List.iter matchcheck_expr qes; matchcheck_expr ge
+                                | Measure   (qe, gopt, _)   -> matchcheck_expr qe; (matchcheck_expr ||~~ ()) gopt
+                                | Ugatestep (qes,ge)           -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc proc 
   | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc p1; matchcheck_proc p2 

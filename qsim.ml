@@ -486,28 +486,6 @@ let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
                              Printf.sprintf "qlimbo=%s" (string_of_qlimbo ())
                             ]
 
-let matrix_of_ugv = function
-  | GateH           -> m_H
-  | GateF           -> m_F
-  | GateG           -> m_G
-  | GateI           -> m_I
-  | GateX           -> m_X
-  | GateY           -> m_Y
-  | GateZ           -> m_Z
-  | GateCnot        -> m_Cnot
-  | GatePhi (i)     -> m_Phi(i)
-
-let arity_of_ugv = function
-  | GateH           
-  | GateF           
-  | GateG           
-  | GateI           
-  | GateX           
-  | GateY           
-  | GateZ           
-  | GatePhi _       -> 1
-  | GateCnot        -> 2
-
 (* idx: the index position of q in qs *)
 let idx q qs = 
   let rec f i = function

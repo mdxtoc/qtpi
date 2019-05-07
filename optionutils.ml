@@ -66,3 +66,7 @@ let rec optfirst optf xs =
   | []    -> None
   | x::xs -> optf x |~~ (fun () -> optfirst optf xs)
 
+let (||~~) (f: 'a -> 'b) (v: 'b) (opt: 'a option) : 'b = 
+  match opt with
+  | Some x -> f x
+  | None   -> v

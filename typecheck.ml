@@ -114,11 +114,6 @@ let rec rewrite_expr cxt e =
        | EString     _
        | EBit        _          
        | EBasisv     _          -> ()
-       | EGate       ug         -> (match ug.inst with
-                                    | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
-                                                    -> ()
-                                    | UG_Phi e      -> rewrite_expr cxt e
-                                   )
        | EMinus      e          
        | ENot        e          -> rewrite_expr cxt e
        | ETuple      es         -> List.iter (rewrite_expr cxt) es
@@ -181,8 +176,8 @@ let rewrite_params cxt = List.iter (rewrite_param cxt)
 
 let rewrite_qstep cxt qstep = 
   match qstep.inst with
-  | Measure   (e,ge,pattern)  -> rewrite_expr cxt e; rewrite_expr cxt ge; rewrite_pattern cxt pattern
-  | Ugatestep (es, ug)        -> List.iter (rewrite_expr cxt) es; rewrite_expr cxt ug
+  | Measure   (e,gopt,pattern)  -> rewrite_expr cxt e; (rewrite_expr cxt ||~~ ()) gopt; rewrite_pattern cxt pattern
+  | Ugatestep (es, ug)          -> List.iter (rewrite_expr cxt) es; rewrite_expr cxt ug
 
 let rewrite_iostep cxt iostep = 
   match iostep.inst with
@@ -513,12 +508,6 @@ and assigntype_expr cxt t e =
                                 *)
                                unifytypes t (adorn_x e Bit) 
      | EBasisv _            -> unifytypes t (adorn_x e Basisv)
-     | EGate   ug           -> let _   = match ug.inst with
-                                         | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
-                                                        -> ()
-                                         | UG_Phi e     -> assigntype_expr cxt (adorn_x e (* Range (0,3) *)Num) e
-                               in
-                               unifytypes t (adorn_x e Gate)
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = new_Unknown e.pos UnkClass in
@@ -746,9 +735,9 @@ and typecheck_process cxt p =
       typecheck_letspec (fun cxt -> typecheck_process cxt proc) cxt pat e
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, ge, pat) ->
+       | Measure (e, gopt, pat) ->
            let _ = assigntype_expr cxt (adorn e.pos Qbit) e in
-           let _ = assigntype_expr cxt (adorn ge.pos Gate) ge in
+           let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
            assigntype_pat (fun cxt -> typecheck_process cxt proc) cxt (adorn pat.pos Bit) pat
        | Ugatestep (es, uge) ->
            let _ = List.iter (fun e -> assigntype_expr cxt (adorn e.pos Qbit) e) es in

@@ -330,12 +330,6 @@ let rec r_o_e disjoint state env e =
       | EString     _
       | EBit        _         
       | EBasisv     _         -> RNull, ResourceSet.empty
-      | EGate       ug        -> (match ug.inst with
-                                    | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot 
-                                                    -> RNull, ResourceSet.empty
-                                    | UG_Phi e      -> let _, used = re use e in
-                                                       RNull, used
-                                 )                    
       | EMinus      e         -> re Uarith e
       | ENot        e         -> re Ubool e
       | EArith      (e1,_,e2) -> let _, used = do_list Uarith   [e1;e2] in RNull, used
@@ -481,13 +475,13 @@ and rck_proc state env proc =
                                    let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, ge, pattern) -> 
+                                    | Measure (qe, gopt, pattern) -> 
                                         let destroys = !measuredestroys in
                                         (* if destroys is false then qe can be ambiguously conditional *)
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in
-                                        let usedg = (snd <.> resources_of_expr state env) ge in
+                                        let usedg = ((snd <.> resources_of_expr state env) ||~~ ResourceSet.singleton RNull) gopt in
                                         let env' = match pattern.inst.pnode with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)
@@ -597,11 +591,7 @@ let rec ffv_expr expr =
   | EString    _
   | EBit       _
   | EBasisv    _
-  | ENil                   -> ()
-  | EGate      ug          -> (match ug.inst with
-                               | UG_H | UG_F | UG_G | UG_I | UG_X | UG_Y | UG_Z | UG_Cnot -> ()
-                               | UG_Phi e                                                 -> ffv_expr e
-                              )
+  | ENil                    -> ()
   | EMinus     e
   | ENot       e            -> ffv_expr e
   | ETuple     es           -> List.iter ffv_expr es  
@@ -667,8 +657,8 @@ and ffv_letspec (pattern, expr) = ffv_expr expr
 
 and ffv_qstep qstep =
   match qstep.inst with
-  | Measure (expr, ge, pattern) -> List.iter ffv_expr [expr; ge]
-  | Ugatestep (exprs, ge)       -> List.iter ffv_expr (exprs@[ge])
+  | Measure (expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
+  | Ugatestep (exprs, ge)    -> List.iter ffv_expr exprs; ffv_expr ge
   
 and ffv_ioproc (iostep, proc) =
   (match iostep.inst with

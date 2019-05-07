@@ -74,7 +74,7 @@
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
-%token HADAMARD F G PHI CNOT I X Y Z NEWDEC QBITDEC LETDEC MATCH 
+%token NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
 %token PLUS MINUS DIV MOD
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
@@ -268,10 +268,10 @@ sumproc:
                                         {$4,$6}
 
 qstep:
-  | expr MEASURE mpat                   {adorn (Measure ($1,eadorn (EGate (adorn UG_I)),$3))}
-  | expr MEASURE LSQPAR RSQPAR mpat     {adorn (Measure ($1,eadorn (EGate (adorn UG_I)),$5))}
+  | expr MEASURE mpat                   {adorn (Measure ($1,None,$3))}
+  | expr MEASURE LSQPAR RSQPAR mpat     {adorn (Measure ($1,None,$5))}
   | expr MEASURE LSQPAR expr RSQPAR mpat       
-                                        {adorn (Measure ($1,$4,$6))}
+                                        {adorn (Measure ($1,Some $4,$6))}
   | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
 
 mpat:
@@ -425,7 +425,6 @@ primary:
   | CHAR                                {eadorn (EChar $1)}
   | STRING                              {eadorn (EString $1)}
   | basisv                              {eadorn (EBasisv $1) }
-  | ugate                               {eadorn (EGate $1)}
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR expr RPAR                      {eadorn (Expr.delist (Expr.relist $2))}
   | IF eif FI                           {eadorn($2.inst.enode)}
@@ -510,17 +509,6 @@ bool:
   | ntexpr AND ntexpr                   {$1,And,$3}
   | ntexpr OR ntexpr                    {$1,Or,$3}
   
-ugate: 
-  | HADAMARD                            {adorn UG_H}
-  | F                                   {adorn UG_F}
-  | G                                   {adorn UG_G}
-  | CNOT                                {adorn UG_Cnot}
-  | I                                   {adorn UG_I}
-  | X                                   {adorn UG_X}
-  | Y                                   {adorn UG_Y}
-  | Z                                   {adorn UG_Z}
-  | PHI LPAR expr RPAR                  {adorn (UG_Phi ($3))}
-
 exprlist:
   |                                     {eadorn ENil}
   | expr                                {eadorn (ECons ($1, eadorn ENil))}

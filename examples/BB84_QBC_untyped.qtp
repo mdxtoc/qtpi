@@ -8,8 +8,8 @@ proc AliceChoose(n, r, vs, qB, bB, vB) =
 proc AliceSend(vs, ovs, basis, qB, bB, vB) =
     if vs=[] then AliceReport(basis,ovs,bB,vB)
     else (newq q)
-         q >> if hd(vs)=0b1 then _X else _I fi.
-         q >> if basis=0b1 then _H else _I fi.
+         q >> if hd(vs)=0b1 then X else I fi.
+         q >> if basis=0b1 then H else I fi.
          qB!q.
          AliceSend(tl(vs),ovs,basis,qB,bB,vB)
     fi
@@ -27,7 +27,7 @@ proc BobReceive(n, vs, r, qA, bA, vA) =
     else 
                   qA?(q:qbit).
                   r?(basis).
-                  q >> if basis=0b1 then _H else _I fi.
+                  q >> if basis=0b1 then H else I fi.
                   q =? (value).
                   BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
     fi
@@ -41,7 +41,7 @@ proc BobVerify (vs, basis, as) =
        fi
   fi
        
-proc Random(q:qbit, r) = q>>_H . q=?(v) . r!v . Random(q,r)
+proc Random(q:qbit, r) = q>>H . q=?(v) . r!v . Random(q,r)
 
 proc System() = (let n = read_num "number of qbits")
 				(new r,qc,bc,vc)

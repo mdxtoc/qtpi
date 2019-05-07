@@ -84,7 +84,7 @@ proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(basis) .
-         q =?[if basis=0b1 then _H else _I fi] (value) .
+         q =?[if basis=0b1 then H else I fi] (value) .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
     fi
        

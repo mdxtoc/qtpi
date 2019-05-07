@@ -3,7 +3,7 @@ proc System() =
         b = if randbit()=0b0 then |0> else |1> fi)  
   out!["entangling "] . outq!(qval a) .
   out![" and "] . outq!(qval b) .
-  a>>_H . a,b >> _Cnot . 
+  a>>H . a,b >> Cnot . 
   out![" gives "] . outq!(qval a) . out!["\n"] .
   | Alice (a) | Bob (b)
   

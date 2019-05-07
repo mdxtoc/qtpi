@@ -2,20 +2,20 @@ proc Alice (s, qc) =
   (let i,j = randbit(), randbit())
   out!["Alice decides to send "; show (i,j); "\n"] .
   s?(x) . x >> match i, j .
-               + 0b0,0b0 . _I
-               + 0b0,0b1 . _X
-               + 0b1,0b0 . _Z
-               + 0b1,0b1 . _Z*_X     .
+               + 0b0,0b0 . I
+               + 0b0,0b1 . X
+               + 0b1,0b0 . Z
+               + 0b1,0b1 . Z*X     .
   qc!x . _0
   
 proc Bob(t, qc) =
   t?(y) . qc?(x) . 
-  x,y >> _Cnot . x>>_H. x=?(i) . y=?(j) .
+  x,y >> Cnot . x>>H. x=?(i) . y=?(j) .
   out!["Bob receives "; show (i,j); "\n" ] .
   _0
 
 proc Source(s:^qbit,t:^qbit) = 
-  (newq x=|0>,y=|0>) x>>_H . x,y>>_CNot . s!x . t!y . _0 
+  (newq x=|0>,y=|0>) x>>H . x,y>>_CNot . s!x . t!y . _0 
 
 proc System() = (new s,t,qc) 
                 | Alice(s,qc) | Bob(t,qc) | Source(s,t)

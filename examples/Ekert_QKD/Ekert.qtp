@@ -85,7 +85,7 @@ fun min_qbits (k:num) (p:num) (s:num) : num =
 (* *************************************************************************************** *)
 
 (* produce pairs (h|01>-h|10> -- the '-' is crucial, I think *)
-proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> _Cnot . qcA!a . qcB!b . Source(qcA,qcB)
+proc Source(qcA,qcB) = (newq a=|1>,b=|->) b,a >> Cnot . qcA!a . qcB!b . Source(qcA,qcB)
 
 proc System() = 
   (let n = read_num "number of trials")

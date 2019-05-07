@@ -1,10 +1,10 @@
 (* bad use of x in Q -- even though it's the same qbit really *)
 
 proc P(fromQ:^qbit, toQ:^qbit) = | fromQ?(y) . toQ!y . _0
-                                 | fromQ?(y) . y>>_X . toQ!y . _0
+                                 | fromQ?(y) . y>>X . toQ!y . _0
                      
 proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
-  x>>_H . toP!x . fromP?(z) . x>>_H . _0 
+  x>>H . toP!x . fromP?(z) . x>>H . _0 
 
 proc System() = (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
                 (newq x = bv) 

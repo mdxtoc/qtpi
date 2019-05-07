@@ -8,7 +8,7 @@ proc P(fromQ:^qbit, toQ:^qbit, log) =
   + fromQ?(y) . toQ!y .         
                 log!() .
                 _0
-  + fromQ?(y) . y>>_X . 
+  + fromQ?(y) . y>>X . 
                 out!["with a flip; "]. 
                 toQ!y .                     
                 log!()  . 
@@ -16,7 +16,7 @@ proc P(fromQ:^qbit, toQ:^qbit, log) =
                      
 proc Q(q: qbit, toP:^qbit, fromP:^qbit, log) = 
   out!["initially "] . outq!(qval q) . out!["; "] .
-  q>>_H . toP!q . fromP?(q') . q'>>_H . 
+  q>>H . toP!q . fromP?(q') . q'>>H . 
   out!["finally "] . outq!(qval q') . out!["\n"] .
   log!() . _0 
 

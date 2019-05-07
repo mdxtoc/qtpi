@@ -12,7 +12,7 @@ proc Alice(qc:^qbit, bbc:^(bit*bit)) =
 proc Bob(qc:^qbit, bbc:^bit*bit) =
     qc?(qx)             .
     bbc?(value,basis)   .
-    qx =? [if basis=0b1 then _H else _I fi] (measure) .
+    qx =? [if basis=0b1 then H else I fi] (measure) .
     out![if measure=value then "honest\n" else "liar!!\n" fi] .
     _0
     

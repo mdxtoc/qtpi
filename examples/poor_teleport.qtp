@@ -4,10 +4,10 @@ proc Alice (x:qbit, c:^bit*bit, z:qbit) =
     out!["initially Alice's z is "] .
     outq!(qval z) .
     out!["\n"] .
-    z,x>>_CNot . z>>_H . z=?(vz) . x=?(vx) . c!vz,vx . _0 
+    z,x>>_CNot . z>>H . z=?(vz) . x=?(vx) . c!vz,vx . _0 
 
 proc Bob(y:qbit, c:^bit*bit) = 
-    c?(b1,b2) . y>>_Phi (match b1,b2 .
+    c?(b1,b2) . y>>phi (match b1,b2 .
                          + 0b0,0b0 . 0
                          + 0b0,0b1 . 1
                          + 0b1,0b0 . 2
@@ -23,7 +23,7 @@ proc System () =
   (newq x=if randbit()=0b0 then |0> else |1> fi, 
         y=if randbit()=0b0 then |0> else |1> fi, 
         z) 
-  x>>_H . x,y>>_CNot . 
+  x>>H . x,y>>_CNot . 
   (new c:^bit*bit) 
   | Alice(x,c,z) 
   | Bob(y,c)

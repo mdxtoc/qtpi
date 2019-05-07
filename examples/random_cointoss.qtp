@@ -5,10 +5,10 @@
  *)
 
 proc P(fromQ:^qbit, toQ:^qbit) = + fromQ?(y) . toQ!y . _0
-                                 + fromQ?(y) . y>>_X . toQ!y . _0
+                                 + fromQ?(y) . y>>X . toQ!y . _0
                      
 proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
-  x>>_H . toP!x . fromP?(z) . z>>_H . _0 
+  x>>H . toP!x . fromP?(z) . z>>H . _0 
 
 proc System() = (newq x) 
            (new s:^qbit, r:^qbit) 

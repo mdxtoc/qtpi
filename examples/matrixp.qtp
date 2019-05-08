@@ -10,4 +10,5 @@ proc System () =
   out!mp (F*H) (dagger (F*H)) .
   out!mp H F .
   out!mp F G .
+  out!mp G (dagger G) .
   _0

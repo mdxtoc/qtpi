@@ -177,10 +177,13 @@ let m_Z  = make_m   [[c_1       ; c_0        ];
                      [c_0       ; pcneg c_1  ]] 
 let m_H  = make_m   [[c_h       ; c_h        ];
                      [c_h       ; pcneg (c_h)]]
-let m_F  = make_m   [[c_f       ; c_g        ];
-                     [c_g       ; pcneg c_f  ]]
-let m_G  = make_m   [[c_g       ; c_f        ];
-                     [c_f       ; pcneg c_g  ]]
+                     
+(* these two are intended to be like rotations. Unlike H, F*F<>I *)
+
+let m_F  = make_m   [[c_f       ; pcneg c_g  ];
+                     [c_g       ; c_f        ]]
+let m_G  = make_m   [[c_g       ; pcneg c_f  ];
+                     [c_f       ; c_g        ]]
 
 let m_Phi = function (* as Pauli *)
   | 0 -> m_I

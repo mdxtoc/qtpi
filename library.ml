@@ -38,26 +38,7 @@ let mustbe_intv v =
     try int_of_num n with Z.Overflow -> raise (IntOverflow (string_of_value v))
   (*else raise (FractionalInt (string_of_value v))*)
 
-(* the basic gates *)
-
-let _ = Interpret.know ("I"   , "gate", vgate m_I)
-let _ = Interpret.know ("X"   , "gate", vgate m_X)
-let _ = Interpret.know ("Y"   , "gate", vgate m_Y)
-let _ = Interpret.know ("Z"   , "gate", vgate m_Z)
-
-let _ = Interpret.know ("H"   , "gate", vgate m_H)
-let _ = Interpret.know ("F"   , "gate", vgate m_F)
-let _ = Interpret.know ("G"   , "gate", vgate m_G)
-
-let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> m_Phi <.> mustbe_intv))
-
-let _ = Interpret.know ("Cnot"   , "gate", vgate m_Cnot)
-
 (* ******************** built-in functions ********************* *)
-
-(* This stuff is intended to be replaced by dynamically-loaded stuff,
-   as soon as I can get round to understanding the mechanism.
- *)
 
 let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
 let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
@@ -66,6 +47,23 @@ let vfun4 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> vfun (fun d -> f a b 
 let funv2 f = funv <.> funv f
 let funv3 f = let f' a b c = funv (funv (funv f a) b) c in
               f'
+
+(* ******************** basic gates ********************* *)
+
+let _ = Interpret.know ("I"     , "gate", vgate m_I)
+let _ = Interpret.know ("X"     , "gate", vgate m_X)
+let _ = Interpret.know ("Y"     , "gate", vgate m_Y)
+let _ = Interpret.know ("Z"     , "gate", vgate m_Z)
+
+let _ = Interpret.know ("H"     , "gate", vgate m_H)
+let _ = Interpret.know ("F"     , "gate", vgate m_F)
+let _ = Interpret.know ("G"     , "gate", vgate m_G)
+
+let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> m_Phi <.> mustbe_intv))
+
+let _ = Interpret.know ("Cnot"  , "gate", vgate m_Cnot)
+
+let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Qsim.dagger <.> gatev))
 
 (* ******************** lists ********************* *)
 

@@ -315,6 +315,8 @@ let cprod (C (x1,y1)) (C (x2,y2)) = C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), 
 let csum  (C (x1,y1)) (C (x2,y2)) = C (rsum x1 x2, rsum y1 y2)
 let cneg  (C (x,y))               = C (rneg x, rneg y)
 
+let ccong (C (x,y))               = C (x, rneg y)
+
 let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
 
 let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
@@ -396,24 +398,22 @@ let mult_mm mA mB =
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
   m'
 
-let cjtrans_m m = (* square matrices only *)
-  if !verbose_qcalc then Printf.printf "cjtrans_m%s = " (string_of_matrix m);
+(* conjugate transpose: transpose and piecewise complex conjugate *)
+let dagger m = 
+  if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_matrix m);
   let n = msize m in
   if n <> vsize m.(0) then
-    raise (Error (Printf.sprintf "** Disaster (unsquareness): cjtrans_m %s"
+    raise (Error (Printf.sprintf "** Disaster (unsquareness): dagger %s"
                                  (string_of_matrix m)
                  )
           );
   let m' = new_ug n in
   _for 0 1 n (fun i ->
-                _for 0 1 n (fun j -> m'.(i).(j) <- m.(j).(i))
+                _for 0 1 n (fun j -> m'.(i).(j) <- cconj (m.(j).(i)))
              );
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
   m'
   
-let m_IH = tensor_mm m_I m_H
-let m_HI = tensor_mm m_H m_I
-
 (* ****************** new and dispose for qbits ******************************* *)
 
 let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the references *)
@@ -816,7 +816,7 @@ let rec qmeasure disposes pn gate q =
                                     (string_of_qbit q)
                     )
              );
-     let gate' = cjtrans_m gate in  (* transposed gate because it's unitary *)
+     let gate' = dagger gate in  (* transposed gate because it's unitary *)
      let qv = qval q in
      (* first of all rotate with gate' *)
      ugstep_padded pn [q] gate' gate'; 

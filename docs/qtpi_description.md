@@ -245,22 +245,28 @@ Probability expressions represent complex numbers *x*+*iy*. Good luck.
 
 ## Gates *gate*
 
-Gates are now a proper kind of value: square matrices. We have both matrix and tensor multiplication: matrix multiplication uses the operator `*`; tensor multiplication uses `><`. (I don't know how to overload juxtaposition for matrix multiplication: sorry.)
+Gates are now a proper kind of value: square matrices. We have both matrix and tensor product: matrix product uses the operator `*`; tensor product uses `><`. (I don't know how to make qtpi use juxtaposition for matrix product, because it's in use for function application. Sorry.)
 
 The built-in library defines various named gates(for meaning of `f`, `g` and `h`, see above). All arity 1, except `Cnot` which is arity 2.
 
   * `H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
-  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `g|0>-f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
-  * `G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `f|0>-f|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
+  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `-g|0>+f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
+  * `G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `-f|0>+g|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
   * `I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
   * `X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
   * `Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
   * `Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `Y` was equivalent to the product `Z*X`. No longer.)
   * `Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
   
-There's also a built-in function *phi: num &rarr; gate*:
+There's a built-in function *phi: num &rarr; gate*:
 
   * `phi 0` is `I`; `phi 1` is `X`; `phi 2` is `Z`; `phi 3` is `Y`.
+  
+There's a built-in function *dagger: gate &rarr; gate* which does conjugate transpose. 
+
+At some point I'll allow programs to be input in UTF-8 encoding and then I'll have proper &#x2020; and &#x2297;.
+
+I haven't included non-unitary matrices like 'square root of NOT'. Should I? 
 
 ## The *dispose* channel
 
@@ -270,7 +276,7 @@ Before I realised that qbits are destroyed on detection, I implemented a *dispos
 
 Actually dispose-on-detection is a switch: `-measuredestroys false` makes qbits stay in existence once measured.
 
-Reading from from the *dispose* channel is a run-time error, once again because I don't know how to typecheck send-only channels.
+Reading from from the *dispose* channel is a run-time error, because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
@@ -280,8 +286,6 @@ Qbits are big fragile things. They are sent through gates, transmitted through c
 These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's also there for aesthetic reasons.
 
 It is impossible to branch according to the state or identity of a qbit unless you measure it first. (In unsimulated real life you couldn't ...). Likewise on the identity or equality of a function or a process.
-
-To prevent subversive inter-process communication, you can't send a function down a channel, or provide it as a process argument. (In earlier days I permitted this but tried to restrict function arguments to classical values. Then I thought of free variables ...)
 
   * **A channel is either `^qbit` or `^(non-functional classical)`**.
     	
@@ -299,7 +303,7 @@ To prevent subversive inter-process communication, you can't send a function dow
   
   	This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and indeed the resource-checker can cope with it. But I think it's a better language without it.
     
-  * **A function delivers a classical result**.
+  * **A function takes classical arguments and delivers a classical result**.
   
   	Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit.
   	
@@ -327,19 +331,18 @@ To prevent subversive inter-process communication, you can't send a function dow
 
 We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples. 
 
-**But**, *but*, but. Functions take classical arguments and deliver classical results -- i.e. they have nothing to do with qbits. See restrictions above.
-
-The library is mostly inspired by Miranda and/or Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). Note that argument types *'a*, etc., are classical, and *'\*a* allows qbit values.
-
-Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
+The library is mostly inspired by Miranda and Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). 
 
 Most of these functions deal in classical values only (*'a* rather than *'\*a*). But none (except for the absurd case of *abandon*) returns a value of a non-classical type.
     
+Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
+
   * *abandon*: *string* &rarr; *'\*a*  
-	* stops the program and doesn't return (raises an exception). 'Returns' a non-classical type, if necessary 
+	* stops the program and doesn't return (raises an exception). 'Returns' a non-classical type, if necessary. 
   * *append*: *'a list* &rarr; *'a list* &rarr; *'a list*
   * *concat*: *'a list list* &rarr; *'a list*
   * *const*: *'a* &rarr; *'\*b* &rarr; *'a*
+  * *dagger*: *gate* &rarr; *gate*
   * *drop*: *num* &rarr; *'a list* &rarr; *'a list*
   * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
   * *exists*: (*'*a* &rarr; *bool*) &rarr; *'*a list* &rarr; *bool*

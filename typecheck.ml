@@ -236,9 +236,9 @@ let rec unifytypes t1 t2 =
   let t1 = evaltype t1 in
   let t2 = evaltype t2 in
   if !verbose then
-    Printf.printf "unifytypes %s %s\n\n"
+    (Printf.printf "unifytypes %s %s\n\n"
                   (Type.string_of_type t1)
-                  (Type.string_of_type t2);
+                  (Type.string_of_type t2); flush stdout);
   let exn = TypeUnifyError (t1,t2) in
   let ut n r t =
     let kind = kind_of_unknown n in
@@ -255,11 +255,13 @@ let rec unifytypes t1 t2 =
   | OneOf (_,ts)        , Unknown (n2,r2)       -> if List.for_all (canunifytype n2) ts then ut n2 r2 t1 else raise exn (* I think *)
   | Unknown (n1,r1)     , _                     -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _                   , Unknown (n2,r2)       -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
-  | OneOf ((n1,r1),t1s)  , OneOf ((n2,r2),t2s)  -> if List.for_all (fun t2 -> List.exists (fun t1 -> t1.inst=t2.inst) t1s) t2s
-                                                    then ut n1 r1 t2 else 
-                                                   if List.for_all (fun t1 -> List.exists (fun t2 -> t1.inst=t2.inst) t2s) t1s
-                                                    then ut n2 r2 t1 else 
-                                                   raise exn 
+  | OneOf ((n1,r1),t1s)  , OneOf ((n2,r2),t2s)  -> if n1<>n2 then
+                                                     (if List.for_all (fun t2 -> List.exists (fun t1 -> t1.inst=t2.inst) t1s) t2s
+                                                       then ut n1 r1 t2 else 
+                                                      if List.for_all (fun t1 -> List.exists (fun t2 -> t1.inst=t2.inst) t2s) t1s
+                                                       then ut n2 r2 t1 else 
+                                                      raise exn
+                                                     ) 
   | OneOf ((n1,r1),t1s)  , _                    -> if List.exists (fun t1 -> t1.inst=t2.inst) t1s then ut n1 r1 t2 else raise exn
   | _                   , OneOf ((n2,r2),t2s)   -> if List.exists (fun t2 -> t1.inst=t2.inst) t2s then ut n2 r2 t1 else raise exn
   | Tuple t1s           , Tuple t2s             

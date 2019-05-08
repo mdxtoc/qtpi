@@ -1,0 +1,9 @@
+fun tp a b =
+  [show a; "><"; show b; "="; show (a><b); "\n"]
+  
+proc System () =
+  out!tp I Cnot .
+  out!tp Cnot I .
+  out!tp Cnot X .
+  out!tp X Cnot .
+  _0

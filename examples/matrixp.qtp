@@ -1,0 +1,13 @@
+fun mp a b =
+  [show a; "*"; show b; "="; show (a*b); "\n"]
+  
+proc System () =
+  out!mp F (dagger F) .
+  out!mp F F .
+  out!mp (F*F) F .
+  out!mp (F*F) (F*F) .
+  out!mp F H .
+  out!mp (F*H) (dagger (F*H)) .
+  out!mp H F .
+  out!mp F G .
+  _0

@@ -9,6 +9,10 @@ proc System () =
   out!mp F H .
   out!mp (F*H) (dagger (F*H)) .
   out!mp H F .
-  out!mp F G .
-  out!mp G (dagger G) .
+  out!mp R (dagger R) .
+  out!mp R R .
+  out!mp (R*R) R .
+  out!mp (R*R) (R*R) .
+  out!mp (R*R*R) (R*R*R) .
+  out!mp (R*R*R*R) (R*R*R*R) .
   _0

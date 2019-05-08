@@ -241,7 +241,7 @@ An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`
 
 ### Complex probabilities
 
-Probability expressions represent complex numbers *x*+*iy*. Good luck.
+Probability expressions represent complex numbers *x*+*iy*. 
 
 ## Gates *gate*
 
@@ -250,13 +250,14 @@ Gates are now a proper kind of value: square matrices. We have both matrix and t
 The built-in library defines various named gates(for meaning of `f`, `g` and `h`, see above). All arity 1, except `Cnot` which is arity 2.
 
   * `H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
-  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `-g|0>+f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
-  * `G`: takes `|0>` to `g|0>+f|1>`, `|1>` to `-f|0>+g|1>`. A kind of 67.5&deg; rotation (3&pi;/8).
   * `I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
   * `X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
   * `Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
   * `Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `Y` was equivalent to the product `Z*X`. No longer.)
   * `Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
+  
+  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `-g|0>+f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
+  * `R`: takes `|0>` to `|0>`, `|1>` to `(f+ig)|1>`. A kind of 22.5&deg; phase rotation (&pi;/8).
   
 There's a built-in function *phi: num &rarr; gate*:
 

@@ -315,7 +315,7 @@ let cprod (C (x1,y1)) (C (x2,y2)) = C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), 
 let csum  (C (x1,y1)) (C (x2,y2)) = C (rsum x1 x2, rsum y1 y2)
 let cneg  (C (x,y))               = C (rneg x, rneg y)
 
-let ccong (C (x,y))               = C (x, rneg y)
+let cconj (C (x,y))               = C (x, rneg y)
 
 let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
 

@@ -185,6 +185,11 @@ let m_F  = make_m   [[c_f       ; pcneg c_g  ];
 let m_G  = make_m   [[c_g       ; pcneg c_f  ];
                      [c_f       ; c_g        ]]
 
+(* experimental R(pi/8) gate *)
+
+let m_R  = make_m   [[c_1       ; c_0        ];
+                     [c_0       ; C(P_f,P_g) ]]
+                     
 let m_Phi = function (* as Pauli *)
   | 0 -> m_I
   | 1 -> m_X
@@ -421,7 +426,7 @@ and string_of_gate g =
      if g=m_Z then "Z" else
      if g=m_H then "H" else
      if g=m_F then "F" else
-     if g=m_G then "G" else
+     if g=m_R then "R" else
      if g=m_Cnot then "Cnot" else
      string_of_matrix g
     )

@@ -197,11 +197,16 @@ let m_Phi = function (* as Pauli *)
   | 3 -> m_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
-let m_Cnot = make_m  [[c_1; c_0; c_0; c_0];
-                      [c_0; c_1; c_0; c_0];
-                      [c_0; c_0; c_0; c_1];
-                      [c_0; c_0; c_1; c_0]]
-                     
+let make_C g = make_m  [[c_1; c_0; c_0      ; c_0       ];
+                        [c_0; c_1; c_0      ; c_0       ];
+                        [c_0; c_0; g.(0).(0); g.(0).(1) ];
+                        [c_0; c_0; g.(1).(0); g.(1).(1) ]]
+    
+let m_Cnot = make_C m_X
+let m_CX   = make_C m_X
+let m_CY   = make_C m_Y
+let m_CZ   = make_C m_Z 
+                      
 let m_1 = make_m [[c_1]] (* a unit for folding *)
 let m_0 = make_m [[c_0]] (* another unit for folding *)
 

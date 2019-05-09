@@ -62,8 +62,21 @@ let _ = Interpret.know ("R"     , "gate", vgate m_R)
 let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> m_Phi <.> mustbe_intv))
 
 let _ = Interpret.know ("Cnot"  , "gate", vgate m_Cnot)
+let _ = Interpret.know ("CNot"  , "gate", vgate m_Cnot)
+let _ = Interpret.know ("CNOT"  , "gate", vgate m_Cnot)
+let _ = Interpret.know ("CX"    , "gate", vgate m_CX)
+let _ = Interpret.know ("CY"    , "gate", vgate m_CY)
+let _ = Interpret.know ("CZ"    , "gate", vgate m_CZ)
 
 let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Qsim.dagger <.> gatev))
+
+let v_makeC g =
+  if msize g<>2 then
+    raise (LibraryError ("makeC " ^ string_of_gate g))
+  else
+    make_C g
+
+let _ = Interpret.know ("makeC", "gate -> gate", vfun (vgate <.> v_makeC <.> gatev))
 
 (* ******************** lists ********************* *)
 

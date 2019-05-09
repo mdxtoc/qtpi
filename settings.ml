@@ -56,6 +56,8 @@ let measuredestroys = ref true
 
 let pstep = ref false
 
+let resourcecheck = ref true
+
 let show_final = ref false
 
 let showsymbolicgate = ref true

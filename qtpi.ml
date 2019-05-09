@@ -53,7 +53,8 @@ let _ = match !Usage.files with
                       print_endline (string_of_list string_of_def "\n\n" defs);
                     typecheck defs;
                     matchcheck defs;
-                    resourcecheck defs;
+                    if !Settings.resourcecheck then
+                      Resource.resourcecheck defs;
                     if !Settings.interpret then
                       interpret defs
                 with 

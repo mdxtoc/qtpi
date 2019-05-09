@@ -50,6 +50,8 @@ let opts = Arg.align
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               ("-pstep"  , Arg.Set pstep, 
 					" step through protocol execution");
+              ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
+					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
               ("-traceevents"  , Arg.Set traceevents, 
 					" show trace of quantum events, messages, disposal, at end of execution");
               ("-traceId"  , Arg.Set traceevents, 

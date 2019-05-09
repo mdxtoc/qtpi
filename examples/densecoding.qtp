@@ -15,7 +15,7 @@ proc Bob(t, qc) =
   _0
 
 proc Source(s:^qbit,t:^qbit) = 
-  (newq x=|0>,y=|0>) x>>H . x,y>>_CNot . s!x . t!y . _0 
+  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . s!x . t!y . _0 
 
 proc System() = (new s,t,qc) 
                 | Alice(s,qc) | Bob(t,qc) | Source(s,t)

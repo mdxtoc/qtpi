@@ -1,6 +1,6 @@
 proc Alice(qc:^qbit, bbc:^bit*bit) =
     (newq qx=|0>,qw=|0>)
-    qx >> H . qx,qw >> _CNot .
+    qx >> H . qx,qw >> CNot .
     qc!qx           .
     (let basis = randbit())
     qw =? [if basis=0b1 then H else I fi] (value) .

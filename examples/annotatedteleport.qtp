@@ -5,7 +5,7 @@ proc Alice (x:qbit, c:^bit*bit) =
     outq!(qval x) . 
     out![" and z is "] . 
     outq!(qval z) . out!["\n"] .
-    z,x>>_CNot . 
+    z,x>>CNot . 
     out!["after three-way entanglement z is "] . 
     outq!(qval z) . out!["\n"] .
     z=?[H](vz) . 
@@ -32,5 +32,5 @@ proc Bob(y:qbit, c:^bit*bit) =
     _0 
 
 proc System () = 
-  (newq x=|+>, y=|0>) x,y>>_CNot . 
+  (newq x=|+>, y=|0>) x,y>>CNot . 
   (new c:^bit*bit) | Alice(x,c) | Bob(y,c)

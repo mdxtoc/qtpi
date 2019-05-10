@@ -2,7 +2,7 @@ proc Alice (x:qbit, c:^bit*bit) =
     (newq z) 
     out!["initially Alice's z is "] . 
     outq!(qval z) . out!["\n"] .
-    z,x>>_CNot . z=?[H](vz) . x=?(vx) . 
+    z,x>>CNot . z=?[H](vz) . x=?(vx) . 
     c!vz,vx . 
     _0 
 
@@ -17,5 +17,5 @@ proc Bob(y:qbit, c:^bit*bit) =
     _0 
 
 proc System () = 
-  (newq x=|+>, y=|0>) x,y>>_CNot . 
+  (newq x=|+>, y=|0>) x,y>>CNot . 
   (new c:^bit*bit) | Alice(x,c) | Bob(y,c)

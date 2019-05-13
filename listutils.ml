@@ -95,4 +95,9 @@ let rec remove x ys =
 let rec mkset = function
   | [] -> []
   | x::xs -> x::mkset (List.filter (fun x' -> x<>x') xs)
-  
+
+(* this may be a bit specialised: put pres onto posts in reverse order *)
+let rec prepend pres posts = 
+  match pres with
+  | pre::pres -> prepend pres (pre::posts)
+  | []        -> posts

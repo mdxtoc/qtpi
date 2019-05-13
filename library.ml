@@ -418,6 +418,7 @@ let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c ->
 
 let _qval q =
   let q = qbitv q in
-  Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
+  let qv = Qsim.qval q in
+  Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv))
   
 let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (* yup, that's a qbit argument *)

@@ -372,8 +372,8 @@ and string_of_cprob (C (x,y)) =
   | _  , P_0    -> string_of_prob x
   | P_0, Pneg p -> "-" ^ im p
   | P_0, _      -> im y
-  | _  , Pneg p -> string_of_prob x ^ "-" ^ im p
-  | _  , _      -> string_of_prob x ^ "+" ^ im y
+  | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
+  | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
   
 and string_of_probvec v =
   if !Settings.fancyvec then 

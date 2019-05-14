@@ -33,7 +33,6 @@ open Pattern
 exception Disaster of string
 
 let vsize = Array.length
-let msize = Array.length
 
 let _for i inc n f = (* n is size, so up to n-1 *)
   let rec rf i =
@@ -114,7 +113,9 @@ and cprob = C of prob*prob (* complex prob A + iB *)
 
 and probvec = cprob array
 
-and gate = cprob array array
+and gate = 
+    | MGate of cprob array array   (* square matrix *)
+    | DGate of cprob array         (* diagonal matrix *)
 
 and qbit = int
 
@@ -135,6 +136,72 @@ and rwaiter = name * pattern * process * env
 and wwaiter = name * value * process * env
 
 and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
+
+let gsize = function
+  | MGate m -> vsize m  (* assuming square gates *)
+  | DGate v -> vsize v
+  
+let rec string_of_prob p = 
+  (* Everything is associative, but the normal form is sum of negated products.
+   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
+   *)
+  let prio = function
+    | P_0
+    | P_1
+    | P_f  
+    | P_g 
+    | P_h  _ 
+    | Psymb _         -> 10
+    | Pprod _         -> 8
+    | Pneg  _         -> 6
+    | Psum  _         -> 4
+  in
+  let possbra p' = 
+    let supprio = prio p in
+    let subprio = prio p' in
+    let s = string_of_prob p' in
+    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
+  in
+  match p with
+  | P_0             -> "0"
+  | P_1             -> "1"
+  | P_f             -> "f"
+  | P_g             -> "g"
+  | P_h 1           -> "h"
+  | P_h n           -> Printf.sprintf "h(%d)" n
+  | Psymb (q,b)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
+  | Pneg p'         -> "-" ^ possbra p'
+  | Pprod ps        -> String.concat "*" (List.map possbra ps)
+  | Psum  ps        -> sum_separate (List.map possbra ps)    
+
+and sum_separate = function
+ | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
+                 else p1 ^ "+" ^ sum_separate (p2::ps) 
+ | [p]        -> p
+ | []         -> raise (Can'tHappen "sum_separate []")
+
+and string_of_cprob (C (x,y)) =
+  let im y = 
+    match y with
+    | P_1     -> "i"
+    | P_f  
+    | P_g 
+    | P_h   _ 
+    | Psymb _ 
+    | Pprod _ -> "i*" ^ string_of_prob y
+    | _       -> "i*(" ^ string_of_prob y ^ ")"
+  in
+  match x,y with
+  | P_0, P_0    -> "0"
+  | _  , P_0    -> string_of_prob x
+  | P_0, Pneg p -> "-" ^ im p
+  | P_0, _      -> im y
+  | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
+  | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
+  
+and string_of_qbit = string_of_int
+
+and short_string_of_qbit = string_of_int
 
 (* *********************** defining vectors, matrices ************************************ *)
 
@@ -165,7 +232,46 @@ let v_minus = make_v [c_h   ; pcneg c_h   ]
 let v_1 = make_v [c_1] (* a unit for folding *)
 let v_0 = make_v [c_0] (* another unit for folding *)
 
-let make_m rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+let string_of_cpaa m = 
+  let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
+  let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
+  let rwidth r = List.fold_left max 0 (List.map String.length r) in
+  let width = List.fold_left max 0 (List.map rwidth block) in
+  let pad s = s ^ String.make (width - String.length s) ' ' in
+  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
+  Printf.sprintf "\n{%s}" block
+  
+let string_of_cpad v =
+  let strings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
+  let width = List.fold_left max 0 (List.map String.length strings) in
+  let pad s = s ^ String.make (width - String.length s) ' ' in
+  Printf.sprintf "diag{" ^ String.concat " " (List.map pad strings) ^ "}"
+  
+let cpaa_of_gate = function
+  | MGate m -> m
+  | DGate v -> let n = vsize v in
+               let zs = Listutils.tabulate n (const c_0) in
+               let rows = Listutils.tabulate n (const zs) in
+               let m = rows |> (List.map Array.of_list) |> (Array.of_list) in
+               for i = 0 to n-1 do
+                 m.(i).(i) <- v.(i)
+               done;
+               m
+               
+let gate_of_cpaa m =
+  let n = vsize m in
+  let isdiag = _for_leftfold 0 1 n 
+                  (fun i -> _for_leftfold 0 1 n
+                                    (fun j acc -> if i<>j then (acc && (m.(i).(j)=c_0)) else acc)
+                  )
+                  true
+  in
+  if isdiag then
+    DGate (Array.init n (fun i -> m.(i).(i)))
+  else MGate m
+  
+let make_m rows = 
+  gate_of_cpaa (rows |> (List.map Array.of_list) |> (Array.of_list))
 
 let m_I  = make_m   [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
@@ -197,10 +303,12 @@ let m_Phi = function (* as Pauli *)
   | 3 -> m_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
-let make_C g = make_m  [[c_1; c_0; c_0      ; c_0       ];
-                        [c_0; c_1; c_0      ; c_0       ];
-                        [c_0; c_0; g.(0).(0); g.(0).(1) ];
-                        [c_0; c_0; g.(1).(0); g.(1).(1) ]]
+let make_C g = 
+  let m = cpaa_of_gate g in
+  make_m  [[c_1; c_0; c_0      ; c_0       ];
+           [c_0; c_1; c_0      ; c_0       ];
+           [c_0; c_0; m.(0).(0); m.(0).(1) ];
+           [c_0; c_0; m.(1).(0); m.(1).(1) ]]
     
 let m_Cnot = make_C m_X
 let m_CX   = make_C m_X
@@ -313,68 +421,6 @@ and short_so_wwaiter optf ((n, v, proc, env),gsir) = (* infinite loop if we prin
 and so_runnerqueue optf sep rq =
   string_of_pqueue (so_runner optf) sep rq
 
-and string_of_qbit = string_of_int
-
-and short_string_of_qbit = string_of_int
-
-and string_of_prob p = 
-  (* Everything is associative, but the normal form is sum of negated products.
-   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
-   *)
-  let prio = function
-    | P_0
-    | P_1
-    | P_f  
-    | P_g 
-    | P_h  _ 
-    | Psymb _         -> 10
-    | Pprod _         -> 8
-    | Pneg  _         -> 6
-    | Psum  _         -> 4
-  in
-  let possbra p' = 
-    let supprio = prio p in
-    let subprio = prio p' in
-    let s = string_of_prob p' in
-    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
-  in
-  match p with
-  | P_0             -> "0"
-  | P_1             -> "1"
-  | P_f             -> "f"
-  | P_g             -> "g"
-  | P_h 1           -> "h"
-  | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
-  | Pneg p'         -> "-" ^ possbra p'
-  | Pprod ps        -> String.concat "*" (List.map possbra ps)
-  | Psum  ps        -> sum_separate (List.map possbra ps)    
-
-and sum_separate = function
- | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
-                 else p1 ^ "+" ^ sum_separate (p2::ps) 
- | [p]        -> p
- | []         -> raise (Can'tHappen "sum_separate []")
-
-and string_of_cprob (C (x,y)) =
-  let im y = 
-    match y with
-    | P_1     -> "i"
-    | P_f  
-    | P_g 
-    | P_h   _ 
-    | Psymb _ 
-    | Pprod _ -> "i*" ^ string_of_prob y
-    | _       -> "i*(" ^ string_of_prob y ^ ")"
-  in
-  match x,y with
-  | P_0, P_0    -> "0"
-  | _  , P_0    -> string_of_prob x
-  | P_0, Pneg p -> "-" ^ im p
-  | P_0, _      -> im y
-  | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
-  | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
-  
 and string_of_probvec v =
   if !Settings.fancyvec then 
     (let n = vsize v in
@@ -414,28 +460,26 @@ and string_of_probvec v =
      Printf.sprintf "(%s)" (String.concat " <,> " estrings)
     )
   
-and string_of_matrix m =
-  let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
-  let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
-  let rwidth r = List.fold_left max 0 (List.map String.length r) in
-  let width = List.fold_left max 0 (List.map rwidth block) in
-  let pad s = s ^ String.make (width - String.length s) ' ' in
-  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
-  Printf.sprintf "\n{%s}" block
-  
 and string_of_gate g = 
-  if !Settings.showsymbolicgate then
-    (if g=m_I then "I" else
-     if g=m_X then "X" else
-     if g=m_Y then "Y" else
-     if g=m_Z then "Z" else
-     if g=m_H then "H" else
-     if g=m_F then "F" else
-     if g=m_R then "R" else
-     if g=m_Cnot then "Cnot" else
-     string_of_matrix g
-    )
-  else string_of_matrix g
+  let nameopt = if !Settings.showsymbolicgate then
+                  (if g=m_I then Some "I" else
+                   if g=m_X then Some "X" else
+                   if g=m_Y then Some "Y" else
+                   if g=m_Z then Some "Z" else
+                   if g=m_H then Some "H" else
+                   if g=m_F then Some "F" else
+                   if g=m_R then Some "R" else
+                   if g=m_Cnot then Some "Cnot" else
+                   None
+                  )
+                else None
+  in
+  match nameopt with 
+  | Some s -> s
+  | None   -> (match g with
+               | MGate m -> string_of_cpaa m
+               | DGate v -> string_of_cpad v
+              )
 
 (* ********************************************************************************************************** *)
 

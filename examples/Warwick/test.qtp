@@ -1,0 +1,16 @@
+proc System () =
+  (newq q1_1=|+>)
+  (newq q1_2=|+>) q1_1,q1_2 >> CZ . 
+  (newq q1_3=|+>) q1_2,q1_3 >> CZ .
+  (newq q1_4=|+>) q1_3,q1_4 >> CZ .
+  (newq q1_5=|+>) q1_4,q1_5 >> CZ .
+  (newq q2_1=|+>)
+  (newq q2_2=|+>) q2_1,q2_2 >> CZ . 
+  (newq q2_3=|+>) q2_2,q2_3 >> CZ .
+  (newq q2_4=|+>) q2_3,q2_4 >> CZ .
+  (newq q2_5=|+>) q2_4,q2_5 >> CZ .
+  q1_3,q2_3 >> CZ .
+  q1_5,q2_5 >> CZ .
+  q1_1 >> R . 
+  (*out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .*)
+  _0

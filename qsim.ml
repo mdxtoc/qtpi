@@ -102,8 +102,6 @@ and rprod p1 p2 =
           | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
           | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
           | Pprod p1s       , _                 -> simplify_prod (p1s @ [p2])
-          | P_0             , _
-          | _               , P_0               -> P_0
           | _                                   -> simplify_prod [p1;p2]
   in
   if !verbose_simplify then
@@ -154,8 +152,6 @@ and rsum p1 p2 =
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
           | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
           | Psum p1s, _         -> simplify_sum (p1s @ [p2])
-          | P_0     , p2        -> p2
-          | p1      , P_0       -> p1
           | _                   -> simplify_sum [p1;p2]
   in
   if !verbose_simplify then
@@ -392,9 +388,11 @@ let tensor_vv vA vB =
   vR
   
 let tensor_mm mA mB =
-  if !verbose_qcalc then Printf.printf "tensor_mm%s%s = " (string_of_matrix mA) (string_of_matrix mB);
-  let nA = msize mA in
-  let nB = msize mB in
+  if !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_gate mA) (string_of_gate mB);
+  let mA = cpaa_of_gate mA in   (* for the time being *)
+  let mB = cpaa_of_gate mB in
+  let nA = vsize mA in
+  let nB = vsize mB in
   let mt = new_ug (nA*nB) in
   _for 0 1 nA (fun i -> 
                  _for 0 1 nA (fun j -> 
@@ -406,15 +404,17 @@ let tensor_mm mA mB =
                                             )
                              )
               );
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mt);
-  mt
+  let g = gate_of_cpaa mt in    (* definitely *)
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
+  g
 
 let mult_mv m v =
-  if !verbose_qcalc then Printf.printf "mult_mv%s%s = " (string_of_matrix m) (string_of_probvec v);
+  if !verbose_qcalc then Printf.printf "mult_mv %s %s = " (string_of_gate m) (string_of_probvec v);
+  let m = cpaa_of_gate m in     (* for the time being *)
   let n = Array.length v in
-  if msize m <> n then
+  if vsize m <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
-                                 (string_of_matrix m)
+                                 (string_of_cpaa m)
                                  (string_of_probvec v)
                  )
           );
@@ -426,13 +426,15 @@ let mult_mv m v =
   v'
 
 let mult_mm mA mB = 
-  if !verbose_qcalc then Printf.printf "mult_mm%s%s = " (string_of_matrix mA) (string_of_matrix mB);
-  let n = msize mA in
+  if !verbose_qcalc then Printf.printf "mult_mm%s%s = " (string_of_gate mA) (string_of_gate mB);
+  let mA = cpaa_of_gate mA in   (* for the time being *)
+  let mB = cpaa_of_gate mB in
+  let n = vsize mA in
   let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
-  if m <> msize mB then
+  if m <> vsize mB then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mm %s %s"
-                                 (string_of_matrix mA)
-                                 (string_of_matrix mB)
+                                 (string_of_cpaa mA)
+                                 (string_of_cpaa mB)
                  )
           );
   let p = vsize mB.(0) in
@@ -443,24 +445,27 @@ let mult_mm mA mB =
                             )
                 )
              );
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
-  m'
+  let g = gate_of_cpaa m' in    (* definitely *)
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
+  g
 
 (* conjugate transpose: transpose and piecewise complex conjugate *)
-let dagger m = 
-  if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_matrix m);
-  let n = msize m in
+let dagger g = 
+  if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_gate g);
+  let m = cpaa_of_gate g in (* for now *)
+  let n = vsize m in
   if n <> vsize m.(0) then
     raise (Error (Printf.sprintf "** Disaster (unsquareness): dagger %s"
-                                 (string_of_matrix m)
+                                 (string_of_cpaa m)
                  )
           );
   let m' = new_ug n in
   _for 0 1 n (fun i ->
                 _for 0 1 n (fun j -> m'.(i).(j) <- cconj (m.(j).(i)))
              );
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m');
-  m'
+  let g' = gate_of_cpaa m' in
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g');
+  g'
   
 (* ****************** new and dispose for qbits ******************************* *)
 
@@ -704,12 +709,12 @@ let ugstep_padded pn qs g gpad =
   in
   check_distinct qs;
   
-  (* size of matrix must be 2^(length qs) *)
+  (* size of gate must be 2^(length qs) *)
   let nqs = List.length qs in
   let veclength = 1 lsl nqs in
   if veclength=0 then bad "far too many qbits";
   (* I think our matrices are always square: we start with square gates and multiply and/or tensor *)
-  if veclength<>msize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
+  if veclength<>gsize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
                                                     veclength
                                                     nqs
                                  );
@@ -739,7 +744,7 @@ let ugstep_padded pn qs g gpad =
   let qs', v' = reorder (qs',v') (numbered qs) in
   
   (* add enough pads to g to deal with g' *)
-  let gpads = Listutils.tabulate (List.length qs' - List.length qs) (Listutils.const gpad) in
+  let gpads = Listutils.tabulate (List.length qs' - List.length qs) (const gpad) in
   let g' = List.fold_left tensor_mm m_1 (g::gpads) in
   
   if !verbose || !verbose_qsim then show_change qs' v' g';
@@ -867,7 +872,7 @@ let rec qmeasure disposes pn gate q =
      r
     )
   else (* in gate-defined basis *)
-    (if msize gate <> 2 then 
+    (if gsize gate <> 2 then 
        raise (Error (Printf.sprintf "** Disaster: (arity) qmeasure %s %s %s"
                                     pn
                                     (string_of_gate gate)

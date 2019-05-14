@@ -19,6 +19,8 @@
     along with Qtpi in the file LICENSE; if not, try http://www.gnu.org/licenses/gpl.html.
 *)
  
+let const a b = a
+
 let (<.>) f g a = f (g a)
 let (<..>) f g a b = f (g a b)
 let (<...>) f g a b c = f (g a b c)

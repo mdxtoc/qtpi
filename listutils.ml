@@ -55,9 +55,6 @@ let tabulate n f =
   let a = Array.init n f in
   Array.to_list a
 
-(* this sort of belongs here *)
-let const a b = a
-
 let take n xs =
   let rec take rs n xs =
     match n, xs with

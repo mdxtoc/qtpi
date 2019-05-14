@@ -389,83 +389,86 @@ let tensor_vv vA vB =
                                        (string_of_probvec vR);
   vR
   
-let tensor_gg mA mB =
-  if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate mA) (string_of_gate mB);
-  let mA = cpaa_of_gate mA in   (* for the time being *)
-  let mB = cpaa_of_gate mB in
-  let nA = vsize mA in
-  let nB = vsize mB in
-  let mt = new_ug (nA*nB) in
-  _for 0 1 nA (fun i -> 
-                 _for 0 1 nA (fun j -> 
-                                let aij = mA.(i).(j) in
-                                _for 0 1 nB (fun m ->
-                                               _for 0 1 nB (fun p ->
-                                                              mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
-                                                           )
-                                            )
-                             )
-              );
-  let g = gate_of_cpaa mt in    (* definitely *)
+let tensor_gg gA gB =
+  if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
+  let nA = gsize gA in
+  let nB = gsize gB in
+  let g = match gA, gB with
+          | DGate dA, DGate dB -> DGate (tensor_vv dA dB)
+          | _                  ->
+              let mA = cpaa_of_gate gA in
+              let mB = cpaa_of_gate gB in
+              let mt = new_ug (nA*nB) in
+              _for 0 1 nA (fun i -> 
+                             _for 0 1 nA (fun j -> 
+                                            let aij = mA.(i).(j) in
+                                            _for 0 1 nB (fun m ->
+                                                           _for 0 1 nB (fun p ->
+                                                                          mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
+                                                                       )
+                                                        )
+                                         )
+                          );
+              gate_of_cpaa mt
+  in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
-let mult_gv m v =
-  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate m) (string_of_probvec v);
-  let m = cpaa_of_gate m in     (* for the time being *)
+let mult_gv g v =
+  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec v);
   let n = Array.length v in
-  if vsize m <> n then
+  if gsize g <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gv %s %s"
-                                 (string_of_cpaa m)
+                                 (string_of_gate g)
                                  (string_of_probvec v)
                  )
           );
-  let v' = new_v n in
-  _for 0 1 n (fun i -> 
-                v'.(i) <- _for_leftfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0
-             );
+  let v' = match g with
+           | MGate m -> Array.init n (fun i -> _for_leftfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0)
+           | DGate d -> Array.init n (fun i -> cprod d.(i) v.(i))
+  in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
   v'
-
-let mult_gg mA mB = 
-  if !verbose_qcalc then Printf.printf "mult_gg%s%s = " (string_of_gate mA) (string_of_gate mB);
-  let mA = cpaa_of_gate mA in   (* for the time being *)
-  let mB = cpaa_of_gate mB in
-  let n = vsize mA in
-  let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
-  if m <> vsize mB then
+               
+let mult_gg gA gB = 
+  if !verbose_qcalc then Printf.printf "mult_gg%s%s = " (string_of_gate gA) (string_of_gate gB);
+  let n = gsize gA in
+  if n <> gsize gB then (* our gates are square *)
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gg %s %s"
-                                 (string_of_cpaa mA)
-                                 (string_of_cpaa mB)
+                                 (string_of_gate gA)
+                                 (string_of_gate gB)
                  )
           );
-  let p = vsize mB.(0) in
-  let m' = new_ug m in
-  _for 0 1 n (fun i ->
-                (_for 0 1 p (fun j ->
-                               m'.(i).(j) <- _for_leftfold 0 1 m (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
+  let g = match gA, gB with
+          | DGate dA, DGate dB -> DGate (Array.init n (fun i -> cprod dA.(i) dB.(i)))
+          | _                  ->
+              let mA = cpaa_of_gate gA in   (* for the time being *)
+              let mB = cpaa_of_gate gB in
+              let m' = new_ug n in
+              _for 0 1 n (fun i ->
+                            (_for 0 1 n (fun j ->
+                                           m'.(i).(j) <- _for_leftfold 0 1 n (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
+                                        )
                             )
-                )
-             );
-  let g = gate_of_cpaa m' in    (* definitely *)
+                         );
+              gate_of_cpaa m' 
+  in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
 (* conjugate transpose: transpose and piecewise complex conjugate *)
 let dagger g = 
   if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_gate g);
-  let m = cpaa_of_gate g in (* for now *)
-  let n = vsize m in
-  if n <> vsize m.(0) then
-    raise (Error (Printf.sprintf "** Disaster (unsquareness): dagger %s"
-                                 (string_of_cpaa m)
-                 )
-          );
-  let m' = new_ug n in
-  _for 0 1 n (fun i ->
-                _for 0 1 n (fun j -> m'.(i).(j) <- cconj (m.(j).(i)))
-             );
-  let g' = gate_of_cpaa m' in
+  let n = gsize g in
+  let g' = match g with
+           | DGate d -> DGate (Array.init n (fun i -> cconj d.(i)))
+           | MGate m ->
+               let m' = new_ug n in
+               _for 0 1 n (fun i ->
+                             _for 0 1 n (fun j -> m'.(i).(j) <- cconj (m.(j).(i)))
+                          );
+               gate_of_cpaa m' 
+  in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g');
   g'
   

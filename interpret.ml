@@ -218,10 +218,10 @@ let rec evale env e =
                              (match v1, op with
                               | VGate v1, TensorP ->
                                   let v2 = gateev env e2 in
-                                  VGate (tensor_mm v1 v2)
+                                  VGate (tensor_gg v1 v2)
                               | VGate v1, Times ->
                                   let v2 = gateev env e2 in
-                                  VGate (mult_mm v1 v2)
+                                  VGate (mult_gg v1 v2)
                               | VNum  v1, _     -> 
                                   let v2 = numev env e2 in
                                   VNum (match op with

@@ -387,8 +387,8 @@ let tensor_vv vA vB =
                                        (string_of_probvec vR);
   vR
   
-let tensor_mm mA mB =
-  if !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_gate mA) (string_of_gate mB);
+let tensor_gg mA mB =
+  if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate mA) (string_of_gate mB);
   let mA = cpaa_of_gate mA in   (* for the time being *)
   let mB = cpaa_of_gate mB in
   let nA = vsize mA in
@@ -408,12 +408,12 @@ let tensor_mm mA mB =
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
-let mult_mv m v =
-  if !verbose_qcalc then Printf.printf "mult_mv %s %s = " (string_of_gate m) (string_of_probvec v);
+let mult_gv m v =
+  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate m) (string_of_probvec v);
   let m = cpaa_of_gate m in     (* for the time being *)
   let n = Array.length v in
   if vsize m <> n then
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gv %s %s"
                                  (string_of_cpaa m)
                                  (string_of_probvec v)
                  )
@@ -425,14 +425,14 @@ let mult_mv m v =
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
   v'
 
-let mult_mm mA mB = 
-  if !verbose_qcalc then Printf.printf "mult_mm%s%s = " (string_of_gate mA) (string_of_gate mB);
+let mult_gg mA mB = 
+  if !verbose_qcalc then Printf.printf "mult_gg%s%s = " (string_of_gate mA) (string_of_gate mB);
   let mA = cpaa_of_gate mA in   (* for the time being *)
   let mB = cpaa_of_gate mB in
   let n = vsize mA in
   let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
   if m <> vsize mB then
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mm %s %s"
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gg %s %s"
                                  (string_of_cpaa mA)
                                  (string_of_cpaa mB)
                  )
@@ -745,11 +745,11 @@ let ugstep_padded pn qs g gpad =
   
   (* add enough pads to g to deal with g' *)
   let gpads = Listutils.tabulate (List.length qs' - List.length qs) (const gpad) in
-  let g' = List.fold_left tensor_mm m_1 (g::gpads) in
+  let g' = List.fold_left tensor_gg m_1 (g::gpads) in
   
   if !verbose || !verbose_qsim then show_change qs' v' g';
   
-  let v'' = mult_mv g' v' in
+  let v'' = mult_gv g' v' in
   record (qs',v'')
 
 let ugstep pn qs g = ugstep_padded pn qs g m_I

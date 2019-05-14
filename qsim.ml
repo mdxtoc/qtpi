@@ -91,6 +91,8 @@ let rec rneg p =
     
 and rprod p1 p2 =
   let r = match p1, p2 with
+          | P_0             , _
+          | _               , P_0               -> P_0
           | Pneg p1         , _                 -> rneg (rprod p1 p2)
           | _               , Pneg p2           -> rneg (rprod p1 p2)
           | _               , Psum p2s          -> let ps = List.map (rprod p1) p2s in
@@ -147,6 +149,8 @@ and simplify_prod ps = (* We deal with constants and f^2, g^2 *)
 
 and rsum p1 p2 = 
   let r = match p1, p2 with
+          | P_0     , _         -> p2
+          | _       , P_0       -> p1
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
           | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
           | Psum p1s, _         -> simplify_sum (p1s @ [p2])

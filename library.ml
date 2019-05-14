@@ -71,7 +71,7 @@ let _ = Interpret.know ("CZ"    , "gate", vgate m_CZ)
 let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Qsim.dagger <.> gatev))
 
 let v_makeC g =
-  if msize g<>2 then
+  if gsize g<>2 then
     raise (LibraryError ("makeC " ^ string_of_gate g))
   else
     make_C g

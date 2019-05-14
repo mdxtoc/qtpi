@@ -93,6 +93,8 @@ and rprod p1 p2 =
   let r = match p1, p2 with
           | P_0             , _
           | _               , P_0               -> P_0
+          | P_1             , _                 -> p2
+          | _               , P_1               -> p1
           | Pneg p1         , _                 -> rneg (rprod p1 p2)
           | _               , Pneg p2           -> rneg (rprod p1 p2)
           | _               , Psum p2s          -> let ps = List.map (rprod p1) p2s in

@@ -381,6 +381,7 @@ let mult_mv m v =
   let v' = new_v n in
   _for 0 1 n (fun i -> 
                 v'.(i) <- _for_rightfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0
+                v'.(i) <- _for_leftfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0
              );
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
   v'
@@ -400,6 +401,7 @@ let mult_mm mA mB =
   _for 0 1 n (fun i ->
                 (_for 0 1 p (fun j ->
                                m'.(i).(j) <- _for_rightfold 0 1 m (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
+                               m'.(i).(j) <- _for_leftfold 0 1 m (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
                             )
                 )
              );

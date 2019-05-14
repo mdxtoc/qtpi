@@ -11,6 +11,7 @@ proc System () =
   (newq q2_5=|+>) q2_4,q2_5 >> CZ .
   q1_3,q2_3 >> CZ .
   q1_5,q2_5 >> CZ .
-  q1_1 >> R . 
-  out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .
+  (*out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .*)
+  q1_1 =? [R] (b). 
+  out!["result q1_1 measures "; show b; " q1_2 = "] . outq!qval q1_2 . out!["\n"] .
   _0

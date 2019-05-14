@@ -100,6 +100,8 @@ and rprod p1 p2 =
           | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
           | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
           | Pprod p1s       , _                 -> simplify_prod (p1s @ [p2])
+          | P_0             , _
+          | _               , P_0               -> P_0
           | _                                   -> simplify_prod [p1;p2]
   in
   if !verbose_simplify then
@@ -147,7 +149,9 @@ and rsum p1 p2 =
   let r = match p1, p2 with
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
           | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
-          | Psum p1s, _         -> simplify_sum (p1s @ [p2]) 
+          | Psum p1s, _         -> simplify_sum (p1s @ [p2])
+          | P_0     , p2        -> p2
+          | p1      , P_0       -> p1
           | _                   -> simplify_sum [p1;p2]
   in
   if !verbose_simplify then

@@ -312,6 +312,14 @@ and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by s
 (* *********************** complex arith in terms of reals ************************************ *)
 
 let cprod (C (x1,y1)) (C (x2,y2)) = C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
+
+let cprod (C (x1,y1)) (C (x2,y2)) = 
+  match y1, y2 with
+  | P_0, P_0 -> C (rprod x1 x2, P_0)            (* real*real *)
+  | P_0, _   -> C (rprod x1 x2, rprod x1 y2)    (* real*complex *)
+  | _  , P_0 -> C (rprod x1 x2, rprod y1 x2)    (* complex*real *)
+  | _        -> C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
+
 let csum  (C (x1,y1)) (C (x2,y2)) = C (rsum x1 x2, rsum y1 y2)
 let cneg  (C (x,y))               = C (rneg x, rneg y)
 

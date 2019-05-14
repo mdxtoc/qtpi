@@ -177,22 +177,55 @@ and simplify_sum ps =
          (* | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s *)
             | _                    -> Pervasives.compare p1 p2
           in
-          let rec double p1 = (* looking for h^2*X+h^2*X. We know p1=p2 *)
-            let rec dr yes r ps =
-              match ps with
-              | P_h i :: ps when i>=2 -> dr true (ihs (i-2) r) ps 
-              | p     :: ps           -> dr yes (p::r) ps
-              | []                    -> if yes then Some (simplify_prod (List.rev r)) else None
+          let rec double p1 rest = (* looking for h^2k*X+h^2k*X+.... *)
+            (* find the h entry, if any, in p1 *)
+            let rec split3 isneg pres ps =
+              match ps with 
+              | P_h i :: ps -> if i>=2 then Some (isneg, pres, i, ps) else None
+              | p     :: ps -> split3 isneg (p::pres) ps
+              | []          -> None
             in
-            let r = match p1 with
-                    | Pneg p1   -> double p1 &~~ (_Some <.> rneg)
-                    | P_h i     -> dr false [] [p1]
-                    | Pprod ps  -> dr false [] ps
-                    | _         -> None
+            let rec nsplit3 isneg = function
+                                    | Pneg p          -> nsplit3 (not isneg) p
+                                    | P_h i when i>=2 -> Some (isneg,[],i,[])
+                                    | Pprod ps        -> split3 isneg [] ps
+                                    | _               -> None
+            in
+            let r = match nsplit3 false p1 with
+                    | Some (isneg,pres,maxi,posts) ->
+                        (* i is how many hs we use up, k is 2^(i/2) *)
+                        let rec gofor i k rest =
+                          let rec takeeqs k rest =
+                            match k, rest with
+                            | 0, _       -> Some rest
+                            | _, p::rest -> if p1=p then takeeqs (k-1) rest else None
+                            | _, []      -> None
+                          in
+                          if i>maxi then None else
+                          takeeqs k rest &~~ (fun rest -> gofor (i+2) (k*2) rest
+                                                          |~~ (fun _ -> let r = Some ((if isneg then rneg else id)
+                                                                                        (simplify_prod (prepend pres (P_h (maxi-i)::posts))),
+                                                                                      rest
+                                                                                     )
+                                                                          in
+                                                                          if !verbose_simplify then
+                                                                            Printf.printf "gofor %d %d %s (p1=%s)-> %s\n"
+                                                                                            i
+                                                                                            k
+                                                                                            (bracketed_string_of_list string_of_prob rest)
+                                                                                            (string_of_prob p1)
+                                                                                            (string_of_option (string_of_pair string_of_prob (bracketed_string_of_list string_of_prob) ",") r);
+                                                                          r
+                                                              )
+                                             )
+                        in
+                        gofor 2 1 rest
+                    | _                            -> None
             in
             if !verbose_simplify then
-              Printf.printf "double (%s) -> %s\n" (string_of_prob p1)  
-                                                  (string_of_option string_of_prob r);
+              Printf.printf "double (%s) %s -> %s\n" (string_of_prob p1)  
+                                                     (bracketed_string_of_list string_of_prob rest)
+                                                     (string_of_option (string_of_pair string_of_prob (bracketed_string_of_list string_of_prob) ",") r);
             r
           in
           let takeit pre post =
@@ -239,9 +272,9 @@ and simplify_sum ps =
             | P_0                :: ps            -> sp again r ps
             | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
             | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
-            | p1      :: p2      :: ps when p1=p2 -> (match double p1 with
-                                                      | Some p -> sp true (p::r) ps
-                                                      | None   -> sp again (p1::r) (p2::ps)
+            | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
+                                                      | Some (p,ps) -> sp true (p::r) ps
+                                                      | None        -> sp again (p1::r) (p2::ps)
                                                      )
             | p1      :: p2      :: ps            -> (match a2b2 p1 p2 with
                                                       | Some p -> sp true (p::r) ps
@@ -311,7 +344,6 @@ and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by s
   
 (* *********************** complex arith in terms of reals ************************************ *)
 
-let cprod (C (x1,y1)) (C (x2,y2)) = C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
 
 let cprod (C (x1,y1)) (C (x2,y2)) = 
   match y1, y2 with
@@ -380,13 +412,12 @@ let mult_mv m v =
           );
   let v' = new_v n in
   _for 0 1 n (fun i -> 
-                v'.(i) <- _for_rightfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0
                 v'.(i) <- _for_leftfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0
              );
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
   v'
 
-let mult_mm mA mB =
+let mult_mm mA mB = 
   if !verbose_qcalc then Printf.printf "mult_mm%s%s = " (string_of_matrix mA) (string_of_matrix mB);
   let n = msize mA in
   let m = vsize mA.(0) in (* mA is n*m; mB must be m*p *)
@@ -400,7 +431,6 @@ let mult_mm mA mB =
   let m' = new_ug m in
   _for 0 1 n (fun i ->
                 (_for 0 1 p (fun j ->
-                               m'.(i).(j) <- _for_rightfold 0 1 m (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
                                m'.(i).(j) <- _for_leftfold 0 1 m (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
                             )
                 )
@@ -535,7 +565,7 @@ let make_nth qs v n iq =
                     )
           )
   in
-  if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d\n"
+  if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
                                                         (bracketed_string_of_list string_of_qbit qs)
                                                         (string_of_probvec v)
                                                         n
@@ -555,7 +585,10 @@ let make_nth qs v n iq =
                     (mask (n-iq-1)) lsl (nqs-iq),
                     mask (nqs-n)
      in
-     if !verbose || !verbose_qsim then Printf.printf "iq %d qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" iq qmask nmask hdmask midmask tlmask;
+     (* if !verbose || !verbose_qsim then 
+       Printf.printf "iq %d qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
+                      iq qmask nmask hdmask midmask tlmask;
+      *)     
      let v' = Array.copy v in
      for i=0 to nv-1 do
        let j = (i land hdmask)                                    lor 
@@ -563,7 +596,7 @@ let make_nth qs v n iq =
                (i land tlmask)                                    lor
                (if i land qmask<>0 then nmask else 0)
        in
-       if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
+       (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
        v'.(j) <- v.(i)
      done;
      let qs' =
@@ -576,7 +609,7 @@ let make_nth qs v n iq =
                     let midseg, tlseg = take (n-iq-1) tlseg, drop (n-iq-1) tlseg in
                     hdseg@midseg@[q]@tlseg
      in
-     if !verbose || !verbose_qsim then Printf.printf "=> qs' %s v' %s\n" 
+     if !verbose || !verbose_qsim then Printf.printf "-> qs' %s v' %s\n" 
                                                         (bracketed_string_of_list string_of_qbit qs')
                                                         (string_of_probvec v');
      qs', v'
@@ -625,6 +658,10 @@ let try_split qs v =
                   );
   r
   
+let reorder (qs,v) order =
+  let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
+  List.fold_left reorder (qs,v) order
+
 let rec record ((qs, vq) as qv) =
    let accept q = if !verbose || !verbose_qsim then
                     Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
@@ -635,8 +672,11 @@ let rec record ((qs, vq) as qv) =
    | [q]    -> accept q
    | _'     -> (* try to split it up *)
                match try_split qs vq with
-               | Some (q'::qs',vq,v') -> record ([q'], vq); record (qs', v')
-               | _                    -> List.iter accept qs
+               | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
+               | _                   -> List.iter accept qs
+
+let qsort (qs,v) = let qs = List.sort compare qs in
+                   reorder (qs,v) (numbered qs)
 
 let ugstep_padded pn qs g gpad = 
   (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
@@ -667,7 +707,7 @@ let ugstep_padded pn qs g gpad =
                                  );
   
   let show_change qs' v' g' =
-    Printf.printf "we took ugstep %s %s %s and made %s*(%s,%s)\n"
+    Printf.printf "we took ugstep_padded %s %s %s %s and made %s*(%s,%s)\n"
                                 pn
                                 (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
                                                                         (string_of_qbit q)
@@ -676,6 +716,7 @@ let ugstep_padded pn qs g gpad =
                                                           qs
                                 )
                                 (string_of_gate g)
+                                (string_of_gate gpad)
                                 (string_of_gate g')
                                 (bracketed_string_of_list string_of_qbit qs')
                                 (string_of_probvec v')
@@ -687,8 +728,7 @@ let ugstep_padded pn qs g gpad =
   let qs', v' = List.concat qss, List.fold_left tensor_vv v_1 vs in
   
   (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
-  let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
-  let qs', v' = List.fold_left reorder (qs',v') (Listutils.numbered qs) in
+  let qs', v' = reorder (qs',v') (numbered qs) in
   
   (* add enough pads to g to deal with g' *)
   let gpads = Listutils.tabulate (List.length qs' - List.length qs) (Listutils.const gpad) in

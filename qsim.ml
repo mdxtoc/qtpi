@@ -431,7 +431,7 @@ let mult_gv g v =
   v'
                
 let mult_gg gA gB = 
-  if !verbose_qcalc then Printf.printf "mult_gg%s%s = " (string_of_gate gA) (string_of_gate gB);
+  if !verbose_qcalc then Printf.printf "mult_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
   let n = gsize gA in
   if n <> gsize gB then (* our gates are square *)
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gg %s %s"
@@ -802,16 +802,15 @@ let rec qmeasure disposes pn gate q =
   if gate = g_I then (* computational measure *)
     (let qs, v = qval q in
      let nv = vsize v in
-     let imask = ibit q qs in
+     (* make q first in qs: it simplifies life no end *)
+     let qs, v = make_first qs v (idx q qs) in
+     (* probability of measuring 1 is sum of second-half probs *)
+     let nvhalf = nv/2 in
      let prob = 
-       _for_leftfold 0 1 nv (fun i p -> if i land imask<>0 then 
-                                          rsum (absq v.(i)) p 
-                                        else p
-                            ) 
-                            P_0 
+       _for_leftfold nvhalf 1 nv (fun i -> rsum (absq v.(i))) P_0 
      in
      if !verbose || !verbose_qsim then 
-       Printf.printf "%s qmeasure [] %s; %s|->%s; prob |1> = %s;"
+       Printf.printf "%s qmeasure [] %s; %s|~>%s; prob |1> = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)
@@ -830,11 +829,12 @@ let rec qmeasure disposes pn gate q =
                  r
              with Compute -> guess ()
      in
-     (* set the relevant probs to zero, normalise *)
-     _for 0 1 nv (fun i -> if (r=1 && i land imask=0) || (r=0 && i land imask<>0)
-                           then v.(i) <- c_0 (* else skip *)
-                 );
-     let modulus = _for_leftfold 0 1 nv (fun i p -> rsum (absq v.(i)) p) P_0 in
+     (* set the unchosen probs to zero, normalise *)
+     _for (if r=1 then 0 else nvhalf) 1 (if r=1 then nvhalf else nv) (fun i -> v.(i) <- c_0);
+     let modulus = (* easy when q is first in qs *)
+       if r=1 then prob 
+       else _for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0
+     in 
      if !verbose_qcalc then 
        Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
      (match modulus with
@@ -868,25 +868,7 @@ let rec qmeasure disposes pn gate q =
      let qv = qs, v in
      if !verbose || !verbose_qsim then 
        Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
-     if q=List.hd qs then record qv
-     else (let nqs = List.length qs in
-           let iq = idx q qs in
-           let i0 = ibit (List.hd qs) qs in
-           let lmask = (mask iq) lsl (nqs-iq) in
-           let rmask = mask (nqs-iq-1) in
-           if !verbose || !verbose_qsim then Printf.printf "iq %d i0 %d lmask %d rmask %d\n" iq i0 lmask rmask;
-           let v' = Array.copy v in
-           for i=0 to nv-1 do
-             let j = ((i land lmask) lsr 1) lor (i land rmask) lor (if i land imask<>0 then i0 else 0) in
-             if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i;
-             v'.(j) <- v.(i)
-           done;
-           let ne q' = q<>q' in
-           let qs' = q :: (takewhile ne qs @ List.tl (dropwhile ne qs)) in
-           let qv' = qs',v' in
-           if !verbose || !verbose_qsim then Printf.printf "%s => %s\n" (string_of_qval qv) (string_of_qval qv');
-           record qv'
-          );
+     record qv; (* which will split it up for us *)
      if disposes then disposeqbit pn q;
      r
     )

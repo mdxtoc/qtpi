@@ -1,4 +1,5 @@
 proc System () =
+  out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .
   (newq q1_1=|+>)
   (newq q1_2=|+>) q1_1,q1_2 >> CZ . 
   (newq q1_3=|+>) q1_2,q1_3 >> CZ .

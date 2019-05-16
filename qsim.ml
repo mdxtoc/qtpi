@@ -676,10 +676,6 @@ let try_split qs v =
                   );
   r
   
-let reorder (qs,v) order =
-  let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
-  List.fold_left reorder (qs,v) order
-
 let rec record ((qs, vq) as qv) =
    let accept q = if !verbose || !verbose_qsim then
                     Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
@@ -695,6 +691,11 @@ let rec record ((qs, vq) as qv) =
 
 let qsort (qs,v) = let qs = List.sort compare qs in
                    reorder (qs,v) (numbered qs)
+  let reorder (qs,v) order =
+    let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
+    List.fold_left reorder (qs,v) order
+  in
+  reorder (qs,v) (numbered qs)
 
 let ugstep_padded pn qs g gpad = 
   (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
@@ -747,10 +748,24 @@ let ugstep_padded pn qs g gpad =
   
   (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
   let qs', v' = reorder (qs',v') (numbered qs) in
+  (* But we don't want to do this too enthusiastically ... *)
+  let rec together ilast qs (qs',v') =
+    match qs with 
+    | []     -> ilast, qs', v'
+    | q::qs -> let iq = idx q qs' in
+                let iq' = if iq<ilast then ilast else ilast+1 in
+                together iq' qs (make_nth qs' v' iq' iq) 
+  in
+  let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
+  let ifirst = idx (List.hd qs) qs' in
   
   (* add enough pads to g to deal with g' *)
   let gpads = Listutils.tabulate (List.length qs' - List.length qs) (const gpad) in
   let g' = List.fold_left tensor_gg m_1 (g::gpads) in
+  (* add enough pads to g to deal with v *)
+  let pres = Listutils.tabulate ifirst (const gpad) in
+  let posts = Listutils.tabulate (List.length qs'-1-ilast) (const gpad) in
+  let g' = List.fold_left tensor_gg g_1 (prepend pres (g::posts)) in
   
   if !verbose || !verbose_qsim then show_change qs' v' g';
   

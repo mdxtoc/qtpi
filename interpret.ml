@@ -530,7 +530,7 @@ let rec interp sysenv proc =
                                                 else 
                                                   "", [] 
                                               in
-                                              let gv = (gateev env ||~~ m_I) gopt in
+                                              let gv = (gateev env ||~~ g_I) gopt in
                                               let v = vbit (qmeasure disposed pn gv q = 1) in
                                               if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
                                               let env' = (match pat.inst.pnode with

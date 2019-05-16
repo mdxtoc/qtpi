@@ -442,7 +442,7 @@ let mult_gg gA gB =
   let g = match gA, gB with
           | DGate dA, DGate dB -> DGate (Array.init n (fun i -> cprod dA.(i) dB.(i)))
           | _                  ->
-              let mA = cpaa_of_gate gA in   (* for the time being *)
+              let mA = cpaa_of_gate gA in   
               let mB = cpaa_of_gate gB in
               let m' = new_ug n in
               _for 0 1 n (fun i ->
@@ -591,7 +591,11 @@ let make_nth qs v n iq =
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
   let nv = vsize v in
-  if iq=n then qs, v
+  if iq=n then 
+    (if !verbose || !verbose_qsim then
+       Printf.printf "-> (no change)\n";
+     qs, v
+    )
   else
     (let qmask = bitmask iq qs in
      let nmask = bitmask n qs in
@@ -690,7 +694,6 @@ let rec record ((qs, vq) as qv) =
                | _                   -> List.iter accept qs
 
 let qsort (qs,v) = let qs = List.sort compare qs in
-                   reorder (qs,v) (numbered qs)
   let reorder (qs,v) order =
     let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
     List.fold_left reorder (qs,v) order
@@ -747,7 +750,6 @@ let ugstep_padded pn qs g gpad =
   let qs', v' = List.concat qss, List.fold_left tensor_vv v_1 vs in
   
   (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
-  let qs', v' = reorder (qs',v') (numbered qs) in
   (* But we don't want to do this too enthusiastically ... *)
   let rec together ilast qs (qs',v') =
     match qs with 
@@ -759,9 +761,6 @@ let ugstep_padded pn qs g gpad =
   let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
   let ifirst = idx (List.hd qs) qs' in
   
-  (* add enough pads to g to deal with g' *)
-  let gpads = Listutils.tabulate (List.length qs' - List.length qs) (const gpad) in
-  let g' = List.fold_left tensor_gg m_1 (g::gpads) in
   (* add enough pads to g to deal with v *)
   let pres = Listutils.tabulate ifirst (const gpad) in
   let posts = Listutils.tabulate (List.length qs'-1-ilast) (const gpad) in
@@ -772,7 +771,7 @@ let ugstep_padded pn qs g gpad =
   let v'' = mult_gv g' v' in
   record (qs',v'')
 
-let ugstep pn qs g = ugstep_padded pn qs g m_I
+let ugstep pn qs g = ugstep_padded pn qs g g_I
 
 let fp_h2 = 0.5
 let fp_h = sqrt fp_h2
@@ -800,7 +799,7 @@ let rec compute = function
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
 
 let rec qmeasure disposes pn gate q = 
-  if gate = m_I then (* computational measure *)
+  if gate = g_I then (* computational measure *)
     (let qs, v = qval q in
      let nv = vsize v in
      let imask = ibit q qs in
@@ -903,7 +902,7 @@ let rec qmeasure disposes pn gate q =
      let qv = qval q in
      (* first of all rotate with gate' *)
      ugstep_padded pn [q] gate' gate'; 
-     let bit = qmeasure disposes pn m_I q in
+     let bit = qmeasure disposes pn g_I q in
      (* that _must_ have broken any entanglement: rotate the parts back separately *)
      let rec rotate qs =
        match qs with

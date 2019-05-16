@@ -50,16 +50,16 @@ let funv3 f = let f' a b c = funv (funv (funv f a) b) c in
 
 (* ******************** basic gates ********************* *)
 
-let _ = Interpret.know ("I"     , "gate", vgate m_I)
-let _ = Interpret.know ("X"     , "gate", vgate m_X)
-let _ = Interpret.know ("Y"     , "gate", vgate m_Y)
-let _ = Interpret.know ("Z"     , "gate", vgate m_Z)
+let _ = Interpret.know ("I"     , "gate", vgate g_I)
+let _ = Interpret.know ("X"     , "gate", vgate g_X)
+let _ = Interpret.know ("Y"     , "gate", vgate g_Y)
+let _ = Interpret.know ("Z"     , "gate", vgate g_Z)
 
-let _ = Interpret.know ("H"     , "gate", vgate m_H)
-let _ = Interpret.know ("F"     , "gate", vgate m_F)
-let _ = Interpret.know ("R"     , "gate", vgate m_R)
+let _ = Interpret.know ("H"     , "gate", vgate g_H)
+let _ = Interpret.know ("F"     , "gate", vgate g_F)
+let _ = Interpret.know ("R"     , "gate", vgate g_R)
 
-let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> m_Phi <.> mustbe_intv))
+let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> g_Phi <.> mustbe_intv))
 
 let _ = Interpret.know ("Cnot"  , "gate", vgate m_Cnot)
 let _ = Interpret.know ("CNot"  , "gate", vgate m_Cnot)

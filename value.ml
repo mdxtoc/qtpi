@@ -242,17 +242,15 @@ let string_of_cpaa m =
   Printf.sprintf "\n{%s}" block
   
 let string_of_cpad v =
-  let strings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
-  let width = List.fold_left max 0 (List.map String.length strings) in
-  let pad s = s ^ String.make (width - String.length s) ' ' in
-  Printf.sprintf "diag{" ^ String.concat " " (List.map pad strings) ^ "}"
+  Printf.sprintf "diag{" ^ string_of_list string_of_cprob " " (Array.to_list v) ^ "}"
   
+let make_cpaa rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 let cpaa_of_gate = function
   | MGate m -> m
   | DGate v -> let n = vsize v in
                let zs = Listutils.tabulate n (const c_0) in
                let rows = Listutils.tabulate n (const zs) in
-               let m = rows |> (List.map Array.of_list) |> (Array.of_list) in
+               let m = make_cpaa rows in
                for i = 0 to n-1 do
                  m.(i).(i) <- v.(i)
                done;
@@ -270,53 +268,53 @@ let gate_of_cpaa m =
     DGate (Array.init n (fun i -> m.(i).(i)))
   else MGate m
   
-let make_m rows = 
-  gate_of_cpaa (rows |> (List.map Array.of_list) |> (Array.of_list))
+let make_g rows = 
+  gate_of_cpaa (make_cpaa rows)
 
-let m_I  = make_m   [[c_1       ; c_0        ];
+let g_I  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
-let m_X  = make_m   [[c_0       ; c_1        ];
+let g_X  = make_g   [[c_0       ; c_1        ];
                      [c_1       ; c_0        ]] 
-let m_Y  = make_m   [[c_0       ; pcneg c_i  ];
+let g_Y  = make_g   [[c_0       ; pcneg c_i  ];
                      [c_i       ; c_0        ]]
-let m_Z  = make_m   [[c_1       ; c_0        ];
+let g_Z  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; pcneg c_1  ]] 
-let m_H  = make_m   [[c_h       ; c_h        ];
+let g_H  = make_g   [[c_h       ; c_h        ];
                      [c_h       ; pcneg (c_h)]]
                      
 (* these two are intended to be like rotations. Unlike H, F*F<>I *)
 
-let m_F  = make_m   [[c_f       ; pcneg c_g  ];
+let g_F  = make_g   [[c_f       ; pcneg c_g  ];
                      [c_g       ; c_f        ]]
-let m_G  = make_m   [[c_g       ; pcneg c_f  ];
+let m_G  = make_g   [[c_g       ; pcneg c_f  ];
                      [c_f       ; c_g        ]]
 
 (* experimental R(pi/8) gate *)
 
-let m_R  = make_m   [[c_1       ; c_0        ];
+let g_R  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; C(P_f,P_g) ]]
                      
-let m_Phi = function (* as Pauli *)
-  | 0 -> m_I
-  | 1 -> m_X
-  | 2 -> m_Y  
-  | 3 -> m_Z  
+let g_Phi = function (* as Pauli *)
+  | 0 -> g_I
+  | 1 -> g_X
+  | 2 -> g_Y  
+  | 3 -> g_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
 let make_C g = 
   let m = cpaa_of_gate g in
-  make_m  [[c_1; c_0; c_0      ; c_0       ];
+  make_g  [[c_1; c_0; c_0      ; c_0       ];
            [c_0; c_1; c_0      ; c_0       ];
            [c_0; c_0; m.(0).(0); m.(0).(1) ];
            [c_0; c_0; m.(1).(0); m.(1).(1) ]]
     
-let m_Cnot = make_C m_X
-let m_CX   = make_C m_X
-let m_CY   = make_C m_Y
-let m_CZ   = make_C m_Z 
+let m_Cnot = make_C g_X
+let m_CX   = make_C g_X
+let m_CY   = make_C g_Y
+let m_CZ   = make_C g_Z 
                       
-let m_1 = make_m [[c_1]] (* a unit for folding *)
-let m_0 = make_m [[c_0]] (* another unit for folding *)
+let g_1 = make_g [[c_1]] (* a unit for folding *)
+let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
 
 (* string_of_ functions *)
 let string_of_pqueue stringof sep pq = 
@@ -462,13 +460,13 @@ and string_of_probvec v =
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then
-                  (if g=m_I then Some "I" else
-                   if g=m_X then Some "X" else
-                   if g=m_Y then Some "Y" else
-                   if g=m_Z then Some "Z" else
-                   if g=m_H then Some "H" else
-                   if g=m_F then Some "F" else
-                   if g=m_R then Some "R" else
+                  (if g=g_I then Some "I" else
+                   if g=g_X then Some "X" else
+                   if g=g_Y then Some "Y" else
+                   if g=g_Z then Some "Z" else
+                   if g=g_H then Some "H" else
+                   if g=g_F then Some "F" else
+                   if g=g_R then Some "R" else
                    if g=m_Cnot then Some "Cnot" else
                    None
                   )

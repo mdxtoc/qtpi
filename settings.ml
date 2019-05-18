@@ -54,6 +54,8 @@ let matchcheck = ref true
 
 let measuredestroys = ref true
 
+(* let memoise = ref false *)
+
 let pstep = ref false
 
 let resourcecheck = ref true

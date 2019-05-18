@@ -1,0 +1,63 @@
+**************************** 20 qbits (2 rows)
+
+------- without memofuns ------------------
+
+without measurement: real	0m0.630s
+                     user	0m0.575s
+                     sys	0m0.045s
+
+with unrotated measurement: real	0m1.006s
+                            user	0m0.929s
+                            sys	0m0.063s
+
+with rotated measurement: real	0m4.393s
+                          user	0m4.164s
+                          sys	0m0.179s
+
+------- with memofun absq in measure ------------------
+
+without measurement: real	0m0.617s
+                     user	0m0.561s
+                     sys	0m0.041s
+
+with unrotated measurement: real	0m0.951s
+                            user	0m0.882s
+                            sys 0m0.053s
+
+with rotated measurement: real	0m4.090s
+                          user	0m3.837s
+                          sys   0m0.180s
+
+--------- with memofuns everywhere -----------------------
+
+without measurement: real	0m0.433s
+                     user	0m0.399s
+                     sys	0m0.022s
+
+with unrotated measurement: real	0m0.656s
+                            user	0m0.617s
+                            sys 	0m0.028s
+
+with rotated measurement: real	0m1.085s
+                          user	0m1.030s
+                          sys	0m0.035s
+                          
+with four rotated measurements: real	0m2.022s
+                                user	0m1.917s
+                                sys 	0m0.068s
+
+--------------- with better mv multiplication -----------------
+
+with four rotated measurements: real	0m1.900s
+                                user	0m1.828s
+                                sys 	0m0.048s
+
+******************** 30 qbits (3 rows)
+
+without measurement: real	3m3.479s
+                     user	2m37.369s
+                     sys 	0m20.903s
+
+with four rotated measurements: real	30m58.142s
+                                user	22m24.204s
+                                sys 	6m10.132s

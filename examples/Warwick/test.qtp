@@ -1,5 +1,5 @@
 proc System () =
-  out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .
+  (*out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .*)
   (newq q1_1=|+>)
   (newq q1_2=|+>) q1_1,q1_2 >> CZ . 
   (newq q1_3=|+>) q1_2,q1_3 >> CZ .
@@ -12,7 +12,32 @@ proc System () =
   (newq q2_5=|+>) q2_4,q2_5 >> CZ .
   q1_3,q2_3 >> CZ .
   q1_5,q2_5 >> CZ .
+  (newq q1_6=|+>) q1_5,q1_6 >> CZ . 
+  (newq q1_7=|+>) q1_6,q1_7 >> CZ . 
+  (newq q1_8=|+>) q1_7,q1_8 >> CZ . 
+  (newq q1_9=|+>) q1_8,q1_9 >> CZ . 
+  (newq q2_6=|+>) q2_5,q2_6 >> CZ . 
+  (newq q2_7=|+>) q2_6,q2_7 >> CZ . 
+  (newq q2_8=|+>) q2_7,q2_8 >> CZ . 
+  (newq q2_9=|+>) q2_8,q2_9 >> CZ . 
   (*out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .*)
-  q1_1 =? [R] (b). 
-  out!["result q1_1 measures "; show b; " q1_2 = "] . outq!qval q1_2 . out!["\n"] .
+  (*(newq q3_1=|+>)
+  (newq q3_2=|+>) q3_1,q3_2 >> CZ . 
+  (newq q3_3=|+>) q3_2,q3_3 >> CZ .
+  (newq q3_4=|+>) q3_3,q3_4 >> CZ .
+  (newq q3_5=|+>) q3_4,q3_5 >> CZ .
+  (newq q3_6=|+>) q3_5,q3_6 >> CZ . 
+  (newq q3_7=|+>) q3_6,q3_7 >> CZ . 
+  (newq q3_8=|+>) q3_7,q3_8 >> CZ . 
+  (newq q3_9=|+>) q3_8,q3_9 >> CZ . 
+  q2_7,q3_7 >> CZ .
+  q2_9,q3_9 >> CZ .
+  q1_1 =? [R] (b1_1) . 
+  out!["result q1_1 measures "; show b1_1; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .
+  q1_2 =? [R*R] (b1_2) . 
+  out!["result q1_2 measures "; show b1_2; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .
+  q1_3 =? [R*R*R] (b1_3) . 
+  out!["result q1_3 measures "; show b1_3; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .
+  q1_4 =? [R*R*R*R] (b1_4) . 
+  out!["result q1_4 measures "; show b1_4; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .*)
   _0

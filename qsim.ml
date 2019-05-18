@@ -1,5 +1,5 @@
 (*
-    Copyright (C) 2018 Richard Bornat
+    Copyright (C) 2019 Richard Bornat
      
         richard@bornat.me.uk
 
@@ -77,7 +77,15 @@ let qval q = try Hashtbl.find qstate q
      | Psymb (b1,q1), Psymb (b2,q2) -> Pervasives.compare (q1,b1) (q2,b2)
      | _                            -> Pervasives.compare p1      p2
 *)
-
+(* we deal with long lists. Avoid sorting if poss *)
+let sort compare ps =
+  let rec check ps' =
+    match ps' with
+    | p'::(p''::_ as ps') -> if p'<p'' then check ps' else List.sort compare ps
+    | _                   -> ps
+  in
+  check ps
+  
 let rec rneg p =
   let r = match p with
           | Pneg p        -> p
@@ -133,7 +141,7 @@ and simplify_prod ps = (* We deal with constants and f^2, g^2 *)
             | p              :: ps -> sp (p::r) ps
             | []                   -> None, List.rev r
           in
-          let popt, ps = sp [] (List.sort Pervasives.compare ps) in
+          let popt, ps = sp [] (sort Pervasives.compare ps) in
           let p = match ps with 
                   | []  -> P_1
                   | [p] -> p 
@@ -161,12 +169,15 @@ and rsum p1 p2 =
   r
 
 and sflatten ps = (* flatten a list of sums *)
-  let rec sf p ps = 
+  let rec sf ps p = 
     match p with
     | Psum ps' -> ps' @ ps
     | _        -> p :: ps
   in
-  let r = List.fold_right sf ps [] in
+  let r = if List.exists (function Psum _ -> true | _ -> false) ps 
+          then List.fold_left sf [] ps (* reverses ... *)  
+          else ps
+  in
   if !verbose_simplify then
     Printf.printf "sflatten %s -> %s\n" 
                   (bracketed_string_of_list string_of_prob ps) 
@@ -289,7 +300,7 @@ and simplify_sum ps =
             | p                  :: ps            -> sp again (p::r) ps
             | []                                  -> let r = List.rev r in
                                                     if again then doit (sflatten r) else r
-          and doit ps = sp false [] (List.sort scompare ps)
+          and doit ps = sp false [] (sort scompare ps)
           in
           if List.exists (function Psum _ -> true | Pneg (Psum _) -> true | _ -> false) ps then
             raise (Error (Printf.sprintf "simplify_sum (%s)" (string_of_prob (Psum ps))))
@@ -368,6 +379,65 @@ let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
 let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
 let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
 
+(* we memoise these things ... *)
+
+module OrderedC = struct type t = cprob 
+                         let compare = Pervasives.compare
+                         let to_string = string_of_cprob
+                  end
+module CMap = MyMap.Make (OrderedC)
+let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_cprob c); f c)
+
+module OrderedC2 = struct type t = cprob*cprob 
+                         let compare = Pervasives.compare
+                         let to_string = bracketed_string_of_pair string_of_cprob string_of_cprob
+                  end
+module C2Map = MyMap.Make (OrderedC2)
+let memofunC2 f s = 
+  curry2 (C2Map.memofun id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
+                                                     Printf.printf "%s (%s) (%s)\n" 
+                                                                   s (string_of_cprob c1) (string_of_cprob c2);
+                                                   f c1 c2
+                                      )
+                           )
+         )
+module OrderedCP = struct type t = cprob*prob 
+                         let compare = Pervasives.compare
+                         let to_string = bracketed_string_of_pair string_of_cprob string_of_prob
+                  end
+module CPMap = MyMap.Make (OrderedCP)
+let memofunCP f s = 
+  curry2 (CPMap.memofun id (uncurry2 (fun c p -> if !verbose || !verbose_qcalc then 
+                                                   Printf.printf "%s (%s) (%s)\n" 
+                                                                 s (string_of_cprob c) (string_of_prob p);
+                                                 f c p
+                                    )
+                           )
+         )
+
+let mcprod = memofunC2 cprod "cprod"
+let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  match x1,y1, x2,y2 with
+  | P_0, P_0, _  , _    
+  | _  , _  , P_0, P_0  -> c_0
+  | P_1, P_0, _  , _    -> c2  
+  | _  , _  , P_1, P_0  -> c1
+  | _                   -> mcprod c1 c2
+  
+let mcsum = memofunC2 csum "csum"
+let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  match x1,y1, x2,y2 with
+  | P_0, P_0, _  , _    -> c2 
+  | _  , _  , P_0, P_0  -> c1
+  | _                   -> mcsum c1 c2
+  
+(* let cneg = memofunC cneg "cneg" -- possibly not worth it *)
+(* let cconj = memofunC cconj "cconj" -- not worth it *)
+let absq = memofunC absq "absq"
+
+let c_r_div = memofunCP c_r_div "c_r_div"
+let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
+
 (* from here on down, I just assume (hope) that we are working with square matrices *)
 (* maybe later that typechecking trick ... *)
 
@@ -414,6 +484,12 @@ let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
+let rowcolprod n row col =
+  let de_C (C (x,y)) = x,y in
+  let els = Listutils.tabulate n (fun j -> de_C (cprod (row j) (col j))) in
+  let reals, ims = List.split els in
+  C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
+
 let mult_gv g v =
   if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec v);
   let n = Array.length v in
@@ -424,7 +500,7 @@ let mult_gv g v =
                  )
           );
   let v' = match g with
-           | MGate m -> Array.init n (fun i -> _for_leftfold 0 1 n (fun j -> csum (cprod m.(i).(j) v.(j))) c_0)
+           | MGate m -> Array.init n (fun i -> let row = m.(i) in rowcolprod n (fun j -> row.(j)) (fun j -> v.(j)))
            | DGate d -> Array.init n (fun i -> cprod d.(i) v.(i))
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
@@ -447,7 +523,7 @@ let mult_gg gA gB =
               let m' = new_ug n in
               _for 0 1 n (fun i ->
                             (_for 0 1 n (fun j ->
-                                           m'.(i).(j) <- _for_leftfold 0 1 n (fun k -> csum (cprod mA.(i).(k) mB.(k).(j))) c_0
+                                           m'.(i).(j) <- let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j))
                                         )
                             )
                          );
@@ -693,7 +769,7 @@ let rec record ((qs, vq) as qv) =
                | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
                | _                   -> List.iter accept qs
 
-let qsort (qs,v) = let qs = List.sort compare qs in
+let qsort (qs,v) = let qs = List.sort Pervasives.compare qs in
   let reorder (qs,v) order =
     let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
     List.fold_left reorder (qs,v) order
@@ -806,8 +882,18 @@ let rec qmeasure disposes pn gate q =
      let qs, v = make_first qs v (idx q qs) in
      (* probability of measuring 1 is sum of second-half probs *)
      let nvhalf = nv/2 in
+     (* the obvious way is to fold sum across the vector. But that leads to nibbling by double ... so we try to do it a more linear (maybe) way *)
+     let getsum i n =
+       if !verbose || !verbose_qsim then 
+         Printf.printf "getsum %d %d " i n;
+       let els = Listutils.tabulate n (fun j -> absq v.(i+j)) in
+       let r = simplify_sum (sflatten els) in
+       if !verbose || !verbose_qsim then 
+         Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_prob els) (string_of_prob r);
+       r
+     in
      let prob = 
-       _for_leftfold nvhalf 1 nv (fun i -> rsum (absq v.(i))) P_0 
+       (* _for_leftfold nvhalf 1 nv (fun i -> rsum (absq v.(i))) P_0 *) getsum nvhalf nvhalf
      in
      if !verbose || !verbose_qsim then 
        Printf.printf "%s qmeasure [] %s; %s|~>%s; prob |1> = %s;"
@@ -833,7 +919,7 @@ let rec qmeasure disposes pn gate q =
      _for (if r=1 then 0 else nvhalf) 1 (if r=1 then nvhalf else nv) (fun i -> v.(i) <- c_0);
      let modulus = (* easy when q is first in qs *)
        if r=1 then prob 
-       else _for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0
+       else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0*) getsum 0 nvhalf
      in 
      if !verbose_qcalc then 
        Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);
@@ -880,7 +966,7 @@ let rec qmeasure disposes pn gate q =
                                     (string_of_qbit q)
                     )
              );
-     let gate' = dagger gate in  (* transposed gate because it's unitary *)
+     let gate' = dagger gate in  (* cjtransposed gate *)
      let qv = qval q in
      (* first of all rotate with gate' *)
      ugstep_padded pn [q] gate' gate'; 

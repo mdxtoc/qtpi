@@ -54,13 +54,13 @@ let rec _for_rightfold i inc n f v =
 
 let _for_all i inc n f = 
   let rec ff i =
-    if i<n then f i && ff (i+inc) else true
+    i=n || (f i && ff (i+inc))
   in
   ff i 
   
 let _for_exists i inc n f v = 
   let rec ff i =
-    if i<n then f i || ff (i+inc) else false
+    i<n && (f i || ff (i+inc))
   in
   ff i 
   
@@ -258,11 +258,10 @@ let cpaa_of_gate = function
                
 let gate_of_cpaa m =
   let n = vsize m in
-  let isdiag = _for_leftfold 0 1 n 
-                  (fun i -> _for_leftfold 0 1 n
-                                    (fun j acc -> if i<>j then (acc && (m.(i).(j)=c_0)) else acc)
-                  )
-                  true
+  let isdiag = _for_all 0 1 n (fun i ->
+                               let row = m.(i) in
+                               _for_all 0 1 n (fun j -> i=j || row.(j)=c_0)
+                              )
   in
   if isdiag then
     DGate (Array.init n (fun i -> m.(i).(i)))

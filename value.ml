@@ -239,7 +239,7 @@ let string_of_cpaa m =
   let width = List.fold_left max 0 (List.map rwidth block) in
   let pad s = s ^ String.make (width - String.length s) ' ' in
   let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
-  Printf.sprintf "\n{%s}" block
+  Printf.sprintf "\n{%s}\n" block
   
 let string_of_cpad v =
   Printf.sprintf "diag{" ^ string_of_list string_of_cprob " " (Array.to_list v) ^ "}"

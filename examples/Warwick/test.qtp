@@ -1,25 +1,113 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : unit -> unit) (f : unit -> 'a) : (unit -> 'a) = compose f g
+
+fun rand8 () = bits2num (randbits 3)
+
+fun rand2 () = bits2num (randbits 1)
+
+(* counting from 1, as in the Warwick paper *)
+fun setup1_1 n m =
+  rows 1 (lam ii jj . 0)
+  where rows i f =
+    if i>n then f else rows (i+1) (tapes 1 0 f) fi
+    where tapes y count f =
+      if y=w then if count=0 then choice2 f
+                             else choice0 f
+                  fi
+             elif c=0 then tapes (y+1) ((count+1) % 2) (choice0 f)
+             elif count=0 then tapes (y+1) count (choice1 f)
+             else tapes (y+1) count (choice2 f)
+      fi
+      where c = rand2 ()
+      where choice0 f ii jj = 
+        if ii=i && (jj=4*y-3 || jj=4*y-2 || jj=4*y-1) then 4 
+                                                      else f ii jj
+        fi
+      where choice1 f ii jj = 
+        if ii=i then if jj=4*y-3 then a
+                        elif jj=4*y-1 then b
+                        elif jj=m then (f ii m + a + b) % 16
+                        else f ii jj
+                     fi
+                else f ii jj
+        fi
+        where a,b = 2*rand8(), 2*rand8()
+      where choice2 f ii jj = 
+        if ii=i then if jj=4*y-2 then a
+                        elif jj=m then (f ii m + a) % 16
+                        else f ii jj
+                     fi
+                else f ii jj
+        fi
+        where a = 2*rand8()
+    where w = floor (m/4)      
+
+fun setup1_2 n m =
+  rows 1 (lam ii jj . 0)
+  where rows i f = 
+    if i>n then f 
+           else rows (i+1) g
+                where g = tapes 1 f
+                where f = if rand2()=0 then (lam ii jj . if ii=i && jj=1 then 4 else f ii jj fi) else f fi
+    fi
+    where tapes y f =
+      if y=w then f 
+             else tapes (y+1) f 
+      fi
+      where f = if (i+y) % 2 = 0 then if rand2()=0 then (lam ii jj . if ii=2*i-1 && jj=4*y-1 then 4
+                                                                       elif ii=2*i && jj=4*y-2 then 4
+                                                                       elif ii=2*i && jj=4*y then -4
+                                                                       elif ii=i && jj=m then (f i m + f (i+1) m) % 16
+                                                                       else f ii jj
+                                                                     fi
+                                                        )
+                                                   else (lam ii jj . if ii=2*i+1 && jj=4*y-1 then 4
+                                                                       elif ii=2*i-1 && jj=4*y-2 then 4
+                                                                       elif ii=2*i-1 && jj=4*y then -4
+                                                                       elif ii=i+1 && jj=m then (f (i+1) m + f i m) % 16
+                                                                       else f ii jj
+                                                                     fi)
+                                      fi
+                                 else f
+                fi
+    where w = floor (m/4)
+
+fun angle_matrix f n m = tabulate n (lam i . tabulate m (lam j . g (i+1) (j+1)))
+                         where g = f n m
+
+fun r i = if i<0 then r (16+i) 
+                 elif i=0 then I 
+                 else R*r (i-1) 
+          fi
+
 proc System () =
   (*out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .*)
-  (newq q1_1=|+>)
-  (newq q1_2=|+>) q1_1,q1_2 >> CZ . 
-  (newq q1_3=|+>) q1_2,q1_3 >> CZ .
-  (newq q1_4=|+>) q1_3,q1_4 >> CZ .
-  (newq q1_5=|+>) q1_4,q1_5 >> CZ .
-  (newq q2_1=|+>)
-  (newq q2_2=|+>) q2_1,q2_2 >> CZ . 
-  (newq q2_3=|+>) q2_2,q2_3 >> CZ .
-  (newq q2_4=|+>) q2_3,q2_4 >> CZ .
-  (newq q2_5=|+>) q2_4,q2_5 >> CZ .
+  out!["1.1 angles are "; show (angle_matrix setup1_1 2 9); "\n"] .
+  out!["1.2 angles are "; show (angle_matrix setup1_2 2 9); "\n"] .
+  
+  (let phi = (if rand2 () = 0 then setup1_1 else setup1_2 fi) 2 9)
+
+  (newq q1_1=|+>) q1_1 >> r (phi 1 1) . 
+  (newq q1_2=|+>) q1_2 >> r (phi 1 2) . q1_1,q1_2 >> CZ . 
+  (newq q1_3=|+>) q1_2 >> r (phi 1 3) . q1_2,q1_3 >> CZ .
+  (newq q1_4=|+>) q1_2 >> r (phi 1 4) . q1_3,q1_4 >> CZ .
+  (newq q1_5=|+>) q1_2 >> r (phi 1 5) . q1_4,q1_5 >> CZ .
+  (newq q2_1=|+>) q2_1 >> r (phi 2 1) . 
+  (newq q2_2=|+>) q2_2 >> r (phi 2 2) . q2_1,q2_2 >> CZ . 
+  (newq q2_3=|+>) q2_3 >> r (phi 2 3) . q2_2,q2_3 >> CZ .
+  (newq q2_4=|+>) q2_4 >> r (phi 2 4) . q2_3,q2_4 >> CZ .
+  (newq q2_5=|+>) q2_5 >> r (phi 2 5) . q2_4,q2_5 >> CZ .
   q1_3,q2_3 >> CZ .
   q1_5,q2_5 >> CZ .
-  (newq q1_6=|+>) q1_5,q1_6 >> CZ . 
-  (newq q1_7=|+>) q1_6,q1_7 >> CZ . 
-  (newq q1_8=|+>) q1_7,q1_8 >> CZ . 
-  (newq q1_9=|+>) q1_8,q1_9 >> CZ . 
-  (newq q2_6=|+>) q2_5,q2_6 >> CZ . 
-  (newq q2_7=|+>) q2_6,q2_7 >> CZ . 
-  (newq q2_8=|+>) q2_7,q2_8 >> CZ . 
-  (newq q2_9=|+>) q2_8,q2_9 >> CZ . 
+  (newq q1_6=|+>) q1_6 >> r (phi 1 6) . q1_5,q1_6 >> CZ . 
+  (newq q1_7=|+>) q1_7 >> r (phi 1 7) . q1_6,q1_7 >> CZ . 
+  (newq q1_8=|+>) q1_8 >> r (phi 1 8) . q1_7,q1_8 >> CZ . 
+  (newq q1_9=|+>) q1_9 >> r (phi 1 9) . q1_8,q1_9 >> CZ . 
+  (newq q2_6=|+>) q2_6 >> r (phi 2 6) . q2_5,q2_6 >> CZ . 
+  (newq q2_7=|+>) q2_7 >> r (phi 2 7) . q2_6,q2_7 >> CZ . 
+  (newq q2_8=|+>) q2_8 >> r (phi 2 8) . q2_7,q2_8 >> CZ . 
+  (newq q2_9=|+>) q2_9 >> r (phi 2 9) . q2_8,q2_9 >> CZ . 
   (*out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .*)
   (*(newq q3_1=|+>)
   (newq q3_2=|+>) q3_1,q3_2 >> CZ . 
@@ -32,12 +120,12 @@ proc System () =
   (newq q3_9=|+>) q3_8,q3_9 >> CZ . 
   q2_7,q3_7 >> CZ .
   q2_9,q3_9 >> CZ .*)
-  q1_1 =? [R] (b1_1) . 
+  (* q1_1 >> dagger (r (phi 1 1)) . q1_1 =? [H] (b1_1) . 
   out!["result q1_1 measures "; show b1_1; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .
-  q1_2 =? [R*R] (b1_2) . 
+  q1_2 >> dagger (r (phi 1 2)) . q1_2 =? [H] (b1_2) . 
   out!["result q1_2 measures "; show b1_2; (*" q1_3 = "] . outq!qval q1_3 . out![*)"\n"] .
-  q1_3 =? [R*R*R] (b1_3) . 
+  q1_3 >> dagger (r (phi 1 3)) . q1_3 =? [H] (b1_3) . 
   out!["result q1_3 measures "; show b1_3; (*" q1_4 = "] . outq!qval q1_4 . out![*)"\n"] .
-  q1_4 =? [R*R*R*R] (b1_4) . 
-  out!["result q1_4 measures "; show b1_4; (*" q1_5 = "] . outq!qval q1_5 . out![*)"\n"] .
+  q1_4 >> dagger (r (phi 1 4)) . q1_4 =? [H] (b1_4) . 
+  out!["result q1_4 measures "; show b1_4; (*" q1_5 = "] . outq!qval q1_5 . out![*)"\n"] . *)
   _0

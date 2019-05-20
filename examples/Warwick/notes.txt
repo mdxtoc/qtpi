@@ -1,4 +1,4 @@
-**************************** 20 qbits (2 rows)
+**************************** 18 qbits (2 rows)
 
 ------- without memofuns ------------------
 
@@ -52,7 +52,7 @@ with four rotated measurements: real	0m1.900s
                                 user	0m1.828s
                                 sys 	0m0.048s
 
-******************** 30 qbits (3 rows)
+******************** 27 qbits (3 rows)
 
 without measurement: real	3m3.479s
                      user	2m37.369s

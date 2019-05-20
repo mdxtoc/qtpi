@@ -175,7 +175,7 @@ and sflatten ps = (* flatten a list of sums *)
     | _        -> p :: ps
   in
   let r = if List.exists (function Psum _ -> true | _ -> false) ps 
-          then List.fold_left sf [] ps (* reverses ... *)  
+          then List.fold_left sf [] ps   
           else ps
   in
   if !verbose_simplify then
@@ -419,10 +419,12 @@ let mcprod = memofunC2 cprod "cprod"
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
   | P_0, P_0, _  , _    
-  | _  , _  , P_0, P_0  -> c_0
-  | P_1, P_0, _  , _    -> c2  
-  | _  , _  , P_1, P_0  -> c1
-  | _                   -> mcprod c1 c2
+  | _  , _  , P_0, P_0       -> c_0
+  | P_1, P_0, _  , _         -> c2  
+  | _  , _  , P_1, P_0       -> c1
+  | Pneg P_1, P_0, _  , _    -> cneg c2  
+  | _  , _  , Pneg P_1, P_0  -> cneg c1
+  | _                        -> mcprod c1 c2
   
 let mcsum = memofunC2 csum "csum"
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
@@ -453,6 +455,10 @@ let tensor_vv vA vB =
   let nB = vsize vB in
   let vR = new_v (nA*nB) in
   _for 0 1 nA (fun i -> _for 0 1 nB (fun j -> vR.(i*nB+j) <- cprod vA.(i) vB.(j)));
+  vR
+  
+let tensor_qq vA vB =
+  let vR = tensor_vv vA vB in
   if !verbose_qcalc then Printf.printf "%s (><) %s -> %s\n"
                                        (string_of_probvec vA)
                                        (string_of_probvec vB)
@@ -823,7 +829,7 @@ let ugstep_padded pn qs g gpad =
   (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
   let qvals = Listutils.mkset (List.map qval qs) in
   let qss, vs = List.split qvals in
-  let qs', v' = List.concat qss, List.fold_left tensor_vv v_1 vs in
+  let qs', v' = List.concat qss, List.fold_left tensor_qq v_1 vs in
   
   (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
   (* But we don't want to do this too enthusiastically ... *)

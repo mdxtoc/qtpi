@@ -766,7 +766,14 @@ let rec record ((qs, vq) as qv) =
    let accept q = if !verbose || !verbose_qsim then
                     Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
                   Hashtbl.replace qstate q qv 
+   let report () = if !verbose || !verbose_qsim then
+                    Printf.printf "recording %s|->%s\n" (match qs with 
+                                                         | [q] -> string_of_qbit q
+                                                         | _   -> bracketed_string_of_list string_of_qbit qs
+                                                        ) 
+                                                        (string_of_qval qv)
    in
+   let accept q = Hashtbl.replace qstate q qv in
    match qs with
    | []     -> raise (Error (Printf.sprintf "record gets %s" (string_of_qval qv)))
    | [q]    -> accept q
@@ -774,6 +781,7 @@ let rec record ((qs, vq) as qv) =
                match try_split qs vq with
                | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
                | _                   -> List.iter accept qs
+               | _                   -> report (); List.iter accept qs
 
 let qsort (qs,v) = let qs = List.sort Pervasives.compare qs in
   let reorder (qs,v) order =

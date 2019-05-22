@@ -421,13 +421,6 @@ let memofunCP f s =
 let mcprod = memofunC2 cprod "cprod"
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
-  | P_0, P_0, _  , _    
-  | _  , _  , P_0, P_0       -> c_0
-  | P_1, P_0, _  , _         -> c2  
-  | _  , _  , P_1, P_0       -> c1
-  | Pneg P_1, P_0, _  , _    -> cneg c2  
-  | _  , _  , Pneg P_1, P_0  -> cneg c1
-  | _                        -> mcprod c1 c2
   | P_0     , P_0, _       , _    
   | _       , _  , P_0     , P_0       -> c_0
   | P_1     , P_0, _       , _         -> c2  
@@ -773,9 +766,6 @@ let try_split qs v =
   r
   
 let rec record ((qs, vq) as qv) =
-   let accept q = if !verbose || !verbose_qsim then
-                    Printf.printf "recording %s|->%s\n" (string_of_qbit q) (string_of_qval qv);
-                  Hashtbl.replace qstate q qv 
    let report () = if !verbose || !verbose_qsim then
                     Printf.printf "recording %s|->%s\n" (match qs with 
                                                          | [q] -> string_of_qbit q
@@ -790,7 +780,6 @@ let rec record ((qs, vq) as qv) =
    | _'     -> (* try to split it up *)
                match try_split qs vq with
                | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
-               | _                   -> List.iter accept qs
                | _                   -> report (); List.iter accept qs
 
 let qsort (qs,v) = let qs = List.sort Pervasives.compare qs in
@@ -933,9 +922,6 @@ let rec qmeasure disposes pn gate q =
      in
      let r = try let v = compute prob in
                  if v=1.0 then 1 else
-                 let rg = Random.float 1.0 in
-                 let r = if v>rg then 1 else 0 in
-                 if !verbose || !verbose_qsim then Printf.printf " test %f>%f: choosing %d;" v rg r;
                    let rg = Random.float 1.0 in
                    let r = if rg<v then 1 else 0 in
                    if !verbose || !verbose_qsim then Printf.printf " test %f<%f: choosing %d;" rg v r;
@@ -946,7 +932,6 @@ let rec qmeasure disposes pn gate q =
      _for (if r=1 then 0 else nvhalf) 1 (if r=1 then nvhalf else nv) (fun i -> v.(i) <- c_0);
      let modulus = (* easy when q is first in qs *)
        if r=1 then prob 
-       else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0*) getsum 0 nvhalf
        else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0*) (* getsum 0 nvhalf *) simplify_sum (sflatten [P_1;rneg prob])
      in 
      if !verbose_qcalc then 

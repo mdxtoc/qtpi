@@ -425,6 +425,13 @@ let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | Pneg P_1, P_0, _  , _    -> cneg c2  
   | _  , _  , Pneg P_1, P_0  -> cneg c1
   | _                        -> mcprod c1 c2
+  | P_0     , P_0, _       , _    
+  | _       , _  , P_0     , P_0       -> c_0
+  | P_1     , P_0, _       , _         -> c2  
+  | _       , _  , P_1     , P_0       -> c1
+  | Pneg P_1, P_0, _       , _         -> cneg c2  
+  | _       , _  , Pneg P_1, P_0       -> cneg c1
+  | _                                  -> mcprod c1 c2
   
 let mcsum = memofunC2 csum "csum"
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 

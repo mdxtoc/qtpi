@@ -287,6 +287,9 @@ and simplify_sum ps =
           let rec sp again r ps =
             match ps with
             | P_0                :: ps            -> sp again r ps
+            | P_1     :: Pneg (P_h k as p) 
+                                 :: ps when k>0 && k mod 2=0
+                                                  -> sp true (prepend (tabulate ((1 lsl (k/2)) - 1) (const p)) r) ps
             | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
             | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
             | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
@@ -944,6 +947,7 @@ let rec qmeasure disposes pn gate q =
      let modulus = (* easy when q is first in qs *)
        if r=1 then prob 
        else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0*) getsum 0 nvhalf
+       else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq v.(i))) P_0*) (* getsum 0 nvhalf *) simplify_sum (sflatten [P_1;rneg prob])
      in 
      if !verbose_qcalc then 
        Printf.printf " (un-normalised %s modulus %s);" (string_of_qval (qs,v)) (string_of_prob modulus);

@@ -926,6 +926,9 @@ let rec qmeasure disposes pn gate q =
                  let rg = Random.float 1.0 in
                  let r = if v>rg then 1 else 0 in
                  if !verbose || !verbose_qsim then Printf.printf " test %f>%f: choosing %d;" v rg r;
+                   let rg = Random.float 1.0 in
+                   let r = if rg<v then 1 else 0 in
+                   if !verbose || !verbose_qsim then Printf.printf " test %f<%f: choosing %d;" rg v r;
                  r
              with Compute -> guess ()
      in

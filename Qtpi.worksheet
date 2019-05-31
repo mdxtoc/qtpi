@@ -88,8 +88,9 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 (cd examples/Ekert_QKD; time ../../Qtpi Alice.qtp Bob.qtp Eve0.qtp ControlABE.qtp Ekert.qtp)
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...
+# and each extra qbit makes it more than 4 times slower. The time is all in the measurement ...
 
-time ./Qtpiexamples/Warwick/test.qtp &gt;test.out
+time ./Qtpi examples/Warwick/test.qtp
 
 </string>
 </dict>

@@ -73,64 +73,98 @@ fun setup1_2 n m =
                 fi
     where w = floor (m/4)
 
-fun angle_matrix f n m = tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1)))
 
-fun r i = if i<0 then r (16+i) 
-                 elif i=0 then I 
-                 else R*r (i-1) 
-          fi
+fun rgate i = (* angle is i*pi/8: R does pi/8 *)
+  if i<0 then rgate (16-i) 
+         elif i=0 then I 
+         else R*rgate (i-1) 
+  fi
 
 proc System () =
   (*out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .*)
   
   (let n = 2)
   (let m = 5)
-  
-  (*out!["1.1 angles are "; show (angle_matrix (setup1_1 n m) n m); "\n"] .
-    out!["1.2 angles are "; show (angle_matrix (setup1_2 n m) n m); "\n"] .*)
-  
-  (let phi = (if rand2 () = 0 then setup1_1 else setup1_2 fi) n m)
+    
+ (let enlist = lam f . tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1))))
+ (let delist = lam rows i j . nth (nth rows (i-1)) (j-1))
+ 
+  (let subprotocol = if rand2()=0 then "1.1" else "1.2" fi) 
+  (let phi = (if subprotocol="1.1" then setup1_1 else setup1_2 fi) n m)
+  out!["phi (subprotocol "; subprotocol; ") = "; show (enlist phi); "\n"] .
 
-  out!["our angles are "; show (angle_matrix phi n m); "\n"] .
+  (let r = delist (enlist (lam i j . rand2())))  
+  (let r' = delist (enlist (lam i j . rand2()))) 
+  out!["r="; show (enlist r); ";\nr'="; show (enlist r'); "\n"] .
   
-  (newq q1_1=|+>) q1_1 >> r (phi 1 1) . 
-  (newq q1_2=|+>) q1_2 >> r (phi 1 2) . q1_1,q1_2 >> CZ . 
-  (newq q1_3=|+>) q1_2 >> r (phi 1 3) . q1_2,q1_3 >> CZ .
-  (newq q1_4=|+>) q1_2 >> r (phi 1 4) . q1_3,q1_4 >> CZ .
-  (newq q1_5=|+>) q1_2 >> r (phi 1 5) . q1_4,q1_5 >> CZ .
-  (newq q2_1=|+>) q2_1 >> r (phi 2 1) . 
-  (newq q2_2=|+>) q2_2 >> r (phi 2 2) . q2_1,q2_2 >> CZ . 
-  (newq q2_3=|+>) q2_3 >> r (phi 2 3) . q2_2,q2_3 >> CZ .
-  (newq q2_4=|+>) q2_4 >> r (phi 2 4) . q2_3,q2_4 >> CZ .
-  (newq q2_5=|+>) q2_5 >> r (phi 2 5) . q2_4,q2_5 >> CZ .
+  (let theta = delist (enlist (lam i j . 2*rand8())))
+  out!["theta="; show (enlist theta); " (in units of pi/8)\n"] .
+  out!["\n"] .
+  
+  (let rgate = memofun rgate)
+  
+  (* I find this hard to describe as a function *)
+  (let neighbours = delist [[[1,2];[1,1;1,3];[1,2;1,4;2,3];[1,3;1,5];[1,4;2,5]];
+                            [[2,2];[2,1;2,3];[2,2;2,4;1,3];[2,3;2,5];[2,4;1,5]]
+                           ])
+  out!["neighbours = "; show (enlist neighbours); "\n"]   .
+  
+  (let prep = lam i j . (theta i j + 8*(foldl (lam x y . x+y) 0 (map (lam (i,j) . r' i j) (neighbours i j)))) % 16)
+  out!["prep = "; show (enlist prep); "\n"]   .
+  
+  (let delta = lam phi i j . m1*phi i j + theta i j + 8*r i j
+                             where m1 = if r' i j = 0 then 1 else -1 fi
+  )
+  
+  (newq q1_1=|+>) q1_1 >> rgate (prep 1 1) . 
+  (newq q1_2=|+>) q1_2 >> rgate (prep 1 2) . q1_1,q1_2 >> CZ . 
+  (newq q1_3=|+>) q1_2 >> rgate (prep 1 3) . q1_2,q1_3 >> CZ .
+  (newq q1_4=|+>) q1_2 >> rgate (prep 1 4) . q1_3,q1_4 >> CZ .
+  (newq q1_5=|+>) q1_2 >> rgate (prep 1 5) . q1_4,q1_5 >> CZ .
+  (newq q2_1=|+>) q2_1 >> rgate (prep 2 1) . 
+  (newq q2_2=|+>) q2_2 >> rgate (prep 2 2) . q2_1,q2_2 >> CZ . 
+  (newq q2_3=|+>) q2_3 >> rgate (prep 2 3) . q2_2,q2_3 >> CZ .
+  (newq q2_4=|+>) q2_4 >> rgate (prep 2 4) . q2_3,q2_4 >> CZ .
+  (newq q2_5=|+>) q2_5 >> rgate (prep 2 5) . q2_4,q2_5 >> CZ .
   q1_3,q2_3 >> CZ .
   q1_5,q2_5 >> CZ .
-  (*(newq q1_6=|+>) q1_6 >> r (phi 1 6) . q1_5,q1_6 >> CZ . 
-  (newq q1_7=|+>) q1_7 >> r (phi 1 7) . q1_6,q1_7 >> CZ . 
-  (newq q1_8=|+>) q1_8 >> r (phi 1 8) . q1_7,q1_8 >> CZ . 
-  (newq q1_9=|+>) q1_9 >> r (phi 1 9) . q1_8,q1_9 >> CZ . 
-  (newq q2_6=|+>) q2_6 >> r (phi 2 6) . q2_5,q2_6 >> CZ . 
-  (newq q2_7=|+>) q2_7 >> r (phi 2 7) . q2_6,q2_7 >> CZ . 
-  (newq q2_8=|+>) q2_8 >> r (phi 2 8) . q2_7,q2_8 >> CZ . 
-  (newq q2_9=|+>) q2_9 >> r (phi 2 9) . q2_8,q2_9 >> CZ . *)
-  (*out!["result q1_1 = "] . outq!qval q1_1 . out!["\n"] .*)
-  (*(newq q3_1=|+>)
-  (newq q3_2=|+>) q3_1,q3_2 >> CZ . 
-  (newq q3_3=|+>) q3_2,q3_3 >> CZ .
-  (newq q3_4=|+>) q3_3,q3_4 >> CZ .
-  (newq q3_5=|+>) q3_4,q3_5 >> CZ .
-  (newq q3_6=|+>) q3_5,q3_6 >> CZ . 
-  (newq q3_7=|+>) q3_6,q3_7 >> CZ . 
-  (newq q3_8=|+>) q3_7,q3_8 >> CZ . 
-  (newq q3_9=|+>) q3_8,q3_9 >> CZ . 
-  q2_7,q3_7 >> CZ .
-  q2_9,q3_9 >> CZ .*)
-  q1_1 >> dagger (r (phi 1 1)) . q1_1 =? [H] (b1_1) . 
-  out!["result q1_1 measures "; show b1_1; (*" q1_2 = "] . outq!qval q1_2 . out![*)"\n"] .
-  q1_2 >> dagger (r (phi 1 2)) . q1_2 =? [H] (b1_2) . 
-  out!["result q1_2 measures "; show b1_2; (*" q1_3 = "] . outq!qval q1_3 . out![*)"\n"] .
-  q1_3 >> dagger (r (phi 1 3)) . q1_3 =? [H] (b1_3) . 
-  out!["result q1_3 measures "; show b1_3; (*" q1_4 = "] . outq!qval q1_4 . out![*)"\n"] .
-  q1_4 >> dagger (r (phi 1 4)) . q1_4 =? [H] (b1_4) . 
-  out!["result q1_4 measures "; show b1_4; (*" q1_5 = "] . outq!qval q1_5 . out![*)"\n"] .
+  (* (newq q1_6=|+>) q1_6 >> rgate (prep 1 6) . q1_5,q1_6 >> CZ . 
+     (newq q1_7=|+>) q1_7 >> rgate (prep 1 7) . q1_6,q1_7 >> CZ . 
+     (newq q1_8=|+>) q1_8 >> rgate (prep 1 8) . q1_7,q1_8 >> CZ . 
+     (newq q1_9=|+>) q1_9 >> rgate (prep 1 9) . q1_8,q1_9 >> CZ . 
+     (newq q2_6=|+>) q2_6 >> rgate (prep 2 6) . q2_5,q2_6 >> CZ . 
+     (newq q2_7=|+>) q2_7 >> rgate (prep 2 7) . q2_6,q2_7 >> CZ . 
+     (newq q2_8=|+>) q2_8 >> rgate (prep 2 8) . q2_7,q2_8 >> CZ . 
+     (newq q2_9=|+>) q2_9 >> rgate (prep 2 9) . q2_8,q2_9 >> CZ . 
+     (* (newq q3_1=|+>) q3_1 >> rgate (prep 3 1) .
+        (newq q3_2=|+>) q3_2 >> rgate (prep 3 2) . q3_1,q3_2 >> CZ . 
+        (newq q3_3=|+>) q3_3 >> rgate (prep 3 3) . q3_2,q3_3 >> CZ .
+        (newq q3_4=|+>) q3_4 >> rgate (prep 3 4) . q3_3,q3_4 >> CZ .
+        (newq q3_5=|+>) q3_5 >> rgate (prep 3 5) . q3_4,q3_5 >> CZ .
+        (newq q3_6=|+>) q3_6 >> rgate (prep 3 6) . q3_5,q3_6 >> CZ . 
+        (newq q3_7=|+>) q3_7 >> rgate (prep 3 7) . q3_6,q3_7 >> CZ . 
+        (newq q3_8=|+>) q3_8 >> rgate (prep 3 8) . q3_7,q3_8 >> CZ . 
+        (newq q3_9=|+>) q3_9 >> rgate (prep 3 9) . q3_8,q3_9 >> CZ . 
+        q2_7,q3_7 >> CZ .
+        q2_9,q3_9 >> CZ .*)*)
+  q1_1 =? [H*rgate (delta phi 1 1)] (b1_1) . 
+  out!["result q1_1 measures "; show b1_1; "\n"] .
+  q1_2 =? [H*rgate (delta phi 1 2)] (b1_2) . 
+  out!["result q1_2 measures "; show b1_2; "\n"] .
+  q1_3 =? [H*rgate (delta phi 1 3)] (b1_3) . 
+  out!["result q1_3 measures "; show b1_3; "\n"] .
+  q1_4 =? [H*rgate (delta phi 1 4)] (b1_4) . 
+  out!["result q1_4 measures "; show b1_4; "\n"] .
+  q1_5 =? [H*rgate (delta phi 1 5)] (b1_5) . 
+  out!["result q1_5 measures "; show b1_5; "\n"] .
+  q2_1 =? [H*rgate (delta phi 1 1)] (b1_1) . 
+  out!["result q2_1 measures "; show b1_1; "\n"] .
+  q2_2 =? [H*rgate (delta phi 1 2)] (b1_2) . 
+  out!["result q2_2 measures "; show b1_2; "\n"] .
+  q2_3 =? [H*rgate (delta phi 1 3)] (b1_3) . 
+  out!["result q2_3 measures "; show b1_3; "\n"] .
+  q2_4 =? [H*rgate (delta phi 1 4)] (b1_4) . 
+  out!["result q2_4 measures "; show b1_4; "\n"] .
+  q2_5 =? [H*rgate (delta phi 1 5)] (b1_5) . 
+  out!["result q2_5 measures "; show b1_5; "\n"] .  
   _0

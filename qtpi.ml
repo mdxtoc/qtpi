@@ -74,6 +74,9 @@ let _ = match !Usage.files with
                 | Resource.Disaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
+                | Type.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                                                            (string_of_sourcepos pos)
+                                                            s
                 | Typecheck.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
                                                             (string_of_sourcepos pos)
                                                             s

@@ -472,26 +472,70 @@ let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
   let nA = gsize gA in
   let nB = gsize gB in
-  let g = match gA, gB with
-          | DGate dA, DGate dB -> DGate (tensor_vv dA dB)
-          | _                  ->
-              let mA = cpaa_of_gate gA in
-              let mB = cpaa_of_gate gB in
-              let mt = new_ug (nA*nB) in
-              _for 0 1 nA (fun i -> 
-                             _for 0 1 nA (fun j -> 
-                                            let aij = mA.(i).(j) in
-                                            _for 0 1 nB (fun m ->
-                                                           _for 0 1 nB (fun p ->
-                                                                          mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
-                                                                       )
-                                                        )
-                                         )
-                          );
-              gate_of_cpaa mt
+  let g = if gA=g_1 then gB else
+          if gB=g_1 then gA else
+            (match gA, gB with
+             | DGate dA, DGate dB -> DGate (tensor_vv dA dB)
+             | _                  ->
+                 let mA = cpaa_of_gate gA in
+                 let mB = cpaa_of_gate gB in
+                 let mt = new_ug (nA*nB) in
+                 _for 0 1 nA (fun i -> 
+                                _for 0 1 nA (fun j -> 
+                                               let aij = mA.(i).(j) in
+                                               _for 0 1 nB (fun m ->
+                                                              _for 0 1 nB (fun p ->
+                                                                             mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
+                                                                          )
+                                                           )
+                                            )
+                             );
+                 gate_of_cpaa mt
+            )  
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
+
+let tensor_n_gs n g = 
+  if n=0 then g_1 else
+  if n=1 then g else
+              List.fold_left tensor_gg g (Listutils.tabulate (n-1) (const g))
+              
+(* (* I thought this might be quicker than folding, but it isn't *)
+   let rec tensor_n_gs n g =
+     if n=0 then g_1 else
+     if n=1 then g else
+                 let g' = tensor_n_gs (n/2) (tensor_gg g g) in 
+                 if n mod 2 = 1 then tensor_gg g' g else g'
+*)
+
+(* (* memoised seems to make very little difference, or make it worse *)
+   module OrderedNG = struct type t = int*gate 
+                             let compare = Pervasives.compare
+                             let to_string = bracketed_string_of_pair string_of_int string_of_gate
+                     end
+   module NGMap = MyMap.Make (OrderedNG)
+   let memorecNG (f:(int*gate->gate)->int*gate->gate) (s:string) :int*gate->gate = 
+     NGMap.memorec id (fun memo (n,g) -> if !verbose || !verbose_qcalc then 
+                                           Printf.printf "%s %s %s\n" 
+                                                         s (string_of_int n) (string_of_gate g);
+                                           f memo (n,g)
+                      )
+
+   let tensor_n_gs memo (n,g) =
+     if n=0 then g_1 else
+     if n=1 then g else
+     if n=2 then tensor_gg g g else
+                 let g' = memo (n/2, tensor_n_gs 2 g) in 
+                 if n mod 2 = 1 then tensor_gg g' g else g'
+
+   let mtn = memorecNG tensor_n_gs "tensor_n_gs"
+
+   let tensor_n_gs n g = 
+     if n=0 then g_1 else
+     if n=1 then g else 
+                 mtn (n,g)
+*)
 
 let rowcolprod n row col =
   let de_C (C (x,y)) = x,y in
@@ -790,75 +834,80 @@ let qsort (qs,v) = let qs = List.sort Pervasives.compare qs in
   reorder (qs,v) (numbered qs)
 
 let ugstep_padded pn qs g gpad = 
-  (* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
-  let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
-                                                    pn
-                                                    (bracketed_string_of_list string_of_qbit qs)
-                                                    (string_of_gate g)
-                                                    s
-                              )
-                    ) 
-  in
+  if g=g_I && List.length qs=1 then () else 
+    ((* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
+     let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
+                                                       pn
+                                                       (bracketed_string_of_list string_of_qbit qs)
+                                                       (string_of_gate g)
+                                                       s
+                                 )
+                       ) 
+     in
   
-  (* qs must be distinct *)
-  let rec check_distinct = function
-    | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct qs
-    | []    -> ()
-  in
-  check_distinct qs;
+     (* qs must be distinct *)
+     let rec check_distinct = function
+       | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct qs
+       | []    -> ()
+     in
+     check_distinct qs;
   
-  (* size of gate must be 2^(length qs) *)
-  let nqs = List.length qs in
-  let veclength = 1 lsl nqs in
-  if veclength=0 then bad "far too many qbits";
-  (* I think our matrices are always square: we start with square gates and multiply and/or tensor *)
-  if veclength<>gsize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
-                                                    veclength
-                                                    nqs
-                                 );
+     (* size of gate must be 2^(length qs) *)
+     let nqs = List.length qs in
+     let veclength = 1 lsl nqs in
+     if veclength=0 then bad "far too many qbits";
+     (* I think our matrices are always square: we start with square gates and multiply and/or tensor *)
+     if veclength<>gsize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
+                                                       veclength
+                                                       nqs
+                                    );
   
-  let show_change qs' v' g' =
-    Printf.printf "we took ugstep_padded %s %s %s %s and made %s*(%s,%s)\n"
-                                pn
-                                (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
-                                                                        (string_of_qbit q)
-                                                                        (string_of_qval (qval q))
-                                                          ) 
-                                                          qs
-                                )
-                                (string_of_gate g)
-                                (string_of_gate gpad)
-                                (string_of_gate g')
-                                (bracketed_string_of_list string_of_qbit qs')
-                                (string_of_probvec v')
-  in
+     let show_change qs' v' g' =
+       Printf.printf "we took ugstep_padded %s %s %s %s and made %s*(%s,%s)\n"
+                                   pn
+                                   (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
+                                                                           (string_of_qbit q)
+                                                                           (string_of_qval (qval q))
+                                                             ) 
+                                                             qs
+                                   )
+                                   (string_of_gate g)
+                                   (string_of_gate gpad)
+                                   (string_of_gate g')
+                                   (bracketed_string_of_list string_of_qbit qs')
+                                   (string_of_probvec v')
+     in
   
-  (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
-  let qvals = Listutils.mkset (List.map qval qs) in
-  let qss, vs = List.split qvals in
-  let qs', v' = List.concat qss, List.fold_left tensor_qq v_1 vs in
+     (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
+     let qvals = Listutils.mkset (List.map qval qs) in
+     let qss, vs = List.split qvals in
+     let qs', v' = List.concat qss, List.fold_left tensor_qq v_1 vs in
   
-  (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
-  (* But we don't want to do this too enthusiastically ... *)
-  let rec together ilast qs (qs',v') =
-    match qs with 
-    | []     -> ilast, qs', v'
-    | q::qs -> let iq = idx q qs' in
-                let iq' = if iq<ilast then ilast else ilast+1 in
-                together iq' qs (make_nth qs' v' iq' iq) 
-  in
-  let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
-  let ifirst = idx (List.hd qs) qs' in
+     (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
+     (* But we don't want to do this too enthusiastically ... *)
+     let rec together ilast qs (qs',v') =
+       match qs with 
+       | []     -> ilast, qs', v'
+       | q::qs -> let iq = idx q qs' in
+                   let iq' = if iq<ilast then ilast else ilast+1 in
+                   together iq' qs (make_nth qs' v' iq' iq) 
+     in
+     let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
+     let ifirst = idx (List.hd qs) qs' in
   
-  (* add enough pads to g to deal with v *)
-  let pres = Listutils.tabulate ifirst (const gpad) in
-  let posts = Listutils.tabulate (List.length qs'-1-ilast) (const gpad) in
-  let g' = List.fold_left tensor_gg g_1 (prepend pres (g::posts)) in
+     (* add enough pads to g to deal with v *)
+     let g' = if g=gpad then tensor_n_gs (List.length qs') g else
+                             (let pre = tensor_n_gs ifirst gpad in
+                              let post = tensor_n_gs (List.length qs'-1-ilast) gpad in
+                              tensor_gg pre (tensor_gg g post)
+                             )  
+     in
   
-  if !verbose || !verbose_qsim then show_change qs' v' g';
+     if !verbose || !verbose_qsim then show_change qs' v' g';
   
-  let v'' = mult_gv g' v' in
-  record (qs',v'')
+     let v'' = mult_gv g' v' in
+     record (qs',v'')
+    )
 
 let ugstep pn qs g = ugstep_padded pn qs g g_I
 

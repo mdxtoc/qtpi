@@ -28,6 +28,8 @@ open Stringutils
 open Listutils
 open Instance
 
+exception Error of sourcepos * string
+
 type _type = tnode instance
 
 and tnode =
@@ -283,7 +285,7 @@ let result_type pos pars ft =
 (* not very clever this: ought to go 'a, 'b, 'c etc. *)
 (* but it's too hard to fix, so sorry *)
 (* and it's inefficient, but it doesn't matter *)
-let generalise t = 
+let generalise t0 = 
   let rec unknown_to_known t = 
    let replace tnode = {pos=t.pos; inst=tnode} in
    match t.inst with
@@ -303,15 +305,20 @@ let generalise t =
     | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
                            replace (Known n')
     | Known   _         -> t
-    | OneOf   _         -> t (* I think *)
-    | Poly    _         -> raise (Invalid_argument ("Type.generalise " ^ string_of_type t))
+    | OneOf ((n, {contents=Some t'}),_)  
+                        -> replace (unknown_to_known t').inst 
+    | OneOf   _         -> raise (Error (t0.pos, Printf.sprintf "Cannot generalise type %s: multiplication ambiguity (gate or num?)" 
+                                                                    (string_of_type t0)
+                                        )
+                                 )
+    | Poly    _         -> raise (Invalid_argument ("Type.generalise polytype " ^ string_of_type t0))
     | List    t         -> replace (List (unknown_to_known t))  
     | Channel t         -> replace (Channel (unknown_to_known t))
     | Process ts        -> replace (Process (List.map unknown_to_known ts))
     | Tuple   ts        -> replace (Tuple (List.map unknown_to_known ts))
     | Fun     (t1,t2)   -> replace (Fun (unknown_to_known t1, unknown_to_known t2))
   in
-  let t = unknown_to_known t in
+  let t = unknown_to_known t0 in
   let nset = freetvs t in
   if NameSet.is_empty nset then t 
   else adorn t.pos (Poly(NameSet.elements nset,t))

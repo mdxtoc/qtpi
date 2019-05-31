@@ -1,0 +1,3 @@
+proc System () =
+  (let HCZH = (H><H)*CZ*(H><H))
+  out!["HCZH = "; show HCZH; "\n"] . _0

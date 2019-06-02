@@ -1005,8 +1005,9 @@ let rec qmeasure disposes pn gate q =
           if List.fold_left (+) 0 nzs = 1 then
             _for 0 1 nv (fun i -> if v.(i)<>c_0 then v.(i)<-c_1)
           else
-            (if !verbose || !verbose_qsim then
-               Printf.printf " oh dear!\n"; 
+            (Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s\n" 
+                                q r (string_of_qval (qval q)) (string_of_prob prob)
+                                (string_of_qval (qs,v)) (string_of_prob modulus); 
              raise (Error (Printf.sprintf "can't guess sqrt(%s)" 
                                           (string_of_prob modulus)
                           )

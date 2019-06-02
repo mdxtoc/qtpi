@@ -435,13 +435,19 @@ and string_of_probvec v =
      let string_of_basis_idx i =
        Printf.sprintf "|%s>" (string_of_bin i)
      in
+     let mustbracket (C(real,im)) = 
+       (* all but simple real sums are bracketed in string_of_cprob *)
+       match real, im with
+       | Psum _, P_0 -> true
+       | _           -> false
+     in
      let estrings = _for_leftfold 0 1 n
                       (fun i ss -> match string_of_cprob v.(i) with
                                    | "0"  -> ss
                                    | "1"  -> (string_of_basis_idx i) :: ss
                                    | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
                                    | s   ->  (Printf.sprintf "%s%s" 
-                                                             s 
+                                                             (if mustbracket v.(i) then "(" ^s ^ ")" else s) 
                                                              (string_of_basis_idx i)
                                              ) :: ss
                       )

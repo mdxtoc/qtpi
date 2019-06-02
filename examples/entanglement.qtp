@@ -8,11 +8,11 @@ proc System() =
   | Alice (a) | Bob (b)
   
 proc Alice (a) =
-  a =? (x) . 
+  a -/- (x) . 
   out!["Alice sees "; show x; "\n"] .
   _0
 
 proc Bob (b) =
-  b =? (y) . 
+  b -/- (y) . 
   out!["Bob sees "; show y; "\n"] .
   _0

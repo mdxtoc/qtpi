@@ -120,7 +120,7 @@ rule make_token = parse
   
   | '?'         {QUERY}
   | '!'         {BANG}
-  | "=?"        {MEASURE}
+  | "-/-"        {MEASURE}
   | ">>"        {THROUGH}
   
   | ','         {COMMA}

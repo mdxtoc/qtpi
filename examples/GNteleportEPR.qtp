@@ -1,7 +1,7 @@
 
 proc Alice (x:qbit, c:^bit*bit, z:qbit) = 
     out!["initially Alice's z is "] . outq!(qval z) . out!["; "] .
-    z,x>>CNot . z>>H . z=?(vz) . x=?(vx) . c!vz,vx . _0 
+    z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . c!vz,vx . _0 
 
 proc Bob(y:qbit, c:^bit*bit) = 
     c?(b1,b2) . y>>phi (match b1,b2 .

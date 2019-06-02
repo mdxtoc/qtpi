@@ -1,4 +1,4 @@
-proc System() = (newq a = |0>) a =? [F*F*F] (b) . out!["result "; show b; "\n"] . _0
+proc System() = (newq a = |0>) a -/- [F*F*F] (b) . out!["result "; show b; "\n"] . _0
 
 proc Source() =
   (newq a=|0>,b=|+>) outq!(qval a) . outq!(qval b) . 

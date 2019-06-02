@@ -8,11 +8,11 @@ proc Alice (x:qbit, c:^bit*bit) =
     z,x>>CNot . 
     out!["after three-way entanglement z is "] . 
     outq!(qval z) . out!["\n"] .
-    z=?[H](vz) . 
+    z-/-[H](vz) . 
     out!["z is measured in the Hadamard basis, giving ";
                     show vz; ";\n and now x is "] .
     outq!(qval x) . out!["\n"] .
-    x=?(vx) . 
+    x-/-(vx) . 
     out!["x is measured in the computational basis, giving ";
                     show vx; "\n"] .
     c!vz,vx . 

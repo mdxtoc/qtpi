@@ -53,7 +53,7 @@ let string_of_iostep iostep =
                                           (string_of_expr e)
 let string_of_qstep qstep =
   match qstep.inst with
-  | Measure (e,gopt,p)   -> Printf.sprintf "%s=?%s(%s)"
+  | Measure (e,gopt,p)   -> Printf.sprintf "%s-/-%s(%s)"
                                           (string_of_expr e)
                                           (((fun g -> "[" ^ string_of_expr g ^ "]") ||~~ "") gopt)
                                           (string_of_pattern p)

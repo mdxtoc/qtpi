@@ -10,7 +10,7 @@ proc Alice (s, qc) =
   
 proc Bob(t, qc) =
   t?(y) . qc?(x) . 
-  x,y >> Cnot . x>>H. x=?(i) . y=?(j) .
+  x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) .
   out!["Bob receives "; show (i,j); "\n" ] .
   _0
 

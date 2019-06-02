@@ -1,7 +1,7 @@
 
 proc Alice (x:qbit, c:^bit*bit, z:qbit, log) = 
     out!["initially Alice's z is "] . outq!(qval z) . out!["\n"] .
-    z,x>>CNot . z=?[H](vz) . x=?(vx) . c!vz,vx . 
+    z,x>>CNot . z-/-[H](vz) . x-/-(vx) . c!vz,vx . 
     log!() . _0 
 
 proc Bob(y:qbit, c:^bit*bit, log) = 

@@ -51,7 +51,7 @@ let string_of_event = function
                                                                            (string_of_gate g)
                                                                            (soqs ss')
   | EVMeasure (pn, qv, g, v, aqs)  
-                                -> Printf.sprintf "%s: %s =?%s; result %s%s" (string_of_name pn)
+                                -> Printf.sprintf "%s: %s -/- %s; result %s%s" (string_of_name pn)
                                      qv
                                      (if g=g_I then "" else ("[" ^ string_of_gate g ^ "]"))
                                      (string_of_value v)

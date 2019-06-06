@@ -1,7 +1,3 @@
-fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
-
-fun semicolon (g : unit -> unit) (f : unit -> 'a) : (unit -> 'a) = compose f g
-
 fun rand8 () = bits2num (randbits 3)
 
 fun rand2 () = bits2num (randbits 1)

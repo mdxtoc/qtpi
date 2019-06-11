@@ -61,6 +61,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
 ./Qtpi examples/basicteleport.qtp
+./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp

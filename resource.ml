@@ -549,7 +549,7 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc) -> 
+  | Processdef (pn, params, (proc, None)) -> 
       let state, rparams = resource_of_params State.empty params in
       if !verbose then
         Printf.printf "\ndef %s params %s resource %s\n" 
@@ -559,6 +559,8 @@ let rck_def env def =
       (* here we go with the symbolic execution *)
       let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
       ()
+  | Processdef (pn, params, (proc, Some _)) -> 
+      raise (Error (pn.pos, "cannot rck process with monitor"))
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
@@ -672,7 +674,8 @@ and ffv_def def =
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc) -> ffv_proc proc
+  | Processdef (pn, params, (proc, None))   -> ffv_proc proc
+  | Processdef (pn, params, (proc, Some _)) -> raise (Error (pn.pos, "cannot ffv process with monitor"))
   | Functiondefs fdefs            -> List.iter ffv_fdef fdefs
   | Letdef (pat,e)                -> ffv_expr e
   

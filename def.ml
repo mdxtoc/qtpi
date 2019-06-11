@@ -33,17 +33,22 @@ open Type
    Real Soon Now we will have Miranda-style type definitions in the functiondefs
  *)
 type def = 
-  | Processdef of name instance * param list * process
+  | Processdef of name instance * param list * (process * process option) 
   | Functiondefs of fdef list
   | Letdef of pattern * expr
   
 and fdef = name instance * pattern list * _type option ref * expr 
 
 let rec string_of_def = function
-  | Processdef (pn,params,proc) -> Printf.sprintf "proc %s(%s) = %s"
+  | Processdef (pn,params,(proc, monopt)) -> Printf.sprintf "proc %s(%s) = %s"
                                         (string_of_name pn.inst)
                                         (String.concat "," (List.map string_of_param params))
-                                        (string_of_process proc)
+                                        (string_of_process proc ^ 
+                                          (match monopt with 
+                                           | Some mon -> " with " ^ string_of_process mon
+                                           | None     -> ""
+                                          )
+                                        )
   | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
   | Letdef (pat, e)             ->  Printf.sprintf "let %s = %s" 
                                                    (string_of_pattern pat) 

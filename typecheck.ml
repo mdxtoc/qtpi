@@ -206,8 +206,10 @@ let rec rewrite_process cxt proc =
 
 let rewrite_def cxt def = 
   match def with
-  | Processdef  (n, params, proc) ->
+  | Processdef  (n, params, (proc, None)) ->
       rewrite_params cxt params; rewrite_process cxt proc
+  | Processdef  (n, params, (proc, Some _)) ->
+      raise (Error (n.pos, "cannot rewrite_def process with monitor"))
   | Functiondefs fdefs            ->
       let rewrite_fdef (n, pats, toptr, expr) =
         let nt = (try evaltype (cxt <@>n.inst) 
@@ -776,7 +778,7 @@ and typecheck_process cxt p =
 
 and typecheck_pdef cxt def =
   match def with 
-  | Processdef (pn,params,proc) -> 
+  | Processdef (pn,params,(proc, None)) -> 
       if !verbose then
         Printf.printf "typecheck_pdef %s\n  %s\n\n" 
                        (short_string_of_typecxt cxt)
@@ -799,6 +801,8 @@ and typecheck_pdef cxt def =
                        (string_of_def def) 
                        (short_string_of_typecxt cxt)
         )
+  | Processdef (pn,params,(proc, Some _)) -> 
+      raise (Error (pn.pos, "cannot typecheck process with monitor"))  
   | Functiondefs _ 
   | Letdef       _ -> ()
       

@@ -69,7 +69,7 @@
 %token <char> CHAR 
 
 %token EOP OFFSIDE /* could it be EOP? No. */
-%token FUN PROC WHERE LAMBDA
+%token FUN PROC WHERE LAMBDA WITH
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
@@ -136,9 +136,16 @@ def:
   | letdef                              {$1}
   
 processdef:
-  PROC procname LPAR procparams RPAR EQUALS process  
+  PROC procname LPAR procparams RPAR EQUALS processbody  
                                         {Processdef($2,$4,$7)}
 
+processbody:
+  | process                             {$1, None}
+  | process WITH monitor                {$1, Some $3}
+
+monitor:
+  | process                             {$1} /* for now */
+  
 procname:
   | name                                {adorn $1}
 

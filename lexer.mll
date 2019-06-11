@@ -115,12 +115,13 @@ rule make_token = parse
   
   | "fun"       {FUN}
   | "proc"      {PROC}
+  | "with"      {WITH}
   | "where"     {WHERE}
   | "lam"       {LAMBDA}
   
   | '?'         {QUERY}
   | '!'         {BANG}
-  | "-/-"        {MEASURE}
+  | "-/-"       {MEASURE}
   | ">>"        {THROUGH}
   
   | ','         {COMMA}

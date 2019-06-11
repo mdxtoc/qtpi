@@ -502,6 +502,7 @@ and rck_proc state env proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
+      | TestPoint (n, proc)     -> rp state env proc
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
@@ -645,6 +646,7 @@ and ffv_proc proc =
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc proc
   | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc proc
+  | TestPoint (n, proc)            -> ffv_proc proc
   | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc proc1; ffv_proc proc2
   | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter (ffv_proc <.> snd) patprocs
   | GSum      ioprocs              -> List.iter ffv_ioproc ioprocs

@@ -41,6 +41,7 @@ and procnode =
   | WithQbit of qspec list * process
   | WithLet of letspec * process
   | WithQstep of qstep * process
+  | TestPoint of name instance * process
   | Cond of expr * process * process
   | PMatch of expr * (pattern * process) list
   | GSum of (iostep * process) list
@@ -67,6 +68,9 @@ let rec string_of_process proc =
                                             (trailing_sop p)
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
+                                            (trailing_sop p)
+  | TestPoint (n,p)       -> Printf.sprintf "<-%s %s"
+                                            (string_of_name n.inst)
                                             (trailing_sop p)
   | GSum [g]              -> string_of_pair string_of_iostep string_of_process "." g
   | GSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
@@ -101,6 +105,8 @@ and short_string_of_process proc =
                                             (string_of_letspec lsc)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
+  | TestPoint (n,p)       -> Printf.sprintf "<-%s ..."
+                                            (string_of_name n.inst)
   | GSum [i,p]            -> Printf.sprintf "%s. .." (string_of_iostep i) 
   | GSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_iostep g) in
                              "+ " ^ String.concat " <+> " (List.map sf gs)

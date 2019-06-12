@@ -20,8 +20,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     (or look at http://www.gnu.org).
 *)
+
+open Sourcepos
 open Instance
 open Name
+open Listutils
 open Process
 open Expr
 open Pattern
@@ -33,20 +36,22 @@ open Type
    Real Soon Now we will have Miranda-style type definitions in the functiondefs
  *)
 type def = 
-  | Processdef of name instance * param list * (process * process option) 
+  | Processdef of name instance * param list * (process * monitor) 
   | Functiondefs of fdef list
   | Letdef of pattern * expr
   
 and fdef = name instance * pattern list * _type option ref * expr 
 
+and monitor = (name * (sourcepos * process)) list
+
 let rec string_of_def = function
-  | Processdef (pn,params,(proc, monopt)) -> Printf.sprintf "proc %s(%s) = %s"
+  | Processdef (pn,params,(proc, mon)) -> Printf.sprintf "proc %s(%s) = %s"
                                         (string_of_name pn.inst)
                                         (String.concat "," (List.map string_of_param params))
                                         (string_of_process proc ^ 
-                                          (match monopt with 
-                                           | Some mon -> " with " ^ string_of_process mon
-                                           | None     -> ""
+                                          (match mon with 
+                                           | [] -> ""
+                                           | _  -> " with " ^ string_of_monitor mon
                                           )
                                         )
   | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
@@ -63,3 +68,9 @@ and string_of_fdef (fn,pats,toptr,expr) =
    | None   -> ""
   )
   (string_of_expr expr)
+
+and string_of_monitor = 
+  string_of_list (fun (n,(_,proc)) -> Printf.sprintf "%s: %s" n (string_of_process proc)) " "
+
+let find_monel n mon_assoc =
+  List.assoc_opt n mon_assoc

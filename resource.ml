@@ -433,7 +433,7 @@ and resource_of_params state params =
                   params
                   (state,[])
 
-and rck_proc state env proc = 
+and rck_proc mon state env proc = 
   let badproc s =
     raise (Error (proc.pos, Printf.sprintf "checking %s: %s"
                                            (short_string_of_process proc)
@@ -502,12 +502,18 @@ and rck_proc state env proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | TestPoint (n, proc)     -> rp state env proc
+      | TestPoint (n, proc)     -> (match find_monel n.inst mon with
+                                    | Some (_,monproc) -> ResourceSet.union (rp state env monproc) (rp state env proc)
+                                    | None              -> raise (Can'tHappen (Printf.sprintf "%s: rck sees no monproc"
+                                                                                                (string_of_sourcepos n.pos)
+                                                                              )
+                                                                 )
+                                   )
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
-                                   List.fold_left ResourceSet.union usede (rck_pats rck_proc state env (Some re) pms)
+                                   List.fold_left ResourceSet.union usede (rck_pats( rck_proc mon) state env (Some re) pms)
       | GSum gs                 -> 
           let rg (iostep, proc) =
             match iostep.inst with 
@@ -550,7 +556,7 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, (proc, None)) -> 
+  | Processdef (pn, params, (proc, mon)) -> 
       let state, rparams = resource_of_params State.empty params in
       if !verbose then
         Printf.printf "\ndef %s params %s resource %s\n" 
@@ -558,10 +564,8 @@ let rck_def env def =
                       (bracketed_string_of_list string_of_param params)
                       (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
       (* here we go with the symbolic execution *)
-      let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
+      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) proc in
       ()
-  | Processdef (pn, params, (proc, Some _)) -> 
-      raise (Error (pn.pos, "cannot rck process with monitor"))
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
@@ -676,10 +680,10 @@ and ffv_def def =
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, (proc, None))   -> ffv_proc proc
-  | Processdef (pn, params, (proc, Some _)) -> raise (Error (pn.pos, "cannot ffv process with monitor"))
-  | Functiondefs fdefs            -> List.iter ffv_fdef fdefs
-  | Letdef (pat,e)                -> ffv_expr e
+  | Processdef (pn, params, (proc, [])) -> ffv_proc proc
+  | Processdef (pn, params, (proc, _))  -> raise (Error (pn.pos, "cannot ffv process with monitor"))
+  | Functiondefs fdefs                  -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)                      -> ffv_expr e
   
 and ffv_fdef (fn, pats, _, e) =
   ffv_fundef fn.pos (Some fn) pats e
@@ -714,7 +718,6 @@ let resourcecheck defs =
     let env = add_std_channel env "outq"    in
     let env = add_std_channel env "in"      in
 
-    List.iter (rck_def env) defs
     List.iter (rck_def env) defs;
     
     (* and then we check function defs for non-classical free variables *)

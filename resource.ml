@@ -715,6 +715,8 @@ let resourcecheck defs =
     let env = add_std_channel env "in"      in
 
     List.iter (rck_def env) defs
+    List.iter (rck_def env) defs;
     
     (* and then we check function defs for non-classical free variables *)
+    List.iter ffv_def defs
   )

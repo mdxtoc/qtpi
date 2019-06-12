@@ -141,11 +141,18 @@ processdef:
                                         {Processdef($2,$4,$7)}
 
 processbody:
-  | process                             {$1, None}
-  | process WITH monitor                {$1, Some $3}
+  | process                             {$1, []}
+  | process WITH monitor                {$1, $3}
 
 monitor:
-  | process                             {$1} /* for now */
+  | monitorelement                      {[$1]}
+  | monitorelement monitor              {$1::$2}
+
+monitorelement:
+  | montpnum COLON process              {$1.inst,($1.pos,$3)}
+
+montpnum:
+  | tpnum                               {adorn $1}
   
 procname:
   | name                                {adorn $1}

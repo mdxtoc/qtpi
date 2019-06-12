@@ -812,7 +812,9 @@ and typecheck_pdef cxt def =
 and typecheck_letspec contn cxt pat e =
   let t = newclasstv e.pos in
   let _ = assigntype_expr cxt t e in
-  let t = generalise t in
+  (* Inconvenient though it may occasionally be, we can't do this mid-process ...
+     let t = generalise t in
+   *)
   assigntype_pat contn cxt t pat
 
 let make_library_cxt () =

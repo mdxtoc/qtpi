@@ -729,10 +729,10 @@ let bind_fdefs env = function
                            bmatch env pat v
   
 let bind_pdefs env = function
-  | Processdef  (n,params,(p, None))        -> env <@+> (n.inst, VProcess (strip_params params, p))
-  | Processdef  (n,params,(p, Some mon))    -> raise (Error (n.pos, "Can't interpret monitors yet"))
-  | Functiondefs _                          -> env
-  | Letdef _                                -> env
+  | Processdef  (n,params,(p, []))  -> env <@+> (n.inst, VProcess (strip_params params, p))
+  | Processdef  (n,params,(p, _))   -> raise (Error (n.pos, "Can't interpret monitors yet"))
+  | Functiondefs _                  -> env
+  | Letdef _                        -> env
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)

@@ -76,25 +76,26 @@ fun rgate i = (* angle is i*pi/8: R does pi/8 *)
          else R*rgate (i-1) 
   fi
 
+fun enlist n m f = tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1)))
+
+fun delist rows i j = nth (nth rows (i-1)) (j-1)
+
 proc System () =
   (*out!["R="; show R; "; R*R="; show (R*R); "; R*R*R="; show (R*R*R); "; R*R*R*R="; show (R*R*R*R); "\n"] .*)
   
   (let n = 2)
   (let m = 5)
-    
- (let enlist = lam f . tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1))))
- (let delist = lam rows i j . nth (nth rows (i-1)) (j-1))
- 
+     
   (let subprotocol = if rand2()=0 then "1.1" else "1.2" fi) 
   (let phi = (if subprotocol="1.1" then setup1_1 else setup1_2 fi) n m)
-  out!["phi (subprotocol "; subprotocol; ") = "; show (enlist phi); "\n"] .
+  out!["phi (subprotocol "; subprotocol; ") = "; show (enlist n m phi); "\n"] .
 
-  (let r = delist (enlist (lam i j . rand2())))  
-  (let r' = delist (enlist (lam i j . rand2()))) 
-  out!["r="; show (enlist r); ";\nr'="; show (enlist r'); "\n"] .
+  (let r = delist (enlist n m (lam i j . rand2())))  
+  (let r' = delist (enlist n m (lam i j . rand2()))) 
+  out!["r="; show (enlist n m r); ";\nr'="; show (enlist n m r'); "\n"] .
   
-  (let theta = delist (enlist (lam i j . 2*rand8())))
-  out!["theta="; show (enlist theta); " (in units of pi/8)\n"] .
+  (let theta = delist (enlist n m (lam i j . 2*rand8())))
+  out!["theta="; show (enlist n m theta); " (in units of pi/8)\n"] .
   out!["\n"] .
   
   (let rgate = memofun rgate)
@@ -103,10 +104,10 @@ proc System () =
   (let neighbours = delist [[[1,2];[1,1;1,3];[1,2;1,4;2,3];[1,3;1,5];[1,4;2,5]];
                             [[2,2];[2,1;2,3];[2,2;2,4;1,3];[2,3;2,5];[2,4;1,5]]
                            ])
-  out!["neighbours = "; show (enlist neighbours); "\n"]   .
+  out!["neighbours = "; show (enlist n m neighbours); "\n"]   .
   
   (let prep = lam i j . (theta i j + 8*(foldl (lam x y . x+y) 0 (map (lam (i,j) . r' i j) (neighbours i j)))) % 16)
-  out!["prep = "; show (enlist prep); "\n"]   .
+  out!["prep = "; show (enlist n m prep); "\n"]   .
   
   (let delta = lam phi i j . m1*phi i j + theta i j + 8*r i j
                              where m1 = if r' i j = 0 then 1 else -1 fi

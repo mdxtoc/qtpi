@@ -26,7 +26,7 @@
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #    (or look at http://www.gnu.org).
 
-# this worksheet is useful if you use BBEdit on a Mac. And maybe other places too: please advise
+# this worksheet is useful if you use BBEdit on a Mac. And maybe other places too: please advise.
 # in BBEdit put the cursor on a line and press ctrl-return (or the Enter key if you have a large keyboard)
 
 # change the directory to point to your qtpi directory. Then execute the first three lines

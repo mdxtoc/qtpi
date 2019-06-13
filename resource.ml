@@ -642,19 +642,25 @@ and ffv_fundef pos fnopt pats e =
     );
   ffv_expr e
 
-and ffv_proc proc =
+and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
   | Call      (pn,es)              -> List.iter ffv_expr es
-  | WithNew   (params, proc)       -> ffv_proc proc
-  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc proc
-  | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc proc
-  | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc proc
-  | TestPoint (n, proc)            -> ffv_proc proc
-  | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc proc1; ffv_proc proc2
-  | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter (ffv_proc <.> snd) patprocs
-  | GSum      ioprocs              -> List.iter ffv_ioproc ioprocs
-  | Par       procs                -> List.iter ffv_proc procs
+  | WithNew   (params, proc)       -> ffv_proc mon proc
+  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
+  | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
+  | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
+  | TestPoint (n, proc)            -> (match find_monel n.inst mon with
+                                       | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc
+                                       | None -> raise (Can'tHappen (string_of_sourcepos n.pos ^
+                                                                     ": resourcecheck ffv can't find " ^ n.inst
+                                                                    )
+                                                       )
+                                      )
+  | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
+  | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
+  | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs
+  | Par       procs                -> List.iter (ffv_proc mon) procs
 
 and ffv_qspec qspec =
   match qspec with
@@ -668,20 +674,19 @@ and ffv_qstep qstep =
   | Measure (expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
   | Ugatestep (exprs, ge)    -> List.iter ffv_expr exprs; ffv_expr ge
   
-and ffv_ioproc (iostep, proc) =
+and ffv_ioproc mon (iostep, proc) =
   (match iostep.inst with
-   | Read (expr, pat)   -> ffv_expr expr
+   | Read (expr, pat)     -> ffv_expr expr
    | Write (expr1, expr2) -> ffv_expr expr1; ffv_expr expr2
   );
-  ffv_proc proc
+  ffv_proc mon proc
   
 and ffv_def def =
   if !verbose then 
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, (proc, [])) -> ffv_proc proc
-  | Processdef (pn, params, (proc, _))  -> raise (Error (pn.pos, "cannot ffv process with monitor"))
+  | Processdef (pn, params, (proc, mon)) -> ffv_proc mon proc
   | Functiondefs fdefs                  -> List.iter ffv_fdef fdefs
   | Letdef (pat,e)                      -> ffv_expr e
   

@@ -70,3 +70,30 @@ let (||~~) (f: 'a -> 'b) (v: 'b) (opt: 'a option) : 'b =
   match opt with
   | Some x -> f x
   | None   -> v
+
+let optionpair_either f x g y =
+  match f x, g y with
+  | None  , None   -> None
+  | Some x, None   -> Some (x,y)
+  | None  , Some y -> Some (x,y) 
+  | Some x, Some y -> Some (x,y)
+
+let optiontriple_either f x g y h z =
+  match optionpair_either f x g y, h z with
+  | None      , None   -> None
+  | None      , Some z -> Some (x,y,z) 
+  | Some (x,y), None   -> Some (x,y,z)
+  | Some (x,y), Some z -> Some (x,y,z)
+
+(* optmap_all f xs gives Some if f succeeds on all x *)
+
+let rec optmap_all f  = function
+| []    -> Some []
+| x::xs -> f x &~~ (fun x -> (optmap_all f xs &~~ (fun xs -> Some (x::xs))))
+
+(* optmap_any xs gives Some if f succeeds on any x *)
+
+let rec optmap_any f  = function
+| []    -> None
+| x::xs -> optionpair_either f x (optmap_any f) xs &~~ (_Some <.> fun (x,xs) -> x::xs)
+

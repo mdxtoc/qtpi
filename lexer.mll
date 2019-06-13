@@ -64,6 +64,8 @@ let name   = ALPHA (ALPHA | DIGIT | '_' | '\'')*
 
 let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
+let tpnum = DIGIT+ ('.' DIGIT+)*
+
 let eol = '\n'
 
 rule make_token = parse
@@ -115,12 +117,14 @@ rule make_token = parse
   
   | "fun"       {FUN}
   | "proc"      {PROC}
+  | "with"      {WITH}
   | "where"     {WHERE}
   | "lam"       {LAMBDA}
+  | "<-"        {TESTPOINT}
   
   | '?'         {QUERY}
   | '!'         {BANG}
-  | "-/-"        {MEASURE}
+  | "-/-"       {MEASURE}
   | ">>"        {THROUGH}
   
   | ','         {COMMA}
@@ -180,7 +184,8 @@ rule make_token = parse
   | number      {NUM (Lexing.lexeme lexbuf)}
   | name        {NAME (Lexing.lexeme lexbuf)}   (* should be interned *)
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
-
+  | tpnum       {TPNUM (Lexing.lexeme lexbuf)}
+  
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
                                                   Char.escaped (Lexing.lexeme_char lexbuf 0) ^ 
                                                   "'"

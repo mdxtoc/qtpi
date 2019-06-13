@@ -354,3 +354,35 @@ let instantiate t =
                       with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
                      )
   | _             -> t
+
+(* a service to compilation of monitor processes *)
+let rec is_classical t =
+  match t.inst with
+  | Qbit            -> false            
+  | Unit          
+  | Num 
+  | Bool
+  | Char
+  | String
+  | Bit 
+  | Basisv
+  | Gate            -> true
+  | Qstate          -> true    (* really *)
+  (* | Range   _ *)
+  | Unknown (_, {contents=Some t})    
+                    -> is_classical t       
+  | Unknown (n, _)  -> let k = kind_of_unknown n in
+                       k=UnkClass || k=UnkEq      
+  | Known   n          (* can happen in Poly ... *)       
+                    -> let k = kind_of_unknown n in
+                       k=UnkClass || k=UnkEq
+  | Poly    (ns, t) -> is_classical t 
+  | OneOf   ((_, {contents=Some t}), _) -> is_classical t 
+  | OneOf   (_, ts) -> List.for_all is_classical ts
+  | List    t       -> is_classical t 
+  | Channel t       -> is_classical t
+  | Tuple   ts      -> List.for_all is_classical ts
+  | Fun     (t1,t2) -> true (* yes *)
+                     
+  | Process _       -> true (* yes? *)
+

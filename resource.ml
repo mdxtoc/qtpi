@@ -433,7 +433,7 @@ and resource_of_params state params =
                   params
                   (state,[])
 
-and rck_proc state env proc = 
+and rck_proc mon state env proc = 
   let badproc s =
     raise (Error (proc.pos, Printf.sprintf "checking %s: %s"
                                            (short_string_of_process proc)
@@ -502,11 +502,18 @@ and rck_proc state env proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
+      | TestPoint (n, proc)     -> (match find_monel n.inst mon with
+                                    | Some (_,monproc) -> ResourceSet.union (rp state env monproc) (rp state env proc)
+                                    | None              -> raise (Can'tHappen (Printf.sprintf "%s: rck sees no monproc"
+                                                                                                (string_of_sourcepos n.pos)
+                                                                              )
+                                                                 )
+                                   )
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
-                                   List.fold_left ResourceSet.union usede (rck_pats rck_proc state env (Some re) pms)
+                                   List.fold_left ResourceSet.union usede (rck_pats( rck_proc mon) state env (Some re) pms)
       | GSum gs                 -> 
           let rg (iostep, proc) =
             match iostep.inst with 
@@ -549,7 +556,7 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc) -> 
+  | Processdef (pn, params, (proc, mon)) -> 
       let state, rparams = resource_of_params State.empty params in
       if !verbose then
         Printf.printf "\ndef %s params %s resource %s\n" 
@@ -557,7 +564,7 @@ let rck_def env def =
                       (bracketed_string_of_list string_of_param params)
                       (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
       (* here we go with the symbolic execution *)
-      let _ = rck_proc state (List.fold_left (<@+>) env rparams) proc in
+      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) proc in
       ()
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
@@ -635,18 +642,25 @@ and ffv_fundef pos fnopt pats e =
     );
   ffv_expr e
 
-and ffv_proc proc =
+and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
   | Call      (pn,es)              -> List.iter ffv_expr es
-  | WithNew   (params, proc)       -> ffv_proc proc
-  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc proc
-  | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc proc
-  | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc proc
-  | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc proc1; ffv_proc proc2
-  | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter (ffv_proc <.> snd) patprocs
-  | GSum      ioprocs              -> List.iter ffv_ioproc ioprocs
-  | Par       procs                -> List.iter ffv_proc procs
+  | WithNew   (params, proc)       -> ffv_proc mon proc
+  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
+  | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
+  | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
+  | TestPoint (n, proc)            -> (match find_monel n.inst mon with
+                                       | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc
+                                       | None -> raise (Can'tHappen (string_of_sourcepos n.pos ^
+                                                                     ": resourcecheck ffv can't find " ^ n.inst
+                                                                    )
+                                                       )
+                                      )
+  | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
+  | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
+  | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs
+  | Par       procs                -> List.iter (ffv_proc mon) procs
 
 and ffv_qspec qspec =
   match qspec with
@@ -660,21 +674,21 @@ and ffv_qstep qstep =
   | Measure (expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
   | Ugatestep (exprs, ge)    -> List.iter ffv_expr exprs; ffv_expr ge
   
-and ffv_ioproc (iostep, proc) =
+and ffv_ioproc mon (iostep, proc) =
   (match iostep.inst with
-   | Read (expr, pat)   -> ffv_expr expr
+   | Read (expr, pat)     -> ffv_expr expr
    | Write (expr1, expr2) -> ffv_expr expr1; ffv_expr expr2
   );
-  ffv_proc proc
+  ffv_proc mon proc
   
 and ffv_def def =
   if !verbose then 
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc) -> ffv_proc proc
-  | Functiondefs fdefs            -> List.iter ffv_fdef fdefs
-  | Letdef (pat,e)                -> ffv_expr e
+  | Processdef (pn, params, (proc, mon)) -> ffv_proc mon proc
+  | Functiondefs fdefs                  -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)                      -> ffv_expr e
   
 and ffv_fdef (fn, pats, _, e) =
   ffv_fundef fn.pos (Some fn) pats e
@@ -709,7 +723,8 @@ let resourcecheck defs =
     let env = add_std_channel env "outq"    in
     let env = add_std_channel env "in"      in
 
-    List.iter (rck_def env) defs
+    List.iter (rck_def env) defs;
     
     (* and then we check function defs for non-classical free variables *)
+    List.iter ffv_def defs
   )

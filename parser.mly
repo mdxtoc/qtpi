@@ -65,11 +65,12 @@
 %token <string> NUM
 %token <string> NAME 
 %token <string> TVNAME 
+%token <string> TPNUM 
 %token <string> STRING 
 %token <char> CHAR 
 
 %token EOP OFFSIDE /* could it be EOP? No. */
-%token FUN PROC WHERE LAMBDA
+%token FUN PROC WHERE LAMBDA WITH TESTPOINT
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
@@ -136,9 +137,23 @@ def:
   | letdef                              {$1}
   
 processdef:
-  PROC procname LPAR procparams RPAR EQUALS process  
+  PROC procname LPAR procparams RPAR EQUALS processbody  
                                         {Processdef($2,$4,$7)}
 
+processbody:
+  | process                             {$1, []}
+  | process WITH monitor                {$1, $3}
+
+monitor:
+  | monitorelement                      {[$1]}
+  | monitorelement monitor              {$1::$2}
+
+monitorelement:
+  | montpnum COLON process              {$1.inst,($1.pos,$3)}
+
+montpnum:
+  | tpnum                               {adorn $1}
+  
 procname:
   | name                                {adorn $1}
 
@@ -298,7 +313,10 @@ simpleprocess:
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
-  /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule */
+  | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
+  /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
+     (if not, the parsing goes haywire)
+   */
   | MATCH 
     indentPrev 
       indentNext expr outdent
@@ -402,6 +420,10 @@ simplebpattern:
   | name                                {padorn (PatName $1)}
   | LPAR bpattern RPAR                  {$2}
   | simplebpattern COLON typespec       {adorn (pwrap (Some $3) $1.inst.pnode)}
+
+tpnum:
+  | NUM                                 {$1}
+  | TPNUM                               {$1}
   
 basisv:
   | VZERO                               {BVzero }

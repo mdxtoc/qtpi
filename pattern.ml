@@ -145,6 +145,7 @@ let names_of_pattern =
   in
   nps NameSet.empty
   
+let frees = names_of_pattern
+  
 let names_of_pats pats = 
   List.fold_left NameSet.union NameSet.empty (List.map names_of_pattern pats) 
-    

@@ -43,6 +43,7 @@ open Number
 open Value
 open Event
 
+exception CompileError of sourcepos * string
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
@@ -483,7 +484,9 @@ let rec interp sysenv proc =
              | Call (n, es)      -> 
                  (let vs = List.map (evale env) es in
                   try (match env<@>n.inst with
-                       | VProcess (ns, proc) -> let env = List.fold_left (<@+>) sysenv (zip ns vs) in
+                       | VProcess (ns, proc) -> let env = if es=[] && Stringutils.starts_with n.inst "#mon#"
+                                                          then env (* it's a monitor process ... I hope *)
+                                                          else List.fold_left (<@+>) sysenv (zip ns vs) in
                                                 deleteproc pn;
                                                 let pn' = addnewproc n.inst in
                                                 addrunner (pn', proc, env);
@@ -728,11 +731,86 @@ let bind_fdefs env = function
                            let v = evale env e in
                            bmatch env pat v
   
-let bind_pdefs env = function
-  | Processdef  (n,params,(p, []))  -> env <@+> (n.inst, VProcess (strip_params params, p))
-  | Processdef  (n,params,(p, _))   -> raise (Error (n.pos, "Can't interpret monitors yet"))
-  | Functiondefs _                  -> env
-  | Letdef _                        -> env
+let rec bind_pdefs env def =
+  match def with
+  | Processdef  (pn,params,(p, mon)) -> let env = compile_mon pn mon env in
+                                        let proc = compile_proc pn mon p in
+                                        if !verbose || !verbose_interpret then
+                                          Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
+                                                          (string_of_def def)
+                                                          (string_of_env env)
+                                                          (string_of_process proc);
+                                        env <@+> (pn.inst, VProcess (strip_params params, proc))
+  | Functiondefs _                   -> env
+  | Letdef _                         -> env
+
+and mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
+
+and chan_name tpnum = "#chan#" ^ tpnum
+
+and compile_mon pn mon env =
+  let compile env (tpnum, (tppos, proc)) =
+    let mn = mon_name tppos pn tpnum in
+    env <@+> (mn.inst, VProcess ([], compile_monbody tpnum proc))
+  in
+  List.fold_left compile env mon
+
+and compile_monbody tpnum proc =
+  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
+  let rec cmp proc =
+    let ad = adorn proc.pos in
+    let adio = adorn proc.pos in
+    let ade = eadorn proc.pos in
+    match proc.inst with
+    | Terminate         -> Some (ad (GSum [adio (Write (ade (EVar (chan_name tpnum)), ade EUnit)), proc]))
+    | GSum iops         -> let ciop (iostep, proc) = 
+                             match iostep.inst with
+                             | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
+                                                 bad iostep.pos "non-classical channel";
+                                               Process.optmap cmp proc 
+                                               &~~ (_Some <.> (fun proc -> iostep, proc))
+                             | _            -> bad iostep.pos "message receive"
+                           in
+                           Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
+    | Call _        -> bad proc.pos "process creation"
+    | WithQbit _    -> bad proc.pos "qbit creation"
+    | WithQstep _   -> bad proc.pos "qbit gating"
+    | TestPoint _   -> bad proc.pos "test point"
+    | Par _         -> bad proc.pos "parallel sum"
+    | WithNew _     
+    | WithLet _
+    | Cond    _
+    | PMatch  _     -> None
+  in
+  Process.map cmp proc
+  
+and compile_proc pn mon proc =
+  let rec cmp proc =
+    let ad = adorn proc.pos in
+    let ade = eadorn proc.pos in
+    let adpat = Pattern.padorn proc.pos None in
+    let adpar = adorn proc.pos in
+    match proc.inst with
+      | TestPoint (tpn, p) -> let p = Process.map cmp p in
+                              let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
+                              let gsum = ad (GSum [read, p]) in
+                              let mn = mon_name tpn.pos pn tpn.inst in
+                              let call = ad (Call (mn, [])) in
+                              let par = ad (Par [call; gsum]) in
+                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
+                              Some mkchan
+      | Terminate 
+      | Call      _      
+      | WithNew   _
+      | WithQbit  _
+      | WithLet   _
+      | WithQstep _
+      | Cond      _
+      | PMatch    _
+      | GSum      _
+      | Par       _        -> None
+  in
+  Process.map cmp proc
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)

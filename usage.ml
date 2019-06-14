@@ -54,7 +54,7 @@ let opts = Arg.align
 					" step through protocol execution");
               ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
-              ("-traceevents"  , Arg.Set traceevents, 
+              ("-trace"  , Arg.Set traceevents, 
 					" show trace of quantum events, messages, disposal, at end of execution");
               ("-traceId"  , Arg.Set traceevents, 
 					" show trace of process ids (probably unnecessary), at end of execution");

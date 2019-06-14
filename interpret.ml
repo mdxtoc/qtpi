@@ -736,16 +736,17 @@ let bind_fdefs env = function
   
 let rec bind_pdefs env def =
   match def with
-  | Processdef  (pn,params,(p, mon)) -> let env = compile_mon pn mon env in
-                                        let proc = compile_proc pn mon p in
-                                        if !verbose || !verbose_interpret then
-                                          Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
-                                                          (string_of_def def)
-                                                          (string_of_env env)
-                                                          (string_of_process proc);
-                                        env <@+> (pn.inst, VProcess (strip_params params, proc))
-  | Functiondefs _                   -> env
-  | Letdef _                         -> env
+  | Processdef  (pn,params,p,monparams,mon) -> 
+      let env = compile_mon pn mon env in
+      let proc = compile_proc pn mon p in
+      if !verbose || !verbose_interpret then
+        Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
+                        (string_of_def def)
+                        (string_of_env env)
+                        (string_of_process proc);
+      env <@+> (pn.inst, VProcess (strip_params params @ strip_params monparams, proc))
+  | Functiondefs _  -> env
+  | Letdef _        -> env
 
 and mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
 

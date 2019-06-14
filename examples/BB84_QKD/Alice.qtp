@@ -24,11 +24,11 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
   (* choose the basis and value for each qbit at random *)
   . (let bs = randbits n) 
   . (let vs = randbits n)
-  . <-1                          .
+  . <-1
   
   (* send Bob the qbits I chose, tell me when it's done *)
   . (new sent)
-  | SendQbits (zip bs vs, qc, sent)
+  | . SendQbits (zip bs vs, qc, sent)
   | . sent?(_)
     
     (* tell each other the qbit bases we used - me first *)
@@ -79,10 +79,10 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
             . (let h4 = hwc encryptedM hks 4 w)
             . bsc!h4,encryptedM                  (* send the encrypted message *)
             . (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
-            . <-8
+            . <-7
             . _0
           else 
-            . <-9
+            . <-8
             . againc!() . Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log)
           fi
       fi
@@ -103,11 +103,11 @@ with
      . _0
   6: . log![bool2bit false]
      . _0
-  8: . log![bool2bit true]
+  7: . log![bool2bit true]
      . log!code
      . log!h4 . log!encryptedM
      . log![bool2bit (not c_ok)]
      . log!hks'
      . _0
-  9: . log![bool2bit false]
+  8: . log![bool2bit false]
      . _0

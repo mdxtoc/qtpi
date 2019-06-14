@@ -556,8 +556,8 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, (proc, mon)) -> 
-      let state, rparams = resource_of_params State.empty params in
+  | Processdef (pn, params, proc, monparams, mon) -> 
+      let state, rparams = resource_of_params State.empty (params@monparams) in
       if !verbose then
         Printf.printf "\ndef %s params %s resource %s\n" 
                       (string_of_name pn.inst)
@@ -686,9 +686,9 @@ and ffv_def def =
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, (proc, mon)) -> ffv_proc mon proc
-  | Functiondefs fdefs                  -> List.iter ffv_fdef fdefs
-  | Letdef (pat,e)                      -> ffv_expr e
+  | Processdef (pn, _, proc, _, mon) -> ffv_proc mon proc
+  | Functiondefs fdefs               -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)                   -> ffv_expr e
   
 and ffv_fdef (fn, pats, _, e) =
   ffv_fundef fn.pos (Some fn) pats e
@@ -708,11 +708,11 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       match def with
-      | Processdef   (pn, _, _) -> env <@+> (pn.inst,RNull)
-      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
-                                   List.fold_left do_fdef env fdefs
-      | Letdef       (pat,e)    -> let ns = NameSet.elements (names_of_pattern pat) in
-                                   List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
+      | Processdef   (pn, _, _, _, _) -> env <@+> (pn.inst,RNull)
+      | Functiondefs fdefs            -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
+                                         List.fold_left do_fdef env fdefs
+      | Letdef       (pat,e)          -> let ns = NameSet.elements (names_of_pattern pat) in
+                                         List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
     in
     let env = List.fold_left do_def env defs in
     let add_std_channel env name =

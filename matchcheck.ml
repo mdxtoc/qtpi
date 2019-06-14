@@ -470,10 +470,10 @@ let matchcheck_def def =
   if !verbose then 
     Printf.printf "\nmatchcheck_def %s\n" (string_of_def def);
   match def with
-  | Processdef   (pn, params, (proc, mon))  -> matchcheck_proc proc;
-                                               List.iter (fun (_,(_,mproc)) -> matchcheck_proc mproc) mon
-  | Functiondefs fdefs                      -> let fcheck (fn, pats, _, expr) = matchcheck_expr expr in
-                                                   List.iter fcheck fdefs
-  | Letdef       (pat, e)                   -> matchcheck_expr e
+  | Processdef   (pn, _, proc, _, mon) -> matchcheck_proc proc;
+                                          List.iter (fun (_,(_,mproc)) -> matchcheck_proc mproc) mon
+  | Functiondefs fdefs                 -> let fcheck (fn, pats, _, expr) = matchcheck_expr expr in
+                                          List.iter fcheck fdefs
+  | Letdef       (pat, e)              -> matchcheck_expr e
   
 let matchcheck defs = push_verbose !verbose_matchcheck (fun () -> List.iter matchcheck_def defs)

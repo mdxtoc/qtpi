@@ -60,7 +60,6 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
     . if not check then
         . <-5
         . bsc!tagged hks 4 w []                (* empty message *) 
-        . log![]                               (* no new hash keys *) 
         . _0
       else
         . <-6
@@ -99,7 +98,7 @@ with
      . log!h3 . log!checkbitsB 
      . _0 
   5: . log![bool2bit true] 
-     . log![]
+     . log![]                                   (* no new hash keys *)
      . _0
   6: . log![bool2bit false]
      . _0

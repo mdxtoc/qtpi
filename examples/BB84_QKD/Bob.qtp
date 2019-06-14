@@ -1,40 +1,57 @@
 proc Bob (w, hks, qc, bsc, againc, log) = 
-    (new received) 
-    | ReceiveQBits([],qc,bsc,received)
-    | received?(bs)                    . (* bs, vs is what I saw *)
-      received?(vs)                    .
-      log!bs                           .
-      log!vs                           .
-      received?(h0) . received?(bAs)   . (* receive her bases *)
-      log!h0 . log!bAs                 .
-      (let h1 = hwc bs hks 1 w)
-      bsc!(h1,bs)                      . (* send my bases *)
-      log!h1 . log!bs                  .
-      (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
-      log!rvs                          .
-      (let mask = tabulate (length rvs) cb_choose)
-      (let checkbits = mask_filter 0b1 mask rvs)
-      (let h2 = hwc mask hks 2 w)
-      bsc!(h2,mask)                    . (* send her the mask *)
-      log!h2 . log!mask                .
-      (let h3 = hwc checkbits hks 3 w)
-      bsc!(h3,checkbits)               . (* send her the checkbits *)
-      log!h3 . log!checkbits           .
-      (let codebits = mask_filter 0b0 mask rvs)
-      (let hks' = take (5*w) codebits)
-      (let codebits = drop (5*w) codebits)
-      + againc?(_)                  . 
-             log![bool2bit true]       .
-             Bob (w,hks, qc, bsc, againc, log)
-      + bsc?(h4,encryptedM)         .      
-             log![bool2bit false]      .
-             log!h4 . log!encryptedM   .
-             (let code = take (length encryptedM) codebits)
-             (let M = xor_mask encryptedM code)
-             log!code                  .
-             log!M                     .
-             (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
-             log![bool2bit (not c_ok)] .
-             log!hks'                  .
-             _0
-  
+    . (new received) 
+    | . ReceiveQBits([],qc,bsc,received)
+    | . received?(bs)                   (* bs, vs is what I saw *)
+      . received?(vs)
+      . <-1
+      . received?(h0) . received?(bAs)  (* receive her bases *)
+      . <-2 
+      . (let h1 = hwc bs hks 1 w)
+      . bsc!(h1,bs)                     (* send my bases *)
+      . <-3
+      . (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
+      . <-4
+      . (let mask = tabulate (length rvs) cb_choose)
+      . (let checkbits = mask_filter 0b1 mask rvs)
+      . (let h2 = hwc mask hks 2 w)
+      . bsc!(h2,mask)                   (* send her the mask *)
+      . <-5
+      . (let h3 = hwc checkbits hks 3 w)
+      . bsc!(h3,checkbits)              (* send her the checkbits *)
+      . <-6
+      . (let codebits = mask_filter 0b0 mask rvs)
+      . (let hks' = take (5*w) codebits)
+      . (let codebits = drop (5*w) codebits)
+      + againc?(_) 
+             . <-7
+             . Bob (w,hks, qc, bsc, againc, log)
+      + bsc?(h4,encryptedM)      
+             . (let code = take (length encryptedM) codebits)
+             . (let M = xor_mask encryptedM code)
+             . (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
+             . <-8
+             . _0
+
+with 1: . log!bs . log!vs
+        . _0
+     2: . log!h0 . log!bAs
+        . _0
+     3: . log!h1 . log!bs
+        . _0
+     4: . log!rvs
+        . _0
+     5: . log!h2 . log!mask
+        . _0
+     6: . log!h3 . log!checkbits
+        . _0
+     7: . log![bool2bit true]
+        . _0
+     8: . log![bool2bit false]
+        . log!h4 . log!encryptedM
+        . log!code
+        . log!M
+        . log![bool2bit (not c_ok)]
+        . log!hks'
+        . _0
+                  
+      

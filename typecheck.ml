@@ -666,6 +666,35 @@ let check_distinct_params params =
   let _ = List.fold_left check NameSet.empty params in
   ()
 
+(* monitor labels must be unique in the monitor, should be referred to in the process *)
+let check_monlabels proc mon =
+  let rec check_unique = 
+    let rec cu lab = function
+    | (l,(pos,_)) :: mon -> if lab = l then raise (Error (pos, "repeated monitor label"))
+                                       else cu lab mon
+    | []                 -> ()
+    in
+    function | (lab,_) :: mon -> cu lab mon; check_unique mon
+             | []             -> ()
+  in
+  check_unique mon;
+  let rec find_tpns set =
+    let rec tpn set p =
+      match p.inst with
+      | TestPoint (lab, p) -> Some (find_tpns (NameSet.add lab.inst set) p)
+      | _                  -> None
+    in
+    Process.fold tpn set
+  in
+  let tpnset = find_tpns NameSet.empty proc in
+  List.iter (fun (lab,(pos,_)) -> 
+               if not (NameSet.mem lab tpnset) then
+                 Printf.eprintf "%s: Warning! The monitor process labelled %s is unused. It won't be type, match or resource checked\n"
+                                (string_of_sourcepos pos)
+                                lab
+            ) 
+            mon
+
 (* let strip_procparams s cxt params = 
      if !verbose then
        Printf.printf "before strip_procparams %s (%s)\n%s\n\n" s (string_of_params params) (short_string_of_typecxt cxt);
@@ -796,6 +825,7 @@ and typecheck_pdef cxt def =
                                             )
       in
       check_distinct_params params;
+      check_monlabels proc mon;
       let _ = do_procparams "processdef" cxt params proc mon in
       let cxt = evalcxt cxt in
       let tps = zip env_types params in

@@ -138,11 +138,15 @@ def:
   
 processdef:
   PROC procname LPAR procparams RPAR EQUALS processbody  
-                                        {Processdef($2,$4,$7)}
+                                        {let proc, monparams, monbody = $7 in
+                                         Processdef($2,$4,proc,monparams,monbody)
+                                        }
 
 processbody:
-  | process                             {$1, []}
-  | process WITH monitor                {$1, $3}
+  | process                             {$1, [], []}
+  | process WITH monitor                {$1, [], $3}
+  | process WITH LPAR procparams RPAR monitor                
+                                        {$1, $4, $6}
 
 monitor:
   | monitorelement                      {[$1]}

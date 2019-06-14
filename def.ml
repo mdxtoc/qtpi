@@ -36,7 +36,7 @@ open Type
    Real Soon Now we will have Miranda-style type definitions in the functiondefs
  *)
 type def = 
-  | Processdef of name instance * param list * (process * monitor) 
+  | Processdef of name instance * param list * process * param list * monitor
   | Functiondefs of fdef list
   | Letdef of pattern * expr
   
@@ -45,11 +45,11 @@ and fdef = name instance * pattern list * _type option ref * expr
 and monitor = (name * (sourcepos * process)) list
 
 let rec string_of_def = function
-  | Processdef (pn,params,(proc, mon)) -> Printf.sprintf "proc %s(%s) = %s%s"
-                                        (string_of_name pn.inst)
-                                        (String.concat "," (List.map string_of_param params))
-                                        (string_of_process proc)
-                                        (string_of_maybe_monitor mon)
+  | Processdef (pn,params,proc,monparams,mon) -> Printf.sprintf "proc %s(%s) = %s%s"
+                                                    (string_of_name pn.inst)
+                                                    (String.concat "," (List.map string_of_param params))
+                                                    (string_of_process proc)
+                                                    (string_of_maybe_monitor monparams mon)
   | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
   | Letdef (pat, e)             ->  Printf.sprintf "let %s = %s" 
                                                    (string_of_pattern pat) 
@@ -68,9 +68,12 @@ and string_of_fdef (fn,pats,toptr,expr) =
 and string_of_monitor = 
   string_of_list (fun (n,(_,proc)) -> Printf.sprintf "%s: %s" n (string_of_process proc)) " "
 
-and string_of_maybe_monitor = function
-  | []  -> ""
-  | mon -> " with " ^ string_of_monitor mon
+and string_of_maybe_monitor monparams mon =
+  match monparams, mon with
+  | [], []  -> ""
+  | _       -> Printf.sprintf " with (%s) %s" 
+                              (String.concat "," (List.map string_of_param monparams))
+                              (string_of_monitor mon)
 
 and short_string_of_monitor mon =
   String.concat ":... " (List.map fst mon)

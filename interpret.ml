@@ -449,7 +449,10 @@ let rec interp sysenv proc =
            Printf.printf "all done\n"
          else ();
          if !traceevents then
-           Printf.printf "\nEvent Trace:\n\n%s\n" (Event.string_of_trace ())
+           (Printf.printf "\nEvent Trace:\n\n";
+            Event.show_trace ();
+            Printf.printf "\n"
+           )
         )
       else
         ((try 

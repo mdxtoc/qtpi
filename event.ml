@@ -64,8 +64,7 @@ let tev q = Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim
 
 let stored_trace = (ref [] : event list ref)
 
-let string_of_trace () = 
-  String.concat "\n"
-                (List.map string_of_event (List.rev !stored_trace))
+let show_trace () = 
+  List.iter (fun e -> Printf.printf "%s\n" (string_of_event e)) (List.rev !stored_trace)
                 
 let trace e = stored_trace := e::!stored_trace

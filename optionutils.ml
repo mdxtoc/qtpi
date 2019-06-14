@@ -97,3 +97,9 @@ let rec optmap_any f  = function
 | []    -> None
 | x::xs -> optionpair_either f x (optmap_any f) xs &~~ (_Some <.> fun (x,xs) -> x::xs)
 
+let rec optfold f x = function
+| []      -> None
+| y :: ys -> (match f x y with
+              | Some x -> Some (anyway (revargs (optfold f) ys) x) 
+              | None   -> optfold f x ys
+             )

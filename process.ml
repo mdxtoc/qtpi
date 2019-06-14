@@ -221,3 +221,28 @@ let rec frees proc =
   and ff_es set es = List.fold_left NameSet.union set (List.map Expr.frees es)
   in
   ff NameSet.empty proc
+
+(* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't.
+   Note the recursive calls are to Optionutils.optfold ... (sorry)
+ *)
+
+let optfold (optp: 'a -> process -> 'a option) x =
+  let rec ofold x p =
+    optp x p |~~ (fun () -> 
+      match p.inst with
+        | Terminate 
+        | Call      _           -> None
+        | WithNew   (_,p) 
+        | WithQbit  (_,p)
+        | WithLet   (_,p)
+        | WithQstep (_,p)
+        | TestPoint (_,p)       -> ofold x p
+        | Cond      (e,p1,p2)   -> optfold ofold x [p1;p2]
+        | PMatch    (e,pms)     -> optfold ofold x (List.map snd pms)
+        | GSum      iops        -> optfold ofold x (List.map snd iops)
+        | Par       ps          -> optfold ofold x ps
+    )
+  in
+  ofold x 
+
+let fold optp x p = (revargs (optfold optp) p ||~ id) x

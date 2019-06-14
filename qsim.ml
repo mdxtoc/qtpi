@@ -846,11 +846,11 @@ let ugstep_padded pn qs g gpad =
      in
   
      (* qs must be distinct *)
-     let rec check_distinct = function
-       | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct qs
+     let rec check_distinct_qbits = function
+       | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct_qbits qs
        | []    -> ()
      in
-     check_distinct qs;
+     check_distinct_qbits qs;
   
      (* size of gate must be 2^(length qs) *)
      let nqs = List.length qs in

@@ -653,7 +653,7 @@ and ok_funname n =
   let c = Stringutils.first n.inst in
   if not ('a' <= c && c <= 'z') then raise (Error (n.pos, "function name " ^ string_of_name n.inst ^ " should start with lower case"))
 
-let check_distinct params =
+let check_distinct_params params =
   let check set {inst=n,_} =
     if NameSet.mem n set then 
       raise (Error (pos_of_instances params, 
@@ -727,7 +727,7 @@ and typecheck_process mon_assoc cxt p  =
                   )
                   params
       in
-      check_distinct params;
+      check_distinct_params params;
       do_procparams "WithNew" cxt params proc mon_assoc
   | WithQbit (qss,proc) ->
       let typecheck_qspec cxt ({pos=pos; inst=n,rt}, bvopt) =
@@ -738,7 +738,7 @@ and typecheck_process mon_assoc cxt p  =
       in
       let _ = List.iter (typecheck_qspec cxt) qss in
       let params = List.map fst qss in
-      check_distinct params;
+      check_distinct_params params;
       do_procparams "WithQbit" cxt params proc mon_assoc
   | WithLet ((pat,e),proc) ->
       typecheck_letspec (fun cxt -> typecheck_process mon_assoc cxt proc) cxt pat e
@@ -795,7 +795,7 @@ and typecheck_pdef cxt def =
                                                          )
                                             )
       in
-      check_distinct params;
+      check_distinct_params params;
       let _ = do_procparams "processdef" cxt params proc mon in
       let cxt = evalcxt cxt in
       let tps = zip env_types params in

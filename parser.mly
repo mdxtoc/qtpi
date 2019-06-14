@@ -325,6 +325,7 @@ simpleprocess:
     outdent                             {adorn (PMatch ($4,$8))}
   | LPAR process RPAR                   {$2}
   | IF ubif FI                          {$2}
+  | DOT process                         {$2} /* I hope this works ... */
 
 procmatches:
   | procmatch                           {[$1]}

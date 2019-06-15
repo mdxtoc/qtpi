@@ -29,6 +29,7 @@ open Number
 open Name
 open Process
 open Pattern
+open Monenv
 
 exception Disaster of string
 
@@ -86,7 +87,7 @@ type value =
   | VTuple of value list
   | VList of value list
   | VFun of (value -> value)        (* with the environment baked in for closures *)
-  | VProcess of name list * process
+  | VProcess of name list * name list * process
 
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
@@ -135,7 +136,7 @@ and rwaiter = name * pattern * process * env
 
 and wwaiter = name * value * process * env
 
-and env = (name * value) list (* which, experiment suggests, is more efficient than Map at runtime *)
+and env = value monenv (* which, experiment suggests, is more efficient than Map at runtime *)
 
 let gsize = function
   | MGate m -> vsize m  (* assuming square gates *)
@@ -340,9 +341,12 @@ let rec so_value optf v =
                | VTuple vs       -> "(" ^ string_of_list (so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (so_value optf) vs
                | VFun f          -> "<function>"
-               | VProcess (ns,p) -> Printf.sprintf "process (%s) %s"
-                                                   (string_of_list string_of_name "," ns)
-                                                   (string_of_process p)
+               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s %s"
+                                                      (string_of_list string_of_name "," ns)
+                                                      (if ms=[] then ""
+                                                       else "<-(" ^ string_of_list string_of_name "," ms ^ ")"
+                                                      )
+                                                      (string_of_process p)
               )
 and short_so_value optf v =
   match optf v with
@@ -352,8 +356,11 @@ and short_so_value optf v =
                | VChan c         -> "Chan " ^ short_so_chan optf c
                | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (short_so_value optf) vs
-               | VProcess (ns,p) -> Printf.sprintf "process (%s)"
-                                                   (string_of_list string_of_name "," ns)
+               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s"
+                                                      (string_of_list string_of_name "," ns)
+                                                      (if ms=[] then ""
+                                                       else "<-(" ^ string_of_list string_of_name "," ms ^ ")"
+                                                      )
                | v               -> so_value optf v
               )
   
@@ -368,18 +375,14 @@ and short_so_chan optf {cname=i} =
     string_of_int i
     
 and so_env optf env =
-  "{" ^ string_of_assoc string_of_name (so_value optf) ":" ";" env ^ "}"
+  "{" ^ string_of_monenv "=" (so_value optf) env ^ "}"
 
-and short_so_env optf env =
-  "{" ^  string_of_assoc string_of_name (short_so_value optf)  ":" ";" 
-                         (List.filter (function 
-                                       | _, VFun     _ 
-                                       | _, VProcess _ -> false
-                                       | _             -> true
-                                      )
-                                      env 
-                         ) ^
-  "}"   
+and short_so_env optf = so_env optf <.> (Monenv.filter (function 
+                                                        | _, VFun     _ 
+                                                        | _, VProcess _ -> false
+                                                        | _             -> true
+                                                        )
+                                         )
   
 and so_runner optf (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 

@@ -301,13 +301,9 @@ iostep:
 
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
-  | procname primary                    {adorn (Call ($1,match $2.inst.enode with 
-                                                         | EUnit     -> []
-                                                         | ETuple es -> es
-                                                         | _         -> [$2]
-                                                     )
-                                               )
-                                        }
+  | procname procargs                   {adorn (Call ($1,$2,[]))}
+  | procname procargs TESTPOINT procargs                  
+                                        {adorn (Call ($1,$2,$4))}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ($3,$5))}
   | LPAR QBITDEC qspecs RPAR process    
@@ -331,6 +327,11 @@ simpleprocess:
   | IF ubif FI                          {$2}
   | DOT process                         {$2} /* I hope this works ... */
 
+procargs:
+  | LPAR RPAR                           {[]}
+  | LPAR ntexprs RPAR                   {$2}
+  
+  
 procmatches:
   | procmatch                           {[$1]}
   | procmatch procmatches               {$1::$2}
@@ -366,10 +367,6 @@ letspec:
   | bpattern EQUALS indentNext expr outdent
                                         {$1, $4}
   
-args:
-  |                                     {[]}
-  | ntexprs                             {$1}
-
 pattern:
   | conspattern                         {if !(Settings.verbose) then Printf.printf "seen pattern %s\n" (string_of_pattern $1); $1}
   | conspattern COMMA tuplepattern      {let p = padorn (Pattern.delist ($1::$3)) in

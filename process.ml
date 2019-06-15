@@ -38,7 +38,7 @@ type process = procnode instance
 
 and procnode =
   | Terminate
-  | Call of name instance * expr list
+  | Call of name instance * expr list * expr list
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
@@ -56,9 +56,10 @@ and letspec = pattern * expr
 let rec string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | Call (p,es)           -> Printf.sprintf "%s(%s)"
+  | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
+                                            (if mes=[] then "" else "<-(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
@@ -96,9 +97,10 @@ and trailing_sop p =
 and short_string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | Call (p,es)           -> Printf.sprintf "%s(%s)"
+  | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
+                                            (if mes=[] then "" else "<-(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
                                             (commasep (List.map string_of_param params))
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
@@ -139,7 +141,7 @@ and string_of_procmatch (pat,proc) =
 and short_string_of_procmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_pattern pat)
 
 (* I wish OCaml didn't force this ... *)
-let _Call n es      = Call (n,es)
+let _Call n es mes  = Call (n,es,mes)
 let _WithNew pars p = WithNew (pars,p)
 let _WithQbit qs p  = WithQbit (qs,p)
 let _WithLet l p    = WithLet (l,p)
@@ -186,7 +188,7 @@ let rec frees proc =
   let rec ff set p =
     match p.inst with
     | Terminate -> set
-    | Call (pn, es)         -> NameSet.add pn.inst (ff_es set es)
+    | Call (pn, es, mes)    -> NameSet.add pn.inst (ff_es (ff_es set es) mes)
     | WithNew (pars, p)     -> NameSet.diff (ff set p) (NameSet.of_list (strip_params pars))
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = NameSet.of_list (strip_params qs) in

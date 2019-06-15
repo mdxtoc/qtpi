@@ -449,8 +449,8 @@ and rck_proc mon state env proc =
     let r =
       (match proc.inst with
       | Terminate               -> ResourceSet.empty
-      | Call (n, es)            -> (* disjoint resources in the arguments, no dead qbits used *)
-                                   let ers = List.map (snd <.> disjoint_resources_of_expr state env) es in
+      | Call (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
+                                   let ers = List.map (snd <.> disjoint_resources_of_expr state env) (es@mes) in
                                    (try disju ers with OverLap s -> badproc s)
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
@@ -645,7 +645,7 @@ and ffv_fundef pos fnopt pats e =
 and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
-  | Call      (pn,es)              -> List.iter ffv_expr es
+  | Call      (pn,es,mes)          -> List.iter ffv_expr es; List.iter ffv_expr mes
   | WithNew   (params, proc)       -> ffv_proc mon proc
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc

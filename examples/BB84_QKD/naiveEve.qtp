@@ -1,5 +1,5 @@
 (* a naive eavesdropper. Sees Alice's bits but messes with them. *)
-proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB, logAE,logEB) =
+proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) =
     . (new measured) 
     | . CopyQBits([],qA,qB,bsA,measured)
     | . measured?(bs)                       (* bs, vs are what I think I saw *)
@@ -20,21 +20,22 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB, logAE,logEB) =
       + againA?(_)                          (* round again, both sides *)
             . againB!()                 .
             . <-4
-            . Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB, logAE,logEB)
+            . Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) <- (logAE,logEB)
 
-with 1: . logEB!bs. logEB!vs
-        . _0
-     2: . logEB!cs
-        . _0
-     3: . logAE![bool2bit false]            (* not going round *) 
-        . logEB![bool2bit false]            (* either of us    *)   
-        . logAE!encrypted           
-        . logEB![bool2bit false]            (* can't decrypt *)
-        . logEB![]                          (* empty message *)
-        . logAE![]                          (* empty hash keys A<->E *)
-        . logEB![]                          (* empty hash keys E<->B *)
-        . _0
-     4: . logAE![bool2bit true]
-        . logEB![bool2bit true]
-        . _0
+with (logAE,logEB)
+  1: . logEB!bs. logEB!vs
+     . _0
+  2: . logEB!cs
+     . _0
+  3: . logAE![bool2bit false]            (* not going round *) 
+     . logEB![bool2bit false]            (* either of us    *)   
+     . logAE!encrypted           
+     . logEB![bool2bit false]            (* can't decrypt *)
+     . logEB![]                          (* empty message *)
+     . logAE![]                          (* empty hash keys A<->E *)
+     . logEB![]                          (* empty hash keys E<->B *)
+     . _0
+  4: . logAE![bool2bit true]
+     . logEB![bool2bit true]
+     . _0
             

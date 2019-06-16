@@ -710,28 +710,26 @@ let check_monlabels proc mon =
      cxt
  *)
 
-let rec enhance_cxt cxt params =
-  let process_param {pos=pos; inst=n,rt} = n, fix_paramtype pos rt in
-  List.fold_left (fun cxt param -> cxt <@+> process_param param) cxt params
-  
-and do_procparams s cxt params proc monparams mon =
-  if !verbose then
-    Printf.printf "do_procparams %s" (string_of_list string_of_param "," params);
-  let cxt = enhance_cxt cxt params in
-  if !verbose then
-    Printf.printf " -> %s\n" (string_of_list string_of_param "," params);
-  typecheck_process mon cxt proc
-
-and fix_paramtype pos rt =
+let fix_paramtype pos rt =
   match !rt with
   | Some t -> t
   | None   -> let t = newcommtv pos in rt := Some t; t (* process params are, like messages, qbits or classical *)
   
-and unify_paramtype rt t =
+let unify_paramtype rt t =
   match !rt with
   | Some t' -> unifytypes t t'
   | None    -> rt := Some t
   
+let process_param {pos=pos; inst=n,rt} = n, fix_paramtype pos rt
+  
+let rec do_procparams s cxt params proc monparams mon =
+  if !verbose then
+    Printf.printf "do_procparams %s" (string_of_list string_of_param "," params);
+  let cxt = List.fold_left (fun cxt param -> cxt <@+> process_param param) cxt params in
+  if !verbose then
+    Printf.printf " -> %s\n" (string_of_list string_of_param "," params);
+  typecheck_process mon cxt proc
+
 and typecheck_process mon cxt p  =
   if !verbose then
     Printf.printf "typecheck_process ... %s:%s\n" (string_of_sourcepos p.pos) (short_string_of_process p);
@@ -840,9 +838,11 @@ and typecheck_pdef assoc def =
       in
       check_distinct_params (params@monparams);
       check_monlabels proc mon;
-      do_procparams "processdef" (new_cxt assoc) params proc monparams mon;
+      let locals = List.map process_param params in
+      let mons = List.map process_param monparams in
+      typecheck_process mon (monenv_of_lmg locals mons assoc) proc;
       let assoc = evalassoc assoc in
-      let tps = zip env_types params in
+      let tps = zip env_types (params@monparams) in
       let _ = List.iter (fun (t,{inst=n,rt}) -> unifytypes t (_The !rt)) tps in
       if !verbose then
         (rewrite_def (new_cxt assoc) def;

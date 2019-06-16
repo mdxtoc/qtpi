@@ -484,13 +484,13 @@ let rec interp sysassoc proc =
             (match rproc.inst with
              | Terminate         -> deleteproc pn; if !pstep then show_pstep "_0"
              | Call (n, es, mes)      -> 
-                 (let vs = List.map (evale env) es in
-                  let mvs = List.map (evale (menv env)) mes in
+                 (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
                   try (match env<@>n.inst with
                        | VProcess (ns, ms, proc) -> let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
                                                               then menv env (* it's a monitor process ... I hope *)
-                                                              else (let locals = zip ns vs in
-                                                                    let mons = zip ms mvs in
+                                                              else (let ne = List.length ns in
+                                                                    let locals = zip ns (take ne vs) in
+                                                                    let mons = zip ms (drop ne vs) in
                                                                     monenv_of_lmg locals mons sysassoc
                                                                    ) 
                                                     in

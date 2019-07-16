@@ -63,6 +63,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/basicteleport.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
+./Qtpi examples/randomteleport_with.qtp
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp
 ./Qtpi examples/cheating_Watrous_QBC.qtp
@@ -92,6 +93,7 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 # and each extra qbit makes it more than 4 times slower. The time is all in the measurement ...
 
 time ./Qtpi examples/Warwick/test.qtp
+time ./Qtpi examples/Warwick/newtest.qtp
 
 </string>
 </dict>

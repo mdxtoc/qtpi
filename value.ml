@@ -282,16 +282,16 @@ let g_Z  = make_g   [[c_1       ; c_0        ];
 let g_H  = make_g   [[c_h       ; c_h        ];
                      [c_h       ; pcneg (c_h)]]
                      
-(* these two are intended to be like rotations. Unlike H, F*F<>I *)
+(* these two are intended to be like rotations. Unlike H, Rz*Rz<>I *)
 
-let g_F  = make_g   [[c_f       ; pcneg c_g  ];
+let g_Rz = make_g   [[c_f       ; pcneg c_g  ];
                      [c_g       ; c_f        ]]
 let m_G  = make_g   [[c_g       ; pcneg c_f  ];
                      [c_f       ; c_g        ]]
 
-(* experimental R(pi/8) gate *)
+(* experimental Rx(pi/8) gate *)
 
-let g_R  = make_g   [[c_1       ; c_0        ];
+let g_Rx = make_g   [[c_1       ; c_0        ];
                      [c_0       ; C(P_f,P_g) ]]
                      
 let g_Phi = function (* as Pauli *)
@@ -473,8 +473,8 @@ and string_of_gate g =
                    if g=g_Y then Some "Y" else
                    if g=g_Z then Some "Z" else
                    if g=g_H then Some "H" else
-                   if g=g_F then Some "F" else
-                   if g=g_R then Some "R" else
+                   if g=g_Rz then Some "Rz" else
+                   if g=g_Rx then Some "Rx" else
                    if g=m_Cnot then Some "Cnot" else
                    None
                   )

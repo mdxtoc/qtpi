@@ -2,17 +2,17 @@ fun mp a b =
   [show a; "*"; show b; "="; show (a*b); "\n"]
   
 proc System () =
-  out!mp F (dagger F) .
-  out!mp F F .
-  out!mp (F*F) F .
-  out!mp (F*F) (F*F) .
-  out!mp F H .
-  out!mp (F*H) (dagger (F*H)) .
-  out!mp H F .
-  out!mp R (dagger R) .
-  out!mp R R .
-  out!mp (R*R) R .
-  out!mp (R*R) (R*R) .
-  out!mp (R*R*R) (R*R*R) .
-  out!mp (R*R*R*R) (R*R*R*R) .
+  out!mp Rz (dagger Rz) .
+  out!mp Rz Rz .
+  out!mp (Rz*Rz) Rz .
+  out!mp (Rz*Rz) (Rz*Rz) .
+  out!mp Rz H .
+  out!mp (Rz*H) (dagger (Rz*H)) .
+  out!mp H Rz .
+  out!mp Rx (dagger Rx) .
+  out!mp Rx Rx .
+  out!mp (Rx*Rx) Rx .
+  out!mp (Rx*Rx) (Rx*Rx) .
+  out!mp (Rx*Rx*Rx) (Rx*Rx*Rx) .
+  out!mp (Rx*Rx*Rx*Rx) (Rx*Rx*Rx*Rx) .
   _0

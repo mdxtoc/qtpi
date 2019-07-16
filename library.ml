@@ -56,8 +56,8 @@ let _ = Interpret.know ("Y"     , "gate", vgate g_Y)
 let _ = Interpret.know ("Z"     , "gate", vgate g_Z)
 
 let _ = Interpret.know ("H"     , "gate", vgate g_H)
-let _ = Interpret.know ("F"     , "gate", vgate g_F)
-let _ = Interpret.know ("R"     , "gate", vgate g_R)
+let _ = Interpret.know ("Rz"    , "gate", vgate g_Rz)
+let _ = Interpret.know ("Rx"    , "gate", vgate g_Rx)
 
 let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> g_Phi <.> mustbe_intv))
 

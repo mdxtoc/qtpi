@@ -59,7 +59,7 @@ let rec string_of_process proc =
   | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
-                                            (if mes=[] then "" else "<-(" ^ string_of_list string_of_expr "," mes ^ ")")
+                                            (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
@@ -72,7 +72,7 @@ let rec string_of_process proc =
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
                                             (trailing_sop p)
-  | TestPoint (n,p)       -> Printf.sprintf "<-%s %s"
+  | TestPoint (n,p)       -> Printf.sprintf "/^%s %s"
                                             (string_of_name n.inst)
                                             (trailing_sop p)
   | GSum [g]              -> string_of_pair string_of_iostep string_of_process "." g
@@ -100,7 +100,7 @@ and short_string_of_process proc =
   | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
-                                            (if mes=[] then "" else "<-(" ^ string_of_list string_of_expr "," mes ^ ")")
+                                            (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
                                             (commasep (List.map string_of_param params))
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
@@ -109,7 +109,7 @@ and short_string_of_process proc =
                                             (string_of_letspec lsc)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
-  | TestPoint (n,p)       -> Printf.sprintf "<-%s ..."
+  | TestPoint (n,p)       -> Printf.sprintf "/^%s ..."
                                             (string_of_name n.inst)
   | GSum [i,p]            -> Printf.sprintf "%s. .." (string_of_iostep i) 
   | GSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_iostep g) in

@@ -344,7 +344,7 @@ let rec so_value optf v =
                | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s %s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
-                                                       else "<-(" ^ string_of_list string_of_name "," ms ^ ")"
+                                                       else "/^(" ^ string_of_list string_of_name "," ms ^ ")"
                                                       )
                                                       (string_of_process p)
               )
@@ -359,7 +359,7 @@ and short_so_value optf v =
                | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
-                                                       else "<-(" ^ string_of_list string_of_name "," ms ^ ")"
+                                                       else "/^(" ^ string_of_list string_of_name "," ms ^ ")"
                                                       )
                | v               -> so_value optf v
               )

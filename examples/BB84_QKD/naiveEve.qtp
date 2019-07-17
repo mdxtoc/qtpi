@@ -4,23 +4,23 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) =
     | . CopyQBits([],qA,qB,bsA,measured)
     | . measured?(bs)                       (* bs, vs are what I think I saw *)
       . measured?(vs)
-      . <-1
+      . /^1
      
       . measured?(h)
       . measured?(basesA) . bsB!h,basesA    (* bases A->B       *)
       . bsB?(basesB)      . bsA!basesB      (* bases B->A       *)
       . bsB?(mask)        . bsA!mask        (* mask B->A        *)
       . bsB?(h,cs)        . bsA!h,cs        (* checkbits B->A   *)
-      . <-2
+      . /^2
       
       + bsA?(h,encrypted)                   (* encrypted message A->B *)
             . bsB!h,encrypted               (* send it on *)
-            . <-3
+            . /^3
             . _0
       + againA?(_)                          (* round again, both sides *)
             . againB!()                 .
-            . <-4
-            . Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) <- (logAE,logEB)
+            . /^4
+            . Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) /^ (logAE,logEB)
 
 with (logAE,logEB)
   1: . logEB!bs. logEB!vs

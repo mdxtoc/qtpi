@@ -8,13 +8,21 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, againA, againB) =
      
       . measured?(h)
       . measured?(basesA) . bsB!h,basesA    (* bases A->B       *)
-      . bsB?(basesB)      . bsA!basesB      (* bases B->A       *)
-      . bsB?(mask)        . bsA!mask        (* mask B->A        *)
+      . bsB?(h,basesB)    . bsA!h,basesB    (* bases B->A       *)
+      . bsB?(h,mask)      . bsA!h,mask      (* mask B->A        *)
       . bsB?(h,cs)        . bsA!h,cs        (* checkbits B->A   *)
       . /^2
       
       + bsA?(h,encrypted)                   (* encrypted message A->B *)
             . bsB!h,encrypted               (* send it on *)
+            . (let rvs = reconcile basesB basesA vs)    
+                                            (* find the vs for which Alice and Bob used the same bases *)
+            . (let codebits = drop (5*w) (mask_filter 0b0 mask rvs))
+                                            (* my code bits *)
+            . (let code = take (length encrypted) codebits)
+                                            (* my idea of the code *)
+            . (let M = xor_mask code encrypted) 
+                                            (* decrypt Alice's message (maybe) *)
             . /^3
             . _0
       + againA?(_)                          (* round again, both sides *)
@@ -30,8 +38,9 @@ with (logAE,logEB)
   3: . logAE![bool2bit false]            (* not going round *) 
      . logEB![bool2bit false]            (* either of us    *)   
      . logAE!encrypted           
-     . logEB![bool2bit false]            (* can't decrypt *)
-     . logEB![]                          (* empty message *)
+     . logAE!code
+     . logEB![bool2bit true]             (* can decrypt, sort of *)
+     . logEB!M                           (* best guess *)
      . logAE![]                          (* empty hash keys A<->E *)
      . logEB![]                          (* empty hash keys E<->B *)
      . _0

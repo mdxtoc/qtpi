@@ -46,6 +46,7 @@ proc EveLoop (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, bsA, vsA, bs,
             (let codeA = mask_filter 0b0 maskA rvsA)
             (let hkbsAE' = take (5*w) codeA)
             (let codeA = drop (5*w) codeA)
+            logAE!codeA                 .
             (let message = xor_mask (take (length encrypted) codeA) encrypted)
                                             (* decode as Bob would *)
             logEB![bool2bit true]       .   (* I got the message *)

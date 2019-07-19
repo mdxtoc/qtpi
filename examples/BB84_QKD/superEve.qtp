@@ -37,8 +37,10 @@ proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
        (* decode as Bob would, and send it to AsAlice *)
        (let hkbs' = take (5*w) codeA)
        (let codeA = drop (5*w) codeA)
-       (let message = xor_mask (take (length encrypted) codeA) encrypted)    
+       (let codeA = take (length encrypted) codeA)
+       (let message = xor_mask codeA encrypted)    
        mc ! message                            .
+       log!codeA                               .
        log!hkbs'                               .
        _0
   

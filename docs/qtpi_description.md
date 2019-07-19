@@ -341,6 +341,8 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *abandon*: *string* &rarr; *'\*a*  
 	* stops the program and doesn't return (raises an exception). 'Returns' a non-classical type, if necessary. 
   * *append*: *'a list* &rarr; *'a list* &rarr; *'a list*
+  * *compare*: *''a* &rarr; *''a* &rarr; *num*
+	* 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *concat*: *'a list list* &rarr; *'a list*
   * *const*: *'a* &rarr; *'\*b* &rarr; *'a*
   * *dagger*: *gate* &rarr; *gate*
@@ -352,7 +354,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *foldl*: (*'a* &rarr; *'b* &rarr; *'a*) &rarr; *'a* &rarr; *'b list* &rarr; *'a*
   * *foldr*: (*'a* &rarr; *'b* &rarr; *'b*) &rarr; *'b* &rarr; *'a list* &rarr; *'b*
   * *forall*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
-  * *fst*: *'a* \* *'\*b* &rarr; *'a*  
+  * *fst*: *'a* \* *'b* &rarr; *'a*  
   * *hd*: *'a list* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
   * *iter*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *unit*
@@ -369,9 +371,9 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *rev*: *'a list* &rarr; *'a list*
   * *show*: *'\*a* &rarr; *string*
 	  * converts a value to a string. Gives a deliberately opaque result if applied to a qbit, function, process, channel or qstate.  
-  * *sort*: *'a list* &rarr; *'a list*
-	  * sorts in ascending order
-  * *snd*: *'\*a* \* *'b* &rarr; *'b*  
+  * *sort*: (*''a* &rarr; *''a* &rarr; *num*) &rarr; *''a list* &rarr; *''a list*
+	  * sorts according to order defined by first argument -- 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
+  * *snd*: *'a* \* *'b* &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*
   * *take*: *num* &rarr; *'a list* &rarr; *'a list*
   * *takewhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*

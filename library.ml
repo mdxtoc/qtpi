@@ -204,11 +204,14 @@ let v_const a b = a
 let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> 'a list"    , vfun2 v_tabulate)
 let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                  , vfun2 v_const)
 
-let v_sort vs = vlist (List.sort (fun a b -> ~- (Pervasives.compare a b)) (listv vs))
-let _ = Interpret.know ("sort"    , "'a list -> 'a list"                , vfun v_sort)
+let v_compare a b = vint (Interpret.deepcompare (a,b))
+let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
 
-let _ = Interpret.know ("fst"     , "'a*'*b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "'*a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
+let v_sort compare vs = vlist (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (listv vs))
+let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> ''a list -> ''a list", vfun2 v_sort)
+
+let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
 let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> Random.bool <.> unitv))
 let _ = Interpret.know ("randbits", "num -> bit list"                   , vfun v_randbits)
@@ -383,7 +386,7 @@ let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)
 (* ********************* memoising, with an s ************************ *)
 
 module OneMap = MyMap.Make (struct type t        = value
-                                   let compare   = Pervasives.compare
+                                   let compare   = Pervasives.compare (* ok not to be deepcompare *)
                                    let to_string = string_of_value
                             end
                            )
@@ -395,7 +398,7 @@ let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
 let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b", vfun2 _memorec)
   
 module TwoMap = MyMap.Make (struct type t        = value*value
-                                   let compare   = Pervasives.compare
+                                   let compare   = Pervasives.compare (* ok not to be deepcompare *)
                                    let to_string = string_of_pair string_of_value string_of_value " " 
                             end
                            )
@@ -405,7 +408,7 @@ let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
 let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c", vfun3 _memofun2)
   
 module ThreeMap = MyMap.Make (struct type t        = value*value*value
-                                     let compare   = Pervasives.compare
+                                     let compare   = Pervasives.compare (* ok not to be deepcompare *)
                                      let to_string = string_of_triple string_of_value string_of_value string_of_value " " 
                               end
                              )

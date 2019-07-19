@@ -18,6 +18,10 @@ proc LogAliceEve (verbose, log, done) =
     out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
                    else [] fi
                         .
+    log?(code)          .
+    out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
+                   else [] fi
+                        .
     log?(hkbsAE)        .
     done!hkbsAE         .
     _0

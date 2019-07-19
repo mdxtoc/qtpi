@@ -24,22 +24,17 @@ proc ReceiveQBits (bvs, qc, bsc, results) =
         results!bits        .
         _0
   + qc?(q)                  . 
-        (let basis = randbit ())
-        q -/-[if basis=0b1 then H else I fi] (value) .
-        ReceiveQBits((basis,value)::bvs,qc,bsc,results)
+        (let b = randbit ())
+        q -/-[if b=0b1 then H else I fi] (v) .
+        ReceiveQBits((b,v)::bvs,qc,bsc,results)
 
-(* Read qbits from qA, measure them in a random bases, send the measured bits on qB. 
+(* Read qbits from qA, measure them in a random basis, send the measured bits on qB. 
    Stop when you see a message on bsA, and return measurements, tag and message.
  *)
 proc CopyQBits (bvs, qA, qB, bsA, results) =
     + qA?(q)            . (let b = randbit ())
-                          q-/-[if b=0b0 then I else H fi](v) . 
-                          (newq q = match b,v .
-                                    + 0b0,0b0 . |0>
-                                    + 0b0,0b1 . |1>
-                                    + 0b1,0b0 . |+>
-                                    + 0b1,0b1 . |->
-                          ) 
+                          q-/-[if b=0b1 then H else I fi](v) . 
+                          (newq q = basisv_of_bits b v) 
                           qB!q                              . 
                           CopyQBits ((b,v)::bvs, qA, qB, bsA, results)
     + bsA?(tag,bits)    . (let bs, vs = unzip (rev bvs))
@@ -88,13 +83,28 @@ fun int_sqrt n = i_s 0 n
   
 fun histo buckets ns
   = match ns .
-    + []    . buckets
+    + []    . rev buckets
     + n::ns . histo ((n,length pre+1)::buckets) post
                   where pre = takewhile sameas ns
                   where post = dropwhile sameas ns
                   where sameas = lam k . k=n
 
-fun histogram ns = histo [] (sort ns)
+fun histogram ns = histo [] (sort compare ns)
+
+(* this is a histogram of evasions: see SystemAEB.qtp *)
+
+fun histo2 buckets nes
+  = match nes .
+    + []       . rev buckets
+    + (n,e)::_ . histo2 ((n,length es)::buckets) post
+                 where es = filter (lam (_,e) . e) pre
+                 where pre = takewhile sameas nes
+                 where post = dropwhile sameas nes
+                 where sameas = lam (k,_) . k=n
+
+fun h2comp (n,e) (n',e') = compare n n'
+
+fun histogram2 nes = histo2 [] (sort h2comp nes)
 
 fun listsum ns = foldl (lam sum n . sum+n) 0 ns
 

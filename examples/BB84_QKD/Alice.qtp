@@ -12,8 +12,9 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc) =
      message). We don't want the protocol to fail because we pick too few qbits, and 
      nSigma is the number of standard deviations we want to be away from that possibility.
      
-     In this simulation we can set nSigma so that Alice doesn't calculate enough qbits, 
-     and when it does Alice sends Bob a signal on a side-channel and tries again.
+     In this simulation we can set nSigma, cMin and w so that Alice doesn't always
+     calculate enough qbits, and when that happens Alice sends Bob a signal on the 
+     side-channel againc and tries again.
           
      The protocol uses about n/8 checkbits, but that's 
      included in the formula calculation.
@@ -78,6 +79,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc) =
             . (let h4 = hwc encryptedM hks 4 w)
             . bsc!h4,encryptedM                  (* send the encrypted message *)
             . (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
+                                                 (* test for classical interference *)
             . /^7
             . _0
           else 

@@ -72,7 +72,7 @@ let qval q = try Hashtbl.find qstate q
  
  *)
 
-(* let Pervasives.compare p1 p2 =
+(* let compare p1 p2 =
      match p1, p2 with
      | Psymb (b1,q1), Psymb (b2,q2) -> Pervasives.compare (q1,b1) (q2,b2)
      | _                            -> Pervasives.compare p1      p2
@@ -826,7 +826,8 @@ let rec record ((qs, vq) as qv) =
                | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
                | _                   -> report (); List.iter accept qs
 
-let qsort (qs,v) = let qs = List.sort Pervasives.compare qs in
+let qsort (qs,v) = 
+  let qs = List.sort Pervasives.compare qs in
   let reorder (qs,v) order =
     let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
     List.fold_left reorder (qs,v) order

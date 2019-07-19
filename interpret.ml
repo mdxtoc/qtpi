@@ -297,16 +297,23 @@ let rec evale env e =
     only on OCaml 3.12.1 and later versions.
  *)
 
-and deepcompare = function
+and deepcompare = function (* list everything to be sure I don't make a mistake *)
   | VNum     n1 , VNum     n2  -> Q.compare n1 n2
+  | VTuple   v1s, VTuple   v2s  
+  | VList    v1s, VList    v2s -> listcompare (v1s,v2s)
   | VFun     _  , VFun     _
   | VProcess _  , VProcess _
   | VChan    _  , VChan    _
   | VQstate  _  , VQstate  _
-  | VQbit    _  , VQbit    _   -> raise (Disaster (dummy_spos, "equality type failure"))
-  | VTuple   v1s, VTuple   v2s  
-  | VList    v1s, VList    v2s -> listcompare (v1s,v2s)
-  | v1          , v2           -> Pervasives.compare v1 v2    
+  | VQbit    _  , VQbit    _   -> raise (Can'tHappen "equality type failure")
+  | VUnit       , VUnit        -> 0
+  | VBit     v1 , VBit     v2  
+  | VBool    v1 , VBool    v2  -> Pervasives.compare v1 v2 
+  | VChar    v1 , VChar    v2  -> Pervasives.compare v1 v2 
+  | VBasisv  v1 , VBasisv  v2  -> Pervasives.compare v1 v2
+  | VGate    v1 , VGate    v2  -> Pervasives.compare v1 v2
+  | VString  v1 , VString  v2  -> Pervasives.compare v1 v2    (* none of these hide values *)
+  | _                          -> raise (Can'tHappen "deepcompare given different types")
 
 and listcompare = function
 | v1::v1s, v2::v2s -> (match deepcompare (v1,v2) with

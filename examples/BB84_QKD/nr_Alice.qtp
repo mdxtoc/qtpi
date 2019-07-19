@@ -79,9 +79,14 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
        we send an empty message, to keep Bob alive.
        
        We also do the same thing if we don't have enough code bits.
+       But then we have to simulate all the logging.
      *)
     if not check || length M + 5*w > length codebits then
       bsc!tagged hks 4 w []                . (* empty message *) 
+      log![bool2bit true]                  . (* not going round again *)
+      log![]                               . (* code *)
+      log![] . log![]                      . (* hash, encrypted *)
+      log![bool2bit false]                 . (* classical interference not detected *)
       log![]                               . (* no new hash keys *) 
       _0
     else

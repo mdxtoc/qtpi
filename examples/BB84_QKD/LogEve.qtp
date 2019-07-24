@@ -2,32 +2,26 @@
 proc LogEve (verbose, logAE, logEB, done) =
   (new doneAE, doneEB)
   | LogAliceEve (verbose, logAE, doneAE)
-  | LogEveBob (0, verbose, logEB, doneEB)
+  | LogEveBob (verbose, logEB, doneEB)
   | doneAE?(resultAE)      .
     doneEB?(resultEB)      .
     done!resultAE,resultEB .
     _0
   
 proc LogAliceEve (verbose, log, done) = 
-  log?(again)            .
-  if bit2bool (hd again) then
-    out!["Alice sends Eve round again\n"] .
-    LogAliceEve (verbose, log, done)
-  else
-    log?(encrypted)     .
-    out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
-                   else [] fi
-                        .
-    log?(code)          .
-    out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
-                   else [] fi
-                        .
-    log?(hkbsAE)        .
-    done!hkbsAE         .
-    _0
-  fi
+  log?(encrypted)     .
+  out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
+                 else [] fi
+                      .
+  log?(code)          .
+  out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
+                 else [] fi
+                      .
+  log?(hkbsAE)        .
+  done!hkbsAE         .
+  _0
 
-proc LogEveBob (reps, verbose, log, done) = 
+proc LogEveBob (verbose, log, done) = 
   log?(bs)              .
   log?(vs)              .
   out!if verbose then ["Eve (as Alice) sent "; show (length bs); 
@@ -39,18 +33,12 @@ proc LogEveBob (reps, verbose, log, done) =
                        " checkbits from Bob: "; show cs; "\n"] 
                  else [] fi
                         .
-  log?(again)           .
-  if bit2bool (hd again) then
-    out!["Eve (as Alice) sends Bob round again\n"] .
-    LogEveBob (reps+1, verbose, log, done)
-  else
-    log?(decoded)          .
-    (let decoded = bit2bool (hd decoded))
-    log?(message)       .
-    out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
-                              else [] fi
-                        .
-    log?(hkbsEB) .
-    done!decoded, message, length cs, hkbsEB, reps .
-    _0
-  fi
+  log?(decoded)          .
+  (let decoded = bit2bool (hd decoded))
+  log?(message)       .
+  out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
+                            else [] fi
+                      .
+  log?(hkbsEB) .
+  done!decoded, message, length cs, hkbsEB .
+  _0

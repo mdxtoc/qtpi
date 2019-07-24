@@ -1,4 +1,4 @@
-proc LogBob (reps, verbose, log, done) =
+proc LogBob (verbose, log, done) =
     log?(bs) .
     log?(vs) .
     out!if verbose then ["Bob saw "; show (length bs);
@@ -15,21 +15,15 @@ proc LogBob (reps, verbose, log, done) =
     out!if verbose then ["Bob sent tagged check-bit mask "; show (h2,mask); "\n"] else [] fi .
     log?(h3) . log?(cs)  .
     out!if verbose then ["Bob sent tagged check bits "; show (h3,cs); "\n"] else [] fi .
-    log?(again) .
-    if bit2bool (hd again) then
-      out!["Bob goes round again\n"] .
-      LogBob (reps+1, verbose, log, done)
-    else
-      log?(h4) . log?(encrypted) .
-      out!if verbose then ["Bob receives tagged encrypted "; show (h4,encrypted); "\n"] else [] fi . 
-      log?(code) .
-      out!if verbose then ["Bob's code is "; show code; "\n"] else [] fi .
-      log?(M) .
-      out!if verbose then ["Bob decodes message "; show M; "\n"] else [] fi .
-      log?(intfseen) .
-      (let intfseen = bit2bool (hd intfseen))
-      out![if intfseen then "Bob detected classical interference\n" else "" fi] .
-      log?(hks') .
-      done!length cs, M, intfseen, hks', reps .
-      _0
-    fi
+    log?(h4) . log?(encrypted) .
+    out!if verbose then ["Bob receives tagged encrypted "; show (h4,encrypted); "\n"] else [] fi . 
+    log?(code) .
+    out!if verbose then ["Bob's code is "; show code; "\n"] else [] fi .
+    log?(M) .
+    out!if verbose then ["Bob decodes message "; show M; "\n"] else [] fi .
+    log?(intfseen) .
+    (let intfseen = bit2bool (hd intfseen))
+    out![if intfseen then "Bob detected classical interference\n" else "" fi] .
+    log?(hks') .
+    done!length cs, M, intfseen, hks' .
+    _0

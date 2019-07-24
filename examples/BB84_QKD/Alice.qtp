@@ -5,16 +5,16 @@ fun min_qbits k s cmin
     where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
     where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
     
-proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc) = 
+proc Alice(M, w, hks, cMin, nSigma, qc, bsc) = 
   
   (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
      plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
      message). We don't want the protocol to fail because we pick too few qbits, and 
      nSigma is the number of standard deviations we want to be away from that possibility.
      
-     In this simulation we can set nSigma, cMin and w so that Alice doesn't always
-     calculate enough qbits, and when that happens Alice sends Bob a signal on the 
-     side-channel againc and tries again.
+     If we set nSigma, cMin and w so that Alice doesn't always calculate enough qbits, 
+     then she may send short messages (we no longer do repetitions, because it messes up 
+     the analysis).
           
      The protocol uses about n/8 checkbits, but that's 
      included in the formula calculation.
@@ -51,41 +51,43 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc) =
     . /^4
     
     (* test to see if Bob and I agree on the bits selected by his mask *)
-    (let checkbitsA = mask_filter 0b1 mask rvs)
-    (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
+    . (let checkbitsA = mask_filter 0b1 mask rvs)
+    . (let q_check = checkbitsB=checkbitsA)
     
-    (* If we disagree about the masked bits then interference has been 
-       detected and Alice goes silent. But in this simulation 
-       we send an empty message, to keep Bob alive.
+    (* test for classical interference *)
+    . (let c_check = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB]))) 
+    
+    . /^5
+    
+    (* If Alice detects interference she goes silent. But in this simulation 
+       she sends an empty message, to allow Bob to log what he's done and terminate.
      *)
-    . if not check then
-        . /^5
-        . bsc!tagged hks 4 w []                (* empty message *) 
+    . if not (q_check && c_check) then
+        . bsc!tagged hks 4 w []
         . _0
       else
-        . /^6
         (* If the number of checkbits Bob chose is enough, then it is very 
            very (...) likely that we agree on the rest of the values. So the 
            (secret) code bits are the ones Bob didn't mask. 
          *)
         . (let codebits = mask_filter 0b0 mask rvs)
-        . (let hks' = take (5*w) codebits)
-        . (let codebits = drop (5*w) codebits)
-      
-        . if length codebits>=length M then
-            . (let code = take (length M) codebits)
-            
-            . (let encryptedM = xor_mask code M)
-            . (let h4 = hwc encryptedM hks 4 w)
-            . bsc!h4,encryptedM                  (* send the encrypted message *)
-            . (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
-                                                 (* test for classical interference *)
-            . /^7
-            . _0
-          else 
-            . /^8
-            . againc!() . Alice(M, w, hks, cMin, nSigma, qc, bsc, againc) /^ (log)
-          fi
+        
+        (* we take new WC hash codes and a secret code from what's left, if there are
+           enough bits. If not, sacrifice the new hash codes and encode a message as
+           long as we can (up to length M).
+         *)
+        . (let hks', codebits = if length codebits>=length M+5*w 
+                                then take (5*w) codebits, drop (5*w) codebits
+                                else [], codebits
+                                fi
+          )              
+        . (let code = take (length M) codebits)
+        . (let M = take (length code) M)
+        . (let encryptedM = xor_mask code M)
+        . (let h4 = hwc encryptedM hks 4 w)
+        . bsc!h4,encryptedM                  (* send the encrypted message *)
+        . /^7
+        . _0
       fi
 
 with (log)
@@ -99,16 +101,11 @@ with (log)
   4: . log!h2 . log!mask
      . log!h3 . log!checkbitsB 
      . _0 
-  5: . log![bool2bit true] 
-     . log![]                                   (* no new hash keys *)
+  5: . log![bool2bit (not c_check)]
+     . log![bool2bit (not q_check)]
      . _0
-  6: . log![bool2bit false]
-     . _0
-  7: . log![bool2bit true]
-     . log!code
+  7: . log!code
+     . log!M
      . log!h4 . log!encryptedM
-     . log![bool2bit (not c_ok)]
      . log!hks'
-     . _0
-  8: . log![bool2bit false]
      . _0

@@ -1,8 +1,8 @@
 proc Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) = 
-  (new qcAE,qcEB,bscAE,bscEB,againAE,againEB)
-  | Alice (M, w, hksAE, cMin, nSigma,qcAE,bscAE,againAE,logA) 
-  | Eve   (w, hksAE, hksEB, qcAE,qcEB,bscAE,bscEB,againAE,againEB,logAE,logEB) 
-  | Bob   (w, hksEB, qcEB,bscEB,againEB,logB)
+  (new qcAE,qcEB,bscAE,bscEB)
+  | Alice (M, w, hksAE, cMin, nSigma,qcAE,bscAE,logA) 
+  | Eve   (w, hksAE, hksEB, qcAE,qcEB,bscAE,bscEB,logAE,logEB) 
+  | Bob   (w, hksEB, qcEB,bscEB,logB)
 
 proc System() = (let n = read_min_int 1 "length of message")
                 (let w = read_min_int 0 "length of a hash key")
@@ -15,12 +15,10 @@ proc System() = (let n = read_min_int 1 "length of message")
 proc Run (k, verbose, n, w, cMin, nSigma) = 
   (let hks = tabulate 5 (lam _ . bits2num (randbits w)))
   Logger (k, 0, verbose, 0,  0, 0, 0,
-                         0,  0, 
                          [], [], [],
                          n, w, hks, hks, cMin, nSigma)
 
 proc Logger (k, i, verbose, nAlice, nEve, nBlank, nEvades,
-                            nRepsA, nRepsB, 
                             ncAs, ncBs, evasions,
                             n, w, hksAE, hksEB, cMin, nSigma) =
   if i<k then out!if k<>1 then ["trial number "; show (i+1); 
@@ -33,12 +31,12 @@ proc Logger (k, i, verbose, nAlice, nEve, nBlank, nEvades,
               out!if verbose then ["message is "; show M; "\n"] else [] fi .
               (new logA,logAE,logEB,logB,doneA,doneB,doneE)
               | Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) 
-              | LogAlice (0, verbose, logA, doneA)
-              | LogBob (0, verbose, logB, doneB)
+              | LogAlice (verbose, logA, doneA)
+              | LogBob (verbose, logB, doneB)
               | LogEve (verbose, logAE, logEB, doneE)
-              | doneA?(q_intfseen, nbA, ncA, c_intfseenA, hkbsA, repsA)     .
-                doneB?(ncB, messageB, c_intfseenB, hkbsB, repsB)           .
-                doneE?(hkbsAE, (decodeE, messageE, _, hkbsEB, _))        .
+              | doneA?(nbA, ncA, c_intfseenA, q_intfseen, hkbsA, messageA)     .
+                doneB?(ncB, messageB, c_intfseenB, hkbsB)           .
+                doneE?(hkbsAE, (decodeE, messageE, _, hkbsEB))        .
                 (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
                 if not intfseen && hkbsA<>hkbsAE && hkbsAE<>[]
                 then out!["whoops! different new hash keys A<->E ";
@@ -52,8 +50,8 @@ proc Logger (k, i, verbose, nAlice, nEve, nBlank, nEvades,
                                    ] . _0
                 else
                   (let nBlank = if not intfseen && messageB=[] then nBlank+1 else nBlank fi)
-                  (let evewins = decodeE && not intfseen && messageE=M)
-                  (let evades = not q_intfseen)
+                  (let evewins = decodeE && not intfseen && messageE=messageA)
+                  (let evades = not intfseen)
                   (let nEvades = if evades then nEvades+1 else nEvades fi)
                   out!if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
                                             else []
@@ -74,7 +72,6 @@ proc Logger (k, i, verbose, nAlice, nEve, nBlank, nEvades,
                                       map bits2num (packets [] w hkbsEB)
                   )
                   Logger (k, i+1, verbose, nAlice, nEve, nBlank, nEvades,
-                                           nRepsA+repsA, nRepsB+repsB, 
                                            ncA::ncAs, ncB::ncBs, evades::evasions,
                                            n, w, hksAE, hksEB, cMin, nSigma)
                 fi
@@ -85,15 +82,13 @@ proc Logger (k, i, verbose, nAlice, nEve, nBlank, nEvades,
                    show nCorrupt;            " undetected corrupt messages; ";
                    show nEvades;             " successful evasions; ";
                    show nBlank;              " blank messages; ";
-                   show nRepsA;              " repetitions (Alice-Eve); ";
-                   show nRepsB;              " repetitions (Eve-Bob); ";
                    "average check bits (Alice/Eve) "  ; showf 2 (listsum ncAs/k); 
                    "; minimum check bits (Alice/Eve) "; show (listmin ncAs); 
                    "; average check bits (Eve/Bob) "  ; showf 2 (listsum ncBs/k); 
                    "; minimum check bits (Eve/Bob) "  ; show (listmin ncBs); "\n";
                    "histogram of check-bit lengths (Alice/Eve) "; show (histogram ncAs); "\n";
                    "histogram of check-bit lengths (Eve/Bob) "; show (histogram ncBs); "\n";
-                   "histogram of evasions "; show (histogram2 (zip ncAs evasions))
+                   "histogram of evasions "; show (histogram2 (zip ncAs evasions)); "\n"
                   ] . 
               _0 
   fi

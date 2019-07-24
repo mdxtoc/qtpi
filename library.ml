@@ -183,6 +183,11 @@ let _ = Interpret.know ("dropwhile", "('a -> bool) -> 'a list -> 'a list    ", v
 let _ = Interpret.know ("zip"      , "'a list -> 'b list -> ('a*'b) list    ", vfun2 v_zip)
 let _ = Interpret.know ("unzip"    , "('a*'b) list -> 'a list * 'b list     ", vfun v_unzip)
 
+let _ = Interpret.know ("mzip"     , "'a list -> 'b list -> ('a*'b) list    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
+let _ = Interpret.know ("mzip2"    , "'a list -> 'b list -> ('a*'b) list    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
+let _ = Interpret.know ("mzip3"    , "'a list -> 'b list-> 'c list -> ('a*'b*'c) list    "
+                            , vfun3 (fun xs ys zs -> vlist (List.map vtriple (mirazip3 (listv xs) (listv ys) (listv zs)))))
+
 let _ = Interpret.know ("filter"   , "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_filter)
 
 let _ = Interpret.know ("exists"   , "('a -> bool) -> 'a list -> bool       ", vfun2 v_exists)
@@ -213,7 +218,16 @@ let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> ''a list -> ''a list
 let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
 
-let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> Random.bool <.> unitv))
+let _zeroes = ref zero
+let _ones = ref zero
+
+let vrandbit () = 
+  let b = Random.bool () in
+  if !Settings.checkrandombias then
+    (if b then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
+  b
+  
+let _ = Interpret.know ("randbit",  "unit -> bit"                       , vfun (vbit <.> vrandbit <.> unitv))
 let _ = Interpret.know ("randbits", "num -> bit list"                   , vfun v_randbits)
 
 let v_max a b =

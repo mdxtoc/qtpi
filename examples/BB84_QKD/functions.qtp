@@ -58,6 +58,11 @@ fun reconcile b1s b2s vs = mask_filter 0b0 (xor_mask b1s b2s) vs
 (* select check bits randomly. Use 1/4 probability because it's easy *)
 fun cb_choose _ = if (randbit(),randbit()) = (0b1,0b1) then 0b1 else 0b0 fi
 
+fun split_codebits M w codebits =
+  if 5*w+length M <= length codebits then take (5*w) codebits, drop (5*w) codebits
+                                     else []                 , codebits
+  fi
+  
 fun bit2bool b = b=0b1
 fun bool2bit b = if b then 0b1 else 0b0 fi
 

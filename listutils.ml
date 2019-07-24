@@ -26,6 +26,22 @@ exception Zip
 let zip xs ys = try List.combine xs ys with Invalid_argument _ -> raise Zip
 let unzip = List.split
 
+let mirazip xs ys =
+  let rec mz rs xs ys =
+    match xs,ys with
+    | x::xs, y::ys -> mz ((x,y)::rs) xs ys
+    | _            -> List.rev rs
+  in
+  mz [] xs ys
+
+let mirazip3 xs ys zs = 
+  let rec mz rs xs ys zs =
+    match xs,ys,zs with
+    | x::xs, y::ys, z::zs -> mz ((x,y,z)::rs) xs ys zs
+    | _                   -> List.rev rs
+  in
+  mz [] xs ys zs
+
 (* why don't we have (::)? *)
 let cons x xs = x::xs
 let null xs = match xs with [] -> true | _ -> false

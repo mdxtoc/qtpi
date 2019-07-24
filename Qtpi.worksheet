@@ -77,6 +77,21 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
             
 (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp)
 
+(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp &lt;naivecontroly.txt &gt;naiveouty.txt; open naiveouty.txt)
+
+pcregrep -M '4 tagged check bits.*\n.*' examples/BB84_QKD/naiveouty.txt | wc
+pcregrep -M '4 tagged check bits.*\nquantum' examples/BB84_QKD/naiveouty.txt | wc
+pcregrep -M '13 tagged check bits.*\nAlice goes round' examples/BB84_QKD/naiveouty.txt | wc
+pcregrep -M '4 tagged check bits:.*\nAlice.s code is' examples/BB84_QKD/naiveouty.txt | wc
+pcregrep -M "quantum interference detected -- 4 check bits" examples/BB84_QKD/naiveouty.txt | wc
+pcregrep -M '4 tagged check bits.*\n.*' examples/BB84_QKD/naiveouty.txt | \
+pcregrep -M -v '4 tagged check bits.*\nquantum' | \
+pcregrep -M -v '4 tagged check bits.*\nAlice goes round' | \
+pcregrep -M -v '4 tagged check bits:.*\nAlice.s code is' 
+pcregrep -M 'Alice goes round' examples/BB84_QKD/naiveouty.txt | wc
+
+(cd examples/BB84_QKD; rm -f naiveout.txt; for n in {1..100}; do time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp &lt;naivecontrol.txt &gt;&gt;naiveout.txt; done)
+
 (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp)
 
 (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp superEve.qtp LogEve.qtp SystemAEB.qtp)

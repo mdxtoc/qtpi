@@ -16,6 +16,10 @@ proc SendQbits (bvs,qc,sent) =
    when you see a tagged message on channel bsc
  *)
 proc ReceiveQBits (bvs, qc, bsc, results) =
+  + qc?(q)                  . 
+        (let b = randbit ())
+        q-/-[if b=0b1 then H else I fi](v) .
+        ReceiveQBits((b,v)::bvs,qc,bsc,results)
   + bsc?(tag,bits)          . 
         (let bs, vs = unzip (rev bvs))
         results!bs          . 
@@ -23,10 +27,6 @@ proc ReceiveQBits (bvs, qc, bsc, results) =
         results!tag         .
         results!bits        .
         _0
-  + qc?(q)                  . 
-        (let b = randbit ())
-        q -/-[if b=0b1 then H else I fi] (v) .
-        ReceiveQBits((b,v)::bvs,qc,bsc,results)
 
 (* Read qbits from qA, measure them in a random basis, send the measured bits on qB. 
    Stop when you see a message on bsA, and return measurements, tag and message.
@@ -49,11 +49,6 @@ fun mask_filter (m:''a) (mask:''a list) (vs:'b list) : 'b list
    = vs where _, vs = unzip mvs
         where mvs = filter (lam (me,_) . me=m) (zip mask vs)
 
-(* check that masked bits in vs match check bits *)
-fun test_checkbits mask checks vs 
-     = forall (lam (cb,vb) . cb=vb) 
-              (zip checks (mask_filter 0b1 mask vs)) 
-
 fun xor_mask code message 
   = map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1 fi) (zip code message)
 
@@ -61,7 +56,7 @@ fun xor_mask code message
 fun reconcile b1s b2s vs = mask_filter 0b0 (xor_mask b1s b2s) vs
     
 (* select check bits randomly. Use 1/4 probability because it's easy *)
-fun cb_choose _ = if randbit()=0b1 && randbit()=0b1 then 0b1 else 0b0 fi
+fun cb_choose _ = if (randbit(),randbit()) = (0b1,0b1) then 0b1 else 0b0 fi
 
 fun bit2bool b = b=0b1
 fun bool2bit b = if b then 0b1 else 0b0 fi
@@ -83,11 +78,11 @@ fun int_sqrt n = i_s 0 n
   
 fun histo buckets ns
   = match ns .
-    + []    . rev buckets
-    + n::ns . histo ((n,length pre+1)::buckets) post
+    + []   . rev buckets
+    + n::_ . histo ((n,length pre)::buckets) post
                   where pre = takewhile sameas ns
                   where post = dropwhile sameas ns
-                  where sameas = lam k . k=n
+                  where sameas = lam k . k=n (* this is (=n). I need that mechanism, whose name temporarily escapes me *)
 
 fun histogram ns = histo [] (sort compare ns)
 

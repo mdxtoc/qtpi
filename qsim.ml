@@ -937,6 +937,10 @@ let rec compute = function
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
 
+let paranoid = false
+let _zeroes = ref zero
+let _ones = ref zero
+
 let rec qmeasure disposes pn gate q = 
   if gate = g_I then (* computational measure *)
     (let qs, v = qval q in
@@ -945,7 +949,9 @@ let rec qmeasure disposes pn gate q =
      let qs, v = make_first qs v (idx q qs) in
      (* probability of measuring 1 is sum of second-half probs *)
      let nvhalf = nv/2 in
-     (* the obvious way is to fold sum across the vector. But that leads to nibbling by double ... so we try to do it a more linear (maybe) way *)
+     (* the obvious way is to fold sum across the vector. But that leads to nibbling by double 
+        ... so we try to do it a more linear (maybe) way 
+      *)
      let getsum i n =
        if !verbose || !verbose_qsim then 
          Printf.printf "getsum %d %d " i n;
@@ -958,7 +964,7 @@ let rec qmeasure disposes pn gate q =
      let prob = 
        (* _for_leftfold nvhalf 1 nv (fun i -> rsum (absq v.(i))) P_0 *) getsum nvhalf nvhalf
      in
-     if !verbose || !verbose_qsim then 
+     if !verbose || !verbose_qsim || paranoid then 
        Printf.printf "%s qmeasure [] %s; %s|~>%s; prob |1> = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
@@ -967,15 +973,27 @@ let rec qmeasure disposes pn gate q =
                      (string_of_prob prob);
      let guess () =
        let r = if Random.bool () then 0 else 1 in
-       if !verbose || !verbose_qsim then Printf.printf " guessing %d;" r;
+       if !verbose || !verbose_qsim || paranoid then Printf.printf " guessing %d;\n" r;
        r  
      in
      let r = try let v = compute prob in
-                 if v=1.0 then 1 else
+                 if v=1.0 then 
+                   (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
+                    1
+                   ) 
+                 else
+                 if v=0.0 then
+                   (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 0\n";
+                    0
+                   ) 
+                 else
                    let rg = Random.float 1.0 in
                    let r = if rg<v then 1 else 0 in
-                   if !verbose || !verbose_qsim then Printf.printf " test %f<%f: choosing %d;" rg v r;
-                 r
+                   if !checkrandombias then
+                     (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
+                   if !verbose || !verbose_qsim || paranoid then 
+                     Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg v (rg<v) r (string_of_num !_zeroes) (string_of_num !_ones);
+                   r
              with Compute -> guess ()
      in
      (* set the unchosen probs to zero, normalise *)

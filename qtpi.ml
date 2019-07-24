@@ -56,7 +56,12 @@ let _ = match !Usage.files with
                     if !Settings.resourcecheck then
                       Resource.resourcecheck defs;
                     if !Settings.interpret then
-                      interpret defs
+                      interpret defs;
+                    if !Settings.checkrandombias then
+                      (Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
+                                            (Number.string_of_num !Library._zeroes) (Number.string_of_num !Library._ones)
+                                            (Number.string_of_num !Qsim._zeroes) (Number.string_of_num !Qsim._ones)
+                      )
                 with 
                 | Interpret.Disaster (pos, s) -> Printf.printf "\n\n** interpret disaster ** %s: %s\n"
                                                                (string_of_sourcepos pos)

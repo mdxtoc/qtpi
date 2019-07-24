@@ -76,11 +76,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc) =
            enough bits. If not, sacrifice the new hash codes and encode a message as
            long as we can (up to length M).
          *)
-        . (let hks', codebits = if length codebits>=length M+5*w 
-                                then take (5*w) codebits, drop (5*w) codebits
-                                else [], codebits
-                                fi
-          )              
+        . (let hks', codebits = split_codebits M w codebits)              
         . (let code = take (length M) codebits)
         . (let M = take (length code) M)
         . (let encryptedM = xor_mask code M)

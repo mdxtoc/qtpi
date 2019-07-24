@@ -20,9 +20,9 @@ proc Bob (w, hks, qc, bsc) =
       . bsc!(h3,checkbits)              (* send her the checkbits *)
       . /^6
       . (let codebits = mask_filter 0b0 mask rvs)
-      . (let hks' = take (5*w) codebits)
-      . (let codebits = drop (5*w) codebits)
-      . bsc?(h4,encryptedM)      
+
+      . bsc?(h4,encryptedM)   
+      . (let hks', codebits = split_codebits encryptedM w codebits)
       . (let code = take (length encryptedM) codebits)
       . (let M = xor_mask encryptedM code)
       . (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))

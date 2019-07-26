@@ -1,7 +1,7 @@
 proc Experiment (M, w, hks, cMin, nSigma, logA, logB) = 
-  (new qc,bsc,again)
-  | Alice (M,w,hks,cMin,nSigma,qc,bsc,again,logA) 
-  | Bob   (w,hks,qc,bsc,again,logB)
+  (new qc,bsc)
+  | Alice (M,w,hks,cMin,nSigma,qc,bsc,logA) 
+  | Bob   (w,hks,qc,bsc,logB)
     
 proc System() = (let n = read_min_int 1 "length of message")
                 (let w = read_min_int 0 "length of a hash key")
@@ -12,22 +12,22 @@ proc System() = (let n = read_min_int 1 "length of message")
                 Run (k, verbose, n, w, cMin, nSigma)
            
 proc Run (k, verbose, n, w, cMin, nSigma) = 
-  (let hks = tabulate 5 (lam _ . bits2num (randbits w)))
-  Logger (k, 0, verbose, 0, 0, 0, [], n, w, hks, cMin, nSigma)
+  Logger (k, 0, verbose, 0, 0, 0, 0, [], n, w, randbits (5*w), cMin, nSigma)
 
-proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
+proc Logger (k, i, verbose, nOk, nIntf, nShort, nReuse, ncAs, n, w, hkbs, cMin, nSigma) =
   if i<k then 
     out!if k<>1 then ["trial number "; show (i+1); if verbose then "\n" else " " fi] 
                 else [] fi .
+      (let hks = map bits2num (packets [] w hkbs))
       out!if verbose then ["hash keys are "; show hks; "\n"] else [] fi .
       (let M = randbits n)
       out!if verbose then ["message is "; show M; "\n"] else [] fi .
       (new logA, logB, doneA, doneB)
       | Experiment (M, w, hks, cMin, nSigma, logA, logB) 
-      | LogAlice (0, verbose, logA, doneA)
-      | LogBob (0, verbose, logB, doneB)
-      | doneA?(q_intfseen, nb, ncA, c_intfseenA, hkbsA, repsA)   .
-        doneB?(_, messageB, c_intfseenB, hkbsB, _)       .
+      | LogAlice (verbose, logA, doneA)
+      | LogBob (verbose, logB, doneB)
+      | doneA?(nbA, ncA, c_intfseenA, q_intfseen, hkbsA, messageA)     .
+        doneB?(ncB, messageB, c_intfseenB, hkbsB)       .
         (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
         out!if not intfseen && hkbsA<>hkbsB
                then ["whoops! different new hash keys ";
@@ -35,19 +35,21 @@ proc Logger (k, i, verbose, nOk, nIntf, nReps, ncAs, n, w, hks, cMin, nSigma) =
                               show (packets [] w hkbsB)
                              ]
          else [] fi .
-        out!if i+1=k then [show nb; " qbits"; if k=1 then "\n" else " per trial\n" fi]
+        out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
                      else [] fi .
         (let nIntf = if intfseen then nIntf+1 else nIntf fi)
-        (let nOk = if not q_intfseen && messageB=M then nOk+1 else nOk fi)
-        (let hkbits = if not intfseen && hkbsA=hkbsB then hkbsA else randbits (5*w) fi)
-        (let hks = map bits2num (packets [] w hkbits))
-        Logger (k, i+1, verbose, nOk, nIntf, nReps+repsA, ncA::ncAs, n, w, hks, cMin, nSigma)
+        (let nShort = if not intfseen && length messageB<>n then nShort+1 else nShort fi)
+        (let nReuse = if not intfseen && w<>0 && (hkbsA=[] || hkbsB=[]) then nReuse+1 else nReuse fi)
+        (let nOk = if not intfseen && messageB=messageA then nOk+1 else nOk fi)
+        (let hkbs = if intfseen then randbits (5*w) elif hkbsA=[] || hkbsB=[] then hkbs else hkbsA fi)
+        Logger (k, i+1, verbose, nOk, nIntf, nShort, nReuse, ncA::ncAs, n, w, hkbs, cMin, nSigma)
   else out!["all done: "; 
             show nIntf;          " interfered with; ";
             show nOk;            " exchanges succeeded; ";
             show (k-nOk);        " failed; ";
-            show nReps;          " repetition(s); ";
-            "average check bits " ; showf 2 (listsum ncAs/k); 
+            show nShort;         " short messages; ";
+            show nReuse;         " keys reused; ";
+            "average check bits "; showf 2 (listsum ncAs/k); 
             " minimum check bits "; show (listmin ncAs); "\n";
             "histogram of check-bit lengths "; show (histogram ncAs); "\n"
            ] . 

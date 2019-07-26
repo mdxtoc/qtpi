@@ -73,30 +73,9 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 
 # BB84 QKD without Eve, and with various Eves (most of which cheat by knowing the hash keys)
 
-(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp)
+(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
             
-(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp)
-
-(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp &lt;naivecontroly.txt &gt;naiveouty.txt; open naiveouty.txt)
-
-pcregrep -M '4 tagged check bits.*\n.*' examples/BB84_QKD/naiveouty.txt | wc
-pcregrep -M '4 tagged check bits.*\nquantum' examples/BB84_QKD/naiveouty.txt | wc
-pcregrep -M '13 tagged check bits.*\nAlice goes round' examples/BB84_QKD/naiveouty.txt | wc
-pcregrep -M '4 tagged check bits:.*\nAlice.s code is' examples/BB84_QKD/naiveouty.txt | wc
-pcregrep -M "quantum interference detected -- 4 check bits" examples/BB84_QKD/naiveouty.txt | wc
-pcregrep -M '4 tagged check bits.*\n.*' examples/BB84_QKD/naiveouty.txt | \
-pcregrep -M -v '4 tagged check bits.*\nquantum' | \
-pcregrep -M -v '4 tagged check bits.*\nAlice goes round' | \
-pcregrep -M -v '4 tagged check bits:.*\nAlice.s code is' 
-pcregrep -M 'Alice goes round' examples/BB84_QKD/naiveouty.txt | wc
-
-(cd examples/BB84_QKD; rm -f naiveout.txt; for n in {1..100}; do time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp &lt;naivecontrol.txt &gt;&gt;naiveout.txt; done)
-
-(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp)
-
-(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp superEve.qtp LogEve.qtp SystemAEB.qtp)
-
-(cd examples/BB84_QKD; time ../../Qtpi nr_Alice.qtp nr_Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp nr_superEve.qtp LogEve.qtp SystemAEB.qtp)
+(cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
 
 # E92 QKD without an Eve. With an Eve the calculator can't cope (can't guess sqrt(h^2+h^4), it says)
 

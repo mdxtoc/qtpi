@@ -44,7 +44,7 @@ make Qtpi
 ./Qtpi examples/hadamard.qtp
 ./Qtpi examples/badchannel_cointoss.qtp
 ./Qtpi examples/badresource_cointoss.qtp
-./Qtpi -traceevents examples/random_cointoss.qtp
+./Qtpi -trace examples/random_cointoss.qtp
 ./Qtpi examples/poor_teleport.qtp
 ./Qtpi examples/silly_teleport.qtp
 time ./Qtpi -chanbuf_limit 10 examples/BB84_QBC.qtp
@@ -57,10 +57,12 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 
 # collection of more recognisable examples
 
+./Qtpi -trace examples/basiccointoss.qtp
 ./Qtpi examples/cointoss.qtp
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
-./Qtpi examples/basicteleport.qtp
+./Qtpi examples/basicteleportplus.qtp
+./Qtpi examples/basicteleportrandom.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 ./Qtpi examples/randomteleport_with.qtp

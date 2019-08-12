@@ -4,19 +4,13 @@
    -- i.e. an unfair coin IMHO.
  *)
 
-proc P(fromQ:^qbit, toQ:^qbit, log) = 
-  + fromQ?(y) . toQ!y .         
-                log!() .
-                _0
-  + fromQ?(y) . y>>X . 
-                out!["with a flip; "]. 
-                toQ!y .                     
-                log!()  . 
-                _0
+proc P(s:^qbit, log) = 
+  + s?(y) . y>>I . s!y . log!() . _0        
+  + s?(y) . y>>X . s!y . log!() . _0
                      
-proc Q(q: qbit, toP:^qbit, fromP:^qbit, log) = 
+proc Q(q: qbit, s:^qbit, log) = 
   out!["initially "] . outq!(qval q) . out!["; "] .
-  q>>H . toP!q . fromP?(q') . q'>>H . 
+  q>>H . s!q . s?(q') . q'>>H . 
   out!["finally "] . outq!(qval q') . out!["\n"] .
   log!() . _0 
 
@@ -32,10 +26,10 @@ proc Run (k, bv, verbose, i) =
   if i=k then out![show i; " trials\n"] . _0
   else
     (newq q = bv) 
-    (new s:^qbit, r:^qbit)
+    (new s:^qbit)
     (new reportP, reportQ)
-    | P(s,r,reportP) 
-    | Q(q,s,r,reportQ) 
+    | P(s,reportP) 
+    | Q(q,s,reportQ) 
     | reportP?(_) .
       reportQ?(_) .
       Run (k, bv, verbose, i+1)

@@ -57,28 +57,29 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc) =
     (* test for classical interference *)
     . (let c_check = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB]))) 
     
+    (* Because we allow experimentation with number of checkbits, nSigma etc. to 
+       provoke extreme statistical variation, it's possible to end up with fewer
+       codebits that we need, so we test to see if subtracting Bob's checkbits has left 
+       us enough codebits to make new hash codes and to encrypt M.  
+     *)
+    . (let enough = length rvs >= length checkbitsA + 5*w + length M)
+    
     . /^5
     
-    (* If Alice detects interference she goes silent. But in this simulation 
-       she sends an empty message, to allow Bob to log what he's done and terminate.
+    (* If Alice detects interference or doesn't have enough codebits she should go silent. 
+       But in this simulation she sends an empty message, to allow Bob to log what he's 
+       done and terminate.
      *)
-    . if not (q_check && c_check) then
+    . if not (q_check && c_check && enough) then
         . bsc!tagged hks 4 w []
         . _0
       else
-        (* If the number of checkbits Bob chose is enough, then it is very 
-           very (...) likely that we agree on the rest of the values. So the 
-           (secret) code bits are the ones Bob didn't mask. 
+        (* The (secret) code bits are the ones Bob didn't mask. We take new WC hash codes 
+           and a secret message code from the secret code bits.
          *)
         . (let codebits = mask_filter 0b0 mask rvs)
-        
-        (* we take new WC hash codes and a secret code from what's left, if there are
-           enough bits. If not, sacrifice the new hash codes and encode a message as
-           long as we can (up to length M).
-         *)
-        . (let hks', codebits = split_codebits M w codebits)              
-        . (let code = take (length M) codebits)
-        . (let M = take (length code) M)
+        . (let hks' = take (5*w) codebits)
+        . (let code = take (length M) (drop (5*w) codebits))
         . (let encryptedM = xor_mask code M)
         . (let h4 = hwc encryptedM hks 4 w)
         . bsc!h4,encryptedM                  (* send the encrypted message *)
@@ -97,8 +98,9 @@ with (log)
   4: . log!h2 . log!mask
      . log!h3 . log!checkbitsB 
      . _0 
-  5: . log![bool2bit (not c_check)]
-     . log![bool2bit (not q_check)]
+  5: . log![bool2bit q_check]
+     . log![bool2bit c_check]
+     . log![bool2bit enough]
      . _0
   7: . log!code
      . log!M

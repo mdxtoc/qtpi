@@ -23,15 +23,18 @@ proc LogAlice (verbose, log, done) =
                         " tagged check bits: "; show (h3,cs); "\n"] 
                   else [] 
        fi
- . log?(c_intf) .
- . log?(q_intf) .
- . (let c_intf = bit2bool (hd c_intf))
- . (let q_intf = bit2bool (hd q_intf))
- . if c_intf || q_intf then
-     out!if c_intf then ["Alice detected classical interference\n"]
-                   else ["quantum interference detected -- "; show nc; " check bits\n"] 
+ . log?(q_check) .
+ . log?(c_check) .
+ . log?(enough) .
+ . (let q_intf = not (bit2bool (hd q_check)))
+ . (let c_intf = not (bit2bool (hd c_check)))
+ . (let enough = bit2bool (hd enough))
+ . if c_intf || q_intf || not enough then
+     out!if c_intf   then ["Alice detected classical interference\n"]
+         elif q_intf then ["quantum interference detected -- "; show nc; " check bits\n"] 
+         else             ["not enough code bits\n"]
          fi .
-     done!length bs,nc,c_intf,q_intf,[],[] .
+     done!length bs,nc,c_intf,q_intf,enough,[],[] .
      _0
    else
      . out!if not verbose then ["\n"] else [] fi
@@ -41,7 +44,7 @@ proc LogAlice (verbose, log, done) =
      . log?(h4). log?(encrypted)
      . out!if verbose then ["Alice sent tagged encrypted "; show (h4, encrypted); "\n"] else [] fi
      . log?(hks)
-     . done!length bs,nc,c_intf,q_intf,hks,M
+     . done!length bs,nc,c_intf,q_intf,enough,hks,M
      . _0
    fi
   

@@ -12,46 +12,46 @@ proc System() = (let n = read_min_int 1 "length of message")
                 Run (k, verbose, n, w, cMin, nSigma)
            
 proc Run (k, verbose, n, w, cMin, nSigma) = 
-  Logger (k, 0, verbose, 0, 0, 0, 0, [], n, w, randbits (5*w), cMin, nSigma)
+  Logger (k, 0, verbose, 0, 0, 0, [], n, w, randbits (5*w), cMin, nSigma)
 
-proc Logger (k, i, verbose, nOk, nIntf, nShort, nReuse, ncAs, n, w, hkbs, cMin, nSigma) =
+proc Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
   if i<k then 
-    out!if k<>1 then ["trial number "; show (i+1); if verbose then "\n" else " " fi] 
-                else [] fi .
-      (let hks = map bits2num (packets [] w hkbs))
-      out!if verbose then ["hash keys are "; show hks; "\n"] else [] fi .
-      (let M = randbits n)
-      out!if verbose then ["message is "; show M; "\n"] else [] fi .
-      (new logA, logB, doneA, doneB)
-      | Experiment (M, w, hks, cMin, nSigma, logA, logB) 
-      | LogAlice (verbose, logA, doneA)
-      | LogBob (verbose, logB, doneB)
-      | doneA?(nbA, ncA, c_intfseenA, q_intfseen, hkbsA, messageA)     .
-        doneB?(ncB, messageB, c_intfseenB, hkbsB)       .
-        (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-        out!if not intfseen && hkbsA<>hkbsB
-               then ["whoops! different new hash keys ";
-                              show (packets [] w hkbsA); " ";
-                              show (packets [] w hkbsB)
-                             ]
-         else [] fi .
-        out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
-                     else [] fi .
-        (let nIntf = if intfseen then nIntf+1 else nIntf fi)
-        (let nShort = if not intfseen && length messageB<>n then nShort+1 else nShort fi)
-        (let nReuse = if not intfseen && w<>0 && (hkbsA=[] || hkbsB=[]) then nReuse+1 else nReuse fi)
-        (let nOk = if not intfseen && messageB=messageA then nOk+1 else nOk fi)
-        (let hkbs = if intfseen then randbits (5*w) elif hkbsA=[] || hkbsB=[] then hkbs else hkbsA fi)
-        Logger (k, i+1, verbose, nOk, nIntf, nShort, nReuse, ncA::ncAs, n, w, hkbs, cMin, nSigma)
-  else out!["all done: "; 
+    . out!if k<>1 then ["trial number "; show (i+1); if verbose then "\n" else " " fi] 
+                else [] fi
+    . (let hks = map bits2num (packets [] w hkbs))
+    . out!if verbose then ["hash keys are "; show hks; "\n"] else [] fi
+    . (let M = randbits n)
+    . out!if verbose then ["message is "; show M; "\n"] else [] fi .
+    . (new logA, logB, doneA, doneB)
+    | Experiment (M, w, hks, cMin, nSigma, logA, logB) 
+    | LogAlice (verbose, logA, doneA)
+    | LogBob (verbose, logB, doneB)
+    | . doneA?(nbA, ncA, c_intfseenA, q_intfseen, enough, hkbsA, messageA)
+      . doneB?(ncB, messageB, c_intfseenB, hkbsB)       .
+      . (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
+      . out!if not intfseen && hkbsA<>hkbsB
+              then ["whoops! different new hash keys ";
+                             show (packets [] w hkbsA); " ";
+                             show (packets [] w hkbsB)
+                            ]
+              else [] fi
+      . (let nIntf = if intfseen then nIntf+1 else nIntf fi)
+      . (let nShort = if not enough then nShort+1 else nShort fi)
+      . if intfseen || not enough 
+        then . Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, randbits (5*w), cMin, nSigma)
+        else . (let nOk = if messageB=messageA then nOk+1 else nOk fi)
+             . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
+                            else [] fi
+             . Logger (k, i+1, verbose, nOk, nIntf, nShort, ncA::ncAs, n, w, hkbsA, cMin, nSigma)
+        fi
+  else . out!["all done: "; 
             show nIntf;          " interfered with; ";
             show nOk;            " exchanges succeeded; ";
             show (k-nOk);        " failed; ";
-            show nShort;         " short messages; ";
-            show nReuse;         " keys reused; ";
+            show nShort;         " short codebits; ";
             "average check bits "; showf 2 (listsum ncAs/k); 
             " minimum check bits "; show (listmin ncAs); "\n";
             "histogram of check-bit lengths "; show (histogram ncAs); "\n"
-           ] . 
-       _0 
+           ] 
+       . _0 
   fi

@@ -63,37 +63,37 @@ let _ = match !Usage.files with
                                             (Number.string_of_num !Qsim._zeroes) (Number.string_of_num !Qsim._ones)
                       )
                 with 
-                | Interpret.Disaster (pos, s) -> Printf.printf "\n\n** interpret disaster ** %s: %s\n"
+                | Interpret.Disaster (pos, s) -> Printf.eprintf "\n\n** interpret disaster ** %s: %s\n"
                                                                (string_of_sourcepos pos)
                                                                s
-                | Interpret.Error (pos, s) -> Printf.printf "\n\n** execution error %s: %s\n"
+                | Interpret.Error (pos, s) -> Printf.eprintf "\n\n** execution error %s: %s\n"
                                                             (string_of_sourcepos pos)
                                                             s
-                | Interpret.MatchError (pos, s) -> Printf.printf "\n\n** match error %s: %s\n"
+                | Interpret.MatchError (pos, s) -> Printf.eprintf "\n\n** match error %s: %s\n"
                                                                  (string_of_sourcepos pos)
                                                                  s
-                | Qsim.Error s -> Printf.printf "\n\n** quantum simulator error %s\n" s
-                | Resource.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                | Qsim.Error s -> Printf.eprintf "\n\n** quantum simulator error %s\n" s
+                | Resource.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | Resource.Disaster (pos, s) -> Printf.printf "\n\n** resource-check disaster ** %s: %s\n"
+                | Resource.Disaster (pos, s) -> Printf.eprintf "\n\n** resource-check disaster ** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | Type.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                | Type.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
                                                             (string_of_sourcepos pos)
                                                             s
-                | Typecheck.Error (pos, s) -> Printf.printf "\n\n** %s: %s\n"
+                | Typecheck.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
                                                             (string_of_sourcepos pos)
                                                             s
-                | TypeUnifyError (outer, inner) -> Printf.printf "\n\n** type %s (%s) doesn't fit in type %s (%s)\n"
+                | TypeUnifyError (outer, inner) -> Printf.eprintf "\n\n** type %s (%s) doesn't fit in type %s (%s)\n"
                                                            (string_of_type inner)
                                                            (string_of_sourcepos inner.pos)
                                                            (string_of_type outer)
                                                            (string_of_sourcepos outer.pos)
-                | Parseutils.Error s     -> print_endline s
-                | Library.Abandon s      -> Printf.printf "\n\n** %s -- execution abandoned\n" s
-                | Settings.Can'tHappen s -> Printf.printf "!! Can't Happen !! -- %s" s
-                | exn                    -> Printf.printf "\n\n** unexpected exception %s **\n"
+                | Parseutils.Error s     -> prerr_endline s
+                | Library.Abandon s      -> Printf.eprintf "\n\n** %s -- execution abandoned\n" s
+                | Settings.Can'tHappen s -> Printf.eprintf "!! Can't Happen !! -- %s" s
+                | exn                    -> Printf.eprintf "\n\n** unexpected exception %s **\n"
                                                           (Printexc.to_string exn)
 
 open Library (* pull it in, I hope *)                

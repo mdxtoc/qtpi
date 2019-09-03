@@ -282,7 +282,7 @@ let rec evale env e =
                                  evale env e
   with 
   | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
-  | exn                 -> Printf.printf "evale %s: %s %s sees exception %s\n" 
+  | exn                 -> Printf.eprintf "evale %s: %s %s sees exception %s\n" 
                                          (string_of_sourcepos e.pos)
                                          (short_string_of_env env)
                                          (string_of_expr e)
@@ -434,11 +434,12 @@ let rec interp sysassoc proc =
     adn 0
   in
   let deleteproc n = Hashtbl.remove procnames n in
-  let print_interp_state () =
-    Printf.printf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
-                  (string_of_runnerqueue ";\n  " runners)
-                  (string_of_stuck_chans ())
-                  (String.concat "\n " (strings_of_qsystem ()))
+  let print_interp_state outstream =
+    output_string outstream (Printf.sprintf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
+                                            (string_of_runnerqueue ";\n  " runners)
+                                            (string_of_stuck_chans ())
+                                            (String.concat "\n " (strings_of_qsystem ()))
+                            )
   in
   let rec step () =
       if PQueue.is_empty runners then 
@@ -462,7 +463,7 @@ let rec interp sysassoc proc =
       else
         ((try 
             if !verbose || !verbose_interpret then
-              print_interp_state();
+              print_interp_state stdout;
             let runner = PQueue.pop runners in
             PQueue.excite runners;
             let pn, rproc, env = runner in
@@ -720,8 +721,8 @@ let rec interp sysassoc proc =
           with 
           | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
           | exn                 ->
-              Printf.printf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
-              print_interp_state();
+              Printf.eprintf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
+              print_interp_state stderr;
               raise exn
          ); (* end of try *)
          step()

@@ -20,7 +20,7 @@ proc Bob(y:qbit, c:^bit*bit) =
     
 
 proc System () = 
-  .  (newq x=|+>, y=|0>) 
+  . (newq x=|+>, y=|0>) 
   . x,y>>CNot 
   . (new c:^bit*bit) 
   . | Alice(x,c) 

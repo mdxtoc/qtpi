@@ -1,4 +1,4 @@
-fun mp a b =
+fun mp (a:gate) (b:gate) =
   [show a; "*"; show b; "="; show (a*b); "\n"]
   
 proc System () =

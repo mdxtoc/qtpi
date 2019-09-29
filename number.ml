@@ -50,6 +50,7 @@ module Local = struct
 
   open Q
   open String
+  let (>=) = Pervasives.(>=) (* don't pick up Q.(>=) from zarith 1.9.1 etc. *)
   
   let ( // )=div
   let ( */ )=mul

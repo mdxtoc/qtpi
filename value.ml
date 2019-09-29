@@ -112,7 +112,11 @@ and prob =
 
 and cprob = C of prob*prob (* complex prob A + iB *)
 
-and probvec = cprob array
+and norm =
+  | N_1
+  | N_sqrt of prob
+  
+and probvec = norm * cprob array (* N,vec means 1/sqrt(N) * vec -- i.e. (real) normalisation factor *)
 
 and gate = 
     | MGate of cprob array array   (* square matrix *)
@@ -206,7 +210,7 @@ and short_string_of_qbit = string_of_int
 
 (* *********************** defining vectors, matrices ************************************ *)
 
-let make_v = Array.of_list
+let make_v ps = N_1, Array.of_list ps
 
 let c_of_p p = C (p, P_0)
 
@@ -421,7 +425,7 @@ and short_so_wwaiter optf ((n, v, proc, env),gsir) = (* infinite loop if we prin
 and so_runnerqueue optf sep rq =
   string_of_pqueue (so_runner optf) sep rq
 
-and string_of_probvec v =
+and so_pv v =
   if !Settings.fancyvec then 
     (let n = vsize v in
      let rec ln2 n r = if n=1 then r
@@ -465,6 +469,10 @@ and string_of_probvec v =
     (let estrings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
      Printf.sprintf "(%s)" (String.concat " <,> " estrings)
     )
+  
+and string_of_probvec = function
+  | N_1     , vv -> so_pv vv
+  | N_sqrt p, vv -> Printf.sprintf "1/sqrt(%s)(%s)" (string_of_prob p) (so_pv vv)
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then

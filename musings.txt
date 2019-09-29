@@ -1,0 +1,13 @@
+How to deal with the unnecessary recursions in BB84
+
+tabulate a list from a stream
+
+tabulate n s (result)
+
+-- or perhaps 
+
+process . v
+
+for each stage, and (vs) for the binding
+
+tabulate n { qc?q . (let b = randbase()) . q -/- (v) . record (b,v) } bvs

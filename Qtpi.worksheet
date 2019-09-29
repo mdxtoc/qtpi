@@ -59,6 +59,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 
 ./Qtpi -trace examples/basiccointoss.qtp
 ./Qtpi examples/cointoss.qtp
+./Qtpi examples/cointoss_tidied.qtp
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
 ./Qtpi examples/basicteleportplus.qtp

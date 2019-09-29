@@ -1,0 +1,13 @@
+proc P(s:^qbit) = 
+  + s?(y) . y>>I .                      s!y . _0        
+  + s?(y) . y>>X . out!["(P turns); "]. s!y . _0
+                     
+proc Q(q: qbit, s:^qbit) = 
+  out!["initially "] . outq!(qval q) . out!["; "] .
+  q>>H . s!q . s?(q') . q'>>H . 
+  out!["finally "] . outq!(qval q') . out!["\n"] .
+  _0 
+
+proc System() = (newq q = |0>) (new s:^qbit)
+                | P(s) 
+                | Q(q,s) 

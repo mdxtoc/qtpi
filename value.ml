@@ -96,7 +96,7 @@ type value =
    Note h^2=1/2; 
         f^2=h^2+h^3;
         g^2=h^2-h^3;
-        fg = 1/2h = h^3  
+        fg = sqrt ((1-h^2)/4) = sqrt(1/8) = sqrt(h^6) = h^3  
  *)
 and prob = 
   | P_0

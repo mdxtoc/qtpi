@@ -460,18 +460,18 @@ let tensor_vv vA vB =
   _for 0 1 nA (fun i -> _for 0 1 nB (fun j -> vR.(i*nB+j) <- cprod vA.(i) vB.(j)));
   vR
   
-let tensor_qq (nA,vA) (nB,vB) =
-  let nR = match nA,nB with
-           | N_1, _ -> nB
-           | _  , N_1 -> nA
-           | N_sqrt a, N_sqrt b -> N_sqrt (rprod a b)
+let tensor_qq (mA,vA) (mB,vB) =
+  let mR = match mA,mB with
+           | P_1, _   -> mB
+           | _  , P_1 -> mA
+           | _        -> rprod mA mB
   in
   let vR = tensor_vv vA vB in
   if !verbose_qcalc then Printf.printf "%s (><) %s -> %s\n"
-                                       (string_of_probvec (nA,vA))
-                                       (string_of_probvec (nB,vB))
-                                       (string_of_probvec (nR,vR));
-  nR,vR
+                                       (string_of_probvec (mA,vA))
+                                       (string_of_probvec (mB,vB))
+                                       (string_of_probvec (mR,vR));
+  mR,vR
   
 let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
@@ -548,7 +548,7 @@ let rowcolprod n row col =
   let reals, ims = List.split els in
   C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
-let mult_gv g (vn,vv as v) =
+let mult_gv g (vm,vv as v) =
   if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec v);
   let n = Array.length vv in
   if gsize g <> n then
@@ -557,7 +557,7 @@ let mult_gv g (vn,vv as v) =
                                  (string_of_probvec v)
                  )
           );
-  let v' = vn, match g with
+  let v' = vm, match g with
                | MGate m -> Array.init n (fun i -> let row = m.(i) in rowcolprod n (fun j -> row.(j)) (fun j -> vv.(j)))
                | DGate d -> Array.init n (fun i -> cprod d.(i) vv.(i))
   in
@@ -631,7 +631,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
               | Some Basisv.BVplus  -> qcopy v_plus
               | Some Basisv.BVminus -> qcopy v_minus
               | None                -> if !Settings.symbq then
-                                         N_1, Array.init 2 (fun i -> c_of_p (Psymb (q, i=1))) (* this could be a bug if we used qfrees *)
+                                         P_1, Array.init 2 (fun i -> c_of_p (Psymb (q, i=1))) (* this could be a bug if we used qfrees *)
                                        else (* random basis, random fixed value *)
                                         qcopy (match Random.bool (), Random.bool ()  with
                                                | false, false -> v_zero 
@@ -708,7 +708,7 @@ let mask n =
   in
   f 0 n
 
-let make_nth qs (vn,vv as v) n iq = 
+let make_nth qs (vm,vv as v) n iq = 
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
                                         (bracketed_string_of_list string_of_qbit qs)
@@ -757,7 +757,7 @@ let make_nth qs (vn,vv as v) n iq =
        (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
        vv'.(j) <- vv.(i)
      done;
-     let v' = vn, vv' in
+     let v' = vm, vv' in
      let qs' =
        if n<iq then let hdseg, tlseg = take n qs, drop n qs in
                     let midseg, tlseg = take (iq-n) tlseg, drop (iq-n) tlseg in
@@ -778,7 +778,7 @@ let make_first qs v iq = make_nth qs v 0 iq
    
 let rotate_left qs v = make_first qs v (List.length qs - 1)
 
-let try_split qs (vn,vv as v) =
+let try_split qs (vm,vv as v) =
   let nqs = List.length qs in
   let nvs = Array.length vv in
   let nzs = _for_leftfold 0 1 nvs (fun i nzs -> if vv.(i)=c_0 then nzs+1 else nzs) 0 in
@@ -787,18 +787,18 @@ let try_split qs (vn,vv as v) =
     if i=nqs then None 
     else
       (if !verbose_qcalc then 
-         Printf.printf "t_s %s\n" (string_of_qval (qs,(vn,vv)));
+         Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
        let n = vsize vv in
        let nh = n / 2 in
        (* if the first half is all zeros then use v_one, which is 0+1 *)
        if _for_all 0 1 nh (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy v_one, (vn,Array.init nh (fun i -> vv.(nh+i))))
+         Some (qs, qcopy v_one, (vm,Array.init nh (fun i -> vv.(nh+i))))
        else
        (* if the second half is all zeros then use v_zero, which is 1+0 *)
        if _for_all nh 1 n (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy v_zero, (vn,Array.init nh (fun i -> vv.(i))))
+         Some (qs, qcopy v_zero, (vm,Array.init nh (fun i -> vv.(i))))
        else
-         (let qs, (_,vv) = rotate_left qs (vn,vv) in 
+         (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
          )
       )
@@ -951,7 +951,7 @@ let _ones = ref zero
 
 let rec qmeasure disposes pn gate q = 
   if gate = g_I then (* computational measure *)
-    (let qs, (vn,vv as v) = qval q in
+    (let qs, (vm,vv as v) = qval q in
      let nv = vsize vv in
      (* make q first in qs: it simplifies life no end *)
      let qs, (_, vv) = make_first qs v (idx q qs) in
@@ -984,17 +984,13 @@ let rec qmeasure disposes pn gate q =
        if !verbose || !verbose_qsim || paranoid then Printf.printf " guessing %d;\n" r;
        r  
      in
-     (* vv is not normalised: you have to divide everything by vn to get the normalised version. 
+     (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
-        more or less than vn^2/2.
+        more or less than vm^2/2.
       *)
-     let vn_sq_prob = match vn with
-                      | N_1      -> P_1
-                      | N_sqrt p -> p
-     in
-     let r = try let vn_sq_value = compute vn_sq_prob in
+     let r = try let vm_sq_value = compute vm in
                  let prob_value = compute prob in
-                 if prob_value=vn_sq_value then 
+                 if prob_value=vm_sq_value then 
                    (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
                     1
                    ) 
@@ -1004,7 +1000,7 @@ let rec qmeasure disposes pn gate q =
                     0
                    ) 
                  else
-                   let rg = Random.float vn_sq_value in
+                   let rg = Random.float vm_sq_value in
                    let r = if rg<prob_value then 1 else 0 in
                    if !checkrandombias then
                      (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
@@ -1019,14 +1015,13 @@ let rec qmeasure disposes pn gate q =
        if r=1 then prob 
        else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq vv.(i))) P_0*) 
             (* getsum 0 nvhalf *) 
-            simplify_sum (sflatten [vn_sq_prob; rneg prob])
+            simplify_sum (sflatten [vm; rneg prob])
      in 
      if !verbose_qcalc then 
-       Printf.printf " (un-normalised %s modulus %s vn_sq %s);" (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vn_sq_prob);
-     (* if vn = 1/sqrt(p) then vn' = 1/sqrt(p*modulus). I think *)
-     let vn' = 
+       Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vm);
+     let vm' = 
        match modulus with
-       | P_1                -> N_1
+       | P_1                -> P_1
        | P_h k  when k mod 2 = 0 
                             -> let n = k/2 in
                                (* multiply by 2**(n/2) *)
@@ -1034,10 +1029,10 @@ let rec qmeasure disposes pn gate q =
                                (* and then by 1/h if n is odd *)
                                if n mod 2 = 1 then
                                  _for 0 1 nv (fun i -> vv.(i) <- c_r_div_h vv.(i));
-                               N_1
+                               P_1
        | Pprod [p1;p2] when p1=p2 
                             -> _for 0 1 nv (fun i -> vv.(i) <- c_r_div vv.(i) p1);
-                               N_1
+                               P_1
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)
@@ -1046,17 +1041,17 @@ let rec qmeasure disposes pn gate q =
            let nzs = List.map (fun p -> if p<>c_0 then 1 else 0) (Array.to_list vv) in
            if List.fold_left (+) 0 nzs = 1 then
              (_for 0 1 nv (fun i -> if vv.(i)<>c_0 then vv.(i)<-c_1);
-              N_1
+              P_1
              )
            else
-             (Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s vn_sq_prob %s\n" 
+             (Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s vm %s\n" 
                                  q r (string_of_qval (qval q)) (string_of_prob prob)
-                                 (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vn_sq_prob); 
-              N_sqrt modulus
+                                 (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vm); 
+              modulus
              ) 
      in
-     let qv = qs, (vn',vv) in
-     if !verbose || !verbose_qsim || vn'<>N_1 then 
+     let qv = qs, (vm',vv) in
+     if !verbose || !verbose_qsim || vm'<>P_1 then 
        Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
      record qv; (* which will split it up for us *)
      if disposes then disposeqbit pn q;

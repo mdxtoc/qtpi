@@ -92,7 +92,6 @@ type value =
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
-   i = sqrt -1; will be useful if we ever go complex. For now commented out.
    
    Note h^2=1/2; 
         f^2=h^2+h^3;

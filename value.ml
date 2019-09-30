@@ -111,11 +111,7 @@ and prob =
 
 and cprob = C of prob*prob (* complex prob A + iB *)
 
-and norm =
-  | N_1
-  | N_sqrt of prob
-  
-and probvec = norm * cprob array (* N,vec means 1/sqrt(N) * vec -- i.e. (real) normalisation factor *)
+and probvec = prob * cprob array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
 
 and gate = 
     | MGate of cprob array array   (* square matrix *)
@@ -209,7 +205,7 @@ and short_string_of_qbit = string_of_int
 
 (* *********************** defining vectors, matrices ************************************ *)
 
-let make_v ps = N_1, Array.of_list ps
+let make_v ps = P_1, Array.of_list ps
 
 let c_of_p p = C (p, P_0)
 
@@ -470,8 +466,8 @@ and so_pv v =
     )
   
 and string_of_probvec = function
-  | N_1     , vv -> so_pv vv
-  | N_sqrt p, vv -> Printf.sprintf "1/sqrt(%s)(%s)" (string_of_prob p) (so_pv vv)
+  | P_1, vv -> so_pv vv
+  | vm , vv -> Printf.sprintf "1/sqrt(%s)%s" (string_of_prob vm) (so_pv vv)
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then

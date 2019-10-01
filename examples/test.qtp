@@ -1,5 +1,8 @@
 proc System () =
-  (let n = read_num "number")
-  (let bs = num2bits n)
-  out![show bs; "; "; show (bits2num bs); "\n"] .
-  System ()
+  (newq x=|+>, y=|0>) x,y>>CNot .
+  (newq z = |+>)
+  z,x>>CNot . 
+  z>>H .
+  x,y,z>>(H><H><H) .
+  out!["H><H="; show (H><H); "; H><H><H="; show (H><H><H); "\n"] .
+  _0

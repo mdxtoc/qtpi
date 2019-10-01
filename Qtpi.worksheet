@@ -66,7 +66,10 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/basicteleportrandom.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
-./Qtpi examples/randomteleport_with.qtp
+# randomteleport_with sometimes seems to get the wrong answer. Simplification problems? Wonky calculation?
+# don't know yet. To see the difficulty, run it a few times with -trace till you see a difference in
+# Alice and Bob's qbits
+./Qtpi -trace examples/randomteleport_with.qtp
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp
 ./Qtpi examples/cheating_Watrous_QBC.qtp

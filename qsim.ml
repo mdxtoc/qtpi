@@ -1046,15 +1046,21 @@ let rec qmeasure disposes pn gate q =
               P_1
              )
            else
-             (Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s vm %s\n" 
-                                 q r (string_of_qval (qval q)) (string_of_prob prob)
-                                 (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vm); 
+             (if !verbose || !verbose_qsim || paranoid then
+                Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s vm %s\n" 
+                                          q r (string_of_qval (qval q)) (string_of_prob prob)
+                                          (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vm); 
               modulus
              ) 
      in
      let qv = qs, (vm',vv) in
      if !verbose || !verbose_qsim || vm'<>P_1 then 
-       Printf.printf " result %d and %s|->%s\n" r (string_of_qbit q) (string_of_qval qv);
+       Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
+                                                                                     (string_of_qbit q)
+                                                                                     (string_of_qval (qval q))
+                                                                       ) 
+                                                                       qs
+                                             );
      record qv; (* which will split it up for us *)
      if disposes then disposeqbit pn q;
      r

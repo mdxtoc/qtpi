@@ -708,7 +708,7 @@ let mask n =
   in
   f 0 n
 
-(* n is destination?? iq is where it is?? *)
+(* n is destination; iq is where it is. *)
 let make_nth qs (vm,vv as v) n iq = 
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
@@ -767,7 +767,7 @@ let make_nth qs (vm,vv as v) n iq =
                     hdseg@[q]@midseg@tlseg
                else let hdseg, tlseg = take iq qs, drop iq qs in
                     let q, tlseg = List.hd tlseg, List.tl tlseg in
-                    let midseg, tlseg = take (n-iq-1) tlseg, drop (n-iq-1) tlseg in
+                    let midseg, tlseg = take (n-iq) tlseg, drop (n-iq) tlseg in
                     hdseg@midseg@[q]@tlseg
      in
      if !verbose || !verbose_qsim then Printf.printf "-> qs' %s v' %s\n" 

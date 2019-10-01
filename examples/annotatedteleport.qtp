@@ -9,10 +9,10 @@ proc Alice (x:qbit, c:^bit*bit) =
     out!["after three-way entanglement z is "] . 
     outq!(qval z) . out!["\n"] .
     z>>H . 
-    out!["z is put through a Hadamard gate, and becomes ";]
+    out!["z is put through a Hadamard gate, and becomes ";] .
     outq!(qval z) . out!["\n"] .
     z-/-(vz) .  
-    out!["z is measured in the Hadamard basis, giving ";
+    out!["z is measured in the computational basis, giving ";
                     show vz; ";\n and now x is "] .
     outq!(qval x) . out!["\n"] .
     x-/-(vx) . 

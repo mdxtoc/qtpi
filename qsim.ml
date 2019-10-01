@@ -708,6 +708,7 @@ let mask n =
   in
   f 0 n
 
+(* n is destination?? iq is where it is?? *)
 let make_nth qs (vm,vv as v) n iq = 
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
@@ -726,6 +727,7 @@ let make_nth qs (vm,vv as v) n iq =
                                                         iq;
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
+  if iq<0 || iq>=nqs then bad "bad iq";
   let nv = vsize vv in
   if iq=n then 
     (if !verbose || !verbose_qsim then
@@ -736,17 +738,17 @@ let make_nth qs (vm,vv as v) n iq =
     (let qmask = bitmask iq qs in
      let nmask = bitmask n qs in
      let hdmask, midmask, tlmask =
-       if n<iq then (mask n) lsl (nqs-n),
-                    (mask (iq-n)) lsl (nqs-iq),
+       if n<iq then (mask n)        lsl (nqs-n),
+                    (mask (iq-n))   lsl (nqs-iq),
                     mask (nqs-iq-1)
-               else (mask iq) lsl (nqs-iq),
-                    (mask (n-iq-1)) lsl (nqs-iq),
-                    mask (nqs-n)
+               else (mask iq)      lsl (nqs-iq),
+                    (mask (n-iq))  lsl (nqs-n-1),
+                    mask (nqs-n-1)
      in
      (* if !verbose || !verbose_qsim then 
-       Printf.printf "iq %d qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
-                      iq qmask nmask hdmask midmask tlmask;
-      *)     
+       Printf.printf "qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
+                      qmask nmask hdmask midmask tlmask;
+      *)
      let vv' = Array.copy vv in
      for i=0 to nv-1 do
        let j = (i land hdmask)                                    lor 
@@ -973,7 +975,7 @@ let rec qmeasure disposes pn gate q =
        (* _for_leftfold nvhalf 1 nv (fun i -> rsum (absq vv.(i))) P_0 *) getsum nvhalf nvhalf
      in
      if !verbose || !verbose_qsim || paranoid then 
-       Printf.printf "%s qmeasure [] %s; %s|~>%s; prob |1> = %s;"
+       Printf.printf "%s qmeasure [] %s; %s|->%s; prob |1> = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)

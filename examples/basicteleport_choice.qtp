@@ -11,7 +11,7 @@ proc Alice (x:qbit, c:^bit*bit) =
 proc AliceDoIt (x:qbit, c:^bit*bit, z:qbit) =
     out!["initially Alice's z is "] . 
     outq!(qval z) . out!["\n"] .
-    z,x>>CNot . z-/-[H](vz) . x-/-(vx) . 
+    z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
     c!vz,vx . 
     _0 
 

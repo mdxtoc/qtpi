@@ -929,8 +929,6 @@ let fp_f = sqrt fp_f2
 let fp_g2 = (1.0 -. fp_h) /. 2.0
 let fp_g = sqrt fp_g2
 
-exception Compute
-
 let rec compute = function
   | P_0         -> 0.0
   | P_1         -> 1.0
@@ -942,7 +940,7 @@ let rec compute = function
                     | _ when i<0    -> 1.0 /. compute (P_h (~-i))
                     | _             -> fp_h2 *. compute (P_h (i-2))
                    )             
-  | Psymb _     -> raise Compute
+  | Psymb _     -> 0.5 (* on average ... *)
   | Pneg  p     -> ~-. (compute p)
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
@@ -981,35 +979,29 @@ let rec qmeasure disposes pn gate q =
                      (string_of_qbit q)
                      (string_of_qval (qval q))
                      (string_of_prob prob);
-     let guess () =
-       let r = if Random.bool () then 0 else 1 in
-       if !verbose || !verbose_qsim || paranoid then Printf.printf " guessing %d;\n" r;
-       r  
-     in
      (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
         more or less than vm^2/2.
       *)
-     let r = try let vm_sq_value = compute vm in
-                 let prob_value = compute prob in
-                 if prob_value=vm_sq_value then 
-                   (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
-                    1
-                   ) 
-                 else
-                 if prob_value=0.0 then
-                   (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 0\n";
-                    0
-                   ) 
-                 else
-                   let rg = Random.float vm_sq_value in
-                   let r = if rg<prob_value then 1 else 0 in
-                   if !checkrandombias then
-                     (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
-                   if !verbose || !verbose_qsim || paranoid then 
-                     Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r (string_of_num !_zeroes) (string_of_num !_ones);
-                   r
-             with Compute -> guess ()
+     let r = let vm_sq_value = compute vm in
+             let prob_value = compute prob in
+             if prob_value=vm_sq_value then 
+               (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
+                1
+               ) 
+             else
+             if prob_value=0.0 then
+               (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 0\n";
+                0
+               ) 
+             else
+               let rg = Random.float vm_sq_value in
+               let r = if rg<prob_value then 1 else 0 in
+               if !checkrandombias then
+                 (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
+               if !verbose || !verbose_qsim || paranoid then 
+                 Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r (string_of_num !_zeroes) (string_of_num !_ones);
+               r
      in
      (* set the unchosen probs to zero, then normalise. *)
      _for (if r=1 then 0 else nvhalf) 1 (if r=1 then nvhalf else nv) (fun i -> vv.(i) <- c_0);

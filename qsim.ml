@@ -74,8 +74,8 @@ let qval q = try Hashtbl.find qstate q
 
 (* let compare p1 p2 =
      match p1, p2 with
-     | Psymb (b1,q1), Psymb (b2,q2) -> Pervasives.compare (q1,b1) (q2,b2)
-     | _                            -> Pervasives.compare p1      p2
+     | Psymb (b1,q1,_), Psymb (b2,q2,_) -> Pervasives.compare (q1,b1) (q2,b2)
+     | _                                -> Pervasives.compare p1      p2
 *)
 (* we deal with long lists. Avoid sorting if poss *)
 let sort compare ps =
@@ -269,8 +269,8 @@ and simplify_sum ps =
                         (try let pps = zip p1s p2s in
                              let pre, rest = partition_1 pps in
                              match rest with
-                             | (Psymb (q1, false), Psymb (q2, true)) ::
-                               (Psymb (q3, false), Psymb (q4, true)) :: post  
+                             | (Psymb (q1, false, _), Psymb (q2, true, _)) ::
+                               (Psymb (q3, false, _), Psymb (q4, true, _)) :: post  
                                when q1=q2 && q1=q3 && q1=q4 && all_same post
                                      -> takeit pre post
                              | _     -> None
@@ -631,7 +631,11 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
               | Some Basisv.BVplus  -> qcopy v_plus
               | Some Basisv.BVminus -> qcopy v_minus
               | None                -> if !Settings.symbq then
-                                         P_1, Array.init 2 (fun i -> c_of_p (Psymb (q, i=1))) (* this could be a bug if we used qfrees *)
+                                         ((* this could be a bug if we used qfrees *)
+                                          let pa_sq = Random.float 1.0 in
+                                          let pb_sq = 1.0 -. pa_sq in
+                                          make_v (List.map c_of_p [Psymb (q, false, sqrt(pa_sq)); Psymb (q, true, sqrt(pb_sq))]) 
+                                         )
                                        else (* random basis, random fixed value *)
                                         qcopy (match Random.bool (), Random.bool ()  with
                                                | false, false -> v_zero 
@@ -940,7 +944,7 @@ let rec compute = function
                     | _ when i<0    -> 1.0 /. compute (P_h (~-i))
                     | _             -> fp_h2 *. compute (P_h (i-2))
                    )             
-  | Psymb _     -> 0.5 (* on average ... *)
+  | Psymb (_,_,r)     -> r
   | Pneg  p     -> ~-. (compute p)
   | Pprod ps    -> List.fold_left ( *. ) 1.0 (List.map compute ps)
   | Psum  ps    -> List.fold_left ( +. ) 0.0 (List.map compute ps)
@@ -984,7 +988,7 @@ let rec qmeasure disposes pn gate q =
         more or less than vm^2/2.
       *)
      let r = let vm_sq_value = compute vm in
-             let prob_value = compute prob in
+             let prob_value = compute prob in (* squaring has been done *)
              if prob_value=vm_sq_value then 
                (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
                 1

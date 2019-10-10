@@ -104,10 +104,10 @@ and prob =
   | P_f              
   | P_g 
   | P_h of int              
-  | Psymb of qbit * bool    (* false=a, true=b, both random unknowns s.t. a**2+b**2 = 1 *)
+  | Psymb of int * bool * float     (* i, false=ai, true=bi, both random floats s.t. a**2+b**2 = 1; then the actual random value *)
   | Pneg of prob
-  | Pprod of prob list      (* associative *)
-  | Psum of prob list       (* associative *)
+  | Pprod of prob list              (* associative *)
+  | Psum of prob list               (* associative *)
 
 and cprob = C of prob*prob (* complex prob A + iB *)
 
@@ -169,7 +169,8 @@ let rec string_of_prob p =
   | P_g             -> "g"
   | P_h 1           -> "h"
   | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b)     -> Printf.sprintf "%s%s" (if b then "b" else "a") (string_of_qbit q)
+  | Psymb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_qbit q) 
+                                                (if !showabvalues then Printf.sprintf "[%f]" f else "")
   | Pneg p'         -> "-" ^ possbra p'
   | Pprod ps        -> String.concat "*" (List.map possbra ps)
   | Psum  ps        -> sum_separate (List.map possbra ps)    

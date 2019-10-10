@@ -54,6 +54,8 @@ let resourcecheck = ref true
 
 let show_final = ref false
 
+let showabvalues = ref false
+
 let showsymbolicgate = ref true
 
 let symbq = ref true

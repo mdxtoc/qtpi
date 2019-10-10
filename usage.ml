@@ -48,6 +48,8 @@ let opts = Arg.align
                     Printf.sprintf " memoise calculator operations (default %B)" !memoise); *)
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qbit states");
+              ("-showabvalues"  , Arg.Bool (set_arg showabvalues), 
+					 Printf.sprintf " show actual value of a_i, b_i in random qbit choice (default %B)" !showabvalues);
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-symbq"  , Arg.Bool (set_arg symbq), 

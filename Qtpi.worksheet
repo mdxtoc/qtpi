@@ -66,9 +66,13 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/basicteleportrandom.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
-# randomteleport_with sometimes seems to get the wrong answer. Simplification problems? Wonky calculation?
-# don't know yet. To see the difficulty, run it a few times with -trace till you see a difference in
-# Alice and Bob's qbits
+# randomteleport_with sometimes doesn't seem to work. The problem is that the formula simplification
+# algorithm isn't confluent enough. It's easy to start with one formula and finish with an equivalent
+# formula -- for example
+#        initially Alice's z is 2:((f*h*b2+i*(-f*h*b2-g*a2))|0&gt;+(-f*h*b2+f*b2+i*(f*h*b2+f*a2-f*b2))|1&gt;)
+#        finally Bob's y is 1:((f*h*b2+i*(-f*h*a2-f*h*a2-f*h*b2+f*a2))|0&gt;+(-f*h*b2+f*b2+i*(f*h*b2+f*a2-f*b2))|1&gt;)
+# The problem is that g in Alice's formula, which gets simplified away. Bob's formula is actually equivalent,
+# but it's hard to show that. Some other day ...
 ./Qtpi -trace examples/randomteleport_with.qtp
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp

@@ -93,10 +93,12 @@ type value =
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
    
-   Note h^2=1/2; 
-        f^2=h^2+h^3;
-        g^2=h^2-h^3;
-        fg = sqrt ((1-h^2)/4) = sqrt(1/8) = sqrt(h^6) = h^3  
+   Note h^2 = 1/2; 
+        f^2 = (1+h)/2 = h^2(1+h) = h^2+h^3;
+        g^2 = (1-h)/2 = h^2(1-h) = h^2-h^3;
+        fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = sqrt(h^6) = h^3  
+        
+   Also f^2+g^2 = 1 (which will fall out of the above)
  *)
 and prob = 
   | P_0

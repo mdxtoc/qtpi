@@ -119,7 +119,7 @@ and rprod p1 p2 =
   r
 
 (* warning: this can deliver a sum, which mucks up the normal form *)
-and simplify_prod ps = (* We deal with constants and f^2, g^2 *)
+and simplify_prod ps = (* We deal with constants, f^2, g^2, gh, fg *)
   let r = let rec sp r ps = 
             let premult p ps = 
               let popt, ps = sp r ps in
@@ -135,8 +135,12 @@ and simplify_prod ps = (* We deal with constants and f^2, g^2 *)
             | P_f   :: P_f   :: ps -> premult (Psum [P_h 2; P_h 3]) ps
             | P_f   :: P_g   :: ps -> premult (P_h 3) ps
             | P_g   :: P_g   :: ps -> premult (Psum [P_h 2; Pneg (P_h 3)]) ps
-            | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 *)
-              when i>=3            -> sp (P_f :: r) (P_g :: P_g :: (ihs (i-3) ps))
+(*          | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 *)
+              when i>=3            -> sp (P_f :: r) (P_g :: P_g :: (ihs (i-3) ps)) 
+ *)
+            | P_g   :: P_h i :: ps'    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
+              when i>=1            -> 
+                                      premult (Psum [P_1; Pneg (P_h 1)]) (P_f :: (ihs (i-1) ps'))
             | P_h i :: P_h j :: ps -> sp (ihs (i+j) r) ps
             | p              :: ps -> sp (p::r) ps
             | []                   -> None, List.rev r
@@ -296,6 +300,22 @@ and simplify_sum ps =
                                                       | Some (p,ps) -> sp true (p::r) ps
                                                       | None        -> sp again (p1::r) (p2::ps)
                                                      )
+            (* the next lot are because h^j-h^(j+2) = h^j(1-h^2) = h^(j+2) 
+               If it all works then we should allow also for j=0, and the whole mess
+               prefixed with f (but not g, because of simplify_prod).
+             *)
+            | Pprod (P_h j :: p1s)        :: Pneg (Pprod (P_h k :: p2s) as p2) :: ps
+                   when k=j+2 && p1s=p2s
+                                                  -> sp true (p2::r) ps
+            | Pneg (Pprod (P_h j :: p1s)) :: (Pprod (P_h k :: p2s) as p2)      :: ps
+                   when k=j+2 && p1s=p2s
+                                                  -> sp true (Pneg p2::r) ps
+            | Pprod (P_h j :: p1s)        :: p2 :: Pneg (Pprod (P_h k :: p3s) as p3) :: ps
+                   when k=j+2 && p1s=p3s
+                                                  -> sp true r (p2::p3::ps)
+            | Pneg (Pprod (P_h j :: p1s)) :: p2 :: (Pprod (P_h k :: p3s) as p3)      :: ps
+                   when k=j+2 && p1s=p3s
+                                                  -> sp true r (p2::Pneg p3::ps)
             | p1      :: p2      :: ps            -> (match a2b2 p1 p2 with
                                                       | Some p -> sp true (p::r) ps
                                                       | None   -> sp again (p1::r) (p2::ps)
@@ -1050,7 +1070,7 @@ let rec qmeasure disposes pn gate q =
              ) 
      in
      let qv = qs, (vm',vv) in
-     if !verbose || !verbose_qsim || vm'<>P_1 then 
+     if !verbose || !verbose_qsim then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
                                                                                      (string_of_qbit q)
                                                                                      (string_of_qval (qval q))

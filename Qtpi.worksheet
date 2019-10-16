@@ -63,7 +63,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
 ./Qtpi examples/basicteleportplus.qtp
-./Qtpi examples/basicteleportrandom.qtp
+./Qtpi -trace examples/basicteleportrandom.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 # randomteleport_with sometimes doesn't seem to work. The problem is that the formula simplification
@@ -76,7 +76,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi -trace examples/randomteleport_with.qtp
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp
-./Qtpi examples/cheating_Watrous_QBC.qtp
+./Qtpi -trace examples/cheating_Watrous_QBC.qtp
 ./Qtpi examples/GNteleport.qtp
 ./Qtpi examples/GNteleportEPR.qtp
 time ./Qtpi -show_final examples/BB84_QBC.qtp
@@ -89,9 +89,9 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 
 # E92 QKD without an Eve. With an Eve the calculator can't cope (can't guess sqrt(h^2+h^4), it says)
 
-(cd examples/Ekert_QKD; time ../../Qtpi Alice.qtp Bob.qtp ControlAB.qtp Ekert.qtp)
+(cd examples/Ekert_QKD; time ../../Qtpi Alice.qtp Bob.qtp ControlAB.qtp Ekert.qtp) &lt;E92QKDcontrol.txt
 
-(cd examples/Ekert_QKD; time ../../Qtpi Alice.qtp Bob.qtp Eve0.qtp ControlABE.qtp Ekert.qtp)
+(cd examples/Ekert_QKD; time ../../Qtpi Alice.qtp Bob.qtp Eve0.qtp ControlABE.qtp Ekert.qtp)  &lt;E92QKDcontrol.txt
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...
 # and each extra qbit makes it more than 4 times slower. The time is all in the measurement ...

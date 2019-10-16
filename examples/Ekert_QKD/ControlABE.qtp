@@ -10,11 +10,15 @@ proc ControlABE(qcA,qcB,n,k,nq,m,verbose,nOK) =
     | Alice (nq,m,qcE,ic,bc,logcA,verbose)
     | Bob   (nq,qcB,ic,bc,logcB,verbose)
     | Eve   (nq,qcA,qcE)
-    | logcA?(mA) . logcB?(mB) . 
-        (let nOK = if mA=mB then nOK+1 else nOK fi)
-        out!if mA<>mB then ["Error: Alice sent "; show mA; "; Bob saw "; show mB; "\n"]
+    | logcA?(okA) . logcA?(mA) . logcB?(okB) . logcB?(mB) . 
+        (let okA = bit2bool (hd okA))
+        (let okB = bit2bool (hd okB))
+        (let nOK = if okA && okB && mA=mB then nOK+1 else nOK fi)
+        out!if not (okA && okB && mA=mB) then 
+                    ["** Interference: Alice said "; show (not okA); "; Bob said "; show (not okB);
+                     "; Alice sent "; show mA; "; Bob saw "; show mB; "\n"]
             elif verbose then ["message "; show mA; " successfully transmitted\n"]
-            else [ ] fi . 
+            else [] fi . 
         ControlABE(qcA,qcB,n,k+1,nq,m,verbose,nOK)
   fi
   

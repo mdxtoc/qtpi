@@ -9,24 +9,21 @@ proc Bob(nq,qc,ic,bc,logc,verbose) =
       (let vBs = sanitise bAbvs)
       bc?(vAs)  .
       bc!vBs    .
-      bc?(go)   .
-      if bit2bool (hd go) then (* Alice says ok *)
-        if not (check verbose bs bAs vBs vAs (3,2) && check verbose bs bAs vBs vAs (1,2)) then (* we have interference *)
-          bc![bool2bit false] .
-          out!["Bob detects interference\n"] .
-          logc![] .
-          _0
-        else (* All is well *)
-          bc![bool2bit true]  .
-          (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
-          bc?(encrypted) .
-          (let message = xor_mask (take (length encrypted) key) encrypted)
-          (* out!["Bob receives "; show message; "\n"] . *)
-          logc!message .
-          _0
-        fi
-      else
+      (let ok = check verbose bs bAs vBs vAs (3,2) && check verbose bs bAs vBs vAs (1,2))
+      (* Alice goes first in reporting interference *)
+      bc?(Aliceok) .
+      (let Aliceok = bit2bool (hd (Aliceok)))
+      bc![bool2bit ok]   . logc![bool2bit ok]   .
+      if not (ok && Aliceok) then
+        (* Interference: log an empty message, but don't look for anything from Alice *)
         logc![] .
+        _0
+      else 
+        (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
+        bc?(encrypted) .
+        (let message = xor_mask (take (length encrypted) key) encrypted)
+        (* out!["Bob receives "; show message; "\n"] . *)
+        logc!message .
         _0
       fi
 

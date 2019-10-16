@@ -1,12 +1,8 @@
-(* given a random qbit (a|0>+b|1>), this may terminate with
-   either a|0>+b|1> or a|0>-b|1>. Interesting, eh? Only 
-   'really' works if the initial qbit is |0> 
-   -- i.e. an unfair coin IMHO.
- *)
+(* Meyer's Star Trek coin toss, where the coin is a qbit. Only |0> works: try alternative bases to see what happens *)
 
 proc P(s:^qbit, log) = 
-  + s?(y) . y>>I . s!y . log!() . _0        
-  + s?(y) . y>>X . s!y . log!() . _0
+  + s?(y) . out!["P passive; "] . y>>I . s!y . log!() . _0        
+  + s?(y) . out!["P turns; "]   . y>>X . s!y . log!() . _0
                      
 proc Q(q: qbit, s:^qbit, log) = 
   out!["initially "] . outq!(qval q) . out!["; "] .
@@ -16,13 +12,12 @@ proc Q(q: qbit, s:^qbit, log) =
 
 proc System() = (let k = read_num "number of trials")
                 (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
-                (let verbose = read_bool "with commentary" "y" "n")
            out!["See output for results -- can print but can't examine qbit state\n"] .
-           Logger (k, bv, verbose)
+           Logger (k, bv)
 
-proc Logger (k, bv, verbose) = Run (k, bv, verbose, 0)
+proc Logger (k, bv) = Run (k, bv, 0)
 
-proc Run (k, bv, verbose, i) = 
+proc Run (k, bv, i) = 
   if i=k then out![show i; " trials\n"] . _0
   else
     (newq q = bv) 
@@ -32,5 +27,5 @@ proc Run (k, bv, verbose, i) =
     | Q(q,s,reportQ) 
     | reportP?(_) .
       reportQ?(_) .
-      Run (k, bv, verbose, i+1)
+      Run (k, bv, i+1)
   fi

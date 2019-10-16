@@ -1,3 +1,5 @@
+(* Meyer's Star Trek coin toss, where the coin is a |0> qbit. *)
+
 proc P(s:^qbit) = + s?(y) . y>>X . s!y . _0
                   + s?(y) . y>>I . s!y . _0
 

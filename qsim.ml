@@ -632,18 +632,28 @@ let qcopy (n,v) = n, Array.copy v (* nobody ought to know about this: I need a .
 
 let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the references *)
   let qbitcount = ref 0 in
-  let qfrees = ref [] in
-  let qlimbo = ref [] in
+  let qfrees = ref [] in (* for disposed single qbits *)
+  let qlimbo = ref [] in (* for disposed entangled bits *)
   let newqbit pn n vopt =
-    let q = match !qfrees, vopt with
-      | q::qs, Some _ -> qfrees:=qs; q (* only re-use qbits when we don't make symbolic probabilities *)
-                                       (* note this is a space leak, but a small one *)
-                                       (* but it's a nasty one, because it makes too many qbits in some demos.
-                                          if I could devise a cheap lookup for free variables in the qstate, I'd do it.
+    let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
+             let tryfrees () = match !qfrees with
+                               | q::qs -> qfrees:=qs; q 
+                               | _     -> fresh ()
+             in
+             match vopt, !qlimbo with
+             | None, _     -> fresh () (* a qbit with symbolic probabilities must be fresh, or
+                                          we might re-use symbolic variables which are still in
+                                          use. Note this is a space leak, but a small one.
+                                          But it makes too many qbits in some demos.
+                                          If I could devise a cheap lookup for free variables 
+                                          in the qstate, I'd do it.
                                         *)
-      | _             -> let q = !qbitcount in 
-                         qbitcount := q+1; 
-                         q
+             | _   , q::qs ->  (match Hashtbl.find qstate q with
+                                | [_],_ -> (* it's a singleton now, we can have it *)
+                                           qlimbo := qs; Hashtbl.remove qstate q; q
+                                | _     -> tryfrees ()
+                               )
+            | _            -> tryfrees ()
     in
     let vec = match vopt with
               | Some Basisv.BVzero  -> qcopy v_zero

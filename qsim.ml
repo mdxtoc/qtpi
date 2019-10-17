@@ -138,9 +138,8 @@ and simplify_prod ps = (* We deal with constants, f^2, g^2, gh, fg *)
 (*          | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 *)
               when i>=3            -> sp (P_f :: r) (P_g :: P_g :: (ihs (i-3) ps)) 
  *)
-            | P_g   :: P_h i :: ps'    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
-              when i>=1            -> 
-                                      premult (Psum [P_1; Pneg (P_h 1)]) (P_f :: (ihs (i-1) ps'))
+            | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
+              when i>=1            -> premult (Psum [P_1; Pneg (P_h 1)]) (P_f :: (ihs (i-1) ps))
             | P_h i :: P_h j :: ps -> sp (ihs (i+j) r) ps
             | p              :: ps -> sp (p::r) ps
             | []                   -> None, List.rev r

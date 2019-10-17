@@ -362,7 +362,43 @@ and rdiv_h p = (* multiply by sqrt 2 (= divide by h). Happens: see normalise *)
   if !verbose_simplify then
     Printf.printf "rdiv_h (%s) -> %s\n" (string_of_prob p) (string_of_prob r);
   r
-
+(* in the case of dividing sums, look for factors fP-fhP, which is gh *)
+and rdiv_sum_h orig_ps =
+  let default () = sflatten (List.map rdiv_h orig_ps) (* sflatten because we can get a sum ... *) in
+  let rec has_hfactor = function 
+                         | Pneg p                               -> has_hfactor p
+                         | P_h i                      
+                         | Pprod (P_h i :: _)         
+                         | Pprod (P_f :: P_h i :: _)  when i>=1 -> true
+                         | _                                    -> false
+  in
+  let rec findit ps =
+    match ps with
+    | []                                     -> None
+    | Pprod (P_f :: P_h _ :: _)        :: ps -> findit ps
+    | Pprod (P_f :: ps')               :: ps -> if List.exists ((=) (Pneg (Pprod (P_f :: P_h 1 :: ps')))) orig_ps
+                                                then Some (true, ps')
+                                                else findit ps
+    | Pneg (Pprod (P_f :: P_h _ :: _)) :: ps -> findit ps
+    | Pneg (Pprod (P_f :: ps') )       :: ps -> if List.exists ((=) (Pprod (P_f :: P_h 1 :: ps'))) orig_ps
+                                                then Some (false, ps')
+                                                else findit ps
+    | _                                :: ps -> findit ps
+  in
+  if List.for_all has_hfactor orig_ps then default ()
+  else
+  match findit orig_ps with
+  | Some (true, ps)  -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
+                                      (string_of_prob (Pprod (P_f :: ps)))
+                                      (string_of_prob (Pneg (Pprod (P_f :: P_h 1 :: ps))))
+                                      (string_of_prob (Psum orig_ps));
+                        default()
+  | Some (false, ps) -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
+                                      (string_of_prob (Pneg (Pprod (P_f :: ps))))
+                                      (string_of_prob (Pprod (P_f :: P_h 1 :: ps)))
+                                      (string_of_prob (Psum orig_ps));
+                        default()
+  | None             -> default()
 and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
   let bad () = 
     raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))

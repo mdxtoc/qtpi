@@ -290,9 +290,6 @@ and simplify_sum ps =
           let rec sp again r ps =
             match ps with
             | P_0                :: ps            -> sp again r ps
-            | P_1     :: Pneg (P_h k as p) 
-                                 :: ps when k>0 && k mod 2=0
-                                                  -> sp true (prepend (tabulate ((1 lsl (k/2)) - 1) (const p)) r) ps
             | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
             | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
             | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
@@ -303,12 +300,18 @@ and simplify_sum ps =
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
              *)
+            | P_1        :: Pneg (P_h 2 as p2) :: ps  -> sp true (p2::r) ps
+            | Pneg (P_1) :: (P_h 2 as p2)      :: ps  -> sp true (Pneg p2::r) ps
             | Pprod (P_h j :: p1s)        :: Pneg (Pprod (P_h k :: p2s) as p2) :: ps
                    when k=j+2 && p1s=p2s
                                                   -> sp true (p2::r) ps
             | Pneg (Pprod (P_h j :: p1s)) :: (Pprod (P_h k :: p2s) as p2)      :: ps
                    when k=j+2 && p1s=p2s
                                                   -> sp true (Pneg p2::r) ps
+            | P_1        :: p2 :: Pneg (P_h 2 as p3) :: ps 
+                                                  -> sp true r (p2::p3::ps)
+            | Pneg (P_1) :: p2 :: (P_h 2 as p3)      :: ps  
+                                                  -> sp true (p2::Pneg p3::r) ps
             | Pprod (P_h j :: p1s)        :: p2 :: Pneg (Pprod (P_h k :: p3s) as p3) :: ps
                    when k=j+2 && p1s=p3s
                                                   -> sp true r (p2::p3::ps)

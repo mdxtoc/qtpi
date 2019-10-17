@@ -399,6 +399,8 @@ and rdiv_sum_h orig_ps =
                                       (string_of_prob (Psum orig_ps));
                         default()
   | None             -> default()
+  
+(* this shouldn't give an error ... *)
 and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
   let bad () = 
     raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))

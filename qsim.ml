@@ -118,6 +118,11 @@ and rprod p1 p2 =
     Printf.printf "rprod (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
   r
 
+and make_prod = function
+  | [p] -> p
+  | []  -> P_1
+  | ps  -> Pprod ps
+  
 (* warning: this can deliver a sum, which mucks up the normal form *)
 and simplify_prod ps = (* We deal with constants, f^2, g^2, gh, fg *)
   let r = let rec sp r ps = 
@@ -292,32 +297,52 @@ and simplify_sum ps =
             | P_0                :: ps            -> sp again r ps
             | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
             | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
-            | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
-                                                      | Some (p,ps) -> sp true (p::r) ps
-                                                      | None        -> sp again (p1::r) (p2::ps)
-                                                     )
             (* the next lot are because h^j-h^(j+2) = h^j(1-h^2) = h^(j+2) 
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
              *)
-            | P_1        :: Pneg (P_h 2 as p2) :: ps  -> sp true (p2::r) ps
-            | Pneg (P_1) :: (P_h 2 as p2)      :: ps  -> sp true (Pneg p2::r) ps
-            | Pprod (P_h j :: p1s)        :: Pneg (Pprod (P_h k :: p2s) as p2) :: ps
-                   when k=j+2 && p1s=p2s
-                                                  -> sp true (p2::r) ps
-            | Pneg (Pprod (P_h j :: p1s)) :: (Pprod (P_h k :: p2s) as p2)      :: ps
-                   when k=j+2 && p1s=p2s
-                                                  -> sp true (Pneg p2::r) ps
-            | P_1        :: p2 :: Pneg (P_h 2 as p3) :: ps 
-                                                  -> sp true r (p2::p3::ps)
-            | Pneg (P_1) :: p2 :: (P_h 2 as p3)      :: ps  
-                                                  -> sp true (p2::Pneg p3::r) ps
-            | Pprod (P_h j :: p1s)        :: p2 :: Pneg (Pprod (P_h k :: p3s) as p3) :: ps
-                   when k=j+2 && p1s=p3s
-                                                  -> sp true r (p2::p3::ps)
-            | Pneg (Pprod (P_h j :: p1s)) :: p2 :: (Pprod (P_h k :: p3s) as p3)      :: ps
-                   when k=j+2 && p1s=p3s
-                                                  -> sp true r (p2::Pneg p3::ps)
+            | P_1        ::  ps  
+                    when List.exists ((=) (Pneg (P_h 2))) ps
+                                                  -> sp true (P_h 2::r) (Listutils.remove (Pneg (P_h 2)) ps)
+            | Pneg (P_1) :: ps  
+                    when List.exists ((=) (P_h 2)) ps  
+                                                  -> sp true (Pneg (P_h 2)::r) (Listutils.remove (P_h 2) ps)
+            | P_h j      ::  ps  
+                    when List.exists ((=) (Pneg (P_h (j+2)))) ps
+                                                  -> sp true (P_h (j+2)::r) (Listutils.remove (Pneg (P_h (j+2))) ps)
+            | Pneg (P_h j) :: ps  
+                    when List.exists ((=) (P_h (j+2))) ps  
+                                                  -> sp true (Pneg (P_h (j+2))::r) (Listutils.remove (P_h (j+2)) ps)
+            | Pprod (P_h j :: p1s) :: ps
+                    when List.exists ((=) (Pneg (Pprod (P_h (j+2) :: p1s)))) ps                 
+                                                  -> sp true (Pprod (P_h (j+2) :: p1s)::r) 
+                                                             (Listutils.remove (Pneg (Pprod (P_h (j+2) :: p1s))) ps)
+            | Pneg (Pprod (P_h j :: p1s)) :: ps
+                    when List.exists ((=) (Pprod (P_h (j+2) :: p1s))) ps                 
+                                                  -> sp true (Pneg (Pprod (P_h (j+2) :: p1s)) :: r) 
+                                                             (Listutils.remove (Pprod (P_h (j+2) :: p1s)) ps)
+            | (Pprod (P_h 2 :: p1s) as p1) :: ps  
+                   when List.exists ((=) (Pneg (make_prod p1s))) ps 
+                                                  -> sp true (Pneg p1::r) (Listutils.remove (Pneg (make_prod p1s)) ps)
+            | (Pneg (Pprod (P_h 2 :: p1s) as p1)) :: ps  
+                   when List.exists ((=) (make_prod p1s)) ps  
+                                                  -> sp true (p1::r) (Listutils.remove (make_prod p1s) ps)
+            | Pprod (P_f :: P_h 1 :: p1s) ::
+              Pprod (P_f :: P_h 1 :: p2s) :: ps
+                   when p1s=p2s && 
+                        List.exists ((=) (Pneg (make_prod (P_f :: p1s)))) ps
+                                                  -> sp true (make_prod (P_g :: p1s) :: r) 
+                                                             (Listutils.remove (Pneg (make_prod (P_f :: p1s))) ps)
+            | Pneg (Pprod (P_f :: P_h 1 :: p1s)) ::
+              Pneg (Pprod (P_f :: P_h 1 :: p2s)) :: ps
+                   when p1s=p2s && 
+                        List.exists ((=) (make_prod (P_f :: p1s))) ps
+                                                  -> sp true (Pneg (make_prod (P_g :: p1s)) :: r) 
+                                                             (Listutils.remove (make_prod (P_f :: p1s)) ps)
+            | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
+                                                      | Some (p,ps) -> sp true (p::r) ps
+                                                      | None        -> sp again (p1::r) (p2::ps)
+                                                     )
             | p1      :: p2      :: ps            -> (match a2b2 p1 p2 with
                                                       | Some p -> sp true (p::r) ps
                                                       | None   -> sp again (p1::r) (p2::ps)
@@ -333,7 +358,7 @@ and simplify_sum ps =
           match doit ps with
           | []  -> P_0
           | [p] -> p
-          | ps  -> Psum ps
+          | ps  -> Psum (sort scompare ps)
   in
   if !verbose_simplify then
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_prob (Psum ps)) (string_of_prob r);

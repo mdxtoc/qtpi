@@ -113,7 +113,9 @@ and prob =
 
 and cprob = C of prob*prob (* complex prob A + iB *)
 
-and probvec = prob * cprob array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
+and modulus = prob
+
+and probvec = modulus * cprob array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
 
 and gate = 
     | MGate of cprob array array   (* square matrix *)
@@ -470,7 +472,7 @@ and so_pv v =
   
 and string_of_probvec = function
   | P_1, vv -> so_pv vv
-  | vm , vv -> Printf.sprintf "1/sqrt(%s)%s" (string_of_prob vm) (so_pv vv)
+  | vm , vv -> Printf.sprintf "[%s]%s" (string_of_prob vm) (so_pv vv)
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then

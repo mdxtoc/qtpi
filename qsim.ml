@@ -425,28 +425,29 @@ and rdiv_sum_h orig_ps =
                         default()
   | None             -> default()
   
-(* this shouldn't give an error ... *)
-and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
-  let bad () = 
-    raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))
-  in
-  let r = match p1 with
-          | P_0               -> P_0
-          | _ when p1=p2      -> P_1
-          | Pneg p1           -> rneg (rdiv p1 p2)
-          | Pprod ps          -> let rec del ps =
-                                   match ps with
-                                   | [] -> bad()
-                                   | p::ps -> if p=p2 then ps else p::del ps
-                                 in
-                                 Pprod (del ps)
-          | Psum ps           -> simplify_sum (List.map (fun p -> rdiv p p2) ps)
-          | _                 -> bad ()
-  in
-  if !verbose_simplify then
-    Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
-  r
-  
+(* we can't really divide
+    and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
+      let bad () = 
+        raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))
+      in
+      let r = match p1 with
+              | P_0               -> P_0
+              | _ when p1=p2      -> P_1
+              | Pneg p1           -> rneg (rdiv p1 p2)
+              | Pprod ps          -> let rec del ps =
+                                       match ps with
+                                       | [] -> bad()
+                                       | p::ps -> if p=p2 then ps else p::del ps
+                                     in
+                                     Pprod (del ps)
+              | Psum ps           -> simplify_sum (List.map (fun p -> rdiv p p2) ps)
+              | _                 -> bad ()
+      in
+      if !verbose_simplify then
+        Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+      r
+ *)
+ 
 (* *********************** complex arith in terms of reals ************************************ *)
 
 
@@ -464,7 +465,9 @@ let cconj (C (x,y))               = C (x, rneg y)
 
 let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
 
-let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
+(* we can't really divide 
+    let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
+ *)
 let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
 
 (* we memoise these things ... *)
@@ -525,7 +528,9 @@ let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) =
 (* let cconj = memofunC cconj "cconj" -- not worth it *)
 let absq = memofunC absq "absq"
 
-let c_r_div = memofunCP c_r_div "c_r_div"
+(* we can't really divide
+    let c_r_div = memofunCP c_r_div "c_r_div"
+ *)
 let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
 
 (* from here on down, I just assume (hope) that we are working with square matrices *)
@@ -1123,9 +1128,12 @@ let rec qmeasure disposes pn gate q =
                                if n mod 2 = 1 then
                                  _for 0 1 nv (fun i -> vv.(i) <- c_r_div_h vv.(i));
                                P_1
-       | Pprod [p1;p2] when p1=p2 
-                            -> _for 0 1 nv (fun i -> vv.(i) <- c_r_div vv.(i) p1);
-                               P_1
+       (* this, so far as I can tell, was never used. And it is he only way to generate Error. So 
+          getting rid is a good idea 
+           | Pprod [p1;p2] when p1=p2 
+                                -> _for 0 1 nv (fun i -> vv.(i) <- c_r_div vv.(i) p1);
+                                   P_1
+        *)
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)

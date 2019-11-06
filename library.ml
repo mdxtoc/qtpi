@@ -68,6 +68,11 @@ let _ = Interpret.know ("CX"    , "gate", vgate m_CX)
 let _ = Interpret.know ("CY"    , "gate", vgate m_CY)
 let _ = Interpret.know ("CZ"    , "gate", vgate m_CZ)
 
+let v_groverU vs = groverU (List.map bitv vs)
+
+let _ = Interpret.know ("groverG", "num ->gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
+let _ = Interpret.know ("groverU", "bit list -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
+
 let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Qsim.dagger <.> gatev))
 
 let v_makeC g =
@@ -323,6 +328,7 @@ let _ = Interpret.know ("ceiling", "num -> num", vfun (vnum <.> Number.ceiling <
 let _ = Interpret.know ("round"  , "num -> num", vfun (vnum <.> Number.round <.> numv))
 
 let _ = Interpret.know ("sqrt"   , "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
+let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float Float.pi))
 
 (* ********************* I/O ************************ *)
 

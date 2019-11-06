@@ -796,6 +796,39 @@ let m_CZ   = make_C g_Z
 let g_1 = make_g [[c_1]] (* a unit for folding *)
 let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
 
+(* the special Grover gate. Oh this is a filthy hack. *)
+let groverG n =
+  if n<1 || n>=20 then raise (Error (Printf.sprintf "grovergate %d" n)) else
+  (let p = P_h (2*(n-1)) in
+   let cp = c_of_p p in
+   let size = 1 lsl n in
+   let row _ = Array.init size (fun _ -> cp) in
+   let m = Array.init size row in
+   let p' = csum (cneg c_1) cp in
+   for i=0 to size-1 do
+     m.(i).(i) <- p'
+   done;
+   gate_of_cpaa m
+  )
+  
+let groverU bs =
+  let ns = List.map (fun b -> if b then 1 else 0) bs in
+  let size = 1 lsl (List.length ns) in
+  let rec address r ns =
+    match ns with
+    | n::ns -> address (2*r+n) ns
+    | []    -> r
+  in
+  let k = address 0 ns in
+  let row i = Array.init size (fun j -> if i=j then
+                                          (if j=k then cneg c_1 else c_1)
+                                        else c_0
+                              ) 
+  in
+  let m = Array.init size row in
+  gate_of_cpaa m
+  
+
 (* string_of_ functions *)
 let string_of_pqueue stringof sep pq = 
   "{" ^ string_of_list stringof sep (PQueue.elements pq) ^ "}"

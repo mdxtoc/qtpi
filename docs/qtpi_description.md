@@ -37,16 +37,19 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 	A program is a sequence of process and function definitions. One of the process descriptions must be `System`, which must have no parameters.
 
   | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  
+  | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  `with` *logging*  
+  | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  `with` `(`  *par*  `,`  ... `,` *par* `)` *logging*  
   | `fun` *x* *pat* ... *pat*  = *E*  
   | `fun` *x* *pat* ... *pat* `:` *T* = *E*  
   | `let` *pat* `=` *E*  
   
   * Types are optional in process parameters, as everywhere.
+  * Parameters following `with` are in scope only within *logging*.
   * As with reads `E?(pat)`, *let* patterns and function parameter-patterns are bullet-proof: underscore `_`, names and unit, but otherwise no constants and definitely no lists.
   * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `bit list &rarr; 'a list &rarr; 'a list`. (One way this will be done more elegantly, as in Miranda.)
   * The result of a function must be entirely classical -- i.e. have nothing to do with qbits.
   * To allow mutually-recursive definitions, one `fun` can be followed by several definitions.
-  
+    
 * Process *P* 
 
   | *Q* `.` *P*  
@@ -59,17 +62,23 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *pat* `=` *E* `)` *P*  
   | *N* `(` *E*  `,`  ... `,` *E*  `)`  
+  | *N* `(` *E*  `,`  ... `,` *E*  `)` `/^` `(`*E*  `,`  ... `,` *E* `)`  
   | `(` *P* `)`  
-  | `_0`
+  | `_0` 
+  | `.` *P*  
+  | `\^` *label* *P*
 
   * A guarded sum starts with a `+`, and a parallel composition starts with a `|`. Neither needs to be bracketed, because the offside parser ensures that everything is to the right of the `+` or `|`, as appropriate.  
   * matches also use the `+` separator, and use the offside parser.  
   * `new` creates channels, like the pi calculus &nu;.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
+  * A process call may add additional arguments after `/^`, which may refer to parameters following `with` in the enclosing process definition.
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P*, part of CQP, is no longer included. It had become used exclusively for printing, and the output channels `out` and `outq` now do the job.  
-  * You can execute an arbitrary expression via a `let` binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`, where *E* prints stuff. 
+  * You can execute an arbitrary expression via a `let` binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`, where *E* prints stuff.
+  * If it helps your description, you can include extra `.` separators.
+  * Logging is allowed within a process: see 'logging and testpoints' below for description of *logging*.
   
 * Quantum step *Q*
   
@@ -200,6 +209,19 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   Starts with a lower-case letter, continues with alphanumeric, prime and underscore. (Actually, it seems, you can get away with upper case, but names in function definitions have to start with lower case.)
 
+* *logging*
+
+  | *label* `:` *loggingprocess*  
+  | *label* `:` *loggingprocess* *logging*  
+
+* *loggingprocess*
+  
+  A sub-process which may not include process invocations, parallel sub-processes or input commands. It may include output commands, but cannot send qubits. It may refer to the process's parameters, and also the parameters following `with`.
+
+* *label*
+
+  A sequence of digits. Identifies a logging process.
+  
 ## Input-Output channels, *show* and *qval*
 
 There's an input channel *in*
@@ -229,6 +251,16 @@ For qbits there is *qval*
 
 The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string *q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a probability vector in the computational basis.
 
+## Logging and testpoints
+
+Protocol descriptions become harder to read if they include lots of output commands. Often the output commands -- logging commands, in effect -- take up more space than the protocol description. It's possible to separate logging from protocol description.
+
+A process may end `with` *logging*, where *logging* is a sequence of labelled subprocesses (see *logging* above); those subprocesses can only make output steps sending classical values. In the body of the process itself there may be testpoints `/^` *label*, indicating that a particular logging subprocess should run at this point.
+
+If the logging subprocesses use parameters which aren't required in the body of the process, it may end `with` `(` *par* `,` ... `,` *par* `)` *logging*; the additional parameters are only available in the logging subprocesses. When the process is called, the caller must provide the normal and the additional logging parameters.
+
+If a process wants to use the logging parameters in the arguments of a process call (e.g. in a recursive call) then it may do so by adding `/^` `(` *E* `,` ... `,` *E* `)` to the arguments of the call; those extra arguments can refer to the logging parameters.
+
 ## Probability vectors and symbolic calculation
 
 Qtpi uses a symbolic quantum calculator: only at the point of measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose vector is unknown.
@@ -237,7 +269,7 @@ Qbits are represented as integer indices into a quantum state of probability vec
 
 The constant `h` is *sqrt*(1/2), and `h(`*k*`)` means `h`<sup>*k*</sup>.  *h* is also *cos*(&pi;/4) and *sin*(&pi;/4). The constant `f` is *sqrt*((1+`h`)/2), which is *cos*(&pi;/8), and `g` is *sqrt*((1-`h`)/2), which is *sin*(&pi;/8).
 
-An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that `a`<sub>k</sub><sup>2</sup>+`b`<sub>k</sub><sup>2</sup>=1.
+An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that `a`<sub>k</sub><sup>2</sup>+`b`<sub>k</sub><sup>2</sup>=1. To add to the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured.
 
 ### Complex probabilities
 

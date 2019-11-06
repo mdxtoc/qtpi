@@ -135,6 +135,7 @@ rule make_token = parse
   | '/'         {DIV}
   | '%'         {MOD}
   (* and STAR as multiply *)
+  | "**"        {POW}
     
   | "|0>"       {VZERO}
   | "|1>"       {VONE}

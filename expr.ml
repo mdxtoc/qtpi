@@ -71,6 +71,7 @@ and arithop =
   | TensorP
   | Div
   | Mod
+  | Power
   
 and compareop =
   | Lt
@@ -124,8 +125,9 @@ let arithprio = function
   | Plus                    -> Assoc   , 200
   | Minus                   -> Left    , 200
   | TensorP                 -> Left    , 205
-  | Times                   -> Assoc   , 210
-  | Div | Mod               -> Left    , 210
+  | Power                   -> Left    , 210
+  | Times                   -> Assoc   , 220
+  | Div | Mod               -> Left    , 220
 
 let consprio                =  Right,    300
 let unaryprio               =  NonAssoc, 400
@@ -256,6 +258,7 @@ and string_of_arithop = function
   | TensorP -> "><"
   | Div     -> "/"
   | Mod     -> "%"
+  | Power   -> "**"
   
 and string_of_compareop = function
   | Lt  -> "<"

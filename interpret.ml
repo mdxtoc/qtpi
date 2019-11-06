@@ -228,6 +228,13 @@ let rec evale env e =
                                         | Minus   -> v1-/v2
                                         | Times   -> v1*/v2
                                         | Div     -> v1//v2
+                                        | Power   -> if is_int v2 then
+                                                        v1**/int_of_num v2
+                                                     else raise (Error (e.pos, Printf.sprintf "fractional power: %s ** %s"
+                                                                                              (string_of_num v1)
+                                                                                              (string_of_num v2)
+                                                                       )
+                                                                )
                                         | Mod     -> if is_int v1 && is_int v2 then
                                                        rem v1 v2
                                                      else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"

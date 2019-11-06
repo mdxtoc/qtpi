@@ -77,7 +77,7 @@
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUS MINUS DIV MOD TENSORP
+%token PLUS MINUS DIV MOD POW TENSORP
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -96,7 +96,7 @@
 %right NOT
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS
-%left mult_op STAR DIV MOD
+%left mult_op STAR DIV MOD POW
 %left TENSORP
 %left APPEND
 
@@ -507,6 +507,7 @@ app:
   
 arith:
   | ntexpr TENSORP ntexpr               {$1,TensorP,$3}
+  | ntexpr POW ntexpr                   {$1,Power,$3}
   | ntexpr STAR ntexpr                  {$1,Times,$3}
   | ntexpr DIV ntexpr                   {$1,Div,$3}
   | ntexpr MOD ntexpr                   {$1,Mod,$3}

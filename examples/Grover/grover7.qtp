@@ -1,0 +1,34 @@
+proc System () =
+  . (newq q0 = |+>)  
+  . (newq q1 = |+>)
+  . (newq q2 = |+>)
+  . (newq q3 = |+>)
+  . (newq q4 = |+>)
+  . (newq q5 = |+>)
+  . (newq q6 = |+>)
+  .
+  . (let G = groverG 7)
+  . (let bs = randbits 7)
+  . (let U = groverU bs)
+  . (let GU = G*U)
+  . (let iters = floor (pi*sqrt(2**7)/4+0.5))
+  . /^1
+  . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, bs)
+  
+                with 1: out!["grover 7  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+
+proc Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6) =
+  if iters=0 then
+    . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6)
+    . /^1
+    . _0
+  else
+    . q0,q1,q2,q3,q4,q5,q6>>GU
+    . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6) /^ (bs)
+  fi
+  
+                with (bs)
+                  1: . out!["measurement says "; show [b0;b1;b2;b3;b4;b5;b6]; 
+                            if [b0;b1;b2;b3;b4;b5;b6]=bs then " ok" else " ** WRONG **" fi; "\n"] 
+                     . _0
+                     

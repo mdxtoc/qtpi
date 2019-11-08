@@ -98,8 +98,10 @@ time ./Qtpi examples/Warwick/newtest.qtp
 time ./Qtpi -trace examples/Grover/grover3.qtp
 time ./Qtpi -trace examples/Grover/grover4.qtp
 time ./Qtpi examples/Grover/grover5.qtp
+time ./Qtpi examples/Grover/grover6.qtp
+time ./Qtpi examples/Grover/grover7.qtp
 time ./Qtpi examples/Grover/grover8.qtp
-
+time ./Qtpi examples/Grover/grover9.qtp
 </string>
 </dict>
 </plist>

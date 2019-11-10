@@ -196,7 +196,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples; it's still included.  
     * `::` (cons) is now included.  
-    * `+`, `-`, `*`, `/` arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates).
+    * `+`, `-`, `*`, `/` `**` arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates). `**`'s second argument must be a whole number.
     * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*.
     * `&&`, `||`, boolean operators *bop*.
     * `><` tensor multiplication.

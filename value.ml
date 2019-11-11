@@ -263,7 +263,7 @@ and rprod p1 p2 =
                                                    simplify_sum (sflatten ps)
           | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
           | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
-          | Pprod p1s       , _                 -> simplify_prod (p1s @ [p2])
+          | Pprod p1s       , _                 -> simplify_prod (p2::p1s)
           | _                                   -> simplify_prod [p1;p2]
   in
   if !verbose_simplify then
@@ -321,7 +321,7 @@ and rsum p1 p2 =
           | _       , P_0       -> p1
           | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
           | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
-          | Psum p1s, _         -> simplify_sum (p1s @ [p2])
+          | Psum p1s, _         -> simplify_sum (p2 :: p1s)
           | _                   -> simplify_sum [p1;p2]
   in
   if !verbose_simplify then
@@ -599,7 +599,74 @@ and rdiv_sum_h orig_ps =
         Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
       r
  *)
- 
+
+(******** prob arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
+
+module ProbH = struct type t = prob 
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string = string_of_prob
+               end
+module ProbHash = MyHash.Make (ProbH)
+
+let memofunProb f s = 
+  let table = ProbHash.create 100 in
+  ProbHash.memofun table (fun p -> if !verbose || !verbose_qcalc 
+                                                     then Printf.printf "%s (%s)\n" s (string_of_prob p); 
+                                                   f p
+                                         )
+
+let memofun2Prob f s = 
+  let t1 = ProbHash.create 100 in
+  ProbHash.memofun t1 
+    (fun p1 -> let t2 = ProbHash.create 100 in
+               ProbHash.memofun t2 
+                 (fun p2 -> let r = f p1 p2 in
+                            if !verbose || !verbose_qcalc 
+                            then Printf.printf "%s (%s) (%s) -> %s\n" 
+                                               s 
+                                               (string_of_prob p1) 
+                                               (string_of_prob p2)
+                                               (string_of_prob r); 
+                            r
+                 )
+    )
+
+let raw_rprod = rprod
+let memo_rprod = memofun2Prob rprod "rprod"
+
+let rec rprod p1 p2 =
+  if !Settings.memoise then
+    match p1, p2 with
+    (* we do 0, 1 and neg ourselves *)
+    | P_0     , _
+    | _       , P_0     -> P_0
+    | P_1     , _       -> p2
+    | _       , P_1     -> p1
+    | Pneg  p1, _       -> rneg (rprod p1 p2)
+    | _       , Pneg p2 -> rneg (rprod p1 p2)
+    (* we memoise everything else *)
+    | _                 -> memo_rprod p1 p2
+  else
+    raw_rprod p1 p2
+
+let raw_rsum = rsum
+let memo_rsum = memofun2Prob rsum "rsum"
+
+let rec rsum p1 p2 =
+  if !Settings.memoise then
+    match p1, p2 with
+    (* we do 0 ourselves *)
+    | P_0     , _       -> p2
+    | _       , P_0     -> p1
+    (* we memoise sum *)
+    | Psum  _ , _
+    | _       , Psum  _ -> memo_rsum p1 p2
+    (* everything else is raw *)
+    | _                 -> raw_rsum p1 p2
+  else
+    raw_rsum p1 p2
+  
 (* *********************** complex arith in terms of reals ************************************ *)
 
 let c_of_p p = C (p, P_0)
@@ -612,15 +679,26 @@ let c_g = c_of_p P_g
 
 let c_i = C (P_0, P_1)
 
-let cprod (C (x1,y1)) (C (x2,y2)) = 
-  match y1, y2 with
-  | P_0, P_0 -> C (rprod x1 x2, P_0)            (* real*real *)
-  | P_0, _   -> C (rprod x1 x2, rprod x1 y2)    (* real*complex *)
-  | _  , P_0 -> C (rprod x1 x2, rprod y1 x2)    (* complex*real *)
-  | _        -> C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
+let cneg  (C (x,y)) = C (rneg x, rneg y)
 
-let csum  (C (x1,y1)) (C (x2,y2)) = C (rsum x1 x2, rsum y1 y2)
-let cneg  (C (x,y))               = C (rneg x, rneg y)
+let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  match x1,y1, x2,y2 with
+  | P_0     , P_0, _       , _    
+  | _       , _  , P_0     , P_0       -> c_0
+  | P_1     , P_0, _       , _         -> c2  
+  | _       , _  , P_1     , P_0       -> c1
+  | Pneg P_1, P_0, _       , _         -> cneg c2  
+  | _       , _  , Pneg P_1, P_0       -> cneg c1
+  | _       , P_0, _       , P_0       -> C (rprod x1 x2, P_0)            (* real    * real    *)
+  | _       , P_0, _       , _         -> C (rprod x1 x2, rprod x1 y2)    (* real    * complex *)
+  | _       , _  , _       , P_0       -> C (rprod x1 x2, rprod y1 x2)    (* complex * real    *)
+  | _                                  -> C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
+
+let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  match x1,y1, x2,y2 with
+  | P_0, P_0, _  , _    -> c2 
+  | _  , _  , P_0, P_0  -> c1
+  | _                   -> C (rsum x1 x2, rsum y1 y2)
 
 let cconj (C (x,y))               = C (x, rneg y)
 
@@ -631,69 +709,73 @@ let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
  *)
 let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
 
-(* we memoise these things ... *)
+(* we no longer memoise any of these things ...
 
-module OrderedC = struct type t = cprob 
-                         let compare = Pervasives.compare
-                         let to_string = string_of_cprob
-                  end
-module CMap = MyMap.Make (OrderedC)
-let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_cprob c); f c)
+    module OrderedC = struct type t = cprob 
+                             let compare = Pervasives.compare
+                             let to_string = string_of_cprob
+                      end
+    module CMap = MyMap.Make (OrderedC)
+    let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_cprob c); f c)
 
-module OrderedC2 = struct type t = cprob*cprob 
-                         let compare = Pervasives.compare
-                         let to_string = bracketed_string_of_pair string_of_cprob string_of_cprob
-                  end
-module C2Map = MyMap.Make (OrderedC2)
-let memofunC2 f s = 
-  curry2 (C2Map.memofun id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
-                                                     Printf.printf "%s (%s) (%s)\n" 
-                                                                   s (string_of_cprob c1) (string_of_cprob c2);
-                                                   f c1 c2
-                                      )
-                           )
-         )
-module OrderedCP = struct type t = cprob*prob 
-                         let compare = Pervasives.compare
-                         let to_string = bracketed_string_of_pair string_of_cprob string_of_prob
-                  end
-module CPMap = MyMap.Make (OrderedCP)
-let memofunCP f s = 
-  curry2 (CPMap.memofun id (uncurry2 (fun c p -> if !verbose || !verbose_qcalc then 
-                                                   Printf.printf "%s (%s) (%s)\n" 
-                                                                 s (string_of_cprob c) (string_of_prob p);
-                                                 f c p
-                                    )
-                           )
-         )
+    module OrderedC2 = struct type t = cprob*cprob 
+                             let compare = Pervasives.compare
+                             let to_string = bracketed_string_of_pair string_of_cprob string_of_cprob
+                      end
+    module C2Map = MyMap.Make (OrderedC2)
+    let memofunC2 f s = 
+      curry2 (C2Map.memofun id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
+                                                         Printf.printf "%s (%s) (%s)\n" 
+                                                                       s (string_of_cprob c1) (string_of_cprob c2);
+                                                       f c1 c2
+                                          )
+                               )
+             )
+    module OrderedCP = struct type t = cprob*prob 
+                             let compare = Pervasives.compare
+                             let to_string = bracketed_string_of_pair string_of_cprob string_of_prob
+                      end
+    module CPMap = MyMap.Make (OrderedCP)
+    let memofunCP f s = 
+      curry2 (CPMap.memofun id (uncurry2 (fun c p -> if !verbose || !verbose_qcalc then 
+                                                       Printf.printf "%s (%s) (%s)\n" 
+                                                                     s (string_of_cprob c) (string_of_prob p);
+                                                     f c p
+                                        )
+                               )
+             )
 
-let mcprod = memofunC2 cprod "cprod"
-let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
-  match x1,y1, x2,y2 with
-  | P_0     , P_0, _       , _    
-  | _       , _  , P_0     , P_0       -> c_0
-  | P_1     , P_0, _       , _         -> c2  
-  | _       , _  , P_1     , P_0       -> c1
-  | Pneg P_1, P_0, _       , _         -> cneg c2  
-  | _       , _  , Pneg P_1, P_0       -> cneg c1
-  | _                                  -> mcprod c1 c2
+    let mcprod = memofunC2 cprod "cprod"
+    let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+      match x1,y1, x2,y2 with
+      | P_0     , P_0, _       , _    
+      | _       , _  , P_0     , P_0       -> c_0
+      | P_1     , P_0, _       , _         -> c2  
+      | _       , _  , P_1     , P_0       -> c1
+      | Pneg P_1, P_0, _       , _         -> cneg c2  
+      | _       , _  , Pneg P_1, P_0       -> cneg c1
+      | _                                  -> mcprod c1 c2
   
-let mcsum = memofunC2 csum "csum"
-let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
-  match x1,y1, x2,y2 with
-  | P_0, P_0, _  , _    -> c2 
-  | _  , _  , P_0, P_0  -> c1
-  | _                   -> mcsum c1 c2
+    let mcsum = memofunC2 csum "csum"
+    let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+      match x1,y1, x2,y2 with
+      | P_0, P_0, _  , _    -> c2 
+      | _  , _  , P_0, P_0  -> c1
+      | _                   -> mcsum c1 c2
   
-(* let cneg = memofunC cneg "cneg" -- possibly not worth it *)
-(* let cconj = memofunC cconj "cconj" -- not worth it *)
-let absq = memofunC absq "absq"
+    (* let cneg = memofunC cneg "cneg" -- possibly not worth it *)
+    (* let cconj = memofunC cconj "cconj" -- not worth it *)
 
-(* we can't really divide
-    let c_r_div = memofunCP c_r_div "c_r_div"
+    (* absq is used a lot in measurement: perhaps worth memoising. Or rather perhaps not,
+       if rsum and rmult are memoised.
+     *)
+    let absq x = (if !Settings.memoise then memofunC absq "absq" else absq) x
+
+    (* we can't really divide
+        let c_r_div = memofunCP c_r_div "c_r_div"
+     *)
+    let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
  *)
-let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
-
 (* *********************** defining vectors, matrices ************************************ *)
 
 let make_v ps = P_1, Array.of_list ps

@@ -6,11 +6,12 @@ proc System () =
   . (newq q4 = |+>)
   . (newq q5 = |+>)
   .
-  . (let G = groverG 6)
-  . (let bs = randbits 6)
+  . (let n = 6)
+  . (let G = groverG n)
+  . (let bs = randbits n)
   . (let U = groverU bs)
   . (let GU = G*U)
-  . (let iters = floor (pi*sqrt(2**6)/4+0.5))
+  . (let iters = floor (pi*sqrt(2**n)/4+0.5))
   . /^1
   . Grover (iters, GU, q0, q1, q2, q3, q4, q5, bs)
   

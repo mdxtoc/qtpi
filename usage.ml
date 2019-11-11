@@ -44,8 +44,8 @@ let opts = Arg.align
                     Printf.sprintf " matchcheck the program (default %B)" !matchcheck);
               ("-measuredestroys" , Arg.Bool (set_arg measuredestroys), 
                     Printf.sprintf " measurement destroys a qbit (default %B)" !measuredestroys);
-              (* ("-memoise" , Arg.Bool (set_arg memoise), 
-                    Printf.sprintf " memoise calculator operations (default %B)" !memoise); *)
+              ("-memoise" , Arg.Bool (set_arg memoise), 
+                    Printf.sprintf " memoise calculator operations mult and sum (default %B)" !memoise);
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qbit states");
               ("-showabvalues"  , Arg.Bool (set_arg showabvalues), 

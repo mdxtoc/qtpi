@@ -1,21 +1,22 @@
-proc Alice (s, qc) =
-  (let i,j = randbit(), randbit())
-  out!["Alice decides to send "; show (i,j); "\n"] .
-  s?(x) . x >> match i, j .
+
+proc System() = (new cA:^qbit,cB:^qbit,cAB:^qbit) 
+                | Alice(cA,cAB) | Bob(cB,cAB) | EPR(cA,cB)
+
+proc EPR(cA:^qbit,cB:^qbit) = 
+  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
+
+proc Alice (cA:^qbit, cAB:^qbit) =
+  (let i:bit, j:bit = randbit(), randbit()) /^1
+  cA?(x) . x >> match i, j .
                + 0b0,0b0 . I
                + 0b0,0b1 . X
                + 0b1,0b0 . Z
                + 0b1,0b1 . Z*X     .
-  qc!x . _0
-  
-proc Bob(t, qc) =
-  t?(y) . qc?(x) . 
-  x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) .
-  out!["Bob receives "; show (i,j); "\n" ] .
+  cAB!x . _0
+                                with 1: out!["Alice decides to send "; show (i,j); "\n"] . _0
+
+proc Bob(cB:^qbit, cAB:^qbit) =
+  cB?(y) . cAB?(x) . 
+  x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . /^2
   _0
-
-proc Source(s:^qbit,t:^qbit) = 
-  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . s!x . t!y . _0 
-
-proc System() = (new s,t,qc) 
-                | Alice(s,qc) | Bob(t,qc) | Source(s,t)
+                                with 2: out!["Bob receives "; show (i,j); "\n" ] . _0

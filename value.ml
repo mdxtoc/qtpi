@@ -176,7 +176,7 @@ let rec string_of_prob p =
   | P_g             -> "g"
   | P_h 1           -> "h"
   | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_qbit q) 
+  | Psymb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_int q) 
                                                 (if !showabvalues then Printf.sprintf "[%f]" f else "")
   | Pneg p'         -> "-" ^ possbra p'
   | Pprod ps        -> String.concat "*" (List.map possbra ps)
@@ -207,9 +207,9 @@ and string_of_cprob (C (x,y)) =
   | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
   | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
   
-and string_of_qbit = string_of_int
+and string_of_qbit i = "q" ^ string_of_int i
 
-and short_string_of_qbit = string_of_int
+and short_string_of_qbit i = string_of_qbit i
 
 (* *********************** simplification ************************************ *)
 

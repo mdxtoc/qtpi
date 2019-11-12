@@ -62,8 +62,10 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp
 ./Qtpi examples/cointoss_tidied.qtp
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
+./Qtpi examples/densecoding_untyped.qtp
 ./Qtpi examples/basicteleportplus.qtp
 ./Qtpi -trace examples/basicteleportrandom.qtp
+./Qtpi -trace examples/basicteleportrandom_untyped.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 # randomteleport_with is a test of formula simplification. The problem is that the simplification
@@ -91,6 +93,7 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...
 # and each extra qbit makes it more than 4 times slower. The time is all in the measurement ...
+# trying 18: bound to fail!
 
 time ./Qtpi examples/Warwick/test.qtp
 time ./Qtpi examples/Warwick/newtest.qtp

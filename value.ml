@@ -207,7 +207,7 @@ and string_of_cprob (C (x,y)) =
   | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
   | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
   
-and string_of_qbit i = "q" ^ string_of_int i
+and string_of_qbit i = "#" ^ string_of_int i
 
 and short_string_of_qbit i = string_of_qbit i
 
@@ -1063,7 +1063,7 @@ and so_pv v =
   
 and string_of_probvec = function
   | P_1, vv -> so_pv vv
-  | vm , vv -> Printf.sprintf "[%s]%s" (string_of_prob vm) (so_pv vv)
+  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_prob vm) (so_pv vv)
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then

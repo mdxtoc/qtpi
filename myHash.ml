@@ -47,10 +47,7 @@ module Make (H : HashedType) = struct
   include Hashtbl.Make (struct type t = H.t let equal = H.equal let hash = H.hash end)
       
   let to_string string_of_target table =
-    let keys = to_seq_keys table in
-    let values = to_seq_values table in
-    let realise s = List.rev (Seq.fold_left (fun xs x -> x::xs) [] s) in
-    let pairs = Listutils.zip (realise keys) (realise values) in
+    let pairs = fold (fun key value pairs -> (key,value)::pairs) table [] in
     Printf.sprintf "{%s}" (Listutils.string_of_assoc H.to_string string_of_target "->" ";" pairs)
     
   let memofun table newf =

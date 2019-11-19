@@ -1,0 +1,10 @@
+proc System () =
+  . (newq q0=|1>, q1=|0>, anc=|+>)
+  . anc,q0,q1>>F . /^1
+  . q0,anc>>CNot . /^1
+  . _0
+                with 1: . out!["q0 = "] . outq!qval q0 . 
+                        . out!["; q1 = "] . outq!qval q1 
+                        . out!["; anc = "] . outq!qval anc
+                        . out!["\n"]
+                        . _0

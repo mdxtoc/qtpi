@@ -1,0 +1,7 @@
+proc System () =
+  . (newq q0=|0>, q1=|0>)
+  . q0>>H
+  . q1>>X
+  . q0,q1>>CNot
+  . out!["q0 = "] . outq!qval q0 . out!["\n"]
+  . _0

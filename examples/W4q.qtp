@@ -1,0 +1,34 @@
+proc W2q (c) =
+  . (newq q0=|1>, q1=|0>, anc=|+>)
+  . anc,q0,q1>>F . /^2
+  . q0,anc>>CNot . /^2
+  . c!q0 . c!q1 . dispose!anc
+  . _0
+                with 2: . out!["W2q q0 = "] . outq!qval q0 . 
+                        . out!["; q1 = "]   . outq!qval q1 
+                        . out!["; anc = "]  . outq!qval anc
+                        . out!["\n"]
+                        . _0
+proc W4q (c) =
+ | W2q (c)
+ | . c?(q0) 
+   . c?(q1)
+   . (newq q2=|0>, q3=|0>, anc=|+>)
+   . anc,q0,q2>>F . /^4
+   . anc,q1,q3>>F . /^4
+   . q2,anc>>CNot . /^4
+   . q3,anc>>CNot . /^4
+   . c!q0 . c!q1 . c!q2 . c!q3 . dispose!anc
+   . _0
+                with 4: . out!["W4q q0 = "] . outq!qval q0 . 
+                        . out!["; q1 = "]   . outq!qval q1 
+                        . out!["; q2 = "]   . outq!qval q2 
+                        . out!["; q3 = "]   . outq!qval q3 
+                        . out!["; anc = "]  . outq!qval anc
+                        . out!["\n"]
+                        . _0
+
+proc System () =
+  . (new c)
+  . W4q (c)
+  

@@ -1,0 +1,10 @@
+(* from https://quantumcomputing.stackexchange.com/questions/8454/how-to-prepare-an-initial-state-for-variational-quantum-algorithms *)
+
+proc System() =
+  . (newq q0=|0>, q1=|0>, q2=|0>)
+  . q0,q1 >> H><H
+  . q0,q1,q2 >> T
+  . q2,q0 >> CNot
+  . q2,q1 >> CNot
+  . out!["q0 = "] . outq!qval q0 . out!["\n"]
+  . _0

@@ -467,14 +467,19 @@ let rec record ((qs, vq) as qv) =
                | _                   -> report (); List.iter accept qs
 
 let qsort (qs,v) = 
-  let qs = List.sort Pervasives.compare qs in
+  let qs' = List.sort Pervasives.compare qs in
   let reorder (qs,v) order =
     let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
     List.fold_left reorder (qs,v) order
   in
-  reorder (qs,v) (numbered qs)
+  reorder (qs,v) (numbered qs')
 
 let ugstep_padded pn qs g gpad = 
+  if !verbose || !verbose_qcalc then
+    Printf.printf "ugstep_padded %s %s %s %s\n" pn
+                                                (bracketed_string_of_list string_of_qbit qs)
+                                                (string_of_gate g)
+                                                (string_of_gate gpad);
   if g=g_I && List.length qs=1 then () else 
     ((* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
      let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"

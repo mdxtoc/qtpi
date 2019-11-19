@@ -848,7 +848,7 @@ let g_H  = make_g   [[c_h       ; c_h        ];
 
 let g_Rz = make_g   [[c_f       ; pcneg c_g  ];
                      [c_g       ; c_f        ]]
-let m_G  = make_g   [[c_g       ; pcneg c_f  ];
+let g_G  = make_g   [[c_g       ; pcneg c_f  ];
                      [c_f       ; c_g        ]]
 
 (* experimental Rx(pi/8) gate *)
@@ -863,6 +863,26 @@ let g_Phi = function (* as Pauli *)
   | 3 -> g_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
+let g_Toffoli = (* tediously, sorry *)
+  make_g  [[c_1; c_0; c_0; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_1; c_0; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_1; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_1; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_1; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_0; c_1; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_0; c_0; c_0; c_1 ];
+           [c_0; c_0; c_0; c_0; c_0; c_0; c_1; c_0 ]]
+           
+let g_Fredkin = (* tediously, sorry *)
+  make_g  [[c_1; c_0; c_0; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_1; c_0; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_1; c_0; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_1; c_0; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_1; c_0; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_0; c_0; c_1; c_0 ];
+           [c_0; c_0; c_0; c_0; c_0; c_1; c_0; c_0 ];
+           [c_0; c_0; c_0; c_0; c_0; c_0; c_0; c_1 ]]
+           
 let make_C g = 
   let m = cpaa_of_gate g in
   make_g  [[c_1; c_0; c_0      ; c_0       ];
@@ -870,10 +890,10 @@ let make_C g =
            [c_0; c_0; m.(0).(0); m.(0).(1) ];
            [c_0; c_0; m.(1).(0); m.(1).(1) ]]
     
-let m_Cnot = make_C g_X
-let m_CX   = make_C g_X
-let m_CY   = make_C g_Y
-let m_CZ   = make_C g_Z 
+let g_CX   = make_C g_X
+let g_CY   = make_C g_Y
+let g_CZ   = make_C g_Z 
+let g_Cnot = g_CX
                       
 let g_1 = make_g [[c_1]] (* a unit for folding *)
 let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
@@ -1067,14 +1087,16 @@ and string_of_probvec = function
   
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then
-                  (if g=g_I then Some "I" else
-                   if g=g_X then Some "X" else
-                   if g=g_Y then Some "Y" else
-                   if g=g_Z then Some "Z" else
-                   if g=g_H then Some "H" else
-                   if g=g_Rz then Some "Rz" else
-                   if g=g_Rx then Some "Rx" else
-                   if g=m_Cnot then Some "Cnot" else
+                  (if g=g_I       then Some "I" else
+                   if g=g_X       then Some "X" else
+                   if g=g_Y       then Some "Y" else
+                   if g=g_Z       then Some "Z" else
+                   if g=g_H       then Some "H" else
+                   if g=g_Rz      then Some "Rz" else
+                   if g=g_Rx      then Some "Rx" else
+                   if g=g_Cnot    then Some "Cnot" else
+                   if g=g_Toffoli then Some "T" else 
+                   if g=g_Fredkin then Some "F" else 
                    None
                   )
                 else None

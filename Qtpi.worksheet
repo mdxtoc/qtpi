@@ -30,7 +30,7 @@
 # in BBEdit put the cursor on a line and press ctrl-return (or the Enter key if you have a large keyboard)
 
 # change the directory to point to your qtpi directory. Then execute the first three lines
-# (cd, make, make ). After that, just make Qtpi whenever you need to
+# (cd &lt;qtpi directory&gt;, make clean, make links). After that, just make Qtpi whenever you need to
 
 cd ~/gitrepositories/qtpi
 
@@ -107,9 +107,12 @@ time ./Qtpi examples/Grover/grover8.qtp
 time ./Qtpi examples/Grover/grover9.qtp
 
 time ./Qtpi examples/W2.qtp
-time ./Qtpi -trace examples/W2q.qtp
+time ./Qtpi examples/W2q.qtp
 time ./Qtpi examples/W3.qtp
-time ./Qtpi -trace examples/W4q.qtp
+time ./Qtpi examples/W4q.qtp
+time ./Qtpi examples/W8q.qtp
+
+time ./Qtpi examples/election8.qtp
 </string>
 </dict>
 </plist>

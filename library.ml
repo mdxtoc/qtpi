@@ -70,6 +70,9 @@ let _ = Interpret.know ("CZ"    , "gate", vgate g_CZ)
 
 let _ = Interpret.know ("T"    , "gate", vgate g_Toffoli)
 let _ = Interpret.know ("F"    , "gate", vgate g_Fredkin)
+let _ = Interpret.know ("Cswap", "gate", vgate g_Fredkin)
+let _ = Interpret.know ("CSwap", "gate", vgate g_Fredkin)
+let _ = Interpret.know ("CSWAP", "gate", vgate g_Fredkin)
 
 let v_groverU vs = groverU (List.map bitv vs)
 

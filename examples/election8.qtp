@@ -1,0 +1,59 @@
+proc W1q (c1) = (newq q=|1>) c1!q . _0
+
+proc W2q (c2) =
+  (new c1)
+  | W1q (c1)
+  | . c1?(q0)
+    . (newq q1=|0>, anc=|+>)
+    . anc,q0,q1>>F . 
+    . q0,anc>>CNot . 
+    . c2!q0 . c2!q1 . dispose!anc
+    . _0
+                    
+proc W4q (c4) =
+ (new c2)
+ | W2q (c2)
+ | . c2?(q0) 
+   . c2?(q1)
+   . (newq q2=|0>, q3=|0>, anc=|+>)
+   . anc,q0,q2>>F . 
+   . anc,q1,q3>>F . 
+   . q2,anc>>CNot . 
+   . q3,anc>>CNot . 
+   . c4!q0 . c4!q1 . c4!q2 . c4!q3 . dispose!anc
+   . _0
+
+proc W8q (c8) =
+ (new c4)
+ | W4q (c4)
+ | . c4?(q0) 
+   . c4?(q1)
+   . c4?(q2)
+   . c4?(q3)
+   . (newq q4=|0>, q5=|0>, q6=|0>, q7=|0>, anc=|+>)
+   . anc,q0,q4>>F . 
+   . anc,q1,q5>>F . 
+   . anc,q2,q6>>F . 
+   . anc,q3,q7>>F . 
+   . q4,anc>>CNot . 
+   . q5,anc>>CNot . 
+   . q6,anc>>CNot . 
+   . q7,anc>>CNot . 
+   . c8!q0 . c8!q1 . c8!q2 . c8!q3 . c8!q4 . c8!q5 . c8!q6 . c8!q7 . dispose!anc
+   . _0
+
+proc System () =
+  . (new qc, bc)
+  | W8q (qc)
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | qc?(q) . q-/-(b) . bc!b . _0
+  | bc?(b0) . bc?(b1) . bc?(b2) . bc?(b3) . bc?(b4) . bc?(b5) . bc?(b6) . bc?(b7) 
+    . out!["elected "; show [b0;b1;b2;b3;b4;b5;b6;b7]; "\n"] . _0
+  
+  

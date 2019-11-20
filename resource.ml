@@ -114,6 +114,7 @@ let type_of_pattern p =
  
 (* by which I think I mean: an expression is classical if it uses no resource *)
 
+(* odd, this: we have a resourceid which is null. But I can't see how to get rid of it ... *)
 type resource =
   | RNull
   | RQbit of resourceid                
@@ -232,13 +233,19 @@ let rec resources_of_resource disjoint r =
                        List.fold_left ResourceSet.union ResourceSet.empty rsets
   
 and runion disjoint rset1 rset2 =
-  if disjoint && not (ResourceSet.is_empty (ResourceSet.inter rset1 rset2)) 
-  then raise (OverLap (Printf.sprintf "non-disjoint resources (%s) and (%s)" 
-                                      (ResourceSet.to_string rset1)
-                                      (ResourceSet.to_string rset2)
-                      )
-             )
-  else ResourceSet.union rset1 rset2
+  let purge set =  if ResourceSet.mem RNull set then 
+                     Printf.printf "** tell Richard ** runion saw %s\n" (ResourceSet.to_string set);
+                   ResourceSet.remove RNull set
+  in
+  let rset1 = purge rset1 in
+  let rset2 = purge rset2 in
+  if disjoint && not (ResourceSet.is_empty (ResourceSet.inter rset1 rset2))
+    then raise (OverLap (Printf.sprintf "non-disjoint resources (%s) and (%s)" 
+                                        (ResourceSet.to_string rset1)
+                                        (ResourceSet.to_string rset2)
+                        )
+               )
+    else ResourceSet.union rset1 rset2
   
 (* and in what follows *)
 
@@ -481,7 +488,7 @@ and rck_proc mon state env proc =
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
                                                             state env qe 
                                         in
-                                        let usedg = ((snd <.> resources_of_expr state env) ||~~ ResourceSet.singleton RNull) gopt in
+                                        let usedg = ((snd <.> resources_of_expr state env) ||~~ ResourceSet.empty) gopt in
                                         let env' = match pattern.inst.pnode with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)

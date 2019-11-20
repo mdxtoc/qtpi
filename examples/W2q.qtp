@@ -1,10 +1,21 @@
-proc System () =
-  . (newq q0=|1>, q1=|0>, anc=|+>)
-  . anc,q0,q1>>F . /^1
-  . q0,anc>>CNot . /^1
-  . _0
-                with 1: . out!["q0 = "] . outq!qval q0 . 
-                        . out!["; q1 = "] . outq!qval q1 
-                        . out!["; anc = "] . outq!qval anc
+proc W1q (c1) = (newq q=|1>) c1!q . _0
+
+proc W2q (c2) =
+  (new c1)
+  | W1q (c1)
+  | . c1?(q0)
+    . (newq q1=|0>, anc=|+>)
+    . anc,q0,q1>>F . 
+    . q0,anc>>CNot . /^1
+    . c2!q0 . c2!q1 . dispose!anc
+    . _0
+                with 1: . out!["W2q q0 = "] . outq!qval q0 
+                        . out!["; q1 = "]   . outq!qval q1 
+                        . out!["; anc = "]  . outq!qval anc
                         . out!["\n"]
                         . _0
+                    
+proc System () =
+  . (new c)
+  | W2q (c)
+  | . c?(q0) . c?(q1) . _0

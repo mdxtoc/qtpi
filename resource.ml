@@ -212,27 +212,11 @@ type use =
   
 exception OverLap of string
 
-let rec resources_of_resource disjoint r =
-  let bad () = raise (OverLap (Printf.sprintf "non-disjoint resource %s" 
-                                              (string_of_resource r)
-                              )
-                     )
-  in
-  match r with
-  | RNull           -> ResourceSet.empty
-  | RQbit _         -> ResourceSet.singleton r                
-  | RTuple rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
-                       (try List.fold_left (runion disjoint) ResourceSet.empty rsets 
-                        with OverLap _ -> bad()
-                       )
-  | RList _         -> ResourceSet.singleton r
-  | RCons  (r1,r2)  -> let rset1 = resources_of_resource disjoint r1 in
-                       let rset2 = resources_of_resource disjoint r2 in
-                       (try runion disjoint rset1 rset2 with OverLap _ -> bad ()) 
-  | RMaybe rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
-                       List.fold_left ResourceSet.union ResourceSet.empty rsets
+let rsingleton = function 
+  | RNull -> ResourceSet.empty
+  | r     -> ResourceSet.singleton r
   
-and runion disjoint rset1 rset2 =
+let runion disjoint rset1 rset2 =
   let purge set =  if ResourceSet.mem RNull set then 
                      Printf.printf "** tell Richard ** runion saw %s\n" (ResourceSet.to_string set);
                    ResourceSet.remove RNull set
@@ -246,6 +230,26 @@ and runion disjoint rset1 rset2 =
                         )
                )
     else ResourceSet.union rset1 rset2
+  
+let rec resources_of_resource disjoint r =
+  let bad () = raise (OverLap (Printf.sprintf "non-disjoint resource %s" 
+                                              (string_of_resource r)
+                              )
+                     )
+  in
+  match r with
+  | RNull           -> ResourceSet.empty
+  | RQbit _         -> rsingleton r                
+  | RTuple rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
+                       (try List.fold_left (runion disjoint) ResourceSet.empty rsets 
+                        with OverLap _ -> bad()
+                       )
+  | RList _         -> rsingleton r
+  | RCons  (r1,r2)  -> let rset1 = resources_of_resource disjoint r1 in
+                       let rset2 = resources_of_resource disjoint r2 in
+                       (try runion disjoint rset1 rset2 with OverLap _ -> bad ()) 
+  | RMaybe rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
+                       List.fold_left ResourceSet.union ResourceSet.empty rsets (* not runion -- yes *)
   
 (* and in what follows *)
 
@@ -316,7 +320,7 @@ let rec r_o_e disjoint state env e =
   let rec re_env use env e =
     let rec re use e =
       let do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
-                                                                 r::rs, ResourceSet.union set used 
+                                                                 r::rs, ResourceSet.union set used (* not runion - yes *)
                                          )
                                          es
                                          ([],ResourceSet.empty) 
@@ -357,7 +361,7 @@ let rec r_o_e disjoint state env e =
                                                               )
                                                         )
                                                else
-                                               if State.find q state then r, ResourceSet.singleton r
+                                               if State.find q state then r, rsingleton r
                                                else
                                                  raise (Error (e.pos, Printf.sprintf "use of sent-away%s qbit %s" 
                                                                                      (if !measuredestroys then "/measured" else "")

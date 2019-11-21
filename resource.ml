@@ -115,6 +115,8 @@ let type_of_pattern p =
 (* by which I think I mean: an expression is classical if it uses no resource *)
 
 (* odd, this: we have a resourceid which is null. But I can't see how to get rid of it ... *)
+(* actually it would need to go over to options. But, in effect, this is a kind of option type. Sigh. *)
+ 
 type resource =
   | RNull
   | RQbit of resourceid                

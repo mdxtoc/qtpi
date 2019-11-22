@@ -600,14 +600,14 @@ let rec qmeasure disposes pn gate q =
          Printf.printf "getsum %d %d " i n;
        let els = Listutils.tabulate n (fun j -> absq vv.(i+j)) in
        let r = simplify_sum (sflatten els) in
-       if !verbose || !verbose_qsim then 
+       if !verbose || !verbose_qsim || !verbose_measure then 
          Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_prob els) (string_of_prob r);
        r
      in
      let prob = 
        (* _for_leftfold nvhalf 1 nv (fun i -> rsum (absq vv.(i))) P_0 *) getsum nvhalf nvhalf
      in
-     if !verbose || !verbose_qsim || paranoid then 
+     if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
        Printf.printf "%s qmeasure [] %s; %s|->%s; prob |1> = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
@@ -621,12 +621,12 @@ let rec qmeasure disposes pn gate q =
      let r = let vm_sq_value = compute vm in
              let prob_value = compute prob in (* squaring has been done *)
              if prob_value=vm_sq_value then 
-               (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 1\n";
+               (if !verbose || !verbose_qsim || !verbose_measure || paranoid then Printf.printf " that's 1\n";
                 1
                ) 
              else
              if prob_value=0.0 then
-               (if !verbose || !verbose_qsim || paranoid then Printf.printf " that's 0\n";
+               (if !verbose || !verbose_qsim || !verbose_measure || paranoid then Printf.printf " that's 0\n";
                 0
                ) 
              else
@@ -634,7 +634,7 @@ let rec qmeasure disposes pn gate q =
                let r = if rg<prob_value then 1 else 0 in
                if !checkrandombias then
                  (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
-               if !verbose || !verbose_qsim || paranoid then 
+               if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
                  Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r (string_of_num !_zeroes) (string_of_num !_ones);
                r
      in
@@ -676,7 +676,7 @@ let rec qmeasure disposes pn gate q =
               P_1
              )
            else
-             (if !verbose || !verbose_qsim || paranoid then
+             (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
                 Printf.printf "\noh dear! q=%d r=%d; was %s prob %s; un-normalised %s modulus %s vm %s\n" 
                                           q r (string_of_qval (qval q)) (string_of_prob prob)
                                           (string_of_qval (qs,v)) (string_of_prob modulus) (string_of_prob vm); 
@@ -684,7 +684,7 @@ let rec qmeasure disposes pn gate q =
              ) 
      in
      let qv = qs, (vm',vv) in
-     if !verbose || !verbose_qsim then 
+     if !verbose || !verbose_qsim || !verbose_measure then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
                                                                                      (string_of_qbit q)
                                                                                      (string_of_qval (qval q))

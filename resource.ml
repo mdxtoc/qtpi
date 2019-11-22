@@ -232,7 +232,10 @@ let runion disjoint rset1 rset2 =
                         )
                )
     else ResourceSet.union rset1 rset2
-  
+
+let runbind = ResourceSet.remove 
+let runbind2 r (a,u) = a, runbind r u
+
 let rec resources_of_resource disjoint r =
   let bad () = raise (OverLap (Printf.sprintf "non-disjoint resource %s" 
                                               (string_of_resource r)
@@ -259,10 +262,13 @@ let disju = List.fold_left (runion true) ResourceSet.empty
 
 (* rck_pat can be given a resource (Some res) or rely on types. In the latter case, which
    arises only in Read steps, we don't have to consider more than the range of patterns 
-   that can arise in bpats -- names, underscores and tuples 
+   that can arise in bpats -- names, underscores and tuples.
+   
+   To handle resource accounting properly, rck_pat must remove resource bindings it creates from 
+   the resource set it returns.
  *)
  
-let rec rck_pat contn state env pat resopt =
+let rec rck_pat contn unbind state env pat resopt =
   let bad () = raise (Disaster (pat.pos, Printf.sprintf "pattern %s resource %s"
                                                         (string_of_pattern pat)
                                                         (string_of_option string_of_resource resopt)
@@ -283,15 +289,15 @@ let rec rck_pat contn state env pat resopt =
   | PatBool   _
   | PatChar   _
   | PatString _
-  | PatBasisv _       -> contn state env
+  | PatBasisv _       -> contn state env (* no resources here *)
   | PatName   n       -> let state, res = match resopt with
                            | Some res -> state, res
                            | None     -> resource_of_type (pat.pos,n) state (type_of_pattern pat) 
                          in
-                         contn state (env<@+>(n,res))
+                         unbind res (contn state (env<@+>(n,res)))
   | PatCons   (ph,pt) -> let docons contn state env rh rt =
-                           let tl state env = rck_pat contn state env pt (Some rt) in
-                           rck_pat tl state env ph (Some rh)
+                           let tl state env = rck_pat contn unbind state env pt (Some rt) in
+                           rck_pat tl unbind state env ph (Some rh)
                          in
                          (match (_The resopt) with (* this pattern is not in bpat *)
                           | RNull         -> docons contn state env RNull RNull
@@ -302,7 +308,7 @@ let rec rck_pat contn state env pat resopt =
                           | _             -> bad ()
                          )
   | PatTuple ps       -> let rec rck state env = function
-                           | (p,r)::prs -> rck_pat (fun state env -> rck state env prs) state env p r
+                           | (p,r)::prs -> rck_pat (fun state env -> rck state env prs) unbind state env p r
                            | []         -> contn state env
                          in
                          (match resopt with
@@ -312,8 +318,8 @@ let rec rck_pat contn state env pat resopt =
                           | _                -> bad ()
                          )
 
-and rck_pats rck state env reopt pxs =
-  let rck_px (pat,x) = rck_pat (fun state env -> rck state env x) state env pat reopt in
+and rck_pats rck unbind state env reopt pxs =
+  let rck_px (pat,x) = rck_pat (fun state env -> rck state env x) unbind state env pat reopt in
   List.map rck_px pxs
     
 ;; (* to give rck_pat and rck_pats a polytype *)
@@ -386,7 +392,7 @@ let rec r_o_e disjoint state env e =
                                  ),
                                  ResourceSet.union u1 u2
       | EMatch      (e,ems)   -> let re, usede = re use e in
-                                 let rus = rck_pats (fun _ env -> re_env use env) state env (Some re) ems in
+                                 let rus = rck_pats (fun _ env -> re_env use env) runbind2 state env (Some re) ems in
                                  let rs, useds = unzip rus in
                                  (match List.filter (function RNull -> false | _ -> true) rs with
                                   | []  -> RNull
@@ -415,7 +421,7 @@ let rec r_o_e disjoint state env e =
     and rck_edecl state env e ed = 
       match ed.inst with
       | EDPat (wpat,_,we)        -> let wr, wused = re use we in
-                                    let r, used = rck_pat (fun state env -> resources_of_expr state env e) state env wpat (Some wr) in
+                                    let r, used = rck_pat (fun state env -> resources_of_expr state env e) runbind2 state env wpat (Some wr) in
                                     r, ResourceSet.union used wused
       | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst,RNull) in (* functions aren't resource *)
                                     let wr, wused = rck_fun state env wfpats we in
@@ -429,7 +435,7 @@ let rec r_o_e disjoint state env e =
 and rck_fun state env pats expr =
   (* this works because we only have bpats as params *)
   let pos = pos_of_instances pats in
-  rck_pat (fun state env -> resources_of_expr state env expr) 
+  rck_pat (fun state env -> resources_of_expr state env expr) runbind2 
           state env 
           (adorn pos (pwrap None (PatTuple pats))) (* not in the tree, so nobody should notice *)
           None
@@ -469,23 +475,24 @@ and rck_proc mon state env proc =
                                    let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
                                    rp state env proc
       | WithQbit (qspecs, proc) -> (* all new qbits *)
-                                   let do_qspec (used, state, env) (param, eopt) =
+                                   let do_qspec (qs, used, state, env) (param, eopt) =
                                      let _, usede = match eopt with
                                                     | Some e -> resources_of_expr state env e
                                                     | None   -> RNull, ResourceSet.empty
                                      in
                                      let n, _ = param.inst in
                                      let state, q = newqid (param.pos,n) state in
-                                     (ResourceSet.union used usede), state, env <@+> (n,RQbit q)
+                                     RQbit q::qs, ResourceSet.union used usede, state, env <@+> (n,RQbit q)
                                    in
-                                   let used, state, env = 
-                                     List.fold_left do_qspec (ResourceSet.empty, state, env) qspecs 
+                                   let qs, used, state, env = 
+                                     List.fold_left do_qspec ([], ResourceSet.empty, state, env) qspecs 
                                    in
-                                   ResourceSet.union used (rp state env proc)
+                                   List.fold_left (revargs runbind) (ResourceSet.union used (rp state env proc)) qs
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
                                    let pat, e = letspec in
                                    let re, usede = resources_of_expr state env e in 
-                                   let used = rck_pat (fun state env -> rp state env proc) state env pat (Some re) in
+                                   let used = rck_pat (fun state env -> rp state env proc) runbind state env pat (Some re) in
+                                   (* rck_pat does the runbinding *)
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, gopt, pattern) -> 
@@ -526,12 +533,12 @@ and rck_proc mon state env proc =
                                    let prs = List.map (rp state env) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
       | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
-                                   List.fold_left ResourceSet.union usede (rck_pats( rck_proc mon) state env (Some re) pms)
+                                   List.fold_left ResourceSet.union usede (rck_pats (rck_proc mon) runbind state env (Some re) pms)
       | GSum gs                 -> 
           let rg (iostep, proc) =
             match iostep.inst with 
             | Read (ce,pat)  -> let _, usedce = resources_of_expr state env ce in
-                                let used = rck_pat (fun state env -> rp state env proc) state env pat None in
+                                let used = rck_pat (fun state env -> rp state env proc) runbind state env pat None in
                                 ResourceSet.union usedce used
             | Write (ce,e)   -> (try let _, usedce = resources_of_expr state env ce in
                                      let r, usede = disjoint_resources_of_expr state env e in

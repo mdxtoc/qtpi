@@ -21,7 +21,7 @@
     (or look at http://www.gnu.org).
 *)
  
-exception Can'tHappen of string	(* for anybody to use *)
+exception Can'tHappen of string (* for anybody to use *)
 
 let temp_setting vref v f =
   let oldv = !vref in
@@ -32,7 +32,7 @@ let temp_setting vref v f =
     result
   with exn -> vref:=oldv; raise exn
   
-let chanbuf_limit = ref 0			(* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
+let chanbuf_limit = ref 0           (* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
 
 let checkrandombias = ref false
 
@@ -66,19 +66,21 @@ let traceIO = ref false
 
 let typereport = ref false
 
-let verbose = ref false
-let verbose_interpret = ref false
-let verbose_matchcheck = ref false
-let verbose_qsim = ref false
-let verbose_qcalc = ref false
-let verbose_queues = ref false
-let verbose_resource = ref false
-let verbose_simplify = ref false
-let verbose_typecheck = ref false
+let verbose             = ref false
+let verbose_interpret   = ref false
+let verbose_matchcheck  = ref false
+let verbose_measure     = ref false
+let verbose_qsim        = ref false
+let verbose_qcalc       = ref false
+let verbose_queues      = ref false
+let verbose_resource    = ref false
+let verbose_simplify    = ref false
+let verbose_typecheck   = ref false
 
 let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
-                   ("matchcheck" 	   , verbose_matchcheck		  );
+                   ("matchcheck"       , verbose_matchcheck       );
+                   ("measure"          , verbose_measure          );
                    ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
                    ("queues"           , verbose_queues           );

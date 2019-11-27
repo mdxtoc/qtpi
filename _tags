@@ -1,5 +1,5 @@
 # true: use_menhir, explain
-true: package(zarith),safe_string
+true: package(zarith),package(stdlib-shims),safe_string
 # true: package(unix), package(ulex), package(menhirlib)
 
 

@@ -10,7 +10,7 @@ Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calcul
 
 The expression language was once moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. I'm not actively pursuing that avenue at present.
 
-## The offside rule
+## The offside parsing rule
 
 Most languages use lots of brackets in their syntax. You often have to use brackets in OCaml, for example, around the stuff after `then`, because the `else` part can be missing (i.e. no closing bracket for `then`) and likewise after the `else` because there's no closing `fi`.
 
@@ -243,13 +243,13 @@ To help with output, there is the special function *show*
 
   * *show*: '\**a* &rarr; *string*
   
--- it takes any value and turns it into a string. It doesn't do anything useful qbits or qstates (or there could be computational cheating), and it doesn't do anything for functions, processes, qstates and channels either.
+-- it takes any value and turns it into a string. It produces `<qbit>` for a qbit, `<qstate>` for a qstate, to stop computational cheating. It treats functions, processes and channels similarly opaquely, but for different reasons.
 
 For qbits there is *qval*
 
   * *qval*: *qbit* &rarr; *qstate*
 
-The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string *q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a probability vector in the computational basis.
+The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string `#`*q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a probability vector in the computational basis -- including, if there is entanglement, a list of the indices of the qbits it's entangled with.
 
 ## Logging and testpoints
 
@@ -263,58 +263,65 @@ If a process wants to use the logging parameters in the arguments of a process c
 
 ## Probability vectors and symbolic calculation
 
-Qtpi uses a symbolic quantum calculator: only at the point of measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose vector is unknown.
+Qtpi uses a symbolic quantum calculator: only during quantum measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose vector is unknown. It also means that it can do exact calculations in most cases.
 
-Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`). A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[*i*; *j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (some of *A*, *B*, *C* and *D* will be zero, because of entanglement). And so on for larger entanglements.
+Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability-amplitude expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`); either *A* or *B* may be zero. A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[`#`*i*; `#`*j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (again, some of *A*, *B*, *C* and *D* may be zero). And so on for larger entanglements: famously, *n* qbits need 2<sup>*n*</sup> amplitudes.
 
 The constant `h` is *sqrt*(1/2), and `h(`*k*`)` means `h`<sup>*k*</sup>.  *h* is also *cos*(&pi;/4) and *sin*(&pi;/4). The constant `f` is *sqrt*((1+`h`)/2), which is *cos*(&pi;/8), and `g` is *sqrt*((1-`h`)/2), which is *sin*(&pi;/8).
 
-An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that `a`<sub>k</sub><sup>2</sup>+`b`<sub>k</sub><sup>2</sup>=1. To add to the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured.
+An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that |`a`<sub>k</sub><sup>2</sup>|+|`b`<sub>k</sub><sup>2</sup>|=1. To enhance the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured.
+
+### Modulus
+
+In principle a probability vector's amplitudes should be such that |*A*|<sup>2</sup>+|*B*|<sup>2</sup> = 1 for an unentangled qbit, or |*A*|<sup>2</sup>+|*B*|<sup>2</sup>+|*C*|<sup>2</sup>+|*D*|<sup>2</sup> = 1 for a pair of entangled qbits, and so on. But when the amplitude formulae are very complicated it can sometimes be difficult for qtpi's calculator to normalise the result of a calculation (typically this happens with a large entanglement when one of the qbits is measured). So probability vectors also carry a probability-amplitude modulus, the sum of the squares of its amplitudes. Normally this is 1, and not mentioned, but when it is not 1, the vector is printed prefixed by `<<`*M*`>>`, where *M* is the modulus formula. The interpretation is that every amplitude in the vector is divided by &radic;<span style="text-decoration:overline;">*M*</span>. An example might be a modulus *h*<sup>2</sup>+*h*<sup>4</sup>: its value is simply 3/4, but its square root involves &radic;<span style="text-decoration:overline;">3</span>, whch qtpi can't deal with. 
+
+The modulus is taken into account numerically during measurement.
 
 ### Complex probabilities
 
-Probability expressions represent complex numbers *x*+*iy*. 
+Probability amplitudes represent complex numbers *x*+*iy*. At present, for laziness sake, the `a`<sub>k</sub> and `b`<sub>k</sub> amplitudes in an unknown probability vector are reals (i.e. *y* is always zero).
 
 ## Gates *gate*
 
 Gates are now a proper kind of value: square matrices. We have both matrix and tensor product: matrix product uses the operator `*`; tensor product uses `><`. (I don't know how to make qtpi use juxtaposition for matrix product, because it's in use for function application. Sorry.)
 
-The built-in library defines various named gates(for meaning of `f`, `g` and `h`, see above). All arity 1, except `Cnot` which is arity 2.
+The built-in library defines various named gates (for meaning of `f`, `g` and `h`, see above). Mostly arity 1, except `Cnot` which is arity 2, `F` and `T`, which are arity 3.
 
   * `H`: the Hadamard gate, takes `|0>` to `h|0>+h|1>`, `|1>` to `h|0>-h|1>`. A kind of 45&deg; rotation (&pi;/4).
   * `I`: takes `|0>` to `|0>`, `|1>` to `|1>`. Identity.
   * `X`: takes `|0>` to `|1>`, `|1>` to `|0>`. Exchange, inversion, not.
   * `Z`: takes `|0>` to `-|1>`, `|1>` to `|0>`. (dunno what to call it.)
   * `Y`: takes `|0>` to `-`*i*`|1>`, `|1>` to *i*`|0>`. (In earlier days, `Y` was equivalent to the product `Z*X`. No longer.)
-  * `Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not).
+  * `Cnot`: takes `|00>` to `|00>`, `|01>` to `|01>`, `|10>` to `|11>`, `|11>` to `|10>`. (Controlled-not). Also known as `CNot` and `CNOT`.
   
-  * `F`: takes `|0>` to `f|0>+g|1>`, `|1>` to `-g|0>+f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
-  * `R`: takes `|0>` to `|0>`, `|1>` to `(f+ig)|1>`. A kind of 22.5&deg; phase rotation (&pi;/8).
+  * `Rz`: takes `|0>` to `f|0>+g|1>`, `|1>` to `-g|0>+f|1>`. A kind of 22.5&deg; rotation (&pi;/8).
+  * `Rx`: takes `|0>` to `|0>`, `|1>` to `(f+ig)|1>`. A kind of 22.5&deg; phase rotation (&pi;/8).
+  
+  * `F`: the Fredkin gate, takes `|101>` to `|110>` and vice-versa. Also known as `Cswap`, `CSwap` and `CSWAP`.
+  * `T`: the Toffoli gate, takes `|110>` to `|111>` and vice-versa. (Controlled-controlled-not).
   
 There's a built-in function *phi: num &rarr; gate*:
 
   * `phi 0` is `I`; `phi 1` is `X`; `phi 2` is `Z`; `phi 3` is `Y`.
   
-There's a built-in function *dagger: gate &rarr; gate* which does conjugate transpose. 
+There's a built-in function *dagger: gate &rarr; gate* which does conjugate transpose. (At some point I'll allow programs to be input in UTF-8 encoding and then I'll have proper &#x2020; and &#x2297;.)
 
-At some point I'll allow programs to be input in UTF-8 encoding and then I'll have proper &#x2020; and &#x2297;.
+There are lots more gates -- e.g. 'square root of NOT' -- which aren't included. 
 
-I haven't included non-unitary matrices like 'square root of NOT'. Should I? 
+Because I don't yet know how to calculate gates, there are *groverG* and *groverU* functions to calculate the gates for Grover's algorithm. Advice and suggestions welcomed: one of the problems is that gates must be unitary.
 
 ## The *dispose* channel
 
-Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection, and it vanishes from the simulation. A vanished qbit is in fact recycled: not quite garbage-collected, because conventional garbage collection doesn't understand how qbits work.
+Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection (unless you tell qtpi `-measuredestroys false`), and it vanishes from the simulation. A vanished qbit is in fact recycled.
 
-Before I realised that qbits are destroyed on detection, I implemented a *dispose* channel of qbits (and it still exists because perhaps sometimes it might be needed). Send a qbit down the *dispose* channel and it has gone. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
-
-Actually dispose-on-detection is a switch: `-measuredestroys false` makes qbits stay in existence once measured.
+Qbits that aren't measured, or even measured qbits if `-measuredestroys false` is used, live for ever. Sometimes this is inconvenient (it muddies the waters if you are debugging, for example). To solve this problem there is a *dispose* channel for qbits: send a qbit down the *dispose* channel and it vanishes. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or it is an unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
 
 Reading from from the *dispose* channel is a run-time error, because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
 
-Qbits are big fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.
+In protocols, and in quantum computing in general, qbits are fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.
 
 These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's also there for aesthetic reasons.
 
@@ -324,7 +331,7 @@ It is impossible to branch according to the state or identity of a qbit unless y
     	
   * **A process argument is either `qbit`, or non-functional classical**.
   
-  	Note that a channel is a classical value, whatever its type. So is a function or a process. (Process types exist, but currently process values can't be exploited.)
+  	Note that a channel is a classical value, whatever its type. So is a function or a process. (Process types exist, but currently process values can't be manipulated.)
   
   * **No qbit-valued conditionals as  process argument or send argument**.
   
@@ -334,7 +341,7 @@ It is impossible to branch according to the state or identity of a qbit unless y
 
   * **`let` and pattern-matching can only bind classical values**.
   
-  	This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and indeed the resource-checker can cope with it. But I think it's a better language without it.
+  	This is a surprising restriction, because I included pattern matching in qtpi precisely to make it safe to bind qbits, and I believe the resource-checker could be made to cope with it. But I think it's a better language without it.
     
   * **A function takes classical arguments and delivers a classical result**.
   
@@ -362,7 +369,7 @@ It is impossible to branch according to the state or identity of a qbit unless y
   	
 ## Interface functions
 
-We need to be able to read and write stuff: reading to give initial values like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples. 
+We need to be able to read and write stuff: reading to give instructions like how many qbits to create; writing to describe results. It's also useful to include some functions to deal with lists and tuples. 
 
 The library is mostly inspired by Miranda and Bird & Wadler's "Introduction to Functional Programming". Easy to add more (see the file library.ml). 
 
@@ -370,13 +377,13 @@ Most of these functions deal in classical values only (*'a* rather than *'\*a*).
     
 Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
 
-  * *abandon*: *string* &rarr; *'\*a*  
-	* stops the program and doesn't return (raises an exception). 'Returns' a non-classical type, if necessary. 
+  * *abandon*: *string list* &rarr; *'\*a*  
+	* stops the program and doesn't return. For typechecking purposes 'returns' a value which might be any type. 
   * *append*: *'a list* &rarr; *'a list* &rarr; *'a list*
   * *compare*: *''a* &rarr; *''a* &rarr; *num*
 	* 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *concat*: *'a list list* &rarr; *'a list*
-  * *const*: *'a* &rarr; *'\*b* &rarr; *'a*
+  * *const*: *'a* &rarr; *'b* &rarr; *'a*
   * *dagger*: *gate* &rarr; *gate*
   * *drop*: *num* &rarr; *'a list* &rarr; *'a list*
   * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
@@ -419,8 +426,13 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *bits2num*: *bit list* &rarr; *num*
   * *num2bits*: *num* &rarr; *bit list*
   * 
+  * *groverG*: *num* &rarr; *gate*
+    * calculates the G gate for Grover's algorithm; argument gives the number of qubits
+  * *groverU*: *bit list* &rarr; *gate*
+    * calculates the U gate for Grover's algorithm; argument gives the sought-for argument values
+  * 
   * *read_alternative*: *string* &rarr; *string* &rarr; (*string*\**'a*) *list* &rarr; *'a*
-	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user types
+	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user inputs
   * *read_bool*: *string* &rarr; *string* &rarr; *string* &rarr; *bool*
 	  * prompt, true\_response, false\_response
   * *read_num*: *string* &rarr; *num*

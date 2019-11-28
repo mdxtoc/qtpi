@@ -21,6 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
 open Stringutils
 open Functionutils
 open Optionutils
@@ -160,7 +161,7 @@ let rec exprprio e =
   | ECompare    (_,op,_)    -> compprio op
   | EBoolArith  (_,op,_)    -> boolprio op
   | EAppend     _           -> Left, 150    (* a temporary guess *)
-  | ETuple      _           -> tupleprio
+  | ETuple      _           -> primaryprio  (* now always bracketed *)
   | ELambda     _           -> lambdaprio
   | EWhere      _           -> whereprio
 
@@ -183,8 +184,13 @@ let rec string_of_primary e =
   | ECons (hd,tl)   -> (* if it ends in nil, print as constant. Otherwise error *)
                        (match list_of_expr e with
                         | Some es -> bracketed_string_of_list string_of_expr es
-                        | None    -> bad ()
+                        | None    -> raise (Can'tHappen (Printf.sprintf "string_of_primary ECons (%s,%s)"
+                                                                        (string_of_expr hd)
+                                                                        (string_of_expr tl)
+                                                        )
+                                           )
                        )
+  | ETuple es       -> "(" ^ string_of_list (bracket_nonassoc tupleprio) "," es ^ ")"
   | EMatch (e, ems) -> Printf.sprintf "(match %s.%s)" (string_of_expr e) (string_of_list string_of_ematch "<+>" ems)
   | ECond (c,e1,e2) -> Printf.sprintf "if %s then %s else %s fi"
                                       (string_of_expr c)
@@ -227,7 +233,7 @@ and string_of_expr e =
   | ENot   e                        -> Printf.sprintf "not %s" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
                                        else string_of_binary_expr hd tl "::" consprio
-  | ETuple es                       -> commasep (List.map (bracket_nonassoc tupleprio) es)
+  | ETuple es                       -> "(" ^ commasep (List.map (bracket_nonassoc tupleprio) es) ^ ")"
   | EArith      (left, op, right)   -> string_of_binary_expr left right (string_of_arithop   op) (arithprio op)
   | ECompare    (left, op, right)   -> string_of_binary_expr left right (string_of_compareop op) (compprio op)
   | EBoolArith  (left, op, right)   -> string_of_binary_expr left right (string_of_boolop    op) (boolprio op)

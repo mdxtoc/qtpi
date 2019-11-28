@@ -52,7 +52,7 @@ and pnode =
 
 let constprio = NonAssoc, 10
 let listprio  = Right   , 6
-let tupleprio = NonAssoc, 3
+let tupleprio = NonAssoc, 3 (* it's the comma priority, really *)
 
 let patprio p =
   match p.inst.pnode with
@@ -66,7 +66,7 @@ let patprio p =
   | PatChar     _
   | PatBasisv   _
   | PatString   _   -> constprio
-  | PatTuple    _   -> tupleprio
+  | PatTuple    _   -> constprio (* now tuples must be bracketed *)
   | PatCons     _   -> listprio
 
 let pwrap topt p = {ptype=ref topt; pnode=p}

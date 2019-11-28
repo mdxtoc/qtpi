@@ -286,7 +286,7 @@ qstep:
   | expr MEASURE LSQPAR RSQPAR mpat     {adorn (Measure ($1,None,$5))}
   | expr MEASURE LSQPAR expr RSQPAR mpat       
                                         {adorn (Measure ($1,Some $4,$6))}
-  | nwexpr THROUGH expr                 {adorn (Ugatestep (Expr.relist $1,$3))}
+  | exprtuple THROUGH expr              {adorn (Ugatestep ($1,$3))}
 
 mpat:
   | UNDERSCORE                          {padorn (PatAny)}
@@ -298,6 +298,7 @@ iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
   | expr QUERY UNDERSCORE               {adorn (Read ($1, padorn PatAny))}
   | expr BANG expr                      {adorn (Write ($1,$3))}
+  | expr BANG exprtuple                 {adorn (Write ($1, eadorn (Expr.delist $3)))}
 
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
@@ -329,7 +330,7 @@ simpleprocess:
 
 procargs:
   | LPAR RPAR                           {[]}
-  | LPAR ntexprs RPAR                   {$2}
+  | LPAR exprtuple RPAR                 {$2}
   
   
 procmatches:
@@ -363,7 +364,7 @@ qspec:
                                          if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
                                          q
                                         }
-  | param EQUALS ntexpr                 {let q = $1, Some $3 in
+  | param EQUALS nwexpr                 {let q = $1, Some $3 in
                                          if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
                                          q
                                         }
@@ -373,19 +374,8 @@ letspec:
                                         {$1, $4}
   
 pattern:
-  | conspattern                         {if !(Settings.verbose) then Printf.printf "seen pattern %s\n" (string_of_pattern $1); $1}
-  | conspattern COMMA tuplepattern      {let p = padorn (Pattern.delist ($1::$3)) in
-                                         if !(Settings.verbose) then Printf.printf "seen pattern %s\n" (string_of_pattern p);
-                                         p
-                                        }
-  
-tuplepattern:
-  | conspattern                         {[$1]}
-  | conspattern COMMA tuplepattern      {$1::$3}
-  
-conspattern:
   | simplepattern                       {$1}
-  | simplepattern CONS conspattern      {padorn (PatCons ($1,$3))}
+  | simplepattern CONS pattern          {padorn (PatCons ($1,$3))}
   
 simplepattern:
   | UNDERSCORE                          {padorn PatAny}
@@ -400,7 +390,7 @@ simplepattern:
   | basisv                              {padorn (PatBasisv $1) }
   | LSQPAR patternlist RSQPAR           {$2}
   | LPAR RPAR                           {padorn PatUnit}
-  | LPAR pattern RPAR                   {$2}
+  | LPAR patterns RPAR                  {padorn (Pattern.delist $2)}
   | simplepattern COLON typespec        {adorn (pwrap (Some $3) $1.inst.pnode)}
   
 patternlist:
@@ -408,7 +398,7 @@ patternlist:
   | pattern                             {padorn (PatCons ($1, padorn PatNil))}
   | pattern SEMICOLON patternlist       {padorn (PatCons ($1,$3))}
   
-patterns:
+patterns:   /* no 'empty' alternative */
   | pattern                             {[$1]}
   | pattern COMMA patterns              {$1::$3}
   
@@ -450,7 +440,7 @@ primary:
   | STRING                              {eadorn (EString $1)}
   | basisv                              {eadorn (EBasisv $1) }
   | LSQPAR exprlist RSQPAR              {$2}
-  | LPAR expr RPAR                      {eadorn (Expr.delist (Expr.relist $2))}
+  | LPAR exprtuple RPAR                 {eadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
   | IF indentPrev eif outdent fiq       {eadorn($3.inst.enode)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
@@ -492,44 +482,36 @@ edecl:
   | funname fparams restypeopt EQUALS indentNext expr outdent   
                                         {let rt = ref $3 in adorn (EDFun($1,$2,rt,$6))}
 
-nwexpr:  
-  | ntexpr                              {$1}
-  | ntexpr COMMA ntexprs                {eadorn (ETuple ($1::$3))}
-
-ntexprs:
-  | ntexpr                              {[$1]}
-  | ntexpr COMMA ntexprs                {$1::$3}
-
-ntexpr:  /* a non-tuple expression -- can be a cons */
-  | ntlexpr                             {$1}
-  | ntlexpr CONS ntexpr                 {eadorn (ECons ($1,$3))}
+nwexpr:  /* non-while expr: can be a cons */
+  | nwlexpr                             {$1}
+  | nwlexpr CONS nwexpr                 {eadorn (ECons ($1,$3))}
   
-ntlexpr: /* neither tuple nor cons */
+nwlexpr: /* neither while nor cons */
   | primary                             {$1} 
   | app                                 {$1}
   | MINUS primary                       {eadorn (EMinus $2)}
   | NOT primary                         {eadorn (ENot $2)}
-  | ntexpr APPEND ntexpr                {eadorn (EAppend ($1,$3))}
+  | nwexpr APPEND nwexpr                {eadorn (EAppend ($1,$3))}
   | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in eadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in eadorn (EBoolArith (e1,op,e2))}
-  | LAMBDA fparams DOT expr             {eadorn (ELambda ($2,$4))} /* oh dear expr not ntexpr? */
+  | LAMBDA fparams DOT expr             {eadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
 
 app:
   | primary primary                     {eadorn (EApp ($1,$2))}
   | app primary                         {eadorn (EApp ($1,$2))}
   
 arith:
-  | ntexpr TENSORP ntexpr               {$1,TensorP,$3}
-  | ntexpr POW ntexpr                   {$1,Power,$3}
-  | ntexpr STAR ntexpr                  {$1,Times,$3}
-  | ntexpr DIV ntexpr                   {$1,Div,$3}
-  | ntexpr MOD ntexpr                   {$1,Mod,$3}
-  | ntexpr PLUS ntexpr                  {$1,Plus,$3}
-  | ntexpr MINUS ntexpr                 {$1,Minus,$3}
+  | nwexpr TENSORP nwexpr               {$1,TensorP,$3}
+  | nwexpr POW nwexpr                   {$1,Power,$3}
+  | nwexpr STAR nwexpr                  {$1,Times,$3}
+  | nwexpr DIV nwexpr                   {$1,Div,$3}
+  | nwexpr MOD nwexpr                   {$1,Mod,$3}
+  | nwexpr PLUS nwexpr                  {$1,Plus,$3}
+  | nwexpr MINUS nwexpr                 {$1,Minus,$3}
   
 compare:
-  | ntexpr compareop ntexpr %prec EQUALS           
+  | nwexpr compareop nwexpr %prec EQUALS           
                                         {$1,$2,$3}
   
 compareop:
@@ -541,19 +523,18 @@ compareop:
   | NOTEQUAL                            {Neq}
 
 bool:
-  | ntexpr AND ntexpr                   {$1,And,$3}
-  | ntexpr OR ntexpr                    {$1,Or,$3}
+  | nwexpr AND nwexpr                   {$1,And,$3}
+  | nwexpr OR nwexpr                    {$1,Or,$3}
   
 exprlist:
   |                                     {eadorn ENil}
   | expr                                {eadorn (ECons ($1, eadorn ENil))}
   | expr SEMICOLON exprlist             {eadorn (ECons ($1, $3))}
 
-exprs:  /* not the same as exprlist */
-  |                                     {[]}
+exprtuple:                              /* no 'empty' alternative */
   | expr                                {[$1]}
-  | expr SEMICOLON exprs                {$1::$3}
-  
+  | expr COMMA exprtuple                {$1::$3}
+    
 names:
   | name                                {[$1]}
   | name COMMA names                    {$1::$3}

@@ -69,7 +69,7 @@ let leftchild i = 2*i+1
 let parent i = (i-1) / 2
 
 let compare (i,ei) (j,ej) = (* all that matters is those integers ... *)
-  - (Pervasives.compare i j)
+  - (Stdlib.compare i j)
 
 (* When [create n] is called, we cannot allocate the array, since there is
    no known value of type element; we'll wait for the first addition to

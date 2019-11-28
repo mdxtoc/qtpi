@@ -220,14 +220,14 @@ and short_string_of_qbit i = string_of_qbit i
  
  * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  
- * Pervasives.compare works if we change the definition of Psymb, so I did
+ * Stdlib.compare works if we change the definition of Psymb, so I did
  
  *)
 
 (* let compare p1 p2 =
      match p1, p2 with
-     | Psymb (b1,q1,_), Psymb (b2,q2,_) -> Pervasives.compare (q1,b1) (q2,b2)
-     | _                                -> Pervasives.compare p1      p2
+     | Psymb (b1,q1,_), Psymb (b2,q2,_) -> Stdlib.compare (q1,b1) (q2,b2)
+     | _                                -> Stdlib.compare p1      p2
 *)
 (* we deal with long lists. Avoid sorting if poss *)
 let sort compare ps =
@@ -301,7 +301,7 @@ and simplify_prod ps = (* We deal with constants, f^2, g^2, gh, fg *)
             | p              :: ps -> sp (p::r) ps
             | []                   -> None, List.rev r
           in
-          let popt, ps = sp [] (sort Pervasives.compare ps) in
+          let popt, ps = sp [] (sort Stdlib.compare ps) in
           let p = match ps with 
                   | []  -> P_1
                   | [p] -> p 
@@ -351,8 +351,8 @@ and simplify_sum ps =
             match p1, p2 with
             | Pneg p1  , _         -> scompare p1 p2
             | _        , Pneg p2   -> scompare p1 p2
-         (* | Pprod p1s, Pprod p2s -> Pervasives.compare p1s p2s *)
-            | _                    -> Pervasives.compare p1 p2
+         (* | Pprod p1s, Pprod p2s -> Stdlib.compare p1s p2s *)
+            | _                    -> Stdlib.compare p1 p2
           in
           let rec double p1 rest = (* looking for h^2k*X+h^2k*X+.... *)
             (* find the h entry, if any, in p1 *)
@@ -712,14 +712,14 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
 (* we no longer memoise any of these things ...
 
     module OrderedC = struct type t = cprob 
-                             let compare = Pervasives.compare
+                             let compare = Stdlib.compare
                              let to_string = string_of_cprob
                       end
     module CMap = MyMap.Make (OrderedC)
     let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_cprob c); f c)
 
     module OrderedC2 = struct type t = cprob*cprob 
-                             let compare = Pervasives.compare
+                             let compare = Stdlib.compare
                              let to_string = bracketed_string_of_pair string_of_cprob string_of_cprob
                       end
     module C2Map = MyMap.Make (OrderedC2)
@@ -732,7 +732,7 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
                                )
              )
     module OrderedCP = struct type t = cprob*prob 
-                             let compare = Pervasives.compare
+                             let compare = Stdlib.compare
                              let to_string = bracketed_string_of_pair string_of_cprob string_of_prob
                       end
     module CPMap = MyMap.Make (OrderedCP)

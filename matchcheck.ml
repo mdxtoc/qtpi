@@ -225,7 +225,7 @@ let matchcheck_pats string_of_rhs rules =
         Printf.sprintf "%s which is %s %s" 
                        words 
                        (match negs with [] -> "not" | _ -> "neither")
-                       (String.concat " nor " (List.sort Pervasives.compare (List.map short_string_of_con (neg::negs))))
+                       (String.concat " nor " (List.sort Stdlib.compare (List.map short_string_of_con (neg::negs))))
       in
       match neg.con with
       | CCons       -> "an empty list"

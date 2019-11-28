@@ -50,7 +50,7 @@ let init () = Hashtbl.reset qstate
 let string_of_qstate () = 
   let qqvs = Hashtbl.fold (fun q qv ss -> (q,qv) :: ss) qstate []
   in
-  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort Pervasives.compare qqvs))
+  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort Stdlib.compare qqvs))
 
 let qval q = try Hashtbl.find qstate q
              with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"
@@ -132,7 +132,7 @@ let tensor_n_gs n g =
 
 (* (* memoised seems to make very little difference, or make it worse *)
    module OrderedNG = struct type t = int*gate 
-                             let compare = Pervasives.compare
+                             let compare = Stdlib.compare
                              let to_string = bracketed_string_of_pair string_of_int string_of_gate
                      end
    module NGMap = MyMap.Make (OrderedNG)
@@ -467,7 +467,7 @@ let rec record ((qs, vq) as qv) =
                | _                   -> report (); List.iter accept qs
 
 let qsort (qs,v) = 
-  let qs' = List.sort Pervasives.compare qs in
+  let qs' = List.sort Stdlib.compare qs in
   let reorder (qs,v) order =
     let reorder (qs,v) (n,q) = make_nth qs v n (idx q qs) in
     List.fold_left reorder (qs,v) order

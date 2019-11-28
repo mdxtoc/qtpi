@@ -316,11 +316,11 @@ and deepcompare = function (* list everything to be sure I don't make a mistake 
   | VQbit    _  , VQbit    _   -> raise (Can'tHappen "equality type failure")
   | VUnit       , VUnit        -> 0
   | VBit     v1 , VBit     v2  
-  | VBool    v1 , VBool    v2  -> Pervasives.compare v1 v2 
-  | VChar    v1 , VChar    v2  -> Pervasives.compare v1 v2 
-  | VBasisv  v1 , VBasisv  v2  -> Pervasives.compare v1 v2
-  | VGate    v1 , VGate    v2  -> Pervasives.compare v1 v2
-  | VString  v1 , VString  v2  -> Pervasives.compare v1 v2    (* none of these hide values *)
+  | VBool    v1 , VBool    v2  -> Stdlib.compare v1 v2 
+  | VChar    v1 , VChar    v2  -> Stdlib.compare v1 v2 
+  | VBasisv  v1 , VBasisv  v2  -> Stdlib.compare v1 v2
+  | VGate    v1 , VGate    v2  -> Stdlib.compare v1 v2
+  | VString  v1 , VString  v2  -> Stdlib.compare v1 v2    (* none of these hide values *)
   | _                          -> raise (Can'tHappen "deepcompare given different types")
 
 and listcompare = function
@@ -400,7 +400,7 @@ let mkchan c = {cname=c; stream=Queue.create ();
                }
 
 module OrderedChan = struct type t = chan 
-                            let compare c1 c2 = Pervasives.compare c1.cname c2.cname
+                            let compare c1 c2 = Stdlib.compare c1.cname c2.cname
                             let to_string = string_of_chan
                      end
 module ChanSet = MySet.Make (OrderedChan)

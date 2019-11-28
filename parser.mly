@@ -324,7 +324,7 @@ simpleprocess:
       indentNext procmatches outdent
     outdent                             {adorn (PMatch ($4,$8))}
   | LPAR process RPAR                   {$2}
-  | IF ubif FI                          {$2}
+  | IF indentPrev ubif outdent fiq      {$3}
   | DOT process                         {$2} /* I hope this works ... */
 
 procargs:
@@ -345,8 +345,13 @@ procmatch:
                                         {$4,$8}
   
 ubif: 
-  | expr THEN process ELSE process      {adorn (Cond ($1, $3, $5))}
-  | expr THEN process ELIF ubif         {adorn (Cond ($1, $3, $5))}
+  | indentNext expr outdent 
+    THEN indentNext process outdent     /* can go back beyond THEN, but not beyond IF */ 
+    ELSE indentPrev indentNext process outdent outdent     
+                                        {adorn (Cond ($2, $6, $11))}
+  | indentNext expr outdent 
+    THEN indentNext process outdent     /* can go back beyond THEN, but not beyond IF */ 
+    ELIF indentPrev ubif outdent        {adorn (Cond ($2, $6, $10))}
   
 
 qspecs:
@@ -446,7 +451,7 @@ primary:
   | basisv                              {eadorn (EBasisv $1) }
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR expr RPAR                      {eadorn (Expr.delist (Expr.relist $2))}
-  | IF eif FI                           {eadorn($2.inst.enode)}
+  | IF indentPrev eif outdent fiq       {eadorn($3.inst.enode)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
     indentPrev 
@@ -456,8 +461,17 @@ primary:
     outdent                             {eadorn (EMatch ($4,$8))}
   
 eif:
-  | expr THEN expr ELSE expr            {eadorn (ECond ($1,$3,$5))}
-  | expr THEN expr ELIF eif             {eadorn (ECond ($1,$3,$5))}
+  | indentNext expr outdent 
+    THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
+    ELSE indentPrev indentNext expr outdent outdent
+                                        {eadorn (ECond ($2, $6, $11))}
+  | indentNext expr outdent 
+    THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
+    ELIF indentPrev eif outdent         {eadorn (ECond ($2, $6, $10))}
+  
+fiq:    /* optional FI */
+  | FI                                  {}              
+  |                                     {}
   
 ematches:
   | ematch                              {[$1]}

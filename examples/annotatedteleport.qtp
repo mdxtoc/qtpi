@@ -1,5 +1,5 @@
 
-proc Alice (x:qbit, c:^bit*bit) = 
+proc Alice (x:qbit, c:^(bit,bit)) = 
     (newq z)
     out!["initially Alice's x is "] .
     outq!(qval x) . 
@@ -21,7 +21,7 @@ proc Alice (x:qbit, c:^bit*bit) =
     c!vz,vx . 
     _0 
 
-proc Bob(y:qbit, c:^bit*bit) = 
+proc Bob(y:qbit, c:^(bit,bit)) = 
     c?(pair) . 
     out!["Alice sends "; show pair; "\nBob's y is "] .
     outq!(qval y) . out!["\n"] .
@@ -35,4 +35,4 @@ proc Bob(y:qbit, c:^bit*bit) =
 
 proc System () = 
   (newq x=|+>, y=|0>) x,y>>CNot . 
-  (new c:^bit*bit) | Alice(x,c) | Bob(y,c)
+  (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)

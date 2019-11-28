@@ -6,7 +6,7 @@ proc EPR(cA:^qbit,cB:^qbit) =
   (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
 
 proc Alice (cA:^qbit, cAB:^qbit) =
-  (let pair:(bit*bit) = (randbit(), randbit())) /^1
+  (let pair:(bit,bit) = (randbit(), randbit())) /^1
   cA?(x) . x >> match pair .
                + (0b0,0b0) . I
                + (0b0,0b1) . X

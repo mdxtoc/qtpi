@@ -46,7 +46,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * Types are optional in process parameters, as everywhere.
   * Parameters following `with` are in scope only within *logging*.
   * As with reads `E?(pat)`, *let* patterns and function parameter-patterns are bullet-proof: underscore `_`, names and unit, but otherwise no constants and definitely no lists.
-  * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `bit list &rarr; 'a list &rarr; 'a list`. (One way this will be done more elegantly, as in Miranda.)
+  * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `[bit] &rarr; ['a] &rarr; ['a]`. (One way this will be done more elegantly, as in Miranda.)
   * The result of a function must be entirely classical -- i.e. have nothing to do with qbits.
   * To allow mutually-recursive definitions, one `fun` can be followed by several definitions.
     
@@ -126,20 +126,19 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `'`*x*  
   | `''`*x*  
   | `'*`*x*  
-  | *T* `list`  
-  | *T* `*` ... `*` *T*  
+  | `[` *T* `]`  
+  | `(`*T* `,` *T* `,` ... `,` *T* `)`  
   | `^` *T*  
   | *T* `->` ... `->` *T*  
   | *T* `process`  
   | `(` *T* `)`  
 
-  * These types are still ML style. Miranda style is neater (`[num]` rather than `num list`, `(num,bit)` rather than `num*bit`, and they don't need syntactic precedence). One day soon ... 
-  *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they do), and you may have to make use of *floor*.
+  * These types are now Miranda style (`[`*T*`]` rather than *T*` list`, `(`*T1*`,`*T2*`)` rather than *T1*`*`*T2*). 
+  *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they should do), and you may have to make use of *floor*.
   * Range types were in original CQP, but are no longer in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they may come back (I do hope so).  
-  * '*bit*' ought to be a subtype of *int*, but I can't force the typechecker to agree.
+  * `bit` ought to be a subtype of `int`, but I can't force the typechecker to agree.
   * `basisv` is the type of basis vectors (see below).  
   * `qstate` is the type of the result of the *qval* function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a *qstate* is to send it down the outq output channel, which prints it out.
-  * '`*`' separates elements of a tuple type.   
   * Process types are necessary in typechecking, but I think they are more or less useless. Process names do have a type, however ...  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
   * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It may be pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
@@ -157,13 +156,14 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *x*  
   | `[` *pattern* `;` *pattern* ... `;` *pattern* `]`
   | *pat* `::` *pat*  
-  | *pat* `,` ... `,` *pat*  
+  | `(` *pat* `,` ... `,` *pat* `)`  
   | *pat* `:` *type*  
   | `(` *pat* `)`  
 
   * For constants see Expression *E* below.  Also, it seems, gates are allowed as constants.
   * Typed patterns *pat*`:`*type* often need bracketing. 
-  * `let`, `E?..` and function parameters use a restricted form of pattern: only *x*, `_`, `()` and tuples thereof -- i.e. patterns which can't fail to match.
+  * Tuple patterns are always bracketed  
+  * `let`, `E?..` and function parameters use a restricted form of pattern: only *x*, `_`, `()` and tuples thereof -- patterns which can't fail to match.
   
 * Expression *E*
 
@@ -188,7 +188,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`.
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
-  * Tuples must be bracketed, as in Miranda.  
+  * Tuples are always bracketed, as in Miranda.  
   * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
   * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and perhaps one day there will be downloadable bundles of functions.  
   * Absolutely no process stuff, no manipulation of qbits. But see *print_string*, *print_strings* and *print_qbit* below.  
@@ -233,7 +233,7 @@ It reads a single line of input as a string. Writing to it is a run-time error, 
 
 There are functions which print out strings and *qstates*. But it's inelegant to use them in a process. So there are output channels.
 
-  * *out*: ^*string list*
+  * *out*: ^*[string]*
   * *outq*: ^*qstate*
 
 outq is peculiar for peculiar reasons. There can't be an output channel which takes qbits, because if you send a qbit down a channel, you lose it. So there's a special type *qstate*, the result of *qval*: *qbit* &rarr; *qstate*, which is a classical value that can be sent down a channel. To ensure no computational cheating, there's nothing else you can do with a *qstate* value. 
@@ -378,61 +378,61 @@ Most of these functions deal in classical values only (*'a* rather than *'\*a*).
     
 Following the introduction of the *num* type in place of the old *int*, we can have fractional numbers. But several of the library functions insist on non-fractional arguments: *bitand*, *drop*, *nth*, *num2bits*, *randbits*, *tabulate*, *take*. If this causes a problem, use *floor*, which converts fractions to integers.
 
-  * *abandon*: *string list* &rarr; *'\*a*  
+  * *abandon*: *[string]* &rarr; *'\*a*  
 	* stops the program and doesn't return. For typechecking purposes 'returns' a value which might be any type. 
-  * *append*: *'a list* &rarr; *'a list* &rarr; *'a list*
+  * *append*: *['a]* &rarr; *['a]* &rarr; *['a]*
   * *compare*: *''a* &rarr; *''a* &rarr; *num*
 	* 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
-  * *concat*: *'a list list* &rarr; *'a list*
+  * *concat*: *[['a]]* &rarr; *['a]*
   * *const*: *'a* &rarr; *'b* &rarr; *'a*
   * *dagger*: *gate* &rarr; *gate*
-  * *drop*: *num* &rarr; *'a list* &rarr; *'a list*
-  * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
-  * *exists*: (*'*a* &rarr; *bool*) &rarr; *'*a list* &rarr; *bool*
-  * *filter*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *drop*: *num* &rarr; *['a]* &rarr; *['a]*
+  * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
+  * *exists*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *bool*
+  * *filter*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
   * *floor*: *num* &rarr; *num*
-  * *foldl*: (*'a* &rarr; *'b* &rarr; *'a*) &rarr; *'a* &rarr; *'b list* &rarr; *'a*
-  * *foldr*: (*'a* &rarr; *'b* &rarr; *'b*) &rarr; *'b* &rarr; *'a list* &rarr; *'b*
-  * *forall*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
+  * *foldl*: (*'a* &rarr; *'b* &rarr; *'a*) &rarr; *'a* &rarr; *['b]* &rarr; *'a*
+  * *foldr*: (*'a* &rarr; *'b* &rarr; *'b*) &rarr; *'b* &rarr; *['a]* &rarr; *'b*
+  * *forall*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
   * *fst*: (*'a*, *'b*) &rarr; *'a*  
-  * *hd*: *'a list* &rarr; *'a*  
+  * *hd*: *['a]* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
-  * *iter*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *unit*
-  * *length*: *'a list* &rarr; *num*  	
-  * *map*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *'b list*
+  * *iter*: (*'a* &rarr; *'b*) &rarr; *['a]* &rarr; *unit*
+  * *length*: *['a]* &rarr; *num*  	
+  * *map*: (*'a* &rarr; *'b*) &rarr; *['a]* &rarr; *['b]*
   * *max*: *num* &rarr; *num* &rarr; *num*
   * *min*: *num* &rarr; *num* &rarr; *num*
-  * *nth*: *'a list* &rarr; *num* &rarr; *'a*
+  * *nth*: *['a]* &rarr; *num* &rarr; *'a*
   * *phi*: *num* &rarr; *gate*
       * see 'Gates' above.
   * *qval*: *qbit* &rarr; *qstate*
   * *randbit*: *unit* &rarr; *bit*
-  * *randbits*: *num* &rarr; *bit list*
-  * *rev*: *'a list* &rarr; *'a list*
+  * *randbits*: *num* &rarr; *[bit]*
+  * *rev*: *['a]* &rarr; *['a]*
   * *show*: *'\*a* &rarr; *string*
 	  * converts a value to a string. Gives a deliberately opaque result if applied to a qbit, function, process, channel or qstate.  
-  * *sort*: (*''a* &rarr; *''a* &rarr; *num*) &rarr; *''a list* &rarr; *''a list*
+  * *sort*: (*''a* &rarr; *''a* &rarr; *num*) &rarr; *'['a]* &rarr; *'['a]*
 	  * sorts according to order defined by first argument -- 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *snd*: (*'a*, *'b*) &rarr; *'b*  
-  * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*
-  * *take*: *num* &rarr; *'a list* &rarr; *'a list*
-  * *takewhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
-  * *tl*: *'a list* &rarr; *'a list*  
+  * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *['a]*
+  * *take*: *num* &rarr; *['a]* &rarr; *['a]*
+  * *takewhile*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
+  * *tl*: *['a]* &rarr; *['a]*  
 	  * raises an exception if applied to `[]`  
-  * *unzip*: (*'a*,*'b*) *list* &rarr; (*'a* *list*, *'b* *list*)
-  * *zip*: *'a* *list* &rarr; *'b* *list* &rarr; (*'a*,*'b*) *list*
+  * *unzip*: [(*'a*,*'b*)] &rarr; ([*'a*], [*'b*])
+  * *zip*: [*'a*] &rarr; [*'b*] &rarr; [(*'a*,*'b*)]
 	  * raises an exception if applied to lists of differing lengths (but probably shouldn't)
   * 
   * *bitand*: *num* &rarr; *num* &rarr; *num*
-  * *bits2num*: *bit list* &rarr; *num*
-  * *num2bits*: *num* &rarr; *bit list*
+  * *bits2num*: *[bit]* &rarr; *num*
+  * *num2bits*: *num* &rarr; *[bit]*
   * 
   * *groverG*: *num* &rarr; *gate*
     * calculates the G gate for Grover's algorithm; argument gives the number of qubits
-  * *groverU*: *bit list* &rarr; *gate*
+  * *groverU*: *[bit]* &rarr; *gate*
     * calculates the U gate for Grover's algorithm; argument gives the sought-for argument values
   * 
-  * *read_alternative*: *string* &rarr; *string* &rarr; (*string*,*'a*) *list* &rarr; *'a*
+  * *read_alternative*: *string* &rarr; *string* &rarr; [(*string*,*'a*)] &rarr; *'a*
 	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user inputs
   * *read_bool*: *string* &rarr; *string* &rarr; *string* &rarr; *bool*
 	  * prompt, true\_response, false\_response
@@ -444,6 +444,6 @@ Following the introduction of the *num* type in place of the old *int*, we can h
 	  * *print_qbit* *q* has the same effect as *outq*!(*qval* *q*)
   * *print_string*: *string* &rarr; *unit*
 	* *print_string* *E* has the same effect as *out*!\[*E*\]
-  * *print_strings*: *string list* &rarr; *unit*
+  * *print_strings*: *[string]* &rarr; *unit*
 	* *print_strings* *Es* has the same effect as *out*!*Es*
 

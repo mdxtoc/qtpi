@@ -66,7 +66,6 @@ and unknown = name * _type option ref (* unknowns start with '?', which doesn't 
 let processprio = 0 (* lower than tuple, channel, function *)
 let funprio = 1     (* lower than tuple *)
 let chanprio = 2
-let listprio = 4
 let primaryprio = 10
 
 let typeprio t = 
@@ -86,7 +85,7 @@ let typeprio t =
   | OneOf   _
 (*| Range   _ *) 
   | Poly    _       -> primaryprio
-  | List    _       -> listprio
+  | List    _       -> primaryprio
   | Tuple   _       -> primaryprio
   | Channel _       -> chanprio
   | Fun     _       -> funprio
@@ -124,7 +123,7 @@ and string_of_tnode = function
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
-  | List    t        -> Printf.sprintf "%s list" (possbracket false listprio t)
+  | List    t        -> Printf.sprintf "[%s]" (string_of_type t)
   | Tuple   ts       -> "(" ^ string_of_list string_of_type "," ts ^ ")"
   | Channel t        -> Printf.sprintf "^%s" (possbracket false chanprio t)
   | Fun     (t1,t2)  -> Printf.sprintf "%s->%s"

@@ -73,7 +73,7 @@
 %token FUN PROC WHERE LAMBDA WITH TESTPOINT
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE UNITTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE LISTTYPE TYPEARROW
+%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -238,7 +238,7 @@ simple_typespec:
   | LPAR RPAR                           {adorn Unit}
   | LPAR typespectuple RPAR             {adorn (Type.delist $2)}
   | FORALL typevars DOT typespec        {adorn (Poly ($2,$4))}
-  | simple_typespec LISTTYPE            {adorn (List ($1))}
+  | LSQPAR typespec RSQPAR              {adorn (List ($2))}
   
 simple_typespecs:
   | simple_typespec                     {[$1]}

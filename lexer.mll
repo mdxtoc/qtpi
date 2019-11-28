@@ -103,7 +103,6 @@ rule make_token = parse
   | "qbit"      {QBITTYPE}
   | "qstate"    {QSTATETYPE}
   | "^"         {CHANTYPE}
-  | "list"      {LISTTYPE}
   | "char"      {CHARTYPE}
   | "string"    {STRINGTYPE}
   

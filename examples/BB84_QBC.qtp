@@ -29,7 +29,7 @@ proc Bob(n:num, r:^bit, qA, vA, log) =
     log!(map snd bvs) .
     r?(guess) .
     log![guess] .
-    vA?(basis:bit, vs:bit list) .
+    vA?(basis:bit, vs:[bit]) .
     BobVerify (basis,vs,bvs,verified)
   | verified?(honest) .
     log![if honest then 0b1 else 0b0] .

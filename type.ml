@@ -66,7 +66,6 @@ and unknown = name * _type option ref (* unknowns start with '?', which doesn't 
 let processprio = 0 (* lower than tuple, channel, function *)
 let funprio = 1     (* lower than tuple *)
 let chanprio = 2
-let tupleprio = 3
 let listprio = 4
 let primaryprio = 10
 
@@ -88,7 +87,7 @@ let typeprio t =
 (*| Range   _ *) 
   | Poly    _       -> primaryprio
   | List    _       -> listprio
-  | Tuple   _       -> tupleprio
+  | Tuple   _       -> primaryprio
   | Channel _       -> chanprio
   | Fun     _       -> funprio
   | Process _       -> processprio
@@ -126,7 +125,7 @@ and string_of_tnode = function
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
   | List    t        -> Printf.sprintf "%s list" (possbracket false listprio t)
-  | Tuple   ts       -> string_of_typelist true tupleprio ts
+  | Tuple   ts       -> "(" ^ string_of_list string_of_type "," ts ^ ")"
   | Channel t        -> Printf.sprintf "^%s" (possbracket false chanprio t)
   | Fun     (t1,t2)  -> Printf.sprintf "%s->%s"
                                        (possbracket true funprio t1)
@@ -135,10 +134,6 @@ and string_of_tnode = function
 
 and string_of_unknown = function    (* unknowns are transparent *)
   | n, _                 -> string_of_name n
-
-and string_of_typelist ifeq supprio = function
-  | [t] -> string_of_type t
-  | ts  -> String.concat "*" (List.map (possbracket true tupleprio) ts)
 
 and possbracket ifeq supprio t = 
   possbracket' ifeq supprio (typeprio t) (string_of_type t)

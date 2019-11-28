@@ -26,7 +26,7 @@ Landin's *offside rule* often makes closing brackets unnecessary. In the Miranda
 	
 -- the first `where` attaches to `hwc key message`; the second and third attach only to `packets [] bits`; the fourth attaches to everything.
 
-So far the offside parser applies to function definitions (expression to the right of '='), to `where` clauses, to `match`es in processes and expressions, to guarded sums, and to parallel process compositions. There still is `fi`.
+So far the offside parser applies to function definitions (expression to the right of '='), to `where` clauses, to `match`es in processes and expressions, to guarded sums, to parallel process compositions and to conditionals. In conditionals `fi` is optional (but offside parsing is not).
 
 ## Grammar 
 
@@ -86,7 +86,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* `=?` (*pat*)    
   | *E* `=?` `[` *E* `;` ... `;` *E* `]` (*pat*)    
 
-  * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input tuple must match the arity of the gate (e.g. H takes one qbit, Cnot takes 2, Fredkin if we had it would take 3, and so on).  
+  * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input must match the arity of the gate (e.g. H takes one qbit, Cnot takes 2, Fredkin takes 3, and so on).  
   * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
   * Measurement takes a pattern, either `_` or *x*. 
   * The optional square-bracketed *E* list in a measurement is a gate expression controlling the measurement basis: for example `[H]` specifies measurement in the Hadamard basis, and `[I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
@@ -188,6 +188,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`.
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
+  * Tuples must be bracketed, as in Miranda.  
   * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
   * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and perhaps one day there will be downloadable bundles of functions.  
   * Absolutely no process stuff, no manipulation of qbits. But see *print_string*, *print_strings* and *print_qbit* below.  
@@ -393,7 +394,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *foldl*: (*'a* &rarr; *'b* &rarr; *'a*) &rarr; *'a* &rarr; *'b list* &rarr; *'a*
   * *foldr*: (*'a* &rarr; *'b* &rarr; *'b*) &rarr; *'b* &rarr; *'a list* &rarr; *'b*
   * *forall*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
-  * *fst*: *'a* \* *'b* &rarr; *'a*  
+  * *fst*: (*'a*, *'b*) &rarr; *'a*  
   * *hd*: *'a list* &rarr; *'a*  
 	  * raises an exception if applied to `[]`  
   * *iter*: (*'a* &rarr; *'b*) &rarr; *'a list* &rarr; *unit*
@@ -412,14 +413,14 @@ Following the introduction of the *num* type in place of the old *int*, we can h
 	  * converts a value to a string. Gives a deliberately opaque result if applied to a qbit, function, process, channel or qstate.  
   * *sort*: (*''a* &rarr; *''a* &rarr; *num*) &rarr; *''a list* &rarr; *''a list*
 	  * sorts according to order defined by first argument -- 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
-  * *snd*: *'a* \* *'b* &rarr; *'b*  
+  * *snd*: (*'a*, *'b*) &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *'a list*
   * *take*: *num* &rarr; *'a list* &rarr; *'a list*
   * *takewhile*: (*'a* &rarr; *bool*) &rarr; *'a list* &rarr; *'a list*
   * *tl*: *'a list* &rarr; *'a list*  
 	  * raises an exception if applied to `[]`  
-  * *unzip*: *'a*\**'b* *list* &rarr; *'a* *list* \* *'b* *list*
-  * *zip*: *'a* *list* &rarr; *'b* *list* &rarr; *'a*\**'b* *list*
+  * *unzip*: (*'a*,*'b*) *list* &rarr; (*'a* *list*, *'b* *list*)
+  * *zip*: *'a* *list* &rarr; *'b* *list* &rarr; (*'a*,*'b*) *list*
 	  * raises an exception if applied to lists of differing lengths (but probably shouldn't)
   * 
   * *bitand*: *num* &rarr; *num* &rarr; *num*
@@ -431,7 +432,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *groverU*: *bit list* &rarr; *gate*
     * calculates the U gate for Grover's algorithm; argument gives the sought-for argument values
   * 
-  * *read_alternative*: *string* &rarr; *string* &rarr; (*string*\**'a*) *list* &rarr; *'a*
+  * *read_alternative*: *string* &rarr; *string* &rarr; (*string*,*'a*) *list* &rarr; *'a*
 	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user inputs
   * *read_bool*: *string* &rarr; *string* &rarr; *string* &rarr; *bool*
 	  * prompt, true\_response, false\_response

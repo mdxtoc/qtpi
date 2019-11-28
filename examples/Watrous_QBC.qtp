@@ -1,19 +1,19 @@
 proc Alice(qc:^qbit, bbc:^(bit*bit)) =
-    (let value, basis = randbit(), randbit())
-    (newq qx = match value,basis .
-               + 0b0,0b0 . |0> 
-               + 0b0,0b1 . |+>
-               + 0b1,0b0 . |1> 
-               + 0b1,0b1 . |->         )
+    (let (value, basis) = (randbit(), randbit()))
+    (newq qx = match (value,basis) .
+               + (0b0,0b0) . |0> 
+               + (0b0,0b1) . |+>
+               + (0b1,0b0) . |1> 
+               + (0b1,0b1) . |->         )
     qc!qx             .
-    bbc!(value,basis) .
+    bbc!value,basis .
     _0
         
 proc Bob(qc:^qbit, bbc:^bit*bit) =
     qc?(qx)             .
     bbc?(value,basis)   .
-    qx -/- [if basis=0b1 then H else I fi] (measure) .
-    out![if measure=value then "honest\n" else "liar!!\n" fi] .
+    qx -/- [if basis=0b1 then H else I] (measure) .
+    out![if measure=value then "honest\n" else "liar!!\n"] .
     _0
     
 proc System() = 

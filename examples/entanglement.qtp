@@ -1,6 +1,6 @@
 proc System() =
-  (newq a = if randbit()=0b0 then |0> else |1> fi,
-        b = if randbit()=0b0 then |0> else |1> fi)  
+  (newq a = if randbit()=0b0 then |0> else |1>,   
+        b = if randbit()=0b0 then |0> else |1>)  
   out!["entangling "] . outq!(qval a) .
   out![" and "] . outq!(qval b) .
   a>>H . a,b >> CNot . 

@@ -2,28 +2,28 @@ proc LogBob (verbose, log, done) =
     log?(bs) .
     log?(vs) .
     out!if verbose then ["Bob saw "; show (length bs);
-                                    " quantum pairs: "; show (zip bs vs); "\n"] else [] fi .
+                                    " quantum pairs: "; show (zip bs vs); "\n"] else [] .
     log?(h0) . log?(bAs)  .
     out!if verbose then ["Bob received "; show (length bAs);
-                                    " tagged bases "; show (h0,bAs); "\n"] else [] fi .
+                                    " tagged bases "; show (h0,bAs); "\n"] else [] .
     log?(h1) . log?(bBs)  .
     out!if verbose then ["Bob sent "; show (length bBs);
-                                    " tagged bases "; show (h1,bBs); "\n"] else [] fi .
+                                    " tagged bases "; show (h1,bBs); "\n"] else [] .
     log?(rvs) .
-    out!if verbose then ["Bob reconciled "; show rvs; "\n"] else [] fi .
+    out!if verbose then ["Bob reconciled "; show rvs; "\n"] else [] .
     log?(h2) . log?(mask) .
-    out!if verbose then ["Bob sent tagged check-bit mask "; show (h2,mask); "\n"] else [] fi .
+    out!if verbose then ["Bob sent tagged check-bit mask "; show (h2,mask); "\n"] else [] .
     log?(h3) . log?(cs)  .
-    out!if verbose then ["Bob sent tagged check bits "; show (h3,cs); "\n"] else [] fi .
+    out!if verbose then ["Bob sent tagged check bits "; show (h3,cs); "\n"] else [] .
     log?(h4) . log?(encrypted) .
-    out!if verbose then ["Bob receives tagged encrypted "; show (h4,encrypted); "\n"] else [] fi . 
+    out!if verbose then ["Bob receives tagged encrypted "; show (h4,encrypted); "\n"] else [] . 
     log?(code) .
-    out!if verbose then ["Bob's code is "; show code; "\n"] else [] fi .
+    out!if verbose then ["Bob's code is "; show code; "\n"] else [] .
     log?(M) .
-    out!if verbose then ["Bob decodes message "; show M; "\n"] else [] fi .
+    out!if verbose then ["Bob decodes message "; show M; "\n"] else [] .
     log?(intfseen) .
     (let intfseen = bit2bool (hd intfseen))
-    out![if intfseen then "Bob detected classical interference\n" else "" fi] .
+    out![if intfseen then "Bob detected classical interference\n" else ""] .
     log?(hks') .
     done!length cs, M, intfseen, hks' .
     _0

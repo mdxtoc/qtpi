@@ -28,13 +28,11 @@ proc Alice(nq,m,qc,ic,bc,logc,verbose) =
         bc!xor_mask (take m key) message   .
         logc!message              .
         _0
-      fi
 
 proc AliceRead (nq,qc,rc,bvs) = 
   if nq=0 then rc!rev bvs . _0
   else
     qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (nq-1,qc,rc,bv::bvs)
-  fi
 
 proc AliceMeasure (q,r) =
   match rand4() . 

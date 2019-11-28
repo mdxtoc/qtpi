@@ -9,24 +9,22 @@ proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB,
                               " minimum check bits "; show minChecks; "\n"
                              ] . 
               _0
-         else out!["trial number "; show (k-i+1); if verbose then "\n" else " " fi] .
+         else out!["trial number "; show (k-i+1); if verbose then "\n" else " "] .
               (new chosen, again)  
               | AliceChoose (n,[],r,chosen)
               | chosen?(bvs) . 
-                out!if verbose then ["Alice chose "; show bvs; "\n"] else [] fi .
+                out!if verbose then ["Alice chose "; show bvs; "\n"] else [] .
                 AliceSend (verbose, bvs, qB, bsB, again)
               | again?(b,nc) .
                 Alice1 (k, i-1,
-                           if b then nGood+1 else nGood fi,
-                           if b then nBad else nBad+1 fi,
+                           if b then nGood+1 else nGood,
+                           if b then nBad else nBad+1,
                            sumChecks+nc,
                            if minChecks<0 then nc
                            elif nc<minChecks then nc
-                           else minChecks
-                           fi,
+                           else minChecks,
                            verbose,
                            n,r,qB,bsB)
-  fi
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
 proc AliceChoose(n, bvs, r, chosen) =
@@ -41,11 +39,11 @@ proc AliceSend(verbose, bvs, qB, bsB, again) =
 proc AliceSendBits (bvs,qB,done) =   
     match bvs .
     + []         . done!() . _0
-    + (b,v)::bvs . (newq q = match b,v .
-                             + 0b0,0b0 . |0> 
-                             + 0b0,0b1 . |1> 
-                             + 0b1,0b0 . |+> 
-                             + 0b1,0b1 . |-> 
+    + (b,v)::bvs . (newq q = match (b,v) .
+                             + (0b0,0b0) . |0> 
+                             + (0b0,0b1) . |1> 
+                             + (0b1,0b0) . |+> 
+                             + (0b1,0b1) . |-> 
                    )
                    qB!q.
                    AliceSendBits(bvs,qB,done)
@@ -53,35 +51,33 @@ proc AliceSendBits (bvs,qB,done) =
 proc AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
-    out!if verbose then ["Bob sent bases "; show bBs; "\n"] else [] fi .
+    out!if verbose then ["Bob sent bases "; show bBs; "\n"] else [] .
     (new done)  
     | Reconcile (bBs, bvs, [], done)
     | done?(vs) . (* vs are the values we should agree upon *)
-      out!if verbose then ["Alice reconciled "; show vs; "\n"] else [] fi .
+      out!if verbose then ["Alice reconciled "; show vs; "\n"] else [] .
       bsB?(vBs) . (* vBs are the bits to check, from vs *)
-      out!if verbose then ["Bob sent check bits "; show vBs; "\n"] else [] fi .
+      out!if verbose then ["Bob sent check bits "; show vBs; "\n"] else [] .
       (new done)  
       | AliceCheck (vBs, vs, done)
       | done?(b) . 
         out!if b then if verbose then ["Alice's code is "; show (drop (length vBs) vs); "\n"]
                                  else  ["code -- "; show (length vBs); " check bits\n"]
-                      fi
-                 else ["interference detected -- "; show (length vBs); " check bits\n"]
-            fi .
+                 else ["interference detected -- "; show (length vBs); " check bits\n"] .
         again!b, length vBs .
         _0
     
 proc AliceCheck (vBs, vs, done) =
-  match vBs, vs .
-  + []    , _       . done!true . _0
-  + v::vBs, v'::vs  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0 fi
-  + _               . done!false . _0
+  match (vBs, vs) .
+  + ([]    , _     )  . done!true . _0
+  + (v::vBs, v'::vs)  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0
+  + _                 . done!false . _0
 
 proc Reconcile (bBs,bvs,vs,done) =
-  match bBs, bvs .
-  + []     , []         . (done!rev vs . _0)
-  + bB::bBs, (b,v)::bvs . Reconcile (bBs, bvs, if bB=b then v::vs else vs fi, done)
-  + _                   . out!["Reconcile failure"] . _0
+  match (bBs, bvs) .
+  + ([]     , []        ) . (done!rev vs . _0)
+  + (bB::bBs, (b,v)::bvs) . Reconcile (bBs, bvs, if bB=b then v::vs else vs, done)
+  + _                     . out!["Reconcile failure"] . _0
   
 
 proc Bob(k, verbose, n:num, r:^bit, qA, bsA) = 
@@ -90,29 +86,27 @@ proc Bob(k, verbose, n:num, r:^bit, qA, bsA) =
     (new done) 
     | BobReceive(n,[],qA,r,done)
     | done?(bvs)      . (* bvs is what I saw *)
-      out!if verbose then ["Bob saw "; show bvs; "\n"] else [] fi .
+      out!if verbose then ["Bob saw "; show bvs; "\n"] else [] .
       bsA?(bAs)       . (* receive her bases *)
-      out!if verbose then ["Alice sent bases "; show bAs; "\n"] else [] fi .
+      out!if verbose then ["Alice sent bases "; show bAs; "\n"] else [] .
       bsA!map fst bvs . (* send my bases *)
       (new done)  
       | Reconcile (bAs,bvs,[],done)
       | done?(vs) . (* the bits we agree on *)
-        out!if verbose then ["Bob reconciled "; show vs; "\n"] else [] fi .
+        out!if verbose then ["Bob reconciled "; show vs; "\n"] else [] .
         (let checklength = ceiling ((length vs)/4))
         bsA!take checklength vs . (* send her a sample *)
         (let code = drop checklength vs)
-        out!if verbose then ["Bob's code is "; show code; "\n"] else [] fi .                                
+        out!if verbose then ["Bob's code is "; show code; "\n"] else [] .                                
         Bob (k-1, verbose, n, r, qA, bsA)
-  fi
   
 (* receive qbits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
-         q -/-[if basis=0b1 then H else I fi] (value) .
+         q -/-[if basis=0b1 then H else I] (value) .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
-    fi
        
 (* a very naive eavesdropper. Sees Alice's bits but messes with them. Knows 'n', somehow *)
 proc Eve (k, verbose, n, r:^bit, qA, qB) =
@@ -121,24 +115,22 @@ proc Eve (k, verbose, n, r:^bit, qA, qB) =
     (new done) 
     | EvesDrop(n,[],r,qA,qB,done)
     | done?(bvs) .
-      out!if verbose then ["Eve saw "; show bvs; "\n"] else [] fi .
+      out!if verbose then ["Eve saw "; show bvs; "\n"] else [] .
       Eve (k-1, verbose, n, r, qA, qB)
-  fi
   
 proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(b) .
-         q-/-[if b=0b0 then I else H fi](v) . 
-         (newq q = match b,v .
-                   + 0b0,0b0 . |0>
-                   + 0b0,0b1 . |1>
-                   + 0b1,0b0 . |+>
-                   + 0b1,0b1 . |->
+         q-/-[if b=0b0 then I else H](v) . 
+         (newq q = match (b,v) .
+                   + (0b0,0b0) . |0>
+                   + (0b0,0b1) . |1>
+                   + (0b1,0b0) . |+>
+                   + (0b1,0b1) . |->
          ) 
          qB!q . 
          EvesDrop (n-1, (b,v)::bvs, r, qA, qB, done)
-    fi
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 proc Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)

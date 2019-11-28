@@ -23,9 +23,8 @@ proc Grover (iters, GU, q0, q1, q2, q3) =
   else
     . q0,q1,q2,q3>>GU
     . Grover (iters-1, GU, q0, q1, q2, q3) /^ (bs)
-  fi
   
                 with (bs)
                   1: . out!["measurement says "; show [b0;b1;b2;b3]; 
-                            if [b0;b1;b2;b3]=bs then " ok" else " ** WRONG **" fi; "\n"] 
+                            if [b0;b1;b2;b3]=bs then " ok" else " ** WRONG **"; "\n"] 
                      . _0

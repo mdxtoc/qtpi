@@ -11,7 +11,7 @@ proc Q(q: qbit, s:^qbit, log) =
   log!() . _0 
 
 proc System() = (let k = read_num "number of trials")
-                (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
+                (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
            out!["See output for results -- can print but can't examine qbit state\n"] .
            Logger (k, bv)
 
@@ -28,4 +28,3 @@ proc Run (k, bv, i) =
     | reportP?(_) .
       reportQ?(_) .
       Run (k, bv, i+1)
-  fi

@@ -13,8 +13,7 @@ proc W(n,c) =
            . (join lefts, rights as qs)
            . (split qs as ws@n, tail)
            . tail-/-(bs)
-           . if forall (= 0b0) bs then c!ws . _0 else W(n,c) fi
-  fi
+           . if forall (= 0b0) bs then c!ws . _0 else W(n,c)
 
 fun powerceiling b n =
   pwc 1

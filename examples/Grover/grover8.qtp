@@ -27,11 +27,10 @@ proc Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7) =
   else
     . q0,q1,q2,q3,q4,q5,q6,q7>>GU
     . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7) /^ (bs)
-  fi
   
                 with (bs)
                   1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7])
                      . out!["measurement says "; show answer; 
-                            if answer=bs then " ok" else " ** WRONG **" fi; "\n"] 
+                            if answer=bs then " ok" else " ** WRONG **"; "\n"] 
                      . _0
                      

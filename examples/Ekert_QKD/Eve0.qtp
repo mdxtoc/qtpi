@@ -7,4 +7,3 @@ proc Eve (nq,qcin,qcout) =
     Eve (nq-1,qcin,qcout)
   else
     _0
-  fi

@@ -4,11 +4,11 @@ proc Alice (x:qbit, c:^bit*bit, z:qbit) =
 	z,x>>CNot . x-/-[H](vz) . z-/-(vx) . c!vz,vx . _0 
 
 proc Bob(y:qbit, c:^bit*bit) = 
-    c?(b1,b2) . y>>phi (match b1,b2 .
-                         + 0b0,0b0 . 0
-                         + 0b0,0b1 . 1
-                         + 0b1,0b0 . 2
-                         + 0b1,0b1 . 3
+    c?(b1,b2) . y>>phi (match (b1,b2) .
+                         + (0b0,0b0) . 0
+                         + (0b0,0b1) . 1
+                         + (0b1,0b0) . 2
+                         + (0b1,0b1) . 3
 						) . 
     out!["finally Bob's y is "] .  outq!(qval y) . out!["\n"] .
   	_0

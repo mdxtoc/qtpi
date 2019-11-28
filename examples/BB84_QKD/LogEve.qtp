@@ -11,11 +11,11 @@ proc LogEve (verbose, logAE, logEB, done) =
 proc LogAliceEve (verbose, log, done) = 
   log?(encrypted)     .
   out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
-                 else [] fi
+                 else []
                       .
   log?(code)          .
   out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
-                 else [] fi
+                 else []
                       .
   log?(hkbsAE)        .
   done!hkbsAE         .
@@ -26,18 +26,18 @@ proc LogEveBob (verbose, log, done) =
   log?(vs)              .
   out!if verbose then ["Eve (as Alice) sent "; show (length bs); 
                        " pairs: "; show (zip bs vs); "\n"] 
-                 else [] fi
+                 else []
                         .
   log?(cs)              .
   out!if verbose then ["Eve (as Alice) saw "; show (length cs); 
                        " checkbits from Bob: "; show cs; "\n"] 
-                 else [] fi
+                 else []
                         .
   log?(decoded)          .
   (let decoded = bit2bool (hd decoded))
   log?(message)       .
   out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
-                            else [] fi
+                            else []
                       .
   log?(hkbsEB) .
   done!decoded, message, length cs, hkbsEB .

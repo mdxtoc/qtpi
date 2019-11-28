@@ -16,8 +16,8 @@ proc RedundantConstant () = match 0 .
                             + 1 . S(3)
                             + n . S(4)
       
-proc IncompleteAlso () = match 0,|+> .
-                         + 1, _   . S(1)
-                         + _, |-> . S(2)
-                         + 2, |+> . S(3)
+proc IncompleteAlso () = match (0,|+>) .
+                         + (1, _  ) . S(1)
+                         + (_, |->) . S(2)
+                         + (2, |+>) . S(3)
 

@@ -3,7 +3,7 @@ proc Alice(qc:^qbit, bbc:^bit*bit) =
     qx >> H . qx,qw >> CNot .
     qc!qx           .
     (let basis = randbit())
-    qw -/- [if basis=0b1 then H else I fi] (value) .
+    qw -/- [if basis=0b1 then H else I] (value) .
     out![show value; ","; show basis; "\n"] .
     bbc!value,basis . 
     _0
@@ -11,8 +11,8 @@ proc Alice(qc:^qbit, bbc:^bit*bit) =
 proc Bob(qc:^qbit, bbc:^bit*bit) =
     qc?(qx)             .
     bbc?(value,basis)   .
-    qx -/- [if basis=0b1 then H else I fi] (measure) .
-    out![if measure=value then "honest\n" else "liar!!\n" fi] .
+    qx -/- [if basis=0b1 then H else I] (measure) .
+    out![if measure=value then "honest\n" else "liar!!\n"] .
     _0
     
 proc System() = 

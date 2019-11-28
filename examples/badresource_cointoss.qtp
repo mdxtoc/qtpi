@@ -6,7 +6,7 @@ proc P(fromQ:^qbit, toQ:^qbit) = | fromQ?(y) . toQ!y . _0
 proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
   x>>H . toP!x . fromP?(z) . x>>H . _0 
 
-proc System() = (let bv = read_alternative "basis" "," ["0",|0>; "1",|1>; "+",|+>; "-",|->])
+proc System() = (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
                 (newq x = bv) 
                 (new s:^qbit, r:^qbit) 
                 | P(s,r) 

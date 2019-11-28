@@ -12,11 +12,11 @@ proc Alice(n:num, r:^bit, qB, vB, log) =
 proc AliceSendBits (vs,basis,qB,done) =   
     match vs .
     + []    . done!() . _0
-    + v::vs . (newq q = match basis,v .
-                        + 0b0,0b0 . |0> 
-                        + 0b0,0b1 . |1> 
-                        + 0b1,0b0 . |+> 
-                        + 0b1,0b1 . |->
+    + v::vs . (newq q = match (basis,v) .
+                        + (0b0,0b0) . |0> 
+                        + (0b0,0b1) . |1> 
+                        + (0b1,0b0) . |+> 
+                        + (0b1,0b1) . |->
               )
               qB!q.
               AliceSendBits(vs,basis,qB,done)
@@ -32,7 +32,7 @@ proc Bob(n:num, r:^bit, qA, vA, log) =
     vA?(basis:bit, vs:bit list) .
     BobVerify (basis,vs,bvs,verified)
   | verified?(honest) .
-    log![if honest then 0b1 else 0b0 fi] .
+    log![if honest then 0b1 else 0b0] .
     _0
 
 (* receive qbits down qA, measure them, record the results *)
@@ -40,20 +40,18 @@ proc BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
-         q -/-[if basis=0b1 then H else I fi] (value) .
+         q -/-[if basis=0b1 then H else I] (value) .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
-    fi
 
 (* verify Alice's story *)
 proc BobVerify (basis,vs,bvs,done) =
-  match vs, bvs .
-  + []   , []           . Honest (done)
-  + []   , _            . Liar (done)
-  + _    , []           . Liar (done)
-  + v::vs, (b,v')::bvs  . if b=basis && v<>v' 
+  match (vs, bvs) .
+  + ([]   , []         )  . Honest (done)
+  + ([]   , _          )  . Liar (done)
+  + (_    , []         )  . Liar (done)
+  + (v::vs, (b,v')::bvs)  . if b=basis && v<>v' 
                             then Liar (done)
                             else BobVerify(basis,vs,bvs,done)
-                          fi
   
 proc Liar   (done) = done!false . _0
 proc Honest (done) = done!true  . _0
@@ -79,7 +77,7 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
     _0
   else
     out!["trial number "; show (i+1);
-                    if verbose then ": " else "\n" fi
+                    if verbose then ": " else "\n"
                    ] .
     (new qc, vc, logA, logB)
     | Alice(n,r,qc,vc,logA) 
@@ -89,8 +87,7 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
       logA?(vs) .
       out!if verbose then ["Alice chose basis "; show basis;
                            " and values "; show vs; "\n"]
-          else []
-          fi   .
+          else [] .
       logB?(bs) .
       logB?(vs) .
       (let bvs = zip bs vs)
@@ -98,19 +95,16 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
       (let guess = hd guesses)
       out!if verbose then ["Bob received "; show bvs;
                            " and guessed "; show guess; "\n"]
-          else []
-          fi .
+          else [] .
       logB?(honests) .
       (let honest = hd honests = 0b1)
       out!["Bob says Alice ";
-                      if honest then "was honest" else "lied" fi;
+                      if honest then "was honest" else "lied";
                       "\n"
                      ] .
-      (let nH = if honest then nH+1 else nH fi)
-      (let nA,nB = if guess=basis then nA,nB+1 else nA+1,nB fi)
+      (let nH = if honest then nH+1 else nH)
+      (let (nA,nB) = if guess=basis then (nA,nB+1) else (nA+1,nB))
       out![if guess=basis then "Bob wins\n"
-                                   else "Alice wins\n"
-           fi
+                          else "Alice wins\n"
           ] . 
       Control (k, i+1, verbose, nA, nB, nH, n, r)
-  fi

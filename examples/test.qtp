@@ -9,9 +9,9 @@ proc System () =
   x,y>>(H><H) .
   x,y>>(H><H) . (* back again *)
   x-/-(vx) .
-  y >> match vz,vx . + 0b0,0b0 . I
-                     + 0b0,0b1 . X
-                     + 0b1,0b0 . Z
-                     + 0b1,0b1 . Z*X    .
+  y >> match (vz,vx) . + (0b0,0b0) . I
+                       + (0b0,0b1) . X
+                       + (0b1,0b0) . Z
+                       + (0b1,0b1) . Z*X    .
   out!["H><H="; show (H><H); "; H><H><H="; show (H><H><H); "\n"] .
   _0

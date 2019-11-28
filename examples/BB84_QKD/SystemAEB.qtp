@@ -23,18 +23,18 @@ proc Logger (k, i, verbose, nAlice, nEve, nShort, nEvades,
                             n, w, hkbsAE, hkbsEB, cMin, nSigma) =
   if i<k then 
     . out!if k<>1 then ["trial number "; show (i+1); 
-                                if verbose then "\n" else " " fi]
-                  else [] fi
+                                if verbose then "\n" else " "]
+                  else []
     . (let M = randbits n)
-    . out!if verbose then ["message is "; show M; "\n"] else [] fi
+    . out!if verbose then ["message is "; show M; "\n"] else []
     . (new logA,logAE,logEB,logB,doneA,doneB,doneE)
-    . (let hksAE, hksEB = map bits2num (packets [] w hkbsAE),
-                          map bits2num (packets [] w hkbsEB)
+    . (let (hksAE, hksEB) = (map bits2num (packets [] w hkbsAE),
+                             map bits2num (packets [] w hkbsEB))
       )
     . out!if verbose then ["hash keys are (A<->E) "; show hksAE; 
                                         " (E<->B) "; show hksEB;
                                               "\n"] 
-                     else [] fi 
+                     else [] 
     . | Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) 
       | LogAlice (verbose, logA, doneA)
       | LogBob (verbose, logB, doneB)
@@ -61,38 +61,33 @@ proc Logger (k, i, verbose, nAlice, nEve, nShort, nEvades,
                        )
            else . (let evewins = decodeE && not intfseen && messageE=messageA)
                 . (let evades = not intfseen)
-                . (let nEvades = if evades then nEvades+1 else nEvades fi)
+                . (let nEvades = if evades then nEvades+1 else nEvades)
                 . out!if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
                                  else []
-                      fi
-                . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n" fi]
-                               else [] fi
-                . (let nAlice, nEve = if   intfseen then nAlice+1, nEve     (* Alice spotted Eve *)
-                                      elif evewins  then nAlice  , nEve+1   (* Alice didn't spot Eve, and Eve saw the message *)
-                                      else               nAlice  , nEve     (* somehow Eve was missed, but she didn't see the message *)
-                                      fi
+                . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n"]
+                               else []
+                . (let (nAlice, nEve) = if   intfseen then (nAlice+1, nEve  )   (* Alice spotted Eve *)
+                                        elif evewins  then (nAlice  , nEve+1)   (* Alice didn't spot Eve, and Eve saw the message *)
+                                        else               (nAlice  , nEve  )   (* somehow Eve was missed, but she didn't see the message *)
                   )
-                . (let hkbsAE, hkbsEB = if intfseen                 then k, k where k = randbits (5*w)
-                                        elif hkbsA=[] || hkbsB=[]   then hkbsAE, hkbsEB
-                                                                    else hkbsA, hkbsB
-                                        fi
+                . (let (hkbsAE, hkbsEB) = if intfseen                 then (k, k) where k = randbits (5*w)
+                                          elif hkbsA=[] || hkbsB=[]   then (hkbsAE, hkbsEB)
+                                                                      else (hkbsA, hkbsB)
                   )
                 . Logger (k, i+1, verbose, nAlice, nEve, nShort, nEvades,
                                              ncA::ncAs, ncB::ncBs, evades::evasions,
                                              n, w, hkbsAE, hkbsEB, cMin, nSigma)
-             fi
-         else . out!["all done: "; 
-                     show nEve;                " Eve's; ";
-                     show nAlice;              " Alice's; ";
-                     show nEvades;             " successful evasions; ";
-                     show nShort;              " short codebits; ";
-                     "average check bits (Alice/Eve) "  ; showf 2 (listsum ncAs/k); 
-                     "; minimum check bits (Alice/Eve) "; show (listmin ncAs); 
-                     "; average check bits (Eve/Bob) "  ; showf 2 (listsum ncBs/k); 
-                     "; minimum check bits (Eve/Bob) "  ; show (listmin ncBs); "\n";
-                     "histogram of check-bit lengths (Alice/Eve) "; show (histogram ncAs); "\n";
-                     "histogram of check-bit lengths (Eve/Bob) "; show (histogram ncBs); "\n";
-                     "histogram of evasions "; show (histogram2 (zip ncAs evasions)); "\n"
-                    ] 
-              . _0 
-  fi
+  else . out!["all done: "; 
+              show nEve;                " Eve's; ";
+              show nAlice;              " Alice's; ";
+              show nEvades;             " successful evasions; ";
+              show nShort;              " short codebits; ";
+              "average check bits (Alice/Eve) "  ; showf 2 (listsum ncAs/k); 
+              "; minimum check bits (Alice/Eve) "; show (listmin ncAs); 
+              "; average check bits (Eve/Bob) "  ; showf 2 (listsum ncBs/k); 
+              "; minimum check bits (Eve/Bob) "  ; show (listmin ncBs); "\n";
+              "histogram of check-bit lengths (Alice/Eve) "; show (histogram ncAs); "\n";
+              "histogram of check-bit lengths (Eve/Bob) "; show (histogram ncBs); "\n";
+              "histogram of evasions "; show (histogram2 (zip ncAs evasions)); "\n"
+             ] 
+       . _0 

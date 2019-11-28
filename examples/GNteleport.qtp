@@ -20,8 +20,7 @@ proc System () =
   (let k = read_num "number of trials")
   (let standard = read_bool "standard initial state or random" "s" "r")
   out!if standard then []
-                  else ["\nThat, as you will see, is a step too far for the symbolic quantum calculator\n\n"]
-      fi .
+                  else ["\nThat, as you will see, is a step too far for the symbolic quantum calculator\n\n"] .
   out!["See output for results -- can print but can't examine qbit state\n"] .
   Run (k, standard, 0)
 
@@ -30,10 +29,8 @@ proc Run (k, standard, i) =
   else (new log)
        | if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
                      else (newq x,y)          Experiment (x, y, log)
-         fi
        | log?(_) .
          Run (k, standard, i+1)
-  fi
   
 proc Experiment (x, y, log) =
   x>>H . x,y>>CNot . 

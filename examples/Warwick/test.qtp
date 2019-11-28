@@ -6,36 +6,29 @@ fun rand2 () = bits2num (randbits 1)
 fun setup1_1 n m =
   rows 1 (lam ii jj . 0)
   where rows i f =
-    if i>n then f else rows (i+1) (tapes 1 0 f) fi
+    if i>n then f else rows (i+1) (tapes 1 0 f)
     where tapes y count f =
       if y=w then if count=0 then choice2 f
                              else choice0 f
-                  fi
-             elif c=0 then tapes (y+1) ((count+1) % 2) (choice0 f)
-             elif count=0 then tapes (y+1) count (choice1 f)
-             else tapes (y+1) count (choice2 f)
-      fi
+      elif c=0 then tapes (y+1) ((count+1) % 2) (choice0 f)
+      elif count=0 then tapes (y+1) count (choice1 f)
+      else tapes (y+1) count (choice2 f)
       where c = rand2 ()
       where choice0 f ii jj = 
         if ii=i && (jj=4*y-3 || jj=4*y-2 || jj=4*y-1) then 4 
                                                       else f ii jj
-        fi
       where choice1 f ii jj = 
         if ii=i then if jj=4*y-3 then a
                         elif jj=4*y-1 then b
                         elif jj=m then (f ii m + a + b) % 16
                         else f ii jj
-                     fi
                 else f ii jj
-        fi
-        where a,b = 2*rand8(), 2*rand8()
+        where (a,b) = (2*rand8(), 2*rand8())
       where choice2 f ii jj = 
         if ii=i then if jj=4*y-2 then a
                         elif jj=m then (f ii m + a) % 16
                         else f ii jj
-                     fi
                 else f ii jj
-        fi
         where a = 2*rand8()
     where w = floor (m/4)      
 
@@ -45,28 +38,23 @@ fun setup1_2 n m =
     if i>n then f 
            else rows (i+1) g
                 where g = tapes 1 f
-                where f = if rand2()=0 then (lam ii jj . if ii=i && jj=1 then 4 else f ii jj fi) else f fi
-    fi
+                where f = if rand2()=0 then (lam ii jj . if ii=i && jj=1 then 4 else f ii jj) else f
     where tapes y f =
       if y=w then f 
              else tapes (y+1) f 
-      fi
       where f = if (i+y) % 2 = 0 then if rand2()=0 then (lam ii jj . if ii=2*i-1 && jj=4*y-1 then 4
                                                                        elif ii=2*i && jj=4*y-2 then 4
                                                                        elif ii=2*i && jj=4*y then -4
                                                                        elif ii=i && jj=m then (f i m + f (i+1) m) % 16
                                                                        else f ii jj
-                                                                     fi
                                                         )
                                                    else (lam ii jj . if ii=2*i+1 && jj=4*y-1 then 4
                                                                        elif ii=2*i-1 && jj=4*y-2 then 4
                                                                        elif ii=2*i-1 && jj=4*y then -4
                                                                        elif ii=i+1 && jj=m then (f (i+1) m + f i m) % 16
                                                                        else f ii jj
-                                                                     fi)
-                                      fi
+                                                        )
                                  else f
-                fi
     where w = floor (m/4)
 
 
@@ -74,7 +62,6 @@ fun rgate i = (* angle is i*pi/8: Rx does pi/8 *)
   if i<0 then rgate (16-i) 
          elif i=0 then I 
          else Rx*rgate (i-1) 
-  fi
 
 fun enlist n m f = tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1)))
 
@@ -86,8 +73,8 @@ proc System () =
   (let n = 2)
   (let m = 9)
      
-  (let subprotocol = if rand2()=0 then "1.1" else "1.2" fi) 
-  (let phi = (if subprotocol="1.1" then setup1_1 else setup1_2 fi) n m)
+  (let subprotocol = if rand2()=0 then "1.1" else "1.2") 
+  (let phi = (if subprotocol="1.1" then setup1_1 else setup1_2) n m)
   out!["phi (subprotocol "; subprotocol; ") = "; show (enlist n m phi); "\n"] .
 
   (let r = delist (enlist n m (lam i j . rand2())))  
@@ -101,8 +88,8 @@ proc System () =
   (let rgate = memofun rgate)
   
   (* I find this hard to describe as a function *)
-  (let neighbours = delist [[[1,2];[1,1;1,3];[1,2;1,4;2,3];[1,3;1,5];[1,4;1,6;2,5];[1,5;1,7];[1,6;1,8];[1,7;1,9];[1,8]];
-                            [[2,2];[2,1;2,3];[2,2;2,4;1,3];[2,3;2,5];[2,4;2,6;1,5];[2,5;2,7];[2,6;2,8];[2,7;2,9];[2,8]]
+  (let neighbours = delist [[[(1,2)];[(1,1);(1,3)];[(1,2);(1,4);(2,3)];[(1,3);(1,5)];[(1,4);(1,6);(2,5)];[(1,5);(1,7)];[(1,6);(1,8)];[(1,7);(1,9)];[(1,8)]];
+                            [[(2,2)];[(2,1);(2,3)];[(2,2);(2,4);(1,3)];[(2,3);(2,5)];[(2,4);(2,6);(1,5)];[(2,5);(2,7)];[(2,6);(2,8)];[(2,7);(2,9)];[(2,8)]]
                            ])
   out!["neighbours = "; show (enlist n m neighbours); "\n"]   .
   
@@ -110,7 +97,7 @@ proc System () =
   out!["prep = "; show (enlist n m prep); "\n"]   .
   
   (let delta = lam phi i j . m1*phi i j + theta i j + 8*r i j
-                             where m1 = if r' i j = 0 then 1 else -1 fi
+                             where m1 = if r' i j = 0 then 1 else -1
   )
   
   (newq q1_1=|+>) q1_1 >> rgate (prep 1 1)                   . 

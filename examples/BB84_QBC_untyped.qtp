@@ -3,19 +3,17 @@ proc Alice(n, r, qB, bB, vB) = AliceChoose(n,r,[],qB,bB,vB)
 proc AliceChoose(n, r, vs, qB, bB, vB) =
     if n=0 then r?(basis).AliceSend(vs,vs,basis,qB,bB,vB)
     else r?(v).AliceChoose(n-1,r,vs@[v],qB,bB,vB)
-    fi
 
 proc AliceSend(vs, ovs, basis, qB, bB, vB) =
     if vs=[] then AliceReport(basis,ovs,bB,vB)
     else (newq q)
-         q >> if hd(vs)=0b1 then X else I fi.
-         q >> if basis=0b1 then H else I fi.
+         q >> if hd(vs)=0b1 then X else I.
+         q >> if basis=0b1 then H else I.
          qB!q.
          AliceSend(tl(vs),ovs,basis,qB,bB,vB)
-    fi
 
 proc AliceReport(basis,vs, bB, vB) = 
-    bB?(guess).vB!basis,vs.if guess=basis then BobWin() else BobLose() fi 
+    bB?(guess).vB!basis,vs.if guess=basis then BobWin() else BobLose() 
 
 proc Bob(n, r, qA, bA, vA) = BobReceive(n,[],r,qA,bA,vA)
 
@@ -27,19 +25,15 @@ proc BobReceive(n, vs, r, qA, bA, vA) =
     else 
                   qA?(q:qbit).
                   r?(basis).
-                  q >> if basis=0b1 then H else I fi.
+                  q >> if basis=0b1 then H else I.
                   q -/- (value).
                   BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
-    fi
 
 proc BobVerify (vs, basis, as) = 
   if vs=[] && as=[] then Honest()
   else if vs=[] || as=[] then Liar()
        else if basis=fst(hd(vs)) && hd(as)<>snd(hd(vs)) then Liar()
             else BobVerify(tl(vs),basis,tl(as))
-            fi
-       fi
-  fi
        
 proc Random(q:qbit, r) = q>>H . q-/-(v) . r!v . Random(q,r)
 

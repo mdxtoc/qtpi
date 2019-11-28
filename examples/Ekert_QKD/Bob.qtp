@@ -25,13 +25,11 @@ proc Bob(nq,qc,ic,bc,logc,verbose) =
         (* out!["Bob receives "; show message; "\n"] . *)
         logc!message .
         _0
-      fi
 
 proc BobRead (nq,qc,rc,bvs) = 
   if nq=0 then rc!rev bvs . _0
   else
     qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
-  fi
 
 proc BobMeasure (q,r) =
   match rand4() .

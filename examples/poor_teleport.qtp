@@ -7,11 +7,11 @@ proc Alice (x:qbit, c:^bit*bit, z:qbit) =
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . c!vz,vx . _0 
 
 proc Bob(y:qbit, c:^bit*bit) = 
-    c?(b1,b2) . y>>phi (match b1,b2 .
-                         + 0b0,0b0 . 0
-                         + 0b0,0b1 . 1
-                         + 0b1,0b0 . 2
-                         + 0b1,0b1 . 3
+    c?(b1,b2) . y>>phi (match (b1,b2) .
+                         + (0b0,0b0) . 0
+                         + (0b0,0b1) . 1
+                         + (0b1,0b0) . 2
+                         + (0b1,0b1) . 3
 						) . 
     out!["finally Bob's y is "] . 
     outq!(qval y) .
@@ -20,8 +20,8 @@ proc Bob(y:qbit, c:^bit*bit) =
 
 (* this entanglement entangles, but doesn't necessarily give h|00>+h|01> *)
 proc System () = 
-  (newq x=if randbit()=0b0 then |0> else |1> fi, 
-        y=if randbit()=0b0 then |0> else |1> fi, 
+  (newq x = if randbit()=0b0 then |0> else |1>,   
+        y = if randbit()=0b0 then |0> else |1>, 
         z) 
   x>>H . x,y>>CNot . 
   (new c:^bit*bit) 

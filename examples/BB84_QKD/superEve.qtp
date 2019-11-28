@@ -81,4 +81,3 @@ proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
     (* and bow out *)
     log!hkbs'                                   .
     _0
-  fi

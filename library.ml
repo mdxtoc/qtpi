@@ -77,7 +77,7 @@ let _ = Interpret.know ("CSWAP", "gate", vgate g_Fredkin)
 let v_groverU vs = groverU (List.map bitv vs)
 
 let _ = Interpret.know ("groverG", "num ->gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
-let _ = Interpret.know ("groverU", "bit list -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
+let _ = Interpret.know ("groverU", "[bit] -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
 
 let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Qsim.dagger <.> gatev))
 
@@ -174,40 +174,40 @@ let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
 
 let v_concat xss = vlist (List.concat (List.map listv (listv xss)))
 
-let _ = Interpret.know ("length"   , "'*a list -> num                        ", vfun (vint <.> List.length <.> listv))
+let _ = Interpret.know ("length"   , "['a] -> num                        "  , vfun (vint <.> List.length <.> listv))
 
-let _ = Interpret.know ("hd"       , "'a list -> 'a                         ", vfun v_hd)
-let _ = Interpret.know ("tl"       , "'a list -> 'a list                    ", vfun v_tl)
+let _ = Interpret.know ("hd"       , "['a] -> 'a                         "  , vfun v_hd)
+let _ = Interpret.know ("tl"       , "['a] -> ['a]                    "     , vfun v_tl)
 
-let _ = Interpret.know ("rev"      , "'a list -> 'a list                    ", vfun (vlist <.> List.rev <.> listv))
-let _ = Interpret.know ("append"   , "'a list -> 'a list -> 'a list         ", vfun2 v_append)
+let _ = Interpret.know ("rev"      , "['a] -> ['a]                    "     , vfun (vlist <.> List.rev <.> listv))
+let _ = Interpret.know ("append"   , "['a] -> ['a] -> ['a]         "        , vfun2 v_append)
 
-let _ = Interpret.know ("iter"     , "('a -> ()) -> 'a list -> ()       ", vfun2 v_iter)
-let _ = Interpret.know ("map"      , "('*a -> 'b) -> '*a list -> 'b list      ", vfun2 v_map)
+let _ = Interpret.know ("iter"     , "('a -> ()) -> ['a] -> ()       "      , vfun2 v_iter)
+let _ = Interpret.know ("map"      , "('a -> 'b) -> ['a] -> ['b]      "     , vfun2 v_map)
 
-let _ = Interpret.know ("take"     , "num -> 'a list -> 'a list             ", vfun2 v_take)
-let _ = Interpret.know ("drop"     , "num -> 'a list -> 'a list             ", vfun2 v_drop)
+let _ = Interpret.know ("take"     , "num -> ['a] -> ['a]             "     , vfun2 v_take)
+let _ = Interpret.know ("drop"     , "num -> ['a] -> ['a]             "     , vfun2 v_drop)
 
-let _ = Interpret.know ("takewhile", "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_takewhile)
-let _ = Interpret.know ("dropwhile", "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_dropwhile)
+let _ = Interpret.know ("takewhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_takewhile)
+let _ = Interpret.know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_dropwhile)
 
-let _ = Interpret.know ("zip"      , "'a list -> 'b list -> ('a,'b) list    ", vfun2 v_zip)
-let _ = Interpret.know ("unzip"    , "('a,'b) list -> ('a list, 'b list)     ", vfun v_unzip)
+let _ = Interpret.know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
+let _ = Interpret.know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , vfun v_unzip)
 
-let _ = Interpret.know ("mzip"     , "'a list -> 'b list -> ('a,'b) list    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
-let _ = Interpret.know ("mzip2"    , "'a list -> 'b list -> ('a,'b) list    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
-let _ = Interpret.know ("mzip3"    , "'a list -> 'b list-> 'c list -> ('a,'b,'c) list    "
+let _ = Interpret.know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
+let _ = Interpret.know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
+let _ = Interpret.know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
                             , vfun3 (fun xs ys zs -> vlist (List.map vtriple (mirazip3 (listv xs) (listv ys) (listv zs)))))
 
-let _ = Interpret.know ("filter"   , "('a -> bool) -> 'a list -> 'a list    ", vfun2 v_filter)
+let _ = Interpret.know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
 
-let _ = Interpret.know ("exists"   , "('a -> bool) -> 'a list -> bool       ", vfun2 v_exists)
-let _ = Interpret.know ("forall"   , "('a -> bool) -> 'a list -> bool       ", vfun2 v_forall)
+let _ = Interpret.know ("exists"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_exists)
+let _ = Interpret.know ("forall"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_forall)
 
-let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> 'b list -> 'a", vfun3 v_foldl)
-let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> 'a list -> 'b", vfun3 v_foldr)
+let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> ['b] -> 'a" , vfun3 v_foldl)
+let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> ['a] -> 'b" , vfun3 v_foldr)
 
-let _ = Interpret.know ("concat"   , "'a list list -> 'a list                ", vfun v_concat )
+let _ = Interpret.know ("concat"   , "[['a]] -> ['a]                "       , vfun v_concat )
 
 let v_tabulate n f =
   let i = mustbe_intv n in
@@ -217,17 +217,17 @@ let v_tabulate n f =
 
 let v_const a b = a
   
-let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> 'a list"    , vfun2 v_tabulate)
-let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                  , vfun2 v_const)
+let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
+let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
 
 let v_compare a b = vint (Interpret.deepcompare (a,b))
 let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
 
 let v_sort compare vs = vlist (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (listv vs))
-let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> ''a list -> ''a list", vfun2 v_sort)
+let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
 
-let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                       , vfun (Stdlib.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                       , vfun (Stdlib.snd <.> pairv))
+let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , vfun (Stdlib.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , vfun (Stdlib.snd <.> pairv))
 
 let _zeroes = ref zero
 let _ones = ref zero
@@ -238,8 +238,8 @@ let vrandbit () =
     (if b then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
   b
   
-let _ = Interpret.know ("randbit",  "() -> bit"                       , vfun (vbit <.> vrandbit <.> unitv))
-let _ = Interpret.know ("randbits", "num -> bit list"                   , vfun v_randbits)
+let _ = Interpret.know ("randbit",  "() -> bit"                             , vfun (vbit <.> vrandbit <.> unitv))
+let _ = Interpret.know ("randbits", "num -> [bit]"                          , vfun v_randbits)
 
 let v_max a b =
   let a = numv a in
@@ -318,14 +318,14 @@ let v_bits2num bs =
   let zn = Z.of_bits s in
   vnum (num_of_zint zn)
 
-let _ = Interpret.know ("bits2num", "bit list -> num", vfun v_bits2num)
-let _ = Interpret.know ("num2bits", "num -> bit list", vfun v_num2bits)
+let _ = Interpret.know ("bits2num", "[bit] -> num", vfun v_bits2num)
+let _ = Interpret.know ("num2bits", "num -> [bit]", vfun v_num2bits)
 
 let v_nth vs n = 
   let i = mustbe_intv n in
   try List.nth (listv vs) i
   with Failure _ -> raise (LibraryError (Printf.sprintf "nth %s %s" (string_of_value vs) (string_of_int i)))
-let _ = Interpret.know ("nth", "'a list -> num -> 'a", vfun2 v_nth)
+let _ = Interpret.know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
 
 (* ********************* numbers ************************ *)
 
@@ -369,7 +369,7 @@ let rec read_alternative prompt sep alts =
   try List.assoc s assoc
   with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
 
-let _ = Interpret.know ("read_alternative", "string -> string -> (string,'a) list -> 'a", vfun3 read_alternative)
+let _ = Interpret.know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
   
 let read_bool prompt y n = read_alternative prompt (vstring "/") (vlist [vpair (y,vbool true); vpair (n,vbool false)])
 let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
@@ -377,14 +377,14 @@ let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3
 exception Abandon of string
 
 let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
-let _ = Interpret.know ("abandon", "string list -> '*a", vfun abandon) (* note classical result type ... *)
+let _ = Interpret.know ("abandon", "[string] -> '*a", vfun abandon) (* note classical result type ... *)
 
 
 let print_string s = vunit (Stdlib.print_string (stringv s); flush stdout)
 let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
                                         
 let _ = Interpret.know ("print_string" , "string -> ()"       , vfun (print_string))
-let _ = Interpret.know ("print_strings", "string list -> ()"  , vfun (v_iter (vfun print_string)))
+let _ = Interpret.know ("print_strings", "[string] -> ()"  , vfun (v_iter (vfun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , vfun print_qbit)
 
 let _show v = 
@@ -421,7 +421,7 @@ let _memofun f = OneMap.memofun id (funv f)
 let _memorec f = OneMap.memorec id (funv2 f <.> vfun)
 
 let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
-let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b", vfun2 _memorec)
+let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"           , vfun2 _memorec)
   
 module TwoMap = MyMap.Make (struct type t        = value*value
                                    let compare   = Stdlib.compare (* ok not to be deepcompare *)
@@ -431,7 +431,7 @@ module TwoMap = MyMap.Make (struct type t        = value*value
 
 let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
 
-let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c", vfun3 _memofun2)
+let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"            , vfun3 _memofun2)
   
 module ThreeMap = MyMap.Make (struct type t        = value*value*value
                                      let compare   = Stdlib.compare (* ok not to be deepcompare *)

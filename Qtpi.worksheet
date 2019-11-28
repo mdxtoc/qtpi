@@ -44,13 +44,13 @@ make Qtpi
 ./Qtpi examples/hadamard.qtp
 ./Qtpi examples/badchannel_cointoss.qtp             # produces error
 ./Qtpi examples/badresource_cointoss.qtp            # produces error
-./Qtpi -trace examples/random_cointoss.qtp
-./Qtpi examples/poor_teleport.qtp                   # doesn't work
+./Qtpi -trace examples/random_cointoss.qtp          # often gets a phase error
+./Qtpi examples/poor_teleport.qtp                   # doesn't always work
 ./Qtpi examples/silly_teleport.qtp                  # doesn't work
 time ./Qtpi -chanbuf_limit 10 examples/BB84_QBC.qtp # works, but sticks because of Random
 time ./Qtpi examples/BB84_QKD/takedrop.qtp          # works, but sticks because of Random
 time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp  # works, but sticks because of Random
-./Qtpi examples/matchtest.qtp                       # generates errors
+./Qtpi examples/matchtest.qtp                       # generates warnings and runtime error
 ./Qtpi examples/test.qtp
 ./Qtpi examples/tensorp.qtp
 ./Qtpi examples/matrixp.qtp

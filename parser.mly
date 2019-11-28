@@ -217,21 +217,15 @@ func_typespec:
                                         {adorn (Fun ($1,$3))}
   
 chan_typespec:
-  | tuple_typespec                      {$1}
-  | CHANTYPE tuple_typespec             {adorn (Channel $2)}
-  
-tuple_typespec:
   | simple_typespec                     {$1}
-  | simple_typespec STAR simple_typespecs
-                                        {adorn (Tuple ($1::$3))}        
-    
+  | CHANTYPE simple_typespec            {adorn (Channel $2)}
+  
 simple_typespec:
   | NUMTYPE                             {adorn Num}
   | BOOLTYPE                            {adorn Bool}
   | CHARTYPE                            {adorn Char}
   | STRINGTYPE                          {adorn String}
   | BITTYPE                             {adorn Bit}
-  | UNITTYPE                            {adorn Unit}
   | GATETYPE                            {adorn Gate}
   | QBITTYPE                            {adorn Qbit}
   | QSTATETYPE                          {adorn Qstate}
@@ -241,7 +235,8 @@ simple_typespec:
                                          if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } */
-  | LPAR typespec RPAR                  {$2}
+  | LPAR RPAR                           {adorn Unit}
+  | LPAR typespectuple RPAR             {adorn (Type.delist $2)}
   | FORALL typevars DOT typespec        {adorn (Poly ($2,$4))}
   | simple_typespec LISTTYPE            {adorn (List ($1))}
   
@@ -249,7 +244,10 @@ simple_typespecs:
   | simple_typespec                     {[$1]}
   | simple_typespec STAR simple_typespecs
                                         {$1::$3}
-                                        
+typespectuple:
+  | typespec                            {[$1]}
+  | typespec COMMA typespectuple        {$1::$3} 
+  
 typevar:
   TVNAME                                {$1}
     

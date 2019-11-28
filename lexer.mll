@@ -93,6 +93,7 @@ rule make_token = parse
   | "then"      {THEN}
   | "else"      {ELSE}
   | "elif"      {ELIF}
+  | "elsf"      {ELIF}
   | "fi"        {FI}
     
   | "num"       {NUMTYPE}

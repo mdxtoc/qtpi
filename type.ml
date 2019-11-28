@@ -176,7 +176,7 @@ let rec freetvs t =
   in
   _freetvs NameSet.empty t
 
-module OrderedUnknown = struct type t = unknown let compare (n1,_) (n2,_) = Pervasives.compare n1 n2 let to_string = string_of_unknown end
+module OrderedUnknown = struct type t = unknown let compare (n1,_) (n2,_) = Stdlib.compare n1 n2 let to_string = string_of_unknown end
 module UnknownSet = MySet.Make(OrderedUnknown)
 
 let freeunknowns t = 

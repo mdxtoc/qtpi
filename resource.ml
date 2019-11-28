@@ -141,10 +141,10 @@ and string_of_resourceid (spos, s) =
   
 let extendid (spos, s) s1 = spos, s^"."^s1
 
-module OrderedResource = struct type t = resource let compare = Pervasives.compare let to_string = string_of_resource end
+module OrderedResource = struct type t = resource let compare = Stdlib.compare let to_string = string_of_resource end
 module ResourceSet = MySet.Make(OrderedResource)  
 
-module OrderedRid = struct type t = resourceid let compare=Pervasives.compare let to_string=string_of_resourceid end
+module OrderedRid = struct type t = resourceid let compare=Stdlib.compare let to_string=string_of_resourceid end
 module State = MyMap.Make(OrderedRid) (* to tell if qbits have been sent away *)
 
 let string_of_state = State.to_string string_of_bool
@@ -596,7 +596,7 @@ let rck_def env def =
 (* delayed until this point in the hope of better error messages *)
 
 module OrderedNE = struct type t = name*expr 
-                          let compare = Pervasives.compare 
+                          let compare = Stdlib.compare 
                           let to_string = bracketed_string_of_pair string_of_name (fun e -> string_of_sourcepos (e.pos)) 
                    end
 module NESet = MySet.Make(OrderedNE)

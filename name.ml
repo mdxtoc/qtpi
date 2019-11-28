@@ -28,7 +28,7 @@ type name = string
 
 let string_of_name n = n
 
-module OrderedName = struct type t = name let compare = Pervasives.compare let to_string = string_of_name end
+module OrderedName = struct type t = name let compare = Stdlib.compare let to_string = string_of_name end
 module NameSet = MySet.Make(OrderedName)
 let addname = NameSet.add
 let addnames = revargs (List.fold_left (revargs addname))

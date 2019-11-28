@@ -226,8 +226,8 @@ let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
 let v_sort compare vs = vlist (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (listv vs))
 let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> ''a list -> ''a list", vfun2 v_sort)
 
-let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Pervasives.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Pervasives.snd <.> pairv))
+let _ = Interpret.know ("fst"     , "'a*'b -> 'a"                       , vfun (Stdlib.fst <.> pairv))
+let _ = Interpret.know ("snd"     , "'a*'b -> 'b"                       , vfun (Stdlib.snd <.> pairv))
 
 let _zeroes = ref zero
 let _ones = ref zero
@@ -346,7 +346,7 @@ let rec get_string s =
   flush stdout; 
   let prompt = stringv s ^"? " in
   prerr_string prompt; flush stderr; 
-  let input = Pervasives.read_line () in
+  let input = Stdlib.read_line () in
   let plength = String.length prompt in
   let ilength = String.length input in
   if plength<ilength && Stringutils.starts_with input prompt 
@@ -380,7 +380,7 @@ let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss)))
 let _ = Interpret.know ("abandon", "string list -> '*a", vfun abandon) (* note classical result type ... *)
 
 
-let print_string s = vunit (Pervasives.print_string (stringv s); flush stdout)
+let print_string s = vunit (Stdlib.print_string (stringv s); flush stdout)
 let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
                                         
 let _ = Interpret.know ("print_string" , "string -> unit"       , vfun (print_string))
@@ -412,7 +412,7 @@ let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)
 (* ********************* memoising, with an s ************************ *)
 
 module OneMap = MyMap.Make (struct type t        = value
-                                   let compare   = Pervasives.compare (* ok not to be deepcompare *)
+                                   let compare   = Stdlib.compare (* ok not to be deepcompare *)
                                    let to_string = string_of_value
                             end
                            )
@@ -424,7 +424,7 @@ let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
 let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b", vfun2 _memorec)
   
 module TwoMap = MyMap.Make (struct type t        = value*value
-                                   let compare   = Pervasives.compare (* ok not to be deepcompare *)
+                                   let compare   = Stdlib.compare (* ok not to be deepcompare *)
                                    let to_string = string_of_pair string_of_value string_of_value " " 
                             end
                            )
@@ -434,7 +434,7 @@ let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
 let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c", vfun3 _memofun2)
   
 module ThreeMap = MyMap.Make (struct type t        = value*value*value
-                                     let compare   = Pervasives.compare (* ok not to be deepcompare *)
+                                     let compare   = Stdlib.compare (* ok not to be deepcompare *)
                                      let to_string = string_of_triple string_of_value string_of_value string_of_value " " 
                               end
                              )

@@ -50,7 +50,7 @@ module Local = struct
 
   open Q
   open String
-  let (>=) = Pervasives.(>=) (* don't pick up Q.(>=) from zarith 1.9.1 etc. *)
+  let (>=) = Stdlib.(>=) (* don't pick up Q.(>=) from zarith 1.9.1 etc. *)
   
   let ( // )=div
   let ( */ )=mul
@@ -71,7 +71,7 @@ module Local = struct
               if exp>=0 then 
                  Q.make (pow10(exp)) one
               else
-                 Q.make one (pow10(Pervasives.abs exp)) 
+                 Q.make one (pow10(Stdlib.abs exp)) 
 
   let fraction s = Q.make (Z.of_string s) (pow10 (String.length s))
   let exponent s = qpow10 (int_of_string s)
@@ -154,7 +154,7 @@ module Local = struct
    
   let pow: num -> int -> num =
     fun x exp ->
-      let exp' = Pervasives.abs exp in
+      let exp' = Stdlib.abs exp in
       let n' = Z.pow x.num exp'
       and d' = Z.pow x.den exp'
       in  if exp >= 0 then Q.make n' d' else Q.make d' n'

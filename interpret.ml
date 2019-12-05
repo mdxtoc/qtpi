@@ -289,7 +289,7 @@ let rec evale env e =
                                  evale env e
   with 
   | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
-  | exn                 -> Printf.eprintf "evale %s: %s %s sees exception %s\n" 
+  | exn                 -> Printf.eprintf "\n** evale %s: %s %s sees exception %s\n" 
                                          (string_of_sourcepos e.pos)
                                          (short_string_of_env env)
                                          (string_of_expr e)

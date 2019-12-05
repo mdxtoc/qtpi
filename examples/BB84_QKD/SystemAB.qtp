@@ -37,12 +37,13 @@ proc Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) 
                  else []
          . (let nIntf = if intfseen then nIntf+1 else nIntf)
          . (let nShort = if not enough then nShort+1 else nShort)
-         . if intfseen || not enough 
+         . if not enough 
            then . Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, randbits (5*w), cMin, nSigma)
            else . (let nOk = if messageB=messageA then nOk+1 else nOk)
                 . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n"]
                                else []
-                . Logger (k, i+1, verbose, nOk, nIntf, nShort, ncA::ncAs, n, w, hkbsA, cMin, nSigma)
+                . (let hkbs = if intfseen then randbits (5*w) elif hkbsA=[] || hkbsB=[] then hkbs else hkbsA fi)                
+                . Logger (k, i+1, verbose, nOk, nIntf, nShort, ncA::ncAs, n, w, hkbs, cMin, nSigma)
   else . out!["all done: "; 
               show nIntf;          " interfered with; ";
               show nOk;            " exchanges succeeded; ";

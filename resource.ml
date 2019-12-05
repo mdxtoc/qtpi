@@ -178,8 +178,9 @@ let (<@->) env n     = try NameMap.remove n env
                                                )
 let (<@?>) env n     = NameMap.mem n env        
 
-let nofreeqbits env = Some (env,DontUse)
-let nofreekill env  = Some (env,DontKill)
+let nofreeqbits       env = Some (env,DontUse)
+let nofreesendmeasure env  = Some (env,DontKill)
+
 let newqid rid state = 
   let q = rid in
   State.add q true state, q
@@ -430,7 +431,7 @@ let rec r_o_e disjoint state env stopper (e:Expr.expr) =
                                  let _, used2 = re use e2 in
                                  (* EAppend and EApp don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
-      | ELambda     (pats,e)  -> rck_fun state env stopper pats e
+      | ELambda     (pats,e)  -> rck_fun state env pats e
       | EWhere      (e,ed)    -> rck_edecl state env stopper e ed
             
     
@@ -442,7 +443,7 @@ let rec r_o_e disjoint state env stopper (e:Expr.expr) =
                                     in
                                     r, ResourceSet.union used wused
       | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst,RNull) in (* functions aren't resource *)
-                                    let wr, wused = rck_fun state env stopper wfpats we in
+                                    let wr, wused = rck_fun state env wfpats we in
                                     let r, used = resources_of_expr state env stopper e in
                                     r, ResourceSet.union used wused
 
@@ -450,7 +451,8 @@ let rec r_o_e disjoint state env stopper (e:Expr.expr) =
   in
   re_env Uok env stopper e
   
-and rck_fun state env stopper pats expr =
+and rck_fun state env pats expr = (* note: no stopper *)
+  let stopper = nofreeqbits env in
   (* this works because we only have bpats as params *)
   let pos = pos_of_instances pats in
   rck_pat (fun state env stopper -> resources_of_expr state env stopper expr) runbind2 
@@ -609,7 +611,7 @@ let rck_def env def =
       let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) None proc in
       ()
   | Functiondefs fdefs ->
-      let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env (nofreeqbits env) pats expr) in
+      let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
   | Letdef (pat,e) -> () (* I think so: the typechecker has done the work *)
       

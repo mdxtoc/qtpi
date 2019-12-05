@@ -127,6 +127,14 @@ type resource =
 
 and resourceid = sourcepos * string
 
+and freestopper =
+  | DontUse
+  | DontKill
+  
+and stopper = (env * freestopper) option
+
+and env = resource NameMap.t
+
 let rec string_of_resource r =
   match r with
   | RNull               -> "RNull"
@@ -138,7 +146,11 @@ let rec string_of_resource r =
 
 and string_of_resourceid (spos, s) =
   Printf.sprintf "%s:%s" (short_string_of_sourcepos spos) s
-  
+
+and string_of_freestopper = function
+  | DontUse     -> "DontUse"
+  | DontKill    -> "DontKill"
+
 let extendid (spos, s) s1 = spos, s^"."^s1
 
 module OrderedResource = struct type t = resource let compare = Stdlib.compare let to_string = string_of_resource end
@@ -149,6 +161,7 @@ module State = MyMap.Make(OrderedRid) (* to tell if qbits have been sent away *)
 
 let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
+let string_of_stopper = string_of_option (string_of_pair string_of_env string_of_freestopper ",")
 
 let (<@>)  env n     = try NameMap.find n env 
                        with Not_found -> raise (Error (dummy_spos, Printf.sprintf "looking for %s in %s"
@@ -165,6 +178,8 @@ let (<@->) env n     = try NameMap.remove n env
                                                )
 let (<@?>) env n     = NameMap.mem n env        
 
+let nofreeqbits env = Some (env,DontUse)
+let nofreekill env  = Some (env,DontKill)
 let newqid rid state = 
   let q = rid in
   State.add q true state, q
@@ -268,7 +283,7 @@ let disju = List.fold_left (runion true) ResourceSet.empty
    the resource set it returns.
  *)
  
-let rec rck_pat contn unbind state env pat resopt =
+let rec rck_pat contn unbind state env stopper pat resopt =
   let bad () = raise (Disaster (pat.pos, Printf.sprintf "pattern %s resource %s"
                                                         (string_of_pattern pat)
                                                         (string_of_option string_of_resource resopt)
@@ -276,10 +291,11 @@ let rec rck_pat contn unbind state env pat resopt =
                 )
   in
   if !verbose then 
-    Printf.printf "rck_pat %s %s %s %s\n" (string_of_state state)
-                                          (string_of_env env)
-                                          (string_of_pattern pat)
-                                          (string_of_option string_of_resource resopt);
+    Printf.printf "rck_pat %s %s %s %s %s\n" (string_of_state state)
+                                             (string_of_env env)
+                                             (string_of_stopper stopper)
+                                             (string_of_pattern pat)
+                                             (string_of_option string_of_resource resopt);
   match pat.inst.pnode with
   | PatAny    
   | PatUnit   
@@ -289,49 +305,49 @@ let rec rck_pat contn unbind state env pat resopt =
   | PatBool   _
   | PatChar   _
   | PatString _
-  | PatBasisv _       -> contn state env (* no resources here *)
+  | PatBasisv _       -> contn state env stopper (* no resources here *)
   | PatName   n       -> let state, res = match resopt with
                            | Some res -> state, res
                            | None     -> resource_of_type (pat.pos,n) state (type_of_pattern pat) 
                          in
-                         unbind res (contn state (env<@+>(n,res)))
-  | PatCons   (ph,pt) -> let docons contn state env rh rt =
-                           let tl state env = rck_pat contn unbind state env pt (Some rt) in
-                           rck_pat tl unbind state env ph (Some rh)
+                         unbind res (contn state (env<@+>(n,res)) stopper)
+  | PatCons   (ph,pt) -> let docons contn state env stopper rh rt =
+                           let tl state env stopper = rck_pat contn unbind state env stopper pt (Some rt) in
+                           rck_pat tl unbind state env stopper ph (Some rh)
                          in
                          (match (_The resopt) with (* this pattern is not in bpat *)
-                          | RNull         -> docons contn state env RNull RNull
-                          | RCons (rh,rt) -> docons contn state env rh rt
+                          | RNull         -> docons contn state env stopper RNull RNull
+                          | RCons (rh,rt) -> docons contn state env stopper rh rt
                           | RList rid     -> let state, rh = resource_of_type (extendid rid "hd") state (type_of_pattern ph) in
                                              let rt = RList (extendid rid "tl") in
-                                             docons contn state env rh rt
+                                             docons contn state env stopper rh rt
                           | _             -> bad ()
                          )
-  | PatTuple ps       -> let rec rck state env = function
-                           | (p,r)::prs -> rck_pat (fun state env -> rck state env prs) unbind state env p r
-                           | []         -> contn state env
+  | PatTuple ps       -> let rec rck state env stopper = function
+                           | (p,r)::prs -> rck_pat (fun state env stopper -> rck state env stopper prs) unbind state env stopper p r
+                           | []         -> contn state env stopper
                          in
                          (match resopt with
-                          | Some RNull       -> rck state env (List.map (fun p -> p,Some RNull) ps)
-                          | Some (RTuple rs) -> let rs = List.map _Some rs in rck state env (zip ps rs)
-                          | None             -> rck state env (List.map (fun p -> p,None) ps)
+                          | Some RNull       -> rck state env stopper (List.map (fun p -> p,Some RNull) ps)
+                          | Some (RTuple rs) -> let rs = List.map _Some rs in rck state env stopper (zip ps rs)
+                          | None             -> rck state env stopper (List.map (fun p -> p,None) ps)
                           | _                -> bad ()
                          )
 
-and rck_pats rck unbind state env reopt pxs =
-  let rck_px (pat,x) = rck_pat (fun state env -> rck state env x) unbind state env pat reopt in
+and rck_pats rck unbind state env stopper reopt pxs =
+  let rck_px (pat,x) = rck_pat (fun state env stopper -> rck state env stopper x) unbind state env stopper pat reopt in
   List.map rck_px pxs
     
 ;; (* to give rck_pat and rck_pats a polytype *)
 
-let rec r_o_e disjoint state env e =
-  let rec re_env use env e =
-    let rec re use e =
+let rec r_o_e disjoint state env stopper (e:Expr.expr) =
+  let rec re_env use env stopper (e:Expr.expr) =
+    let rec re use (e:Expr.expr) =
       let do_list use es = List.fold_right (fun e (rs, set) -> let r, used = re use e in
-                                                                 r::rs, ResourceSet.union set used (* not runion - yes *)
-                                         )
-                                         es
-                                         ([],ResourceSet.empty) 
+                                                               r::rs, ResourceSet.union set used (* not runion - yes *)
+                                           )
+                                           es
+                                           ([],ResourceSet.empty) 
       in
       let try_disjoint r =
         try let _ = resources_of_resource disjoint r in r
@@ -392,7 +408,7 @@ let rec r_o_e disjoint state env e =
                                  ),
                                  ResourceSet.union u1 u2
       | EMatch      (e,ems)   -> let re, usede = re use e in
-                                 let rus = rck_pats (fun _ env -> re_env use env) runbind2 state env (Some re) ems in
+                                 let rus = rck_pats (fun _ env stopper -> re_env use env stopper) runbind2 state env stopper (Some re) ems in
                                  let rs, useds = unzip rus in
                                  (match List.filter (function RNull -> false | _ -> true) rs with
                                   | []  -> RNull
@@ -414,34 +430,36 @@ let rec r_o_e disjoint state env e =
                                  let _, used2 = re use e2 in
                                  (* EAppend and EApp don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
-      | ELambda     (pats,e)  -> rck_fun state env pats e
-      | EWhere      (e,ed)    -> rck_edecl state env e ed
+      | ELambda     (pats,e)  -> rck_fun state env stopper pats e
+      | EWhere      (e,ed)    -> rck_edecl state env stopper e ed
             
     
-    and rck_edecl state env e ed = 
+    and rck_edecl state env stopper e ed = 
       match ed.inst with
       | EDPat (wpat,_,we)        -> let wr, wused = re use we in
-                                    let r, used = rck_pat (fun state env -> resources_of_expr state env e) runbind2 state env wpat (Some wr) in
+                                    let r, used = rck_pat (fun state env stopper -> resources_of_expr state env stopper e) 
+                                                          runbind2 state env stopper wpat (Some wr) 
+                                    in
                                     r, ResourceSet.union used wused
       | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst,RNull) in (* functions aren't resource *)
-                                    let wr, wused = rck_fun state env wfpats we in
-                                    let r, used = resources_of_expr state env e in
+                                    let wr, wused = rck_fun state env stopper wfpats we in
+                                    let r, used = resources_of_expr state env stopper e in
                                     r, ResourceSet.union used wused
 
     in re use e
   in
-  re_env Uok env e
+  re_env Uok env stopper e
   
-and rck_fun state env pats expr =
+and rck_fun state env stopper pats expr =
   (* this works because we only have bpats as params *)
   let pos = pos_of_instances pats in
-  rck_pat (fun state env -> resources_of_expr state env expr) runbind2 
-          state env 
+  rck_pat (fun state env stopper -> resources_of_expr state env stopper expr) runbind2 
+          state env stopper 
           (adorn pos (pwrap None (PatTuple pats))) (* not in the tree, so nobody should notice *)
           None
   
-and resources_of_expr e = r_o_e false e
-and disjoint_resources_of_expr e = r_o_e true e
+and resources_of_expr s = r_o_e false s
+and disjoint_resources_of_expr s = r_o_e true s
 
 and resource_of_params state params = 
   List.fold_right (fun param (state, nrs) ->
@@ -452,7 +470,7 @@ and resource_of_params state params =
                   params
                   (state,[])
 
-and rck_proc mon state env proc = 
+and rck_proc mon state env stopper proc = 
   let badproc s =
     raise (Error (proc.pos, Printf.sprintf "checking %s: %s"
                                            (short_string_of_process proc)
@@ -460,7 +478,7 @@ and rck_proc mon state env proc =
                  )
           )
   in
-  let rec rp state env proc =
+  let rec rp state env stopper proc =
     if !verbose then 
       Printf.printf "rp %s %s %s\n" (string_of_env env)
                                     (string_of_state state)
@@ -469,15 +487,15 @@ and rck_proc mon state env proc =
       (match proc.inst with
       | Terminate               -> ResourceSet.empty
       | Call (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
-                                   let ers = List.map (snd <.> disjoint_resources_of_expr state env) (es@mes) in
+                                   let ers = List.map (snd <.> disjoint_resources_of_expr state env stopper) (es@mes) in
                                    (try disju ers with OverLap s -> badproc s)
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
-                                   rp state env proc
+                                   rp state env stopper proc
       | WithQbit (qspecs, proc) -> (* all new qbits *)
                                    let do_qspec (qs, used, state, env) (param, eopt) =
                                      let _, usede = match eopt with
-                                                    | Some e -> resources_of_expr state env e
+                                                    | Some e -> resources_of_expr state env stopper e
                                                     | None   -> RNull, ResourceSet.empty
                                      in
                                      let n, _ = param.inst in
@@ -487,11 +505,13 @@ and rck_proc mon state env proc =
                                    let qs, used, state, env = 
                                      List.fold_left do_qspec ([], ResourceSet.empty, state, env) qspecs 
                                    in
-                                   List.fold_left (revargs runbind) (ResourceSet.union used (rp state env proc)) qs
+                                   List.fold_left (revargs runbind) (ResourceSet.union used (rp state env stopper proc)) qs
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
                                    let pat, e = letspec in
-                                   let re, usede = resources_of_expr state env e in 
-                                   let used = rck_pat (fun state env -> rp state env proc) runbind state env pat (Some re) in
+                                   let re, usede = resources_of_expr state env stopper e in 
+                                   let used = rck_pat (fun state env stopper -> rp state env stopper proc) 
+                                                      runbind state env stopper pat (Some re) 
+                                   in
                                    (* rck_pat does the runbinding *)
                                    ResourceSet.union used usede
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
@@ -499,9 +519,9 @@ and rck_proc mon state env proc =
                                         let destroys = !measuredestroys in
                                         (* if destroys is false then qe can be ambiguously conditional *)
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
-                                                            state env qe 
+                                                            state env stopper qe 
                                         in
-                                        let usedg = ((snd <.> resources_of_expr state env) ||~~ ResourceSet.empty) gopt in
+                                        let usedg = ((snd <.> resources_of_expr state env stopper) ||~~ ResourceSet.empty) gopt in
                                         let env' = match pattern.inst.pnode with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)
@@ -514,34 +534,36 @@ and rck_proc mon state env proc =
                                           | true , _       -> (* belt and braces ... *)
                                               raise (Error (qe.pos, "ambiguous qbit expression (which qbit is destroyed?)"))
                                         in
-                                        ResourceSet.union usedq (ResourceSet.union usedg (rp state env' proc))
+                                        ResourceSet.union usedq (ResourceSet.union usedg (rp state env' stopper proc))
                                     | Ugatestep (qes, ug)    -> 
-                                        let qers = List.map (snd <.> resources_of_expr state env) qes in
+                                        let qers = List.map (snd <.> resources_of_expr state env stopper) qes in
                                         (try let used = disju qers in
-                                             ResourceSet.union (rp state env proc) used
+                                             ResourceSet.union (rp state env stopper proc) used
                                          with OverLap s -> badproc s
                                         )
                                    )
       | TestPoint (n, proc)     -> (match find_monel n.inst mon with
-                                    | Some (_,monproc) -> ResourceSet.union (rp state env monproc) (rp state env proc)
+                                    | Some (_,monproc) -> ResourceSet.union (rp state env stopper monproc) (rp state env stopper proc)
                                     | None              -> raise (Can'tHappen (Printf.sprintf "%s: rck sees no monproc"
                                                                                                 (string_of_sourcepos n.pos)
                                                                               )
                                                                  )
                                    )
-      | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env ce in
-                                   let prs = List.map (rp state env) [p1;p2] in
+      | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env stopper ce in
+                                   let prs = List.map (rp state env stopper) [p1;p2] in
                                    List.fold_left ResourceSet.union used prs (* NOT disju, silly boy! *)
-      | PMatch (e,pms)          -> let re, usede = resources_of_expr state env e in
-                                   List.fold_left ResourceSet.union usede (rck_pats (rck_proc mon) runbind state env (Some re) pms)
+      | PMatch (e,pms)          -> let re, usede = resources_of_expr state env stopper e in
+                                   List.fold_left ResourceSet.union usede (rck_pats (rck_proc mon) runbind state env stopper (Some re) pms)
       | GSum gs                 -> 
           let rg (iostep, proc) =
             match iostep.inst with 
-            | Read (ce,pat)  -> let _, usedce = resources_of_expr state env ce in
-                                let used = rck_pat (fun state env -> rp state env proc) runbind state env pat None in
+            | Read (ce,pat)  -> let _, usedce = resources_of_expr state env stopper ce in
+                                let used = rck_pat (fun state env stopper -> rp state env stopper proc) 
+                                                   runbind state env stopper pat None 
+                                in
                                 ResourceSet.union usedce used
-            | Write (ce,e)   -> (try let _, usedce = resources_of_expr state env ce in
-                                     let r, usede = disjoint_resources_of_expr state env e in
+            | Write (ce,e)   -> (try let _, usedce = resources_of_expr state env stopper ce in
+                                     let r, usede = disjoint_resources_of_expr state env stopper e in
                                      (* if it's a channel of qbit, then it sends away a qbit *)
                                      let state = 
                                        match (type_of_expr ce).inst with
@@ -553,12 +575,12 @@ and rck_proc mon state env proc =
                                            )
                                        | _              -> state
                                      in
-                                     List.fold_left ResourceSet.union ResourceSet.empty [usedce; usede; rp state env proc]
+                                     List.fold_left ResourceSet.union ResourceSet.empty [usedce; usede; rp state env stopper proc]
                                  with OverLap s -> badproc s
                                 )
          in
          List.fold_left ResourceSet.union ResourceSet.empty (List.map rg gs)
-      | Par ps                  -> (try let prs = List.map (rp state env) ps in
+      | Par ps                  -> (try let prs = List.map (rp state env stopper) ps in
                                         disju prs
                                     with OverLap s -> badproc s
                                    )
@@ -568,7 +590,7 @@ and rck_proc mon state env proc =
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
     r
   in
-  rp state env proc
+  rp state env stopper proc
   
 let rck_def env def =
   if !verbose then 
@@ -584,10 +606,10 @@ let rck_def env def =
                       (bracketed_string_of_list string_of_param params)
                       (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
       (* here we go with the symbolic execution *)
-      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) proc in
+      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) None proc in
       ()
   | Functiondefs fdefs ->
-      let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
+      let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env (nofreeqbits env) pats expr) in
       List.iter rck_fdef fdefs
   | Letdef (pat,e) -> () (* I think so: the typechecker has done the work *)
       

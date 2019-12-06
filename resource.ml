@@ -128,8 +128,10 @@ type resource =
 and resourceid = sourcepos * string
 
 and freestopper =
-  | DontUse
-  | DontKill
+  | Don'tUse    (* can't be mentioned *)
+  | Don'tKill   (* can be gated or read, but not sent, measured, arg-ed *)
+  | Don'tGate   (* can be read (qval) *)
+                (* no stopper (None) will allow anything *)
   
 and stopper = (env * freestopper) option
 
@@ -148,8 +150,9 @@ and string_of_resourceid (spos, s) =
   Printf.sprintf "%s:%s" (short_string_of_sourcepos spos) s
 
 and string_of_freestopper = function
-  | DontUse     -> "DontUse"
-  | DontKill    -> "DontKill"
+  | Don'tUse     -> "Don'tUse"    
+  | Don'tKill    -> "Don'tKill"   
+  | Don'tGate    -> "Don'tGate"   
 
 let extendid (spos, s) s1 = spos, s^"."^s1
 
@@ -178,8 +181,8 @@ let (<@->) env n     = try NameMap.remove n env
                                                )
 let (<@?>) env n     = NameMap.mem n env        
 
-let nofreeqbits       env = Some (env,DontUse)
-let nofreesendmeasure env  = Some (env,DontKill)
+let nofreeqbits env = Some (env,Don'tUse)  
+let nofreekill  env = Some (env,Don'tKill) 
 
 let newqid rid state = 
   let q = rid in
@@ -544,12 +547,13 @@ and rck_proc mon state env stopper proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | TestPoint (n, proc)     -> (match find_monel n.inst mon with
+      | TestPoint (n, proc)     -> (let stopper = Some (env, Don'tGate) in
+                                    match find_monel n.inst mon with
                                     | Some (_,monproc) -> ResourceSet.union (rp state env stopper monproc) (rp state env stopper proc)
-                                    | None              -> raise (Can'tHappen (Printf.sprintf "%s: rck sees no monproc"
-                                                                                                (string_of_sourcepos n.pos)
-                                                                              )
-                                                                 )
+                                    | None             -> raise (Can'tHappen (Printf.sprintf "%s: rck sees no monproc"
+                                                                                               (string_of_sourcepos n.pos)
+                                                                             )
+                                                                )
                                    )
       | Cond (ce,p1,p2)         -> let _, used = resources_of_expr state env stopper ce in
                                    let prs = List.map (rp state env stopper) [p1;p2] in

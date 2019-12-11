@@ -150,7 +150,7 @@ Things would be better if we could have a nested process: then, at least, the ch
           . (vproc ReceiveQBits(bvs) = + qc?(q) . (let b = randbit ())
                                                 . q-/-[if b=0b1 then H else I](v) .
                                                 . ReceiveQBits((b,v)::bvs)
-                                       + bsc?(message) . _0 (bvs,message)
+                                       + bsc?(message) . _0 (rev bvs,message)
             )
           . (let (bvs, message) = ReceiveQBits([]))
           . (let (bs,vs) = bvs)             (* bs, vs is what I saw *)

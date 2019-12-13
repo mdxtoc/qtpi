@@ -684,20 +684,31 @@ let check_monlabels proc mon =
              | []             -> ()
   in
   check_unique mon;
-  let rec find_tpns set =
-    let rec tpn set p =
-      match p.inst with
-      | TestPoint (lab, p) -> Some (find_tpns (NameSet.add lab.inst set) p)
-      | _                  -> None
-    in
-    Process.fold tpn set
+  let tpns = Process.called_mons proc in
+  (* question 1: is any logging process called twice? *)
+  (* it's ok to find just the first occurrence: this is not run from a card reader *)
+  let rec checktpns = function
+    | (lab1,pos1)::(lab2,pos2)::_
+        when lab1=lab2              ->
+            raise (Settings.Error (Printf.sprintf "Logging process %s called twice, at %s and %s"
+                                                    lab1
+                                                    (string_of_sourcepos pos1)
+                                                    (string_of_sourcepos pos2)
+                                  )
+                  )
+    | _::tpns                          -> checktpns tpns
+    | []                               -> ()
   in
-  let tpnset = find_tpns NameSet.empty proc in
+  checktpns (List.sort Stdlib.compare tpns);
+  (* question 2: is any logging process not called? *)
+  let tpnset = NameSet.of_list (List.map fst tpns) in
   List.iter (fun (lab,(pos,_)) -> 
                if not (NameSet.mem lab tpnset) then
-                 Printf.eprintf "%s: Warning! The monitor process labelled %s is unused. It won't be type, match or resource checked\n"
+                 Printf.eprintf "%s: Warning! The logging process labelled %s is unused. \
+                                 It isn't inserted anywhere, so it can't be type, match or resource checked\n"
                                 (string_of_sourcepos pos)
-                                lab
+                                lab;
+              flush stderr
             ) 
             mon
 

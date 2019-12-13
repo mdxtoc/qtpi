@@ -21,7 +21,7 @@ proc ReceiveQBits (bvs, qc, bsc, result) =
         q-/-[if b=0b1 then H else I](v) .
         ReceiveQBits((b,v)::bvs,qc,bsc,result)
   + bsc?(message)            . 
-        result!(bvs,message) . 
+        result!(rev bvs,message) . 
         _0
 
 (* Read qbits from qA, measure them in a random basis, send the measured bits on qB. 

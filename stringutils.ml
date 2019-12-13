@@ -47,3 +47,9 @@ let rec words s =
     try let sidx = String.index s ' ' in
         String.sub s 0 sidx :: words (String.sub s (sidx+1) (String.length s-sidx-1))
     with Not_found -> [s]
+
+let rec phrase = function
+  | [s]     -> s
+  | [s1;s2] -> s1 ^ " and " ^ s2
+  | s :: ss -> s ^ ", " ^ phrase ss
+  | []      -> "?none?"

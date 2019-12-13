@@ -97,7 +97,7 @@ and \<process\> can have insertions `/^<number>` to indicate that a particular l
     . bsc?(h1,bBs)                           (* receive his bases *)
     . /^2
 
-The logging processes are restricted: they can't do any quantum steps; they can only send, not receive, on channels; they can't use process par or invocation. They are typechecked in line at each of their call sites -- i.e. they are nested processes and they might as well be anonymous, though they have numbers as names to allow them to be separated from the main process body. (I ought to stop them being called more than once. I shall.)
+The logging processes are restricted: they can't do any quantum steps; they can only send, not receive, on channels; they can only send classical values; they can't use process par or invocation. They are typechecked in line at each of their call sites -- i.e. they are nested processes and they might as well be anonymous, though they have numbers as names to allow them to be separated from the main process body. (And they can only be called once, because in effect they are inserted.)
 
 ## Resource-checking nested anonymous processes
 

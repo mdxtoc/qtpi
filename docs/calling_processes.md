@@ -2,6 +2,12 @@
  
  The pi calculus is a stark language. For various reasons it could be useful to define shorthands which allow subprocesses to be inserted into the body of an enclosing process. This mechanism has already allowed qtpi to have *logging* subprocesses, so that a computation's description isn't obscured by commands which log process state, progress etc. It will shortly allow iterated processes as well.
  
+ ## Caveat
+ 
+ I now realise (2019/12/14) that process-valued expressions, given as arguments to process invocations, would be a major qbit-sharing and secret-channel risk. That puts the mockers on some of what follows.
+ 
+ I also realise that function-valued expressions, given that functions can currently read free channel variables, are already a secret-channel risk. So I retire hurt for the time being.
+ 
  ## A mechanism for process call
  
 A pi calculus process body is more or less a straight-line sequence of steps; guarded sums allow us to choose between sequences; conditional and matches in qtpi likewise allow choice. But there's no looping, and a process terminates (`_0` in qtpi) or changes into another process by a process invocation. That invocation, unlike a conventional function call, never returns. But, given some restrictions on the shape of a process body, we can imitate call and return using process-par and a message.
@@ -97,7 +103,7 @@ and \<process\> can have insertions `/^<number>` to indicate that a particular l
     . bsc?(h1,bBs)                           (* receive his bases *)
     . /^2
 
-The logging processes are restricted: they can't do any quantum steps; they can only send, not receive, on channels; they can only send classical values; they can't use process par or invocation. They are typechecked in line at each of their call sites -- i.e. they are nested processes and they might as well be anonymous, though they have numbers as names to allow them to be separated from the main process body. (And they can only be called once, because in effect they are inserted.)
+The logging processes are restricted: they can't do any quantum steps; they can only send, not receive, on channels; they can only send classical values; they can't use process par or invocation. They are typechecked in line at each of their call sites -- i.e. they are nested processes and they might as well be anonymous, though they have numbers as names to allow them to be separated from the main process body. And they can only be called once, because in effect they are inserted.
 
 ## Resource-checking nested anonymous processes
 

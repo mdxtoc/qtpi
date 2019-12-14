@@ -224,9 +224,7 @@ let rec frees proc =
   in
   ff NameSet.empty proc
 
-(* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't.
-   Note the recursive calls are to Optionutils.optfold ... (sorry)
- *)
+(* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't. *)
 
 let optfold (optp: 'a -> process -> 'a option) x =
   let rec ofold x p =
@@ -239,12 +237,25 @@ let optfold (optp: 'a -> process -> 'a option) x =
         | WithLet   (_,p)
         | WithQstep (_,p)
         | TestPoint (_,p)       -> ofold x p
-        | Cond      (e,p1,p2)   -> optfold ofold x [p1;p2]
-        | PMatch    (e,pms)     -> optfold ofold x (List.map snd pms)
-        | GSum      iops        -> optfold ofold x (List.map snd iops)
-        | Par       ps          -> optfold ofold x ps
+        | Cond      (e,p1,p2)   -> Optionutils.optfold ofold x [p1;p2]
+        | PMatch    (e,pms)     -> Optionutils.optfold ofold x (List.map snd pms)
+        | GSum      iops        -> Optionutils.optfold ofold x (List.map snd iops)
+        | Par       ps          -> Optionutils.optfold ofold x ps
     )
   in
   ofold x 
 
 let fold optp x p = (revargs (optfold optp) p ||~ id) x
+
+(* find all the monitor processes inserted in a process -- as (lab,pos) for convenience of typechecker *)
+let called_mons proc =
+  let rec find_lps tps =
+    let rec tpn tps p =
+      match p.inst with
+      | TestPoint (lab, p) -> Some (find_lps ((lab.inst,lab.pos)::tps) p) (* includes position *)
+      | _                  -> None
+    in
+    fold tpn tps
+  in
+  find_lps [] proc
+

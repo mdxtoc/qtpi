@@ -22,6 +22,7 @@
 *)
  
 exception Can'tHappen of string (* for anybody to use *)
+exception Error of string       (* ditto *)
 
 let temp_setting vref v f =
   let oldv = !vref in

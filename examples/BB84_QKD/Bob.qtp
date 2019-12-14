@@ -1,10 +1,10 @@
 proc Bob (w, hks, qc, bsc) = 
-    . (new received) 
-    | . ReceiveQBits([],qc,bsc,received)
-    | . received?(bs)                   (* bs, vs is what I saw *)
-      . received?(vs)
+    . (new result) 
+    | . ReceiveQBits([],qc,bsc,result)
+    | . result?(bvs,message)
+      . (let (bs,vs) = unzip bvs)       (* bs, vs is what I saw *)
       . /^1
-      . received?(h0) . received?(bAs)  (* receive her bases *)
+      . (let (h0,bAs) = message)        (* Alice's first classical message: bAs are her bases *)
       . /^2 
       . (let h1 = hwc bs hks 1 w)
       . bsc!(h1,bs)                     (* send my bases *)

@@ -289,7 +289,7 @@ let rec evale env e =
                                  evale env e
   with 
   | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
-  | exn                 -> Printf.eprintf "evale %s: %s %s sees exception %s\n" 
+  | exn                 -> Printf.eprintf "\n** evale %s: %s %s sees exception %s\n" 
                                          (string_of_sourcepos e.pos)
                                          (short_string_of_env env)
                                          (string_of_expr e)
@@ -757,8 +757,13 @@ let bind_fdefs env = function
   
 let rec bind_pdefs env def =
   match def with
-  | Processdef  (pn,params,p,monparams,mon) -> 
-      let env = compile_mon pn mon env in
+  | Processdef  (pn,params,p,monparams,mon) ->
+      (* only compile the monitor processes that are called: the others haven't been 
+         type or resource checked
+       *)
+      let called = Process.called_mons p in
+      let called = NameSet.of_list (List.map fst called) in
+      let env = compile_mon pn called mon env in
       let proc = compile_proc pn mon p in
       if !verbose || !verbose_interpret then
         Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
@@ -773,13 +778,25 @@ and mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
 
 and chan_name tpnum = "#chan#" ^ tpnum
 
-and compile_mon pn mon env =
+and compile_mon pn called mon env =
   let compile env (tpnum, (tppos, proc)) =
-    let mn = mon_name tppos pn tpnum in
-    env <@+> (mn.inst, VProcess ([], [], compile_monbody tpnum proc))
+    if NameSet.mem tpnum called then
+    (let mn = mon_name tppos pn tpnum in
+     env <@+> (mn.inst, VProcess ([], [], compile_monbody tpnum proc))
+    )
+    else env
   in
   List.fold_left compile env mon
 
+(* Here is where we apply restrictions on monitor processes:
+    no Reading   (it's outside the protocol, so no input)
+    no Calling
+    no new qbits (it's outside the protocol, so no quantum stuff)
+    no gating    (ditto)
+    no measuring (ditto)
+    no Testpoint (come along now)
+    no Par
+ *)
 and compile_monbody tpnum proc =
   let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
   let rec cmp proc =
@@ -797,9 +814,9 @@ and compile_monbody tpnum proc =
                              | _            -> bad iostep.pos "message receive"
                            in
                            Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
-    | Call _        -> bad proc.pos "process creation"
+    | Call _        -> bad proc.pos "process invocation"
     | WithQbit _    -> bad proc.pos "qbit creation"
-    | WithQstep _   -> bad proc.pos "qbit gating"
+    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
     | TestPoint _   -> bad proc.pos "test point"
     | Par _         -> bad proc.pos "parallel sum"
     | WithNew _     

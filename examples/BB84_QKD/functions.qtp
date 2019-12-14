@@ -15,17 +15,13 @@ proc SendQbits (bvs,qc,sent) =
 (* receive qbits on channel qc, measure them, return the results 
    when you see a tagged message on channel bsc
  *)
-proc ReceiveQBits (bvs, qc, bsc, results) =
-  + qc?(q)                  . 
+proc ReceiveQBits (bvs, qc, bsc, result) =
+  + qc?(q)                   . 
         (let b = randbit ())
         q-/-[if b=0b1 then H else I](v) .
-        ReceiveQBits((b,v)::bvs,qc,bsc,results)
-  + bsc?(tag,bits)          . 
-        (let bs, vs = unzip (rev bvs))
-        results!bs          . 
-        results!vs          .
-        results!tag         .
-        results!bits        .
+        ReceiveQBits((b,v)::bvs,qc,bsc,result)
+  + bsc?(message)            . 
+        result!(rev bvs,message) . 
         _0
 
 (* Read qbits from qA, measure them in a random basis, send the measured bits on qB. 

@@ -73,18 +73,15 @@ let _ = match !Usage.files with
                                                                  (string_of_sourcepos pos)
                                                                  s
                 | Qsim.Error s -> Printf.eprintf "\n\n** quantum simulator error %s\n" s
-                | Resource.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
+                | Expr.Error      (pos, s) 
+                | Type.Error      (pos, s) 
+                | Resource.Error  (pos, s) 
+                | Typecheck.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
                 | Resource.Disaster (pos, s) -> Printf.eprintf "\n\n** resource-check disaster ** %s: %s\n"
                                                           (string_of_sourcepos pos)
                                                           s
-                | Type.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
-                                                            (string_of_sourcepos pos)
-                                                            s
-                | Typecheck.Error (pos, s) -> Printf.eprintf "\n\n** %s: %s\n"
-                                                            (string_of_sourcepos pos)
-                                                            s
                 | TypeUnifyError (outer, inner) -> Printf.eprintf "\n\n** type %s (%s) doesn't fit in type %s (%s)\n"
                                                            (string_of_type inner)
                                                            (string_of_sourcepos inner.pos)

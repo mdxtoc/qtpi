@@ -334,7 +334,7 @@ let _ = Interpret.know ("ceiling", "num -> num", vfun (vnum <.> Number.ceiling <
 let _ = Interpret.know ("round"  , "num -> num", vfun (vnum <.> Number.round <.> numv))
 
 let _ = Interpret.know ("sqrt"   , "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
-let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (4.0 *. atan 1.0))) (* for 4.05 OCaml *)
+let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (Float.pi))) 
 
 (* ********************* I/O ************************ *)
 

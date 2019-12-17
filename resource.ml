@@ -539,7 +539,7 @@ and rck_proc mon state env stoppers proc =
                                        (string_of_stoppers stoppers)
                                        (short_string_of_process proc);
     let r =
-      (match proc.inst with
+      match proc.inst with
       | Terminate               -> ResourceSet.empty
       | Call (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
                                    let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) (es@mes) in
@@ -597,6 +597,7 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
+      | Iter _                  -> raise (Error (proc.pos, "Can't resource-check Iter yet"))
       | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                     | Some (_,monproc) -> ResourceSet.union (rp state env [(env, StopAllButRead)] monproc) 
                                                                             (rp state env stoppers proc)
@@ -640,7 +641,6 @@ and rck_proc mon state env stoppers proc =
                                         disju prs
                                     with OverLap s -> badproc s
                                    )
-      )
     in
     if !verbose then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
@@ -755,6 +755,7 @@ and ffv_proc mon proc =
                                                                     )
                                                        )
                                       )
+  | Iter      (params, p, e, proc) -> ffv_proc mon p; ffv_expr e; ffv_proc mon proc
   | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
   | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
   | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs

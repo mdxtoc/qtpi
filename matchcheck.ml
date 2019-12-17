@@ -452,6 +452,8 @@ let rec matchcheck_proc proc =
                                ); 
                                matchcheck_proc proc 
   | TestPoint (n, proc)     -> matchcheck_proc proc
+  | Iter      (params, p, e, proc)
+                            -> matchcheck_proc p; matchcheck_expr e; matchcheck_proc proc
   | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc p1; matchcheck_proc p2 
   | PMatch    (e,pms)       -> matchcheck_expr e; 
                                matchcheck_pats short_string_of_process pms;

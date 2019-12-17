@@ -201,6 +201,9 @@ let rec rewrite_process mon cxt proc =
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
                                rewrite_process [] cxt mp;
                                rewrite_process mon (mcxt cxt) p
+  | Iter      (params, proc, e, p)
+                            -> rewrite_params cxt params; rewrite_process mon cxt proc;
+                               rewrite_expr cxt e; rewrite_process mon cxt p
   | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process mon cxt p1; rewrite_process mon cxt p2
   | PMatch    (e,pms)       -> rewrite_expr cxt e; 
                                List.iter (fun (pat,proc) -> rewrite_pattern cxt pat; rewrite_process mon cxt proc) pms
@@ -824,6 +827,7 @@ and typecheck_process mon cxt p  =
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
+  | Iter _ -> raise (Error (p.pos, "Can't typecheck Iter yet"))
   | Cond (e,p1,p2) ->
       let _ = assigntype_expr cxt (adorn e.pos Bool) e in
       let _ = typecheck_process mon cxt p1 in

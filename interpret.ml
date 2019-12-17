@@ -692,6 +692,7 @@ let rec interp sysassoc proc =
                  List.iter (PQueue.push pq) ioprocs;
                  try_iosteps [] pq
              | TestPoint (n, p)  -> raise (Error (n.pos, "Cannot interpret TestPoint"))
+             | Iter _ -> raise (Error (proc.pos, "Can't interpret Iter yet"))
              | Cond (e, p1, p2)  ->
                  let bv = boolev env e in
                  addrunner (pn, (if bv then p1 else p2), env);
@@ -818,6 +819,7 @@ and compile_monbody tpnum proc =
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
     | TestPoint _   -> bad proc.pos "test point"
+    | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in compile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
     | WithNew _     
     | WithLet _
@@ -851,6 +853,7 @@ and compile_proc pn mon proc =
       | PMatch    _
       | GSum      _
       | Par       _        -> None
+      | Iter _             -> raise (Error (proc.pos, "Can't compile Iter in compile_proc yet"))
   in
   Process.map cmp proc
 

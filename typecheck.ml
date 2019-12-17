@@ -724,22 +724,23 @@ let check_monlabels proc mon =
      cxt
  *)
 
-let fix_paramtype pos rt =
+(* fnew is normally newcommtv, but in Iter it's newclasstv *)  
+let fix_paramtype fnew pos rt =
   match !rt with
   | Some t -> t
-  | None   -> let t = newcommtv pos in rt := Some t; t (* process params are, like messages, qbits or classical *)
+  | None   -> let t = fnew pos in rt := Some t; t (* process params are, like messages, qbits or classical *)
   
 let unify_paramtype rt t =
   match !rt with
   | Some t' -> unifytypes t t'
   | None    -> rt := Some t
   
-let process_param {pos=pos; inst=n,rt} = n, fix_paramtype pos rt
-  
-let rec do_procparams s cxt params proc monparams mon =
+let process_param fnew {pos=pos; inst=n,rt} = n, fix_paramtype fnew pos rt
+
+let rec do_procparams s fnew cxt params proc monparams mon =
   if !verbose then
     Printf.printf "do_procparams %s" (string_of_list string_of_param "," params);
-  let cxt = List.fold_left (fun cxt param -> cxt <@+> process_param param) cxt params in
+  let cxt = List.fold_left (fun cxt param -> cxt <@+> process_param fnew param) cxt params in
   if !verbose then
     Printf.printf " -> %s\n" (string_of_list string_of_param "," params);
   typecheck_process mon cxt proc
@@ -781,7 +782,7 @@ and typecheck_process mon cxt p  =
                   params
       in
       check_distinct_params params;
-      do_procparams "WithNew" cxt params proc [] mon
+      do_procparams "WithNew" newcommtv cxt params proc [] mon
   | WithQbit (qss,proc) ->
       let typecheck_qspec cxt ({pos=pos; inst=n,rt}, bvopt) =
         let _ = unify_paramtype rt (adorn pos Qbit) in
@@ -792,7 +793,7 @@ and typecheck_process mon cxt p  =
       let _ = List.iter (typecheck_qspec cxt) qss in
       let params = List.map fst qss in
       check_distinct_params params;
-      do_procparams "WithQbit" cxt params proc [] mon
+      do_procparams "WithQbit" ntv cxt params proc [] mon
   | WithLet ((pat,e),proc) ->
       typecheck_letspec (fun cxt -> typecheck_process mon cxt proc) cxt pat e
   | WithQstep (qstep,proc) ->
@@ -827,7 +828,14 @@ and typecheck_process mon cxt p  =
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
-  | Iter _ -> raise (Error (p.pos, "Can't typecheck Iter yet"))
+  | Iter (params, proc, expr, p) -> 
+      do_procparams "Iter" newclasstv cxt params proc [] mon;
+      let ts = List.map (function {inst=n,rt} -> _The (!rt)) params in
+      let sps = List.map (function {pos=p} -> p) params in
+      let tpos = enclosing_sp_of_sps sps in
+      let t = adorn tpos (Tuple ts) in
+      let _ = assigntype_expr cxt (adorn tpos (List t)) expr in
+      typecheck_process mon cxt p
   | Cond (e,p1,p2) ->
       let _ = assigntype_expr cxt (adorn e.pos Bool) e in
       let _ = typecheck_process mon cxt p1 in
@@ -853,8 +861,8 @@ and typecheck_pdef assoc def =
       in
       check_distinct_params (params@monparams);
       check_monlabels proc mon;
-      let locals = List.map process_param params in
-      let mons = List.map process_param monparams in
+      let locals = List.map (process_param newcommtv) params in
+      let mons = List.map (process_param newcommtv) monparams in
       typecheck_process mon (monenv_of_lmg locals mons assoc) proc;
       let assoc = evalassoc assoc in
       let tps = zip env_types (params@monparams) in

@@ -597,7 +597,11 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | Iter _                  -> raise (Error (proc.pos, "Can't resource-check Iter yet"))
+      | Iter (params, p, e, proc)                 
+                                -> let state', rparams = resource_of_params state params in
+                                   let pused = rp state' (List.fold_left (<@+>) env rparams) ((env,StopKill)::stoppers) p in
+                                   let _, eused = resources_of_expr URead state env stoppers e in
+                                   List.fold_left ResourceSet.union pused [eused; rp state env stoppers proc]
       | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                     | Some (_,monproc) -> ResourceSet.union (rp state env [(env, StopAllButRead)] monproc) 
                                                                             (rp state env stoppers proc)

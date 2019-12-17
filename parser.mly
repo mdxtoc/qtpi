@@ -70,7 +70,7 @@
 %token <char> CHAR 
 
 %token EOP OFFSIDE /* could it be EOP? No. */
-%token FUN PROC WHERE LAMBDA WITH TESTPOINT
+%token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE TYPEARROW
@@ -313,6 +313,8 @@ simpleprocess:
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
+  | PROCITER LPAR procparams RPAR LPAR process RPAR expr DOT process
+                                        {adorn (Iter ($3,$6,$8,$10))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */

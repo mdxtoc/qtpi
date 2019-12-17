@@ -77,7 +77,7 @@ let rec string_of_process proc =
                                             (string_of_name n.inst)
                                             (trailing_sop p)
   | Iter (params, proc, e, p)
-                          -> Printf.sprintf ".* ((%s).%s) %s . %s"
+                          -> Printf.sprintf ".* (%s) (%s) %s . %s"
                                             (commasep (List.map string_of_param params))
                                             (string_of_process proc)
                                             (string_of_expr e)
@@ -119,7 +119,7 @@ and short_string_of_process proc =
   | TestPoint (n,p)       -> Printf.sprintf "/^%s ..."
                                             (string_of_name n.inst)
   | Iter (params, proc, e, p)
-                          -> Printf.sprintf ".* ((%s). ..) %s . .."
+                          -> Printf.sprintf ".* (%s) (..) %s . .."
                                             (commasep (List.map string_of_param params))
                                             (string_of_expr e)
   | GSum [i,p]            -> Printf.sprintf "%s. .." (string_of_iostep i) 

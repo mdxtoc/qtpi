@@ -83,6 +83,8 @@ time ./Qtpi -show_final examples/BB84_QBC.qtp
 
 (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
             
+(cd examples/BB84_QKD; time ../../Qtpi iteratedAlice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
+            
 (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
 
 # E92 QKD without an Eve. With an Eve the calculator can't cope (can't guess sqrt(h^2+h^4), it says)

@@ -5,15 +5,15 @@ proc W(n,c) =
        . (new c')
        . | W(k/2, c')
          | . c'?(lefts)
-           . (newqs rights@k/2 = |0>)
+           . (newqs rights@(k/2) = |0>..|0>)
            . (newq anc = |+>)
-           . for i indexing lefts do anc,lefts@i,rights@i>>Cswap . _0
-           . for i indexing rights do rights@i,anc>>Cnot . _0
+           . .* ((i) . anc,lefts@i,rights@i>>Cswap . _0) [0..k/2-1]
+           . .* ((i) . rights@i,anc>>Cnot . _0) [0..k/2-1]
            . dispose!anc
            . (join lefts, rights as qs)
            . (split qs as ws@n, tail)
            . tail-/-(bs)
-           . if forall (= 0b0) bs then c!ws . _0 else W(n,c)
+           . if forall (= 0b0) bs then c!ws . _0 else W(n,c) (* infinite recursion; terminates prob 1 *)
 
 fun powerceiling b n =
   pwc 1

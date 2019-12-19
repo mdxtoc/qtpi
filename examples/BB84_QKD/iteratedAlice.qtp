@@ -1,3 +1,12 @@
+(* maybe one day there will be process values
+   proc Iter (xs,P,iterc) =
+     match xs .
+      + []    . iterc!() . _0
+      + x::xs . (new callc)
+                | P(x,callc)
+                | callc?(_) . Iter(xs,P,iterc)
+ *)
+ 
 fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
 
 fun min_qbits k s cmin

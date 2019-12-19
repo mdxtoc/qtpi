@@ -193,7 +193,7 @@ let rec rewrite_process mon cxt proc =
     Printf.printf "rewrite_process ... %s:%s\n" (string_of_sourcepos proc.pos) (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
-  | Call      (n,es,mes)    -> List.iter (rewrite_expr cxt) (es@mes)
+  | GoOnAs      (n,es,mes)    -> List.iter (rewrite_expr cxt) (es@mes)
   | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process mon cxt p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process mon cxt p
   | WithLet  ((pat,e), p)   -> rewrite_pattern cxt pat; rewrite_expr cxt e; rewrite_process mon cxt p
@@ -750,7 +750,7 @@ and typecheck_process mon cxt p  =
     Printf.printf "typecheck_process ... %s:%s\n" (string_of_sourcepos p.pos) (short_string_of_process p);
   match p.inst with
   | Terminate     -> ()
-  | Call (n,args,margs) -> 
+  | GoOnAs (n,args,margs) -> 
       if margs<>[] && mon=[] then
         raise (Error (p.pos, "split-arguments process creation in un-monitored process"));
       ok_procname n;

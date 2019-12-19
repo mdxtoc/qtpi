@@ -499,7 +499,7 @@ let rec interp sysassoc proc =
             in
             (match rproc.inst with
              | Terminate         -> deleteproc pn; if !pstep then show_pstep "_0"
-             | Call (n, es, mes)      -> 
+             | GoOnAs (n, es, mes)      -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
                   try (match env<@>n.inst with
                        | VProcess (ns, ms, proc) -> let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
@@ -815,7 +815,7 @@ and compile_monbody tpnum proc =
                              | _            -> bad iostep.pos "message receive"
                            in
                            Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
-    | Call _        -> bad proc.pos "process invocation"
+    | GoOnAs _        -> bad proc.pos "process invocation"
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
     | TestPoint _   -> bad proc.pos "test point"
@@ -839,12 +839,12 @@ and compile_proc pn mon proc =
                               let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
                               let gsum = ad (GSum [read, p]) in
                               let mn = mon_name tpn.pos pn tpn.inst in
-                              let call = ad (Call (mn, [], [])) in
+                              let call = ad (GoOnAs (mn, [], [])) in
                               let par = ad (Par [call; gsum]) in
                               let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
                               Some mkchan
       | Terminate 
-      | Call      _      
+      | GoOnAs      _      
       | WithNew   _
       | WithQbit  _
       | WithLet   _

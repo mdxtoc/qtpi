@@ -38,7 +38,7 @@ type process = procnode instance
 
 and procnode =
   | Terminate
-  | Call of name instance * expr list * expr list
+  | GoOnAs of name instance * expr list * expr list (* GoOnAs: homage to Laski *)
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
@@ -57,7 +57,7 @@ and letspec = pattern * expr
 let rec string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
+  | GoOnAs (p,es,mes)     -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
                                             (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
@@ -104,7 +104,7 @@ and trailing_sop p =
 and short_string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | Call (p,es,mes)       -> Printf.sprintf "%s(%s)%s"
+  | GoOnAs (p,es,mes)     -> Printf.sprintf "%s(%s)%s"
                                             (string_of_name p.inst)
                                             (string_of_list string_of_expr "," es)
                                             (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
@@ -152,7 +152,7 @@ and string_of_procmatch (pat,proc) =
 and short_string_of_procmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_pattern pat)
 
 (* I wish OCaml didn't force this ... *)
-let _Call n es mes  = Call (n,es,mes)
+let _GoOnAs n es mes  = GoOnAs (n,es,mes)
 let _WithNew pars p = WithNew (pars,p)
 let _WithQbit qs p  = WithQbit (qs,p)
 let _WithLet l p    = WithLet (l,p)
@@ -178,7 +178,7 @@ let optmap optf proc =
     | Some result -> Some result
     | _           -> match proc.inst with 
                      | Terminate
-                     | Call     _           -> None
+                     | GoOnAs     _          -> None
                      | WithNew  (ps, p)     -> trav p &~~ take1 (_WithNew ps)
                      | WithQbit (qs, p)     -> trav p &~~ take1 (_WithQbit qs)
                      | WithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
@@ -201,7 +201,7 @@ let rec frees proc =
   let rec ff set p =
     match p.inst with
     | Terminate -> set
-    | Call (pn, es, mes)    -> NameSet.add pn.inst (ff_es (ff_es set es) mes)
+    | GoOnAs (pn, es, mes)    -> NameSet.add pn.inst (ff_es (ff_es set es) mes)
     | WithNew (pars, p)     -> NameSet.diff (ff set p) (NameSet.of_list (strip_params pars))
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = NameSet.of_list (strip_params qs) in
@@ -246,7 +246,7 @@ let optfold (optp: 'a -> process -> 'a option) x =
     optp x p |~~ (fun () -> 
       match p.inst with
         | Terminate 
-        | Call      _           -> None
+        | GoOnAs      _           -> None
         | WithNew   (_,p) 
         | WithQbit  (_,p)
         | WithLet   (_,p)

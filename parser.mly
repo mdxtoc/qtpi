@@ -300,9 +300,9 @@ iostep:
 
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
-  | procname procargs                   {adorn (Call ($1,$2,[]))}
+  | procname procargs                   {adorn (GoOnAs ($1,$2,[]))}
   | procname procargs TESTPOINT procargs                  
-                                        {adorn (Call ($1,$2,$4))}
+                                        {adorn (GoOnAs ($1,$2,$4))}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ($3,$5))}
   | LPAR QBITDEC qspecs RPAR process    

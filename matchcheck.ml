@@ -437,7 +437,7 @@ let rec matchcheck_proc proc =
     Printf.printf "\nmatchcheck_proc %s\n" (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
-  | Call      (pn,es,mes)   -> List.iter matchcheck_expr es; List.iter matchcheck_expr mes
+  | GoOnAs      (pn,es,mes)   -> List.iter matchcheck_expr es; List.iter matchcheck_expr mes
   | WithNew   (params,proc) -> matchcheck_proc proc    
   | WithQbit  (qspecs,proc) -> let matchcheck_qspec = function
                                  | param, Some e -> matchcheck_expr e

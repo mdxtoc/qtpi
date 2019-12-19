@@ -498,8 +498,8 @@ let rec interp sysassoc proc =
               else ""
             in
             (match rproc.inst with
-             | Terminate         -> deleteproc pn; if !pstep then show_pstep "_0"
-             | GoOnAs (n, es, mes)      -> 
+             | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
+             | GoOnAs (n, es, mes) -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
                   try (match env<@>n.inst with
                        | VProcess (ns, ms, proc) -> let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
@@ -815,7 +815,7 @@ and compile_monbody tpnum proc =
                              | _            -> bad iostep.pos "message receive"
                            in
                            Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
-    | GoOnAs _        -> bad proc.pos "process invocation"
+    | GoOnAs _      -> bad proc.pos "process invocation"
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
     | TestPoint _   -> bad proc.pos "test point"
@@ -844,7 +844,7 @@ and compile_proc pn mon proc =
                               let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
                               Some mkchan
       | Terminate 
-      | GoOnAs      _      
+      | GoOnAs    _      
       | WithNew   _
       | WithQbit  _
       | WithLet   _

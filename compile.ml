@@ -112,6 +112,9 @@ let compile_proc pn mon proc =
   Process.map cmp proc
 
 and compile_mon pn called mon env =
+  (* only compile the monitor processes that are called: the others haven't been 
+     type or resource checked
+   *)
   let compile env (tpnum, (tppos, proc)) =
     if NameSet.mem tpnum called then
     (let mn = mon_name tppos pn tpnum in
@@ -121,24 +124,19 @@ and compile_mon pn called mon env =
   in
   List.fold_left compile env mon
 
-let rec bind_pdefs env def =
-  match def with
-  | Processdef  (pn,params,p,monparams,mon) ->
-      (* only compile the monitor processes that are called: the others haven't been 
-         type or resource checked
-       *)
-      let called = Process.called_mons p in
-      let called = NameSet.of_list (List.map fst called) in
-      let env = compile_mon pn called mon env in
-      let proc = compile_proc pn mon p in
-      if !verbose || !verbose_compile then
-        Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
-                        (string_of_def def)
-                        (string_of_env env)
-                        (string_of_process proc);
-      env <@+> (pn.inst, VProcess (strip_params params, strip_params monparams, proc))
-  | Functiondefs _  -> env
-  | Letdef _        -> env
+let rec bind_pdef env (pn,params,p,monparams,mon) =
+  let called = Process.called_mons p in
+  let called = NameSet.of_list (List.map fst called) in
+  let pnum = Monenv.count pn.inst env in
+  let pn = if pnum=0 then pn else {pn with inst=pn.inst ^ "#" ^ string_of_int pnum} in 
+  let env = compile_mon pn called mon env in
+  let proc = compile_proc pn mon p in
+  if (!verbose || !verbose_compile) && p<>proc then
+    Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
+                    (string_of_def (Processdef (pn,params,p,monparams,mon)))
+                    (string_of_env env)
+                    (string_of_process proc);
+  env <@+> (pn.inst, VProcess (strip_params params, strip_params monparams, proc))
 
 
 

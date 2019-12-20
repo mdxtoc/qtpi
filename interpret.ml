@@ -742,8 +742,9 @@ let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
-let bind_fdefs env = function
-  | Processdef   _      -> env 
+let bind_def env = function
+  | Processdef   (pn,params,p,monparams,mon)   
+                        -> Compile.bind_pdef env (pn,params,p,monparams,mon)
   | Functiondefs fdefs  -> (* recursive, hence jollity with reference *)
                            let env = globalise env in
                            let er = ref env in
@@ -754,14 +755,13 @@ let bind_fdefs env = function
   | Letdef (pat, e)     -> (* not recursive, evaluate now *)
                            let v = evale env e in
                            globalise (bmatch env pat v)
-  
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let sysenv = globalise (List.fold_left bind_fdefs (monenv_of_assoc knownassoc) defs) in
-  let sysenv = globalise (List.fold_left Compile.bind_pdefs sysenv defs) in
+  (* bind definitions in order *)
+  let sysenv = globalise (List.fold_left bind_def (monenv_of_assoc knownassoc) defs) in
   let maybe_add env (name, c) =
     if env <@?> name then env else env <@+> (name, VChan (mkchan c))
   in

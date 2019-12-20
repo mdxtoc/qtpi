@@ -74,3 +74,8 @@ let string_of_monenv sep string_of_a (local, usemon, mon, global) =
 let null (local, usemon, mon, global) = null local && (not usemon || null mon) && null global
 
 let filter f (local, usemon, mon, global) = List.filter f local, usemon, List.filter f mon, List.filter f global
+
+let count n (local, usemon, mon, global) =
+  let c n e = List.length (List.filter (fun (n',_) -> n=n') e) in
+  c n local + (if usemon then c n mon else 0) + c n global
+  

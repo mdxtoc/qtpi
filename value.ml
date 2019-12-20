@@ -109,7 +109,7 @@ and prob =
   | P_f              
   | P_g 
   | P_h of int              
-  | Psymb of int * bool * float     (* i, false=ai, true=bi, both random floats s.t. a**2+b**2 = 1; then the actual random value *)
+  | Psymb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
   | Pneg of prob
   | Pprod of prob list              (* associative *)
   | Psum of prob list               (* associative *)

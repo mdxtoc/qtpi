@@ -132,14 +132,21 @@ defs:
   | def defs                            {$1::$2}
 
 def:
-  | processdef                          {$1}
+  | processdefs                         {$1}
   | functiondefs                        {$1}
   | letdef                              {$1}
   
-processdef:
-  PROC procname LPAR procparams RPAR EQUALS processbody  
+processdefs:
+  PROC pdefs                            {Processdefs $2}
+
+pdefs:
+  | pdef                                {[$1]}
+  | pdef pdefs                          {$1::$2}
+  
+pdef:
+  procname LPAR procparams RPAR EQUALS indentNext processbody outdent
                                         {let proc, monparams, monbody = $7 in
-                                         Processdef($2,$4,proc,monparams,monbody)
+                                         ($1,$3,proc,monparams,monbody)
                                         }
 
 processbody:

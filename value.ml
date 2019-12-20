@@ -90,7 +90,7 @@ type value =
   | VTuple of value list
   | VList of value list
   | VFun of (value -> value)        (* with the environment baked in for closures *)
-  | VProcess of name list * name list * process
+  | VProcess of env ref * name list * name list * process
 
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
@@ -956,13 +956,15 @@ let rec so_value optf v =
                | VTuple vs       -> "(" ^ string_of_list (so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (so_value optf) vs
                | VFun f          -> "<function>"
-               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s %s"
+               | VProcess (_,ns,ms,p) (* don't print the env: it will be an infinite recursion *)
+                                 -> Printf.sprintf "process .. (%s)%s %s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
                                                        else "/^(" ^ string_of_list string_of_name "," ms ^ ")"
                                                       )
                                                       (string_of_process p)
               )
+
 and short_so_value optf v =
   match optf v with
   | Some s -> s
@@ -971,7 +973,8 @@ and short_so_value optf v =
                | VChan c         -> "Chan " ^ short_so_chan optf c
                | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (short_so_value optf) vs
-               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s"
+               | VProcess (_,ns,ms,_) 
+                                 -> Printf.sprintf "process .. (%s)%s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
                                                        else "/^(" ^ string_of_list string_of_name "," ms ^ ")"

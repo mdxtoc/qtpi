@@ -406,7 +406,7 @@ module ChanSet = MySet.Make (OrderedChan)
 
 type gsum = Grw of rwaiter | Gww of wwaiter
 
-let rec interp sysassoc proc =
+let rec interp env proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
@@ -501,24 +501,25 @@ let rec interp sysassoc proc =
              | GoOnAs (n, es, mes) -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
                   try (match env<@>n.inst with
-                       | VProcess (ns, ms, proc) -> let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
-                                                              then menv env (* it's a monitor process ... I hope *)
-                                                              else (let ne = List.length ns in
-                                                                    let locals = zip ns (take ne vs) in
-                                                                    let mons = zip ms (drop ne vs) in
-                                                                    monenv_of_lmg locals mons sysassoc
-                                                                   ) 
-                                                    in
-                                                    deleteproc pn;
-                                                    let pn' = addnewproc n.inst in
-                                                    addrunner (pn', proc, env);
-                                                    if !traceId then trace (EVChangeId (pn, [pn']));
-                                                    if !pstep then
-                                                      show_pstep (Printf.sprintf "%s(%s)" 
-                                                                                 n.inst 
-                                                                                 (string_of_list short_string_of_value "," vs)
-                                                                 )
-                       | v                       -> mistyped rproc.pos (string_of_name n.inst) v "a process"
+                       | VProcess (er, ns, ms, proc) -> 
+                           let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
+                                     then menv !er (* it's a monitor process ... I hope *)
+                                     else (let ne = List.length ns in
+                                           let locals = zip ns (take ne vs) in
+                                           let mons = zip ms (drop ne vs) in
+                                           monenv_of_lmg locals mons (assoc_of_monenv !er)
+                                          ) 
+                           in
+                           deleteproc pn;
+                           let pn' = addnewproc n.inst in
+                           addrunner (pn', proc, env);
+                           if !traceId then trace (EVChangeId (pn, [pn']));
+                           if !pstep then
+                             show_pstep (Printf.sprintf "%s(%s)" 
+                                                        n.inst 
+                                                        (string_of_list short_string_of_value "," vs)
+                                        )
+                       | v -> mistyped rproc.pos (string_of_name n.inst) v "a process"
                       )  
                   with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
                  )
@@ -735,7 +736,7 @@ let rec interp sysassoc proc =
          step()
        ) (* end of else *)
   in
-  addrunner ("System", proc, (monenv_of_assoc sysassoc));
+  addrunner ("System", proc, env);
   step ()
 
 let knowns = (ref [] : (name * string * value) list ref)
@@ -743,35 +744,41 @@ let knowns = (ref [] : (name * string * value) list ref)
 let know dec = knowns := dec :: !knowns
 
 let bind_def env = function
-  | Processdef   (pn,params,p,monparams,mon)   
-                        -> Compile.bind_pdef env (pn,params,p,monparams,mon)
-  | Functiondefs fdefs  -> (* recursive, hence jollity with reference *)
-                           let env = globalise env in
+  | Processdefs pdefs   -> let env = globalise env in
+                           let er = ref env in
+                           let env = globalise (List.fold_left (Compile.bind_pdef er) env pdefs) in
+                           er := env;
+                           env
+  | Functiondefs fdefs  -> let env = globalise env in
                            let er = ref env in
                            let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst pats expr in
-                           let env = List.fold_left bind_fdef env fdefs in
+                           let env = globalise (List.fold_left bind_fdef env fdefs) in
                            er := env;
-                           globalise env
+                           env
   | Letdef (pat, e)     -> (* not recursive, evaluate now *)
                            let v = evale env e in
                            globalise (bmatch env pat v)
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
-  (* make an assoc list of process defs and functions *)
+  (* make an assoc list of library stuff *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  (* bind definitions in order *)
-  let sysenv = globalise (List.fold_left bind_def (monenv_of_assoc knownassoc) defs) in
-  let maybe_add env (name, c) =
-    if env <@?> name then env else env <@+> (name, VChan (mkchan c))
+  (* add standard channels *)
+  let definitely_add env (name, c) =
+    if env <@?> name then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))
+    else env <@+> (name, VChan (mkchan c))
   in
-  let sysenv = globalise (List.fold_left maybe_add sysenv [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) in
+  let sysenv = globalise (List.fold_left definitely_add (monenv_of_assoc knownassoc) 
+                                            [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
+  in
+  (* bind definitions in order *)
+  let sysenv = globalise (List.fold_left bind_def sysenv defs) in
   if !verbose || !verbose_interpret then
-    Printf.printf "sysenv = [%s]\n\n" (string_of_env sysenv);
+    Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess ([], [], p) -> interp (assoc_of_monenv sysenv) p
-  | VProcess (ps, _ , _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
-  | _                    -> raise (Error (dummy_spos, "System doesn't name a process"))
+  | VProcess (er, [], [], p) -> interp !er p
+  | VProcess (_ , ps, _ , _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
+  | _                        -> raise (Error (dummy_spos, "no process named System"))

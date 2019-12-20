@@ -432,48 +432,57 @@ and matchcheck_edecl edecl =
   | EDPat (wpat,_,we)        -> matchcheck_expr we
   | EDFun (wfn,wfpats,_, we) -> matchcheck_expr we
 
-let rec matchcheck_proc proc =
+let rec matchcheck_proc mon proc =
   if !verbose then 
     Printf.printf "\nmatchcheck_proc %s\n" (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
   | GoOnAs      (pn,es,mes)   -> List.iter matchcheck_expr es; List.iter matchcheck_expr mes
-  | WithNew   (params,proc) -> matchcheck_proc proc    
+  | WithNew   (params,proc) -> matchcheck_proc mon proc    
   | WithQbit  (qspecs,proc) -> let matchcheck_qspec = function
                                  | param, Some e -> matchcheck_expr e
                                  | param, None   -> ()
                                in
                                List.iter matchcheck_qspec qspecs;
-                               matchcheck_proc proc
-  | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc proc (* binding pattern doesn't need check *)
+                               matchcheck_proc mon proc
+  | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc mon proc (* binding pattern doesn't need check *)
   | WithQstep (qstep,proc)  -> (match qstep.inst with
                                 | Measure   (qe, gopt, _)   -> matchcheck_expr qe; (matchcheck_expr ||~~ ()) gopt
                                 | Ugatestep (qes,ge)           -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
-                               matchcheck_proc proc 
-  | TestPoint (n, proc)     -> matchcheck_proc proc
+                               matchcheck_proc mon proc 
+  | TestPoint (n, proc)     -> (match find_monel n.inst mon with
+                                | Some (_,monproc) -> matchcheck_proc mon monproc
+                                | None             -> raise (Can'tHappen (Printf.sprintf "%s: matchcheck_proc sees no monproc"
+                                                                                           (string_of_sourcepos n.pos)
+                                                                         )
+                                                            )
+                               );
+                               matchcheck_proc mon proc
   | Iter      (params, p, e, proc)
-                            -> matchcheck_proc p; matchcheck_expr e; matchcheck_proc proc
-  | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc p1; matchcheck_proc p2 
+                            -> matchcheck_proc mon p; matchcheck_expr e; matchcheck_proc mon proc
+  | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc mon p1; matchcheck_proc mon p2 
   | PMatch    (e,pms)       -> matchcheck_expr e; 
                                matchcheck_pats short_string_of_process pms;
-                               List.iter (matchcheck_proc <.> snd) pms
+                               List.iter (matchcheck_proc mon <.> snd) pms
   | GSum      iops          -> let matchcheck_iop (iostep, proc) =
                                  (match iostep.inst with
                                   | Read  (ce,_) -> matchcheck_expr ce   (* binding pattern doesn't need check *)
                                   | Write (ce,e) -> matchcheck_expr ce; matchcheck_expr e
                                  );
-                                 matchcheck_proc proc
+                                 matchcheck_proc mon proc
                                in
                                List.iter matchcheck_iop iops
-  | Par       ps            -> List.iter matchcheck_proc ps
+  | Par       ps            -> List.iter (matchcheck_proc mon) ps
 
 let matchcheck_def def =
   if !verbose then 
     Printf.printf "\nmatchcheck_def %s\n" (string_of_def def);
   match def with
-  | Processdef   (pn, _, proc, _, mon) -> matchcheck_proc proc;
-                                          List.iter (fun (_,(_,mproc)) -> matchcheck_proc mproc) mon
+  | Processdefs  pdefs                 -> let pcheck (pn, _, proc, _, mon) = 
+                                            matchcheck_proc mon proc
+                                          in
+                                          List.iter pcheck pdefs
   | Functiondefs fdefs                 -> let fcheck (fn, pats, _, expr) = matchcheck_expr expr in
                                           List.iter fcheck fdefs
   | Letdef       (pat, e)              -> matchcheck_expr e

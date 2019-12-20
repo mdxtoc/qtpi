@@ -213,13 +213,16 @@ let rec rewrite_process mon cxt proc =
                                List.iter (rewrite_g) gs
   | Par      ps             -> List.iter (rewrite_process mon cxt) ps
 
+
+let rewrite_pdef cxt (n, params, proc, monparams, mon) = 
+  rewrite_params cxt params; rewrite_process mon cxt proc;
+  rewrite_params cxt monparams
+  (* and we don't rewrite unused monprocs *)
+
 let rewrite_def cxt def = 
   match def with
-  | Processdef  (n, params, proc, monparams, mon) ->
-      rewrite_params cxt params; rewrite_process mon cxt proc;
-      rewrite_params cxt monparams
-      (* and we don't rewrite unused monprocs *)
-  | Functiondefs fdefs            ->
+  | Processdefs pdefs  -> List.iter (rewrite_pdef cxt) pdefs
+  | Functiondefs fdefs ->
       let rewrite_fdef (n, pats, toptr, expr) =
         let nt = (try evaltype (cxt <@>n.inst) 
                   with Not_found -> raise (Can'tHappen (Printf.sprintf "%s: %s not in cxt %s"
@@ -747,7 +750,7 @@ let rec do_procparams s fnew cxt params proc monparams mon =
 
 and typecheck_process mon cxt p  =
   if !verbose then
-    Printf.printf "typecheck_process ... %s:%s\n" (string_of_sourcepos p.pos) (short_string_of_process p);
+    Printf.printf "typecheck_process .. %s %s:%s\n" (string_of_typecxt cxt) (string_of_sourcepos p.pos) (short_string_of_process p);
   match p.inst with
   | Terminate     -> ()
   | GoOnAs (n,args,margs) -> 
@@ -755,7 +758,7 @@ and typecheck_process mon cxt p  =
         raise (Error (p.pos, "split-arguments process creation in un-monitored process"));
       ok_procname n;
       let ts = 
-        (try let t = evaltype (cxt<@>n.inst) in
+        (try let t = Type.instantiate (evaltype (cxt<@>n.inst)) in
              match t.inst with
              | Process ts -> ts
              | _          -> raise (Error (n.pos, string_of_name n.inst ^ " used as process name, but declared as " ^ string_of_type t))
@@ -845,37 +848,6 @@ and typecheck_process mon cxt p  =
                        typecheck_pats (typecheck_process mon) cxt et pms
   | Par (ps)        -> List.iter (typecheck_process mon cxt) ps
   
-and typecheck_pdef assoc def =
-  match def with 
-  | Processdef (pn,params,proc,monparams,mon) -> 
-      if !verbose then
-        Printf.printf "typecheck_pdef [%s]\n  %s\n\n" 
-                       (string_of_typeassoc assoc)
-                       (string_of_def def);
-      let env_types = match (assoc<%@>pn.inst).inst with
-                      | Process ts -> ts
-                      | _          -> raise (Can'tHappen (Printf.sprintf "%s not a process name"
-                                                                         (string_of_name pn.inst)
-                                                         )
-                                            )
-      in
-      check_distinct_params (params@monparams);
-      check_monlabels proc mon;
-      let locals = List.map (process_param newcommtv) params in
-      let mons = List.map (process_param newcommtv) monparams in
-      typecheck_process mon (monenv_of_lmg locals mons assoc) proc;
-      let assoc = evalassoc assoc in
-      let tps = zip env_types (params@monparams) in
-      let _ = List.iter (fun (t,{inst=n,rt}) -> unifytypes t (_The !rt)) tps in
-      if !verbose then
-        (rewrite_def (new_cxt assoc) def;
-         Printf.printf "after typecheck_pdef, def = %s\n\nglobal_assoc = %s\n\n" 
-                       (string_of_def def) 
-                       (string_of_typeassoc assoc)
-        )
-  | Functiondefs _ 
-  | Letdef       _ -> ()
-      
 and typecheck_letspec contn cxt pat e =
   let t = newclasstv e.pos in
   let _ = assigntype_expr cxt t e in
@@ -893,48 +865,41 @@ let make_library_assoc () =
   let assoc = if assoc <%@?> "in"      then assoc else assoc <%@+> ("in"     , typ (Channel (typ String))) in
   assoc
 
-let typecheck_fdefs assoc = function
-  | Processdef   _     -> assoc
-  | Functiondefs fdefs -> 
-      let precxt assoc (fn,pats,toptr,e) =
-        ok_funname fn;
-        check_distinct_fparams pats;
-        let t, rt = read_funtype pats toptr e in
-        toptr := Some rt;
-        assoc <%@+> (fn.inst, t)
-      in
-      let fns = List.map (fun (fn,_,_,_) -> fn) fdefs in
-      let rec check_unique_fns = function
-        | fn::fns -> List.iter (fun fn' -> if fn.inst=fn'.inst then raise (Error (fn'.pos, "duplicate function definition"))) fns;
-                     check_unique_fns fns
-        | []      -> ()
-      in
-      check_unique_fns fns;
-      let assoc = List.fold_left precxt assoc fdefs in
-      let tc_fdef assoc (fn,pats,topt,expr) = 
-        let env_type = assoc<%@>fn.inst in
-        (* force classical result type *)
-        let rt = result_type fn.pos pats env_type in
-        let rtv = newclasstv rt.pos in
-        let _ = unifytypes rtv rt in
-        assigntype_fun (new_cxt assoc) (Type.instantiate env_type) pats expr;
-        evalassoc assoc
-      in
-      let assoc = List.fold_left tc_fdef assoc fdefs in
-      let postcxt assoc fn =  
-        let t = evaltype (assoc<%@>fn.inst) in
-        (assoc <%@-> fn.inst) <%@+> (fn.inst, generalise t)
-      in
-      List.fold_left postcxt assoc fns
-  | Letdef (pat, e) ->
-      (* sneaky use of reference to allow typecheck_letspec to return unit *)
-      let cref = ref (new_cxt assoc) in
-      let contn cxt = cref := cxt in
-      typecheck_letspec contn (new_cxt assoc) pat e;
-      evalassoc (assoc_of_cxt !cref)
-      
-let precheck_pdef assoc = function
-  | Processdef   (pn,ps,_,mps,_) -> 
+let rec check_unique_ns s = function
+  | n::ns -> List.iter (fun n' -> if n.inst=n'.inst then raise (Error (n'.pos, ("duplicate " ^ s ^ " definition")))) ns;
+             check_unique_ns s ns
+  | []    -> ()
+
+let typecheck_fdefs assoc fdefs =
+  let precxt assoc (fn,pats,toptr,e) =
+    ok_funname fn;
+    check_distinct_fparams pats;
+    let t, rt = read_funtype pats toptr e in
+    toptr := Some rt;
+    assoc <%@+> (fn.inst, t)
+  in
+  let fns = List.map (fun (fn,_,_,_) -> fn) fdefs in
+  check_unique_ns "function" fns;
+  let assoc = List.fold_left precxt assoc fdefs in
+  let tc_fdef assoc (fn,pats,topt,expr) = 
+    let env_type = assoc<%@>fn.inst in
+    (* force classical result type *)
+    let rt = result_type fn.pos pats env_type in
+    let rtv = newclasstv rt.pos in
+    let _ = unifytypes rtv rt in
+    assigntype_fun (new_cxt assoc) (Type.instantiate env_type) pats expr;
+    evalassoc assoc
+  in
+  let assoc = List.fold_left tc_fdef assoc fdefs in
+  let postcxt assoc fn =  
+    let t = evaltype (assoc<%@>fn.inst) in
+    (assoc <%@-> fn.inst) <%@+> (fn.inst, generalise t)
+  in
+  List.fold_left postcxt assoc fns
+
+(* this is very similar to typecheck_fdefs, mutatis mutandis *)
+let typecheck_pdefs assoc pdefs =     
+  let precheck_pdef assoc (pn,ps,_,mps,_) = 
       ok_procname pn;
       let process_param param = 
         let n,rt = param.inst in
@@ -957,18 +922,60 @@ let precheck_pdef assoc = function
                         )
                  )
       else assoc <%@+> (pn.inst, (adorn pn.pos (Process (process_params (ps@mps)))))
-  | Functiondefs _         
-  | Letdef       _         -> assoc
+  in
+  let pns = List.map (fun (pn,_,_,_,_) -> pn) pdefs in
+  check_unique_ns "process" pns;
+  let assoc = List.fold_left precheck_pdef assoc pdefs in
+  let tc_pdef assoc (pn,params,proc,monparams,mon as pdef) =
+    if !verbose then
+      Printf.printf "tc_pdef [%s]\n  %s\n\n" 
+                     (string_of_typeassoc assoc)
+                     (string_of_pdef pdef);
+    let env_types = match (assoc<%@>pn.inst).inst with
+                    | Process ts -> ts
+                    | _          -> raise (Can'tHappen (Printf.sprintf "%s not a process name"
+                                                                       (string_of_name pn.inst)
+                                                       )
+                                          )
+    in
+    check_distinct_params (params@monparams);
+    check_monlabels proc mon;
+    let locals = List.map (process_param newcommtv) params in
+    let mons = List.map (process_param newcommtv) monparams in
+    typecheck_process mon (monenv_of_lmg locals mons assoc) proc;
+    let assoc = evalassoc assoc in
+    let tps = zip env_types (params@monparams) in
+    let _ = List.iter (fun (t,{inst=n,rt}) -> unifytypes t (_The !rt)) tps in
+    if !verbose then
+      (rewrite_pdef (new_cxt assoc) pdef;
+       Printf.printf "after tc_pdef, pdef = %s\n\nglobal_assoc = %s\n\n" 
+                     (string_of_pdef pdef) 
+                     (string_of_typeassoc assoc)
+      );
+    evalassoc assoc
+  in
+  let assoc = List.fold_left tc_pdef assoc pdefs in
+  let postcheck assoc pn =  
+    let t = evaltype (assoc<%@>pn.inst) in
+    (assoc <%@-> pn.inst) <%@+> (pn.inst, generalise t)
+  in
+  List.fold_left postcheck assoc pns
+
+let typecheck_def assoc def =
+  match def with
+  | Processdefs  pdefs   -> typecheck_pdefs assoc pdefs
+  | Functiondefs fdefs   -> typecheck_fdefs assoc fdefs
+  | Letdef       (pat,e) ->
+      (* sneaky use of reference to allow typecheck_letspec to return unit *)
+      let cref = ref (new_cxt assoc) in
+      let contn cxt = cref := cxt in
+      typecheck_letspec contn (new_cxt assoc) pat e;
+      evalassoc (assoc_of_cxt !cref)
 
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let global_assoc = make_library_assoc () in
-        (* put the process names in global_assoc *)
-        let global_assoc = List.fold_left precheck_pdef global_assoc defs in
-        (* do the function defs in order and in groups *)
-        let global_assoc = List.fold_left typecheck_fdefs global_assoc defs in
-        (* do the process defs *)
-        let _ = List.iter (typecheck_pdef global_assoc) defs in
+        let global_assoc = List.fold_left typecheck_def global_assoc defs in
         List.iter (rewrite_def (new_cxt global_assoc)) defs;
         if !verbose then 
           Printf.printf "typechecked\n\ncxt =[\n]%s\n\ndefs=\n%s\n\n" 

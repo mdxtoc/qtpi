@@ -658,16 +658,18 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc, monparams, mon) -> 
-      let state, rparams = resource_of_params State.empty (params@monparams) in
-      if !verbose then
-        Printf.printf "\ndef %s params %s resource %s\n" 
-                      (string_of_name pn.inst)
-                      (bracketed_string_of_list string_of_param params)
-                      (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
-      (* here we go with the symbolic execution *)
-      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) [] proc in
-      ()
+  | Processdefs pdefs -> 
+      let rck_pdef (pn, params, proc, monparams, mon) =
+        let state, rparams = resource_of_params State.empty (params@monparams) in
+        if !verbose then
+          Printf.printf "\ndef %s params %s resource %s\n" 
+                        (string_of_name pn.inst)
+                        (bracketed_string_of_list string_of_param params)
+                        (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
+        (* here we go with the symbolic execution *)
+        ignore (rck_proc mon state (List.fold_left (<@+>) env rparams) [] proc) 
+      in
+      List.iter rck_pdef pdefs
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
@@ -789,13 +791,14 @@ and ffv_def def =
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, _, proc, _, mon) -> ffv_proc mon proc
-  | Functiondefs fdefs               -> List.iter ffv_fdef fdefs
-  | Letdef (pat,e)                   -> ffv_expr e
+  | Processdefs  pdefs -> List.iter ffv_pdef pdefs
+  | Functiondefs fdefs -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)     -> ffv_expr e
   
-and ffv_fdef (fn, pats, _, e) =
-  ffv_fundef fn.pos (Some fn) pats e
-  
+and ffv_fdef (fn, pats, _, e) = ffv_fundef fn.pos (Some fn) pats e
+
+and ffv_pdef (pn, _, proc, _, mon) = ffv_proc mon proc
+
 (* *************** main function: trigger the phases *************************** *)
 
 let resourcecheck defs = 
@@ -811,11 +814,12 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       match def with
-      | Processdef   (pn, _, _, _, _) -> env <@+> (pn.inst,RNull)
-      | Functiondefs fdefs            -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
-                                         List.fold_left do_fdef env fdefs
-      | Letdef       (pat,e)          -> let ns = NameSet.elements (names_of_pattern pat) in
-                                         List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
+      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _, _) = env <@+> (pn.inst,RNull) in
+                                   List.fold_left do_pdef env pdefs
+      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
+                                   List.fold_left do_fdef env fdefs
+      | Letdef       (pat,e)    -> let ns = NameSet.elements (names_of_pattern pat) in
+                                   List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
     in
     let env = List.fold_left do_def env defs in
     let add_std_channel env name =

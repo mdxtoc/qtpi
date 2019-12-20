@@ -82,7 +82,7 @@ let compile_monbody tpnum proc =
   in
   Process.map cmp proc
   
-let compile_proc pn mon proc =
+let compile_proc er env pn mon proc =
   let rec cmp proc =
     let ad = adorn proc.pos in
     let ade = eadorn proc.pos in
@@ -109,34 +109,38 @@ let compile_proc pn mon proc =
       | Par       _        -> None
       | Iter _             -> raise (Error (proc.pos, "Can't compile Iter in compile_proc yet"))
   in
-  Process.map cmp proc
+  env, Process.map cmp proc
 
-and compile_mon pn called mon env =
+and compile_mon er pn called mon env =
   (* only compile the monitor processes that are called: the others haven't been 
      type or resource checked
    *)
   let compile env (tpnum, (tppos, proc)) =
     if NameSet.mem tpnum called then
     (let mn = mon_name tppos pn tpnum in
-     env <@+> (mn.inst, VProcess ([], [], compile_monbody tpnum proc))
+     env <@+> (mn.inst, VProcess (er, [], [], compile_monbody tpnum proc))
     )
     else env
   in
   List.fold_left compile env mon
 
-let rec bind_pdef env (pn,params,p,monparams,mon) =
+let rec bind_pdef er env (pn,params,p,monparams,mon as pdef) =
   let called = Process.called_mons p in
   let called = NameSet.of_list (List.map fst called) in
+  let env = compile_mon er pn called mon env in
+  (* process names must be unique to make mon_name work ... 
+     so count the number of processes which already have the same name 
+   *)
   let pnum = Monenv.count pn.inst env in
-  let pn = if pnum=0 then pn else {pn with inst=pn.inst ^ "#" ^ string_of_int pnum} in 
-  let env = compile_mon pn called mon env in
-  let proc = compile_proc pn mon p in
+  let pn' = if pnum=0 then pn 
+            else {pn with inst = pn.inst ^ "#" ^ string_of_int (pnum-1)} 
+  in
+  let env, proc = compile_proc er env pn' mon p in
   if (!verbose || !verbose_compile) && p<>proc then
-    Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
-                    (string_of_def (Processdef (pn,params,p,monparams,mon)))
-                    (string_of_env env)
+    Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
+                    (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (pn.inst, VProcess (strip_params params, strip_params monparams, proc))
+  env <@+> (pn.inst, VProcess (er, strip_params params, strip_params monparams, proc))
 
 
 

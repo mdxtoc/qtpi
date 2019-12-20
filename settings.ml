@@ -68,6 +68,7 @@ let traceIO = ref false
 let typereport = ref false
 
 let verbose             = ref false
+let verbose_compile     = ref false
 let verbose_interpret   = ref false
 let verbose_matchcheck  = ref false
 let verbose_measure     = ref false
@@ -79,6 +80,7 @@ let verbose_simplify    = ref false
 let verbose_typecheck   = ref false
 
 let verboseopts = [("all"              , verbose                  );
+                   ("compile"          , verbose_compile          );
                    ("interpret"        , verbose_interpret        );
                    ("matchcheck"       , verbose_matchcheck       );
                    ("measure"          , verbose_measure          );

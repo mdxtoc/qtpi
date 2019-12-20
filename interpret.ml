@@ -44,7 +44,6 @@ open Monenv
 open Value
 open Event
 
-exception CompileError of sourcepos * string
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
@@ -756,113 +755,13 @@ let bind_fdefs env = function
                            let v = evale env e in
                            globalise (bmatch env pat v)
   
-let rec bind_pdefs env def =
-  match def with
-  | Processdef  (pn,params,p,monparams,mon) ->
-      (* only compile the monitor processes that are called: the others haven't been 
-         type or resource checked
-       *)
-      let called = Process.called_mons p in
-      let called = NameSet.of_list (List.map fst called) in
-      let env = compile_mon pn called mon env in
-      let proc = compile_proc pn mon p in
-      if !verbose || !verbose_interpret then
-        Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
-                        (string_of_def def)
-                        (string_of_env env)
-                        (string_of_process proc);
-      env <@+> (pn.inst, VProcess (strip_params params, strip_params monparams, proc))
-  | Functiondefs _  -> env
-  | Letdef _        -> env
-
-and mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
-
-and chan_name tpnum = "#chan#" ^ tpnum
-
-and compile_mon pn called mon env =
-  let compile env (tpnum, (tppos, proc)) =
-    if NameSet.mem tpnum called then
-    (let mn = mon_name tppos pn tpnum in
-     env <@+> (mn.inst, VProcess ([], [], compile_monbody tpnum proc))
-    )
-    else env
-  in
-  List.fold_left compile env mon
-
-(* Here is where we apply restrictions on monitor processes:
-    no Reading   (it's outside the protocol, so no input)
-    no Calling
-    no new qbits (it's outside the protocol, so no quantum stuff)
-    no gating    (ditto)
-    no measuring (ditto)
-    no Testpoint (come along now)
-    no Par
- *)
-and compile_monbody tpnum proc =
-  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let adio = adorn proc.pos in
-    let ade = eadorn proc.pos in
-    match proc.inst with
-    | Terminate         -> Some (ad (GSum [adio (Write (ade (EVar (chan_name tpnum)), ade EUnit)), proc]))
-    | GSum iops         -> let ciop (iostep, proc) = 
-                             match iostep.inst with
-                             | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
-                                                 bad iostep.pos "non-classical channel";
-                                               Process.optmap cmp proc 
-                                               &~~ (_Some <.> (fun proc -> iostep, proc))
-                             | _            -> bad iostep.pos "message receive"
-                           in
-                           Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
-    | GoOnAs _      -> bad proc.pos "process invocation"
-    | WithQbit _    -> bad proc.pos "qbit creation"
-    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
-    | TestPoint _   -> bad proc.pos "test point"
-    | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in compile_monbody yet"))
-    | Par _         -> bad proc.pos "parallel sum"
-    | WithNew _     
-    | WithLet _
-    | Cond    _
-    | PMatch  _     -> None
-  in
-  Process.map cmp proc
-  
-and compile_proc pn mon proc =
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let ade = eadorn proc.pos in
-    let adpat = Pattern.padorn proc.pos None in
-    let adpar = adorn proc.pos in
-    match proc.inst with
-      | TestPoint (tpn, p) -> let p = Process.map cmp p in
-                              let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
-                              let gsum = ad (GSum [read, p]) in
-                              let mn = mon_name tpn.pos pn tpn.inst in
-                              let call = ad (GoOnAs (mn, [], [])) in
-                              let par = ad (Par [call; gsum]) in
-                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
-                              Some mkchan
-      | Terminate 
-      | GoOnAs    _      
-      | WithNew   _
-      | WithQbit  _
-      | WithLet   _
-      | WithQstep _
-      | Cond      _
-      | PMatch    _
-      | GSum      _
-      | Par       _        -> None
-      | Iter _             -> raise (Error (proc.pos, "Can't compile Iter in compile_proc yet"))
-  in
-  Process.map cmp proc
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
   (* make an assoc list of process defs and functions *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
   let sysenv = globalise (List.fold_left bind_fdefs (monenv_of_assoc knownassoc) defs) in
-  let sysenv = globalise (List.fold_left bind_pdefs sysenv defs) in
+  let sysenv = globalise (List.fold_left Compile.bind_pdefs sysenv defs) in
   let maybe_add env (name, c) =
     if env <@?> name then env else env <@+> (name, VChan (mkchan c))
   in

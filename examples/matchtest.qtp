@@ -1,8 +1,8 @@
 proc S(i) = _0
 
-proc System() = Incomplete ()
+System() = Incomplete ()
 
-proc Incomplete () = match 0 .
+Incomplete () = match 0 .
                      + 7 . S(1)
                      + 9 . S(2)
 

@@ -755,7 +755,7 @@ and typecheck_process mon cxt p  =
   | Terminate     -> ()
   | GoOnAs (n,args,margs) -> 
       if margs<>[] && mon=[] then
-        raise (Error (p.pos, "split-arguments process creation in un-monitored process"));
+        raise (Error (p.pos, "split-arguments invocation in un-monitored process"));
       ok_procname n;
       let ts = 
         (try let t = Type.instantiate (evaltype (cxt<@>n.inst)) in

@@ -55,7 +55,7 @@ let rec string_of_def = function
                                                    (string_of_expr e)
   
 and string_of_pdef (pn,params,proc,monparams,mon) =
-  Printf.sprintf "proc %s(%s) = %s%s"
+  Printf.sprintf "%s(%s) = %s%s"
                     (string_of_name pn.inst)
                     (String.concat "," (List.map string_of_param params))
                     (string_of_process proc)

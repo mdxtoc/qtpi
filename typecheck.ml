@@ -104,7 +104,7 @@ let short_string_of_typecxt = string_of_typecxt
 
 (* ***************************** rewriting stuff ********************************* *)
 
-let rec rewrite_expr cxt e =
+let rec rewrite_expr e =
   match !(e.inst.etype) with
   | Some t -> 
       (e.inst.etype := Some (evaltype t);
@@ -119,19 +119,19 @@ let rec rewrite_expr cxt e =
        | EBit        _          
        | EBasisv     _          -> ()
        | EMinus      e          
-       | ENot        e          -> rewrite_expr cxt e
-       | ETuple      es         -> List.iter (rewrite_expr cxt) es
-       | ECond       (e1,e2,e3) -> List.iter (rewrite_expr cxt) [e1;e2;e3]
-       | EMatch      (e,ems)    -> rewrite_expr cxt e; 
-                                   List.iter (fun (pat,e) -> rewrite_pattern cxt pat; rewrite_expr cxt e) ems
+       | ENot        e          -> rewrite_expr e
+       | ETuple      es         -> List.iter rewrite_expr es
+       | ECond       (e1,e2,e3) -> List.iter rewrite_expr [e1;e2;e3]
+       | EMatch      (e,ems)    -> rewrite_expr e; 
+                                   List.iter (fun (pat,e) -> rewrite_pattern pat; rewrite_expr e) ems
        | ECons       (e1,e2)
        | EApp        (e1,e2)     
-       | EAppend     (e1,e2)    -> List.iter (rewrite_expr cxt) [e1;e2]
+       | EAppend     (e1,e2)    -> List.iter rewrite_expr [e1;e2]
        | EArith      (e1,_,e2)   
        | ECompare    (e1,_,e2)   
-       | EBoolArith  (e1,_,e2)  -> List.iter (rewrite_expr cxt) [e1;e2]
-       | ELambda     (pats, e)  -> List.iter (rewrite_pattern cxt) pats; rewrite_expr cxt e
-       | EWhere      (e,ed)     -> rewrite_expr cxt e; rewrite_edecl cxt ed
+       | EBoolArith  (e1,_,e2)  -> List.iter rewrite_expr [e1;e2]
+       | ELambda     (pats, e)  -> List.iter rewrite_pattern pats; rewrite_expr e
+       | EWhere      (e,ed)     -> rewrite_expr e; rewrite_edecl ed
       )
   | None   -> raise (Error (e.pos,
                             Printf.sprintf "** Disaster: typecheck didn't mark %s"
@@ -139,14 +139,14 @@ let rec rewrite_expr cxt e =
                            )
                     )
 
-and rewrite_edecl cxt edecl = 
+and rewrite_edecl edecl = 
   match edecl.inst with
-  | EDPat (wpat,_,we)        -> rewrite_pattern cxt wpat; rewrite_expr cxt we
-  | EDFun (wfn,wfpats,_, we) -> rewrite_fparams cxt wfpats; rewrite_expr cxt we
+  | EDPat (wpat,_,we)        -> rewrite_pattern wpat; rewrite_expr we
+  | EDFun (wfn,wfpats,_, we) -> rewrite_fparams wfpats; rewrite_expr we
 
-and rewrite_fparams cxt = List.iter (rewrite_pattern cxt)
+and rewrite_fparams fps = List.iter rewrite_pattern fps
 
-and rewrite_pattern cxt p =
+and rewrite_pattern p =
   match !(p.inst.ptype) with
   | Some t -> 
       (p.inst.ptype := Some (evaltype t);
@@ -161,8 +161,8 @@ and rewrite_pattern cxt p =
        | PatChar    _
        | PatString  _
        | PatBasisv  _       -> ()
-       | PatCons    (ph,pt) -> List.iter (rewrite_pattern cxt) [ph;pt]
-       | PatTuple   ps      -> List.iter (rewrite_pattern cxt) ps
+       | PatCons    (ph,pt) -> List.iter rewrite_pattern [ph;pt]
+       | PatTuple   ps      -> List.iter rewrite_pattern ps
        
       )
   | None   -> raise (Error (p.pos,
@@ -171,61 +171,61 @@ and rewrite_pattern cxt p =
                            )
                     )
 
-let rewrite_param cxt {inst=n,rt} =
+let rewrite_param {inst=n,rt} =
   match !rt with
   | Some t -> rt := Some (evaltype t)
   | _      -> ()
   
-let rewrite_params cxt = List.iter (rewrite_param cxt)
+let rewrite_params = List.iter (rewrite_param)
 
-let rewrite_qstep cxt qstep = 
+let rewrite_qstep qstep = 
   match qstep.inst with
-  | Measure   (e,gopt,pattern)  -> rewrite_expr cxt e; (rewrite_expr cxt ||~~ ()) gopt; rewrite_pattern cxt pattern
-  | Ugatestep (es, ug)          -> List.iter (rewrite_expr cxt) es; rewrite_expr cxt ug
+  | Measure   (e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
+  | Ugatestep (es, ug)          -> List.iter rewrite_expr es; rewrite_expr ug
 
-let rewrite_iostep cxt iostep = 
+let rewrite_iostep iostep = 
   match iostep.inst with
-  | Read      (ce,pat)    -> rewrite_expr cxt ce; rewrite_pattern cxt pat
-  | Write     (ce,e)      -> rewrite_expr cxt ce; rewrite_expr cxt e 
+  | Read      (ce,pat)    -> rewrite_expr ce; rewrite_pattern pat
+  | Write     (ce,e)      -> rewrite_expr ce; rewrite_expr e 
 
-let rec rewrite_process mon cxt proc = 
+let rec rewrite_process mon proc = 
   if !verbose || !verbose_typecheck then
     Printf.printf "rewrite_process ... %s:%s\n" (string_of_sourcepos proc.pos) (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
-  | GoOnAs      (n,es,mes)    -> List.iter (rewrite_expr cxt) (es@mes)
-  | WithNew   (params, p)   -> rewrite_params cxt params; rewrite_process mon cxt p
-  | WithQbit  (qss, p)      -> List.iter (rewrite_param cxt <.> fst) qss; rewrite_process mon cxt p
-  | WithLet  ((pat,e), p)   -> rewrite_pattern cxt pat; rewrite_expr cxt e; rewrite_process mon cxt p
-  | WithQstep (qstep, p)    -> rewrite_qstep cxt qstep; rewrite_process mon cxt p
+  | GoOnAs    (n,es,mes)    -> List.iter rewrite_expr es; List.iter rewrite_expr mes
+  | WithNew   (params, p)   -> rewrite_params params; rewrite_process mon p
+  | WithQbit  (qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
+  | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
+  | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
-                               rewrite_process [] cxt mp;
-                               rewrite_process mon (mcxt cxt) p
+                               rewrite_process mon mp; (* does it need mon? Let Compile judge *)
+                               rewrite_process mon p
   | Iter      (params, proc, e, p)
-                            -> rewrite_params cxt params; rewrite_process mon cxt proc;
-                               rewrite_expr cxt e; rewrite_process mon cxt p
-  | Cond     (e, p1, p2)    -> rewrite_expr cxt e; rewrite_process mon cxt p1; rewrite_process mon cxt p2
-  | PMatch    (e,pms)       -> rewrite_expr cxt e; 
-                               List.iter (fun (pat,proc) -> rewrite_pattern cxt pat; rewrite_process mon cxt proc) pms
+                            -> rewrite_params params; rewrite_process mon proc;
+                               rewrite_expr e; rewrite_process mon p
+  | Cond     (e, p1, p2)    -> rewrite_expr e; rewrite_process mon p1; rewrite_process mon p2
+  | PMatch    (e,pms)       -> rewrite_expr e; 
+                               List.iter (fun (pat,proc) -> rewrite_pattern pat; rewrite_process mon proc) pms
   | GSum     gs             -> let rewrite_g (iostep, p) =
-                                 rewrite_iostep cxt iostep; rewrite_process mon cxt p
+                                 rewrite_iostep iostep; rewrite_process mon p
                                in
                                List.iter (rewrite_g) gs
-  | Par      ps             -> List.iter (rewrite_process mon cxt) ps
+  | Par      ps             -> List.iter (rewrite_process mon) ps
 
 
-let rewrite_pdef cxt (n, params, proc, monparams, mon) = 
-  rewrite_params cxt params; rewrite_process mon cxt proc;
-  rewrite_params cxt monparams
+let rewrite_pdef (n, params, proc, monparams, mon) = 
+  rewrite_params params; rewrite_process mon proc;
+  rewrite_params monparams
   (* and we don't rewrite unused monprocs *)
 
 let rewrite_def cxt def = 
   match def with
-  | Processdefs pdefs  -> List.iter (rewrite_pdef cxt) pdefs
+  | Processdefs pdefs  -> List.iter (rewrite_pdef) pdefs
   | Functiondefs fdefs ->
       let rewrite_fdef (n, pats, toptr, expr) =
         let nt = (try evaltype (cxt <@>n.inst) 
-                  with Not_found -> raise (Can'tHappen (Printf.sprintf "%s: %s not in cxt %s"
+                  with Not_found -> raise (Can'tHappen (Printf.sprintf "%s: %s not in %s"
                                                                        (string_of_sourcepos n.pos)
                                                                        (string_of_name n.inst)
                                                                        (string_of_typecxt cxt)
@@ -233,12 +233,12 @@ let rewrite_def cxt def =
                                           )
                  )
         in
-        let doit cxt rt = rewrite_fparams cxt pats; rewrite_expr cxt expr; toptr := Some (evaltype rt) in
-        doit cxt (result_type n.pos pats nt)
+        let doit rt = rewrite_fparams pats; rewrite_expr expr; toptr := Some (evaltype rt) in
+        doit (result_type n.pos pats nt)
       in
       List.iter rewrite_fdef fdefs
   | Letdef (pat, e)                ->  
-      rewrite_pattern cxt pat; rewrite_expr cxt e
+      rewrite_pattern pat; rewrite_expr e
      
 (* ********************************************** unification stuff ******************************** *)
 

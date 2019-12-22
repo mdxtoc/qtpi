@@ -754,24 +754,29 @@ and typecheck_process mon cxt p  =
   match p.inst with
   | Terminate     -> ()
   | GoOnAs (n,args,margs) -> 
+      let arglength = List.length args + List.length margs in
       if margs<>[] && mon=[] then
         raise (Error (p.pos, "split-arguments invocation in un-monitored process"));
       ok_procname n;
       let ts = 
         (try let t = Type.instantiate (evaltype (cxt<@>n.inst)) in
              match t.inst with
-             | Process ts -> ts
-             | _          -> raise (Error (n.pos, string_of_name n.inst ^ " used as process name, but declared as " ^ string_of_type t))
-         with _ -> raise (Error (n.pos, "undefined process " ^ string_of_name n.inst))
+             | Process ts -> if arglength <> List.length ts then
+                               raise (Error (p.pos,  Printf.sprintf "%s: should have %d arguments: this invocation provides %d"
+                                                           (string_of_process p)
+                                                           (List.length ts)
+                                                           (List.length args + List.length margs)
+                                           )
+                                    );
+                                    
+                             ts
+             | _          -> let ts = tabulate arglength (fun _ -> newcommtv p.pos) in
+                             unifytypes t (adorn p.pos (Process ts));
+                             ts
+         with Not_found -> raise (Error (n.pos, "undefined process " ^ string_of_name n.inst))
         )
       in
-      if List.length args + List.length margs <> List.length ts then
-        raise (Error (p.pos,  Printf.sprintf "%s: should have %d arguments"
-                                    (string_of_process p)
-                                    (List.length ts)
-                    )
-             );
-     let cxts = Listutils.tabulate (List.length ts)
+     let cxts = Listutils.tabulate arglength
                                    (fun i -> if i<List.length args then cxt else mcxt cxt)
      in
      let trips = zip cxts (zip ts (args@margs)) in
@@ -978,9 +983,11 @@ let typecheck defs =
         let global_assoc = List.fold_left typecheck_def global_assoc defs in
         List.iter (rewrite_def (new_cxt global_assoc)) defs;
         if !verbose then 
-          Printf.printf "typechecked\n\ncxt =[\n]%s\n\ndefs=\n%s\n\n" 
+          (Printf.printf "typechecked\n\ncxt =[\n]%s\n\ndefs=\n%s\n\n" 
                         (string_of_typeassoc global_assoc)
-                        (string_of_list string_of_def "\n\n" defs)
+                        (string_of_list string_of_def "\n\n" defs);
+           flush stdout;
+          )
         else
         if !typereport then 
           Printf.printf "fully typed program =\n%s\n\n" (string_of_list string_of_def "\n\n" defs);

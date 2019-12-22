@@ -947,7 +947,7 @@ let typecheck_pdefs assoc pdefs =
     let tps = zip env_types (params@monparams) in
     let _ = List.iter (fun (t,{inst=n,rt}) -> unifytypes t (_The !rt)) tps in
     if !verbose then
-      (rewrite_pdef (new_cxt assoc) pdef;
+      (rewrite_pdef pdef;
        Printf.printf "after tc_pdef, pdef = %s\n\nglobal_assoc = %s\n\n" 
                      (string_of_pdef pdef) 
                      (string_of_typeassoc assoc)

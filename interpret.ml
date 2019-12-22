@@ -346,7 +346,7 @@ and bind_fun er n pats expr =
 and unitev env e =
   match evale env e with
   | VUnit -> ()
-  | v     -> mistyped e.pos (string_of_expr e) v "unit" 
+  | v     -> mistyped e.pos (string_of_expr e) v (string_of_tnode Unit) 
 
 and numev env e =
   match evale env e with

@@ -110,7 +110,7 @@ and string_of_tnode = function
   | Char             -> "char"
   | String           -> "string"
   | Bool             -> "bool"
-  | Unit             -> "unit"
+  | Unit             -> "()"
   | Qbit             -> "qbit"
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"

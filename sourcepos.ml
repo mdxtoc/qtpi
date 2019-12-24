@@ -76,7 +76,7 @@ let spos_of_spos2 pos1 pos2 =
     | (fn,startpos,_), (_,_,endpos) -> (fn,startpos, endpos)
 
 
-let enclosing_sp_of_sps sps = 
+let sp_of_sps sps = 
   let rec enclosing spos = function
     | []      -> spos
     | sp::sps -> enclosing (spos_of_spos2 spos sp) sps

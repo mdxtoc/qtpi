@@ -26,6 +26,7 @@ open Sourcepos
 open Name
 open Stringutils
 open Listutils
+open Functionutils
 open Instance
 
 exception Error of sourcepos * string
@@ -62,6 +63,28 @@ and tnode =
   | Process of _type list
 
 and unknown = name * _type option ref (* unknowns start with '?', which doesn't appear in parseable names *)
+
+and 'a typedinstance = 'a tinst instance
+
+and 'a tinst = {toptr: _type option ref; tnode: 'a}
+
+let twrap opt tnode = {toptr=ref opt; tnode=tnode}
+
+let tadorn pos = adorn pos <.> twrap None
+
+let tnode x = x.inst.tnode
+let toptr x = x.inst.toptr
+
+let type_of_typedinstance string_of x =
+  match !(x.inst.toptr) with
+  | Some t -> t
+  | None   -> raise (Error (x.pos, Printf.sprintf "typecheck didn't mark %s" (string_of x)))
+
+type typedname = name typedinstance
+
+let string_of_typedname n = string_of_name (tnode n) 
+
+let type_of_typedname n = type_of_typedinstance string_of_typedname n
 
 let processprio = 0 (* lower than tuple, channel, function *)
 let funprio = 1     (* lower than tuple *)

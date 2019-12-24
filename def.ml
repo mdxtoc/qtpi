@@ -41,9 +41,9 @@ type def =
   | Functiondefs of fdef list
   | Letdef       of pattern * expr
   
-and pdef = name instance * param list * process * param list * monitor
+and pdef = typedname * param list * process * param list * monitor
 
-and fdef = name instance * pattern list * _type option ref * expr 
+and fdef = typedname * pattern list * _type option ref * expr 
 
 and monitor = (name * (sourcepos * process)) list
 
@@ -56,14 +56,14 @@ let rec string_of_def = function
   
 and string_of_pdef (pn,params,proc,monparams,mon) =
   Printf.sprintf "%s(%s) = %s%s"
-                    (string_of_name pn.inst)
+                    (string_of_name pn.inst.tnode)
                     (String.concat "," (List.map string_of_param params))
                     (string_of_process proc)
                     (string_of_maybe_monitor monparams mon)
                     
 and string_of_fdef (fn,pats,toptr,expr) =
   Printf.sprintf "%s %s%s = %s"
-                    (string_of_name fn.inst)
+                    (string_of_name fn.inst.tnode)
                     (String.concat " " (List.map string_of_fparam pats))
                     (match !toptr with
                      | Some t -> Printf.sprintf " :%s" (string_of_type t)

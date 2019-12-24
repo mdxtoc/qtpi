@@ -38,7 +38,7 @@ open Monenv (* do this last so we get the weird execution environment mechanism 
 
 exception Error of sourcepos * string
 
-let mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
+let mon_name pos pn tpnum = tadorn pos ("#mon#" ^ pn.inst.tnode ^ "#" ^ tpnum)
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
@@ -57,7 +57,7 @@ let compile_monbody tpnum proc =
   let rec cmp proc =
     let ad = adorn proc.pos in
     let adio = adorn proc.pos in
-    let ade = eadorn proc.pos in
+    let ade = tadorn proc.pos in
     match proc.inst with
     | Terminate         -> Some (ad (GSum [adio (Write (ade (EVar (chan_name tpnum)), ade EUnit)), proc]))
     | GSum iops         -> let ciop (iostep, proc) = 
@@ -85,9 +85,9 @@ let compile_monbody tpnum proc =
 let compile_proc er env pn mon proc =
   let rec cmp proc =
     let ad = adorn proc.pos in
-    let ade = eadorn proc.pos in
-    let adpar = adorn proc.pos in
+    let ade = tadorn proc.pos in
     let adpat = Pattern.patadorn proc.pos None in
+    let adpar = tadorn proc.pos in
     match proc.inst with
       | TestPoint (tpn, p) -> let p = Process.map cmp p in
                               let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
@@ -118,7 +118,7 @@ and compile_mon er pn called mon env =
   let compile env (tpnum, (tppos, proc)) =
     if NameSet.mem tpnum called then
     (let mn = mon_name tppos pn tpnum in
-     env <@+> (mn.inst, VProcess (er, [], [], compile_monbody tpnum proc))
+     env <@+> (mn.inst.tnode, VProcess (er, [], [], compile_monbody tpnum proc))
     )
     else env
   in
@@ -131,9 +131,9 @@ let rec bind_pdef er env (pn,params,p,monparams,mon as pdef) =
   (* process names must be unique to make mon_name work ... 
      so count the number of processes which already have the same name 
    *)
-  let pnum = Monenv.count pn.inst env in
+  let pnum = Monenv.count pn.inst.tnode env in
   let pn' = if pnum=0 then pn 
-            else {pn with inst = pn.inst ^ "#" ^ string_of_int (pnum-1)} 
+            else {pn with inst = {pn.inst with tnode = pn.inst.tnode ^ "#" ^ string_of_int (pnum-1)}} 
   in
   let env, proc = compile_proc er env pn' mon p in
   if (!verbose || !verbose_compile) && p<>proc then

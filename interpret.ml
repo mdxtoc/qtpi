@@ -183,7 +183,7 @@ let bmatch env pat v =
   
 let rec evale env e =
   try
-    match e.inst.enode with
+    match e.inst.tnode with
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
@@ -281,7 +281,7 @@ let rec evale env e =
                                                bmatch env pat v
                                            | EDFun (fn,pats,_, we) ->
                                                let stored_env = ref env in
-                                               let env = env <@+> bind_fun stored_env fn.inst pats we in
+                                               let env = env <@+> bind_fun stored_env fn.inst.tnode pats we in
                                                stored_env := env;
                                                env
                                  in
@@ -498,11 +498,11 @@ let rec interp env proc =
             in
             (match rproc.inst with
              | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
-             | GoOnAs (n, es, mes) -> 
+             | GoOnAs (pn, es, mes) -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
-                  try (match env<@>n.inst with
+                  try (match env<@>pn.inst.tnode with
                        | VProcess (er, ns, ms, proc) -> 
-                           let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
+                           let env = if es@mes=[] && Stringutils.starts_with pn.inst.tnode "#mon#"
                                      then menv !er (* it's a monitor process ... I hope *)
                                      else (let ne = List.length ns in
                                            let locals = zip ns (take ne vs) in
@@ -510,21 +510,21 @@ let rec interp env proc =
                                            monenv_of_lmg locals mons (assoc_of_monenv !er)
                                           ) 
                            in
-                           deleteproc pn;
-                           let pn' = addnewproc n.inst in
+                           deleteproc pn.inst.tnode;
+                           let pn' = addnewproc pn.inst.tnode in
                            addrunner (pn', proc, env);
-                           if !traceId then trace (EVChangeId (pn, [pn']));
+                           if !traceId then trace (EVChangeId (pn.inst.tnode, [pn']));
                            if !pstep then
                              show_pstep (Printf.sprintf "%s(%s)" 
-                                                        n.inst 
+                                                        pn.inst.tnode 
                                                         (string_of_list short_string_of_value "," vs)
                                         )
-                       | v -> mistyped rproc.pos (string_of_name n.inst) v "a process"
+                       | v -> mistyped rproc.pos (string_of_name pn.inst.tnode) v "a process"
                       )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name pn.inst.tnode))
                  )
              | WithNew (ps, proc) ->
-                 let ps' = List.map (fun n -> (n, newchan ())) (strip_params ps) in
+                 let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
                  let env' = List.fold_left (<@+>) env ps' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -534,7 +534,7 @@ let rec interp env proc =
                  | None      -> None
                  | Some bve  -> Some (basisvv (evale env bve))
                  in
-                 let qs' = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) qs in
+                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (bv_eval vopt))) qs in
                  let env' = List.fold_left (<@+>) env qs' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -751,7 +751,7 @@ let bind_def env = function
                            env
   | Functiondefs fdefs  -> let env = globalise env in
                            let er = ref env in
-                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst pats expr in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst.tnode pats expr in
                            let env = globalise (List.fold_left bind_fdef env fdefs) in
                            er := env;
                            env

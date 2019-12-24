@@ -401,7 +401,7 @@ let matchcheck_pats string_of_rhs rules =
 let rec matchcheck_expr e =
   if !verbose then 
     Printf.printf "\nmatchcheck_expr %s\n" (string_of_expr e);
-  match e.inst.enode with
+  match e.inst.tnode with
   | EUnit
   | EVar        _
   | ENum        _

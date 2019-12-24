@@ -26,6 +26,7 @@ open Listutils
 open Tupleutils
 open Optionutils
 open Functionutils
+open Sourcepos
 open Instance
 open Name
 open Type
@@ -38,12 +39,12 @@ type process = procnode instance
 
 and procnode =
   | Terminate
-  | GoOnAs of name instance * expr list * expr list (* GoOnAs: homage to Laski *)
+  | GoOnAs of typedname * expr list * expr list (* GoOnAs: homage to Laski *)
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
   | WithQstep of qstep * process
-  | TestPoint of name instance * process
+  | TestPoint of name instance * process        (* not typedname in this case ... *)
   | Iter of param list * process * expr * process
   | Cond of expr * process * process
   | PMatch of expr * (pattern * process) list
@@ -57,8 +58,8 @@ and letspec = pattern * expr
 let rec string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | GoOnAs (p,es,mes)     -> Printf.sprintf "%s(%s)%s"
-                                            (string_of_name p.inst)
+  | GoOnAs (pn,es,mes)    -> Printf.sprintf "%s(%s)%s"
+                                            (string_of_name pn.inst.tnode)
                                             (string_of_list string_of_expr "," es)
                                             (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
@@ -104,8 +105,8 @@ and trailing_sop p =
 and short_string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | GoOnAs (p,es,mes)     -> Printf.sprintf "%s(%s)%s"
-                                            (string_of_name p.inst)
+  | GoOnAs (pn,es,mes)    -> Printf.sprintf "%s(%s)%s"
+                                            (string_of_name pn.inst.tnode)
                                             (string_of_list string_of_expr "," es)
                                             (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
@@ -198,13 +199,14 @@ let optmap optf proc =
 let map optf = optmap optf ||~ id
 
 let rec frees proc =
+  let paramset params = NameSet.of_list (names_of_params params) in
   let rec ff set p =
     match p.inst with
     | Terminate -> set
-    | GoOnAs (pn, es, mes)    -> NameSet.add pn.inst (ff_es (ff_es set es) mes)
-    | WithNew (pars, p)     -> NameSet.diff (ff set p) (NameSet.of_list (strip_params pars))
+    | GoOnAs (pn, es, mes)  -> NameSet.add pn.inst.tnode (ff_es (ff_es set es) mes)
+    | WithNew (pars, p)     -> NameSet.diff (ff set p) (paramset pars)
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
-                               let qset = NameSet.of_list (strip_params qs) in
+                               let qset = paramset qs in
                                let ff_opte set = function
                                  | Some e -> NameSet.union set (Expr.frees e) 
                                  | None   -> set
@@ -222,7 +224,7 @@ let rec frees proc =
                                 | Ugatestep (qes, ge)    -> ff (ff_es set (ge::qes)) p
                                )
     | TestPoint (tpn,p)     -> (* tpn not included *) ff set p
-    | Iter (pars,proc,e,p)  -> let set = NameSet.diff (ff set proc) (NameSet.of_list (strip_params pars)) in
+    | Iter (pars,proc,e,p)  -> let set = NameSet.diff (ff set proc) (NameSet.of_list (names_of_params pars)) in
                                NameSet.union (Expr.frees e) (ff set p)
     | Cond (e, p1, p2)      -> NameSet.union (Expr.frees e) (ff (ff set p1) p2)
     | PMatch (e, pps)       -> let ff_pp set (pat, proc) = NameSet.diff (ff set proc) (Pattern.frees pat) in
@@ -246,17 +248,17 @@ let optfold (optp: 'a -> process -> 'a option) x =
     optp x p |~~ (fun () -> 
       match p.inst with
         | Terminate 
-        | GoOnAs      _           -> None
+        | GoOnAs      _          -> None
         | WithNew   (_,p) 
         | WithQbit  (_,p)
         | WithLet   (_,p)
         | WithQstep (_,p)
-        | TestPoint (_,p)       -> ofold x p
-        | Iter      (_,proc,_,p)-> Optionutils.optfold ofold x [proc;p]
-        | Cond      (e,p1,p2)   -> Optionutils.optfold ofold x [p1;p2]
-        | PMatch    (e,pms)     -> Optionutils.optfold ofold x (List.map snd pms)
-        | GSum      iops        -> Optionutils.optfold ofold x (List.map snd iops)
-        | Par       ps          -> Optionutils.optfold ofold x ps
+        | TestPoint (_,p)        -> ofold x p
+        | Iter      (_,proc,_,p) -> Optionutils.optfold ofold x [proc;p]
+        | Cond      (e,p1,p2)    -> Optionutils.optfold ofold x [p1;p2]
+        | PMatch    (e,pms)      -> Optionutils.optfold ofold x (List.map snd pms)
+        | GSum      iops         -> Optionutils.optfold ofold x (List.map snd iops)
+        | Par       ps           -> Optionutils.optfold ofold x ps
     )
   in
   ofold x 

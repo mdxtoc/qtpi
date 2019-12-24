@@ -142,7 +142,7 @@ let rec rewrite_expr e =
 and rewrite_edecl edecl = 
   match edecl.inst with
   | EDPat (wpat,_,we)        -> rewrite_pattern wpat; rewrite_expr we
-  | EDFun (wfn,wfpats,_, we) -> rewrite_name wfn; rewrite_fparams wfpats; rewrite_expr we
+  | EDFun (wfn,wfpats,_, we) -> rewrite_typedname wfn; rewrite_fparams wfpats; rewrite_expr we
 
 and rewrite_fparams fps = List.iter rewrite_pattern fps
 
@@ -171,9 +171,9 @@ and rewrite_pattern p =
                            )
                     )
 
-and rewrite_param par = rewrite_name par
+and rewrite_param par = rewrite_typedname par
 
-and rewrite_name n =
+and rewrite_typedname n =
   match !(toptr n) with
   | Some t -> toptr n := Some (evaltype t)
   | None   -> raise (Error (n.pos, Printf.sprintf "typechecker didn't assign type to %s" (string_of_name (tnode n))))
@@ -217,10 +217,10 @@ let rec rewrite_process mon proc =
   | Par      ps             -> List.iter (rewrite_process mon) ps
 
 and rewrite_pdecl mon (_, pn, params, proc) =
-  rewrite_name pn; rewrite_params params; rewrite_process mon proc
+  rewrite_typedname pn; rewrite_params params; rewrite_process mon proc
 
 let rewrite_pdef (pn, params, proc, monparams, mon) = 
-  rewrite_name pn;
+  rewrite_typedname pn;
   rewrite_params params; rewrite_process mon proc;
   rewrite_params monparams
   (* and we don't rewrite unused monprocs *)
@@ -230,7 +230,7 @@ let rewrite_def def =
   | Processdefs pdefs  -> List.iter (rewrite_pdef) pdefs
   | Functiondefs fdefs ->
       let rewrite_fdef (fn, pats, toptr, expr) =
-        rewrite_name fn;
+        rewrite_typedname fn;
         let nt = type_of_typedinstance string_of_typedname fn in
         rewrite_fparams pats; rewrite_expr expr; toptr := Some (evaltype (result_type fn.pos pats nt))
       in
@@ -587,7 +587,7 @@ and assigntype_edecl cxt t e ed =
   | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;
                                     let tf, tr = read_funtype wfpats wtoptr we in
-                                    settype_typedname cxt tf wfn;
+                                    assigntype_typedname tf wfn;
                                     let cxt = cxt <@+> (tnode wfn,tf) in
                                     let _ = assigntype_fun cxt tf wfpats we in
                                     let rt = newclasstv we.pos in
@@ -595,7 +595,7 @@ and assigntype_edecl cxt t e ed =
                                     let cxt = (cxt <@-> tnode wfn) <@+> (tnode wfn, generalise tf) in
                                     assigntype_expr cxt t e
 
-and settype_typedname cxt t n =
+and assigntype_typedname t n =
   match !(n.inst.toptr) with
   | Some t' -> unifytypes t t'
   | None    -> n.inst.toptr := Some t
@@ -633,10 +633,7 @@ and check_distinct_fparams pats =
   let rec cdfp set pat =
     match pat.inst.pnode with
     | PatName   n -> if NameSet.mem n set then
-                       raise (Error (pat.pos,
-                                     Printf.sprintf "repeated parameter %s" n
-                                    )
-                             )
+                       raise (Error (pat.pos, Printf.sprintf "repeated parameter %s" n))
                      else NameSet.add n set
     | PatAny      
     | PatUnit     -> set
@@ -871,7 +868,7 @@ and typecheck_letspec contn cxt pat e =
 and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   let tparams = List.map (fix_paramtype newcommtv) params in
   let tp = adorn pn.pos (Process tparams) in
-  settype_typedname cxt tp pn;
+  assigntype_typedname tp pn;
   let cxt = if brec then cxt<@+>(tnode pn,tp) else cxt in
   do_procparams "WithProc" newcommtv cxt params proc [] mon;
   let cxt = if brec then cxt else cxt<@+>(tnode pn,tp) in

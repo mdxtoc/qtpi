@@ -446,6 +446,7 @@ let rec matchcheck_proc mon proc =
                                List.iter matchcheck_qspec qspecs;
                                matchcheck_proc mon proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc mon proc (* binding pattern doesn't need check *)
+  | WithProc  ((_,_,_,p),proc) -> matchcheck_proc mon p; matchcheck_proc mon proc
   | WithQstep (qstep,proc)  -> (match qstep.inst with
                                 | Measure   (qe, gopt, _)   -> matchcheck_expr qe; (matchcheck_expr ||~~ ()) gopt
                                 | Ugatestep (qes,ge)           -> List.iter matchcheck_expr qes; matchcheck_expr ge

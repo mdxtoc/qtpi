@@ -219,15 +219,10 @@ let oktouse stoppers n res use =
   in
   let rec findlevel stoppers =
     match stoppers with 
-    | (env,stop)::((outer,_)::_ as more) ->
-        if outer<@@>n = Some res    then findlevel more (* it's not mine *)
-        else if env<@@>n = Some res then police stop    (* it's mine *)
-                                    else true           (* it was yours all the time *)
-    | [(env,stop)]                       ->
-        if env<@@>n = Some res then police stop     (* it's mine *)
-                               else true            (* it was yours all the time *)
-    | []                                  ->
-        true
+    | (env,stop)::more ->
+        if env<@@>n = Some res then police stop && findlevel more   (* it's mine, but it might also be restricted more *)
+                               else true                            (* it was yours all the time *)
+    | []               -> true
   in
   findlevel stoppers
 
@@ -569,6 +564,9 @@ and rck_proc mon state env stoppers proc =
                                    in
                                    (* rck_pat does the runbinding *)
                                    ResourceSet.union used usede
+      | WithProc  (pdecl, proc) -> let (brec, pn, params, p) = pdecl in
+                                   let _ = rp state env ((env,StopUse)::stoppers) p in
+                                   rp state env stoppers proc
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, gopt, pattern) -> 
                                         let destroys = !measuredestroys in
@@ -753,6 +751,8 @@ and ffv_proc mon proc =
   | WithNew   (params, proc)       -> ffv_proc mon proc
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
+  | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in
+                                      ffv_proc mon p; ffv_proc mon proc
   | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
   | TestPoint (n, proc)            -> (match find_monel n.inst mon with
                                        | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc

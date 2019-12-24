@@ -544,6 +544,12 @@ let rec interp env proc =
                  addrunner (pn, proc, bmatch env pat v);
                  if !pstep then 
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
+             | WithProc ((brec,pn',params,proc),p) ->
+                 let er = ref env in
+                 let proc = VProcess (er, names_of_params params, [], proc) in
+                 let env = env<@+>(tnode pn', proc) in
+                 if brec then er := env;
+                 addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
                   | Measure (e, gopt, pat) -> let q = qbitev env e in

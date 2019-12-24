@@ -73,6 +73,7 @@ let compile_monbody tpnum proc =
     | GoOnAs _      -> bad proc.pos "process invocation"
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
+    | WithProc _    -> bad proc.pos "process definition"
     | TestPoint _   -> bad proc.pos "test point"
     | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in compile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
@@ -91,13 +92,17 @@ let compile_proc er env pn mon proc =
     let adpar = tadorn proc.pos in
     match proc.inst with
       | TestPoint (tpn, p) -> let p = Process.map cmp p in
-                              let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
+                              let read = adorn tpn.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
                               let gsum = ad (GSum [read, p]) in
                               let mn = mon_name tpn.pos pn tpn.inst in
                               let call = ad (GoOnAs (mn, [], [])) in
                               let par = ad (Par [call; gsum]) in
                               let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], par)) in
                               Some mkchan
+      | WithProc  ((brec,pn,params,proc),p) 
+                           -> let p = Process.map cmp p in
+                              let proc = Process.map cmp proc in
+                              Some (ad (WithProc ((brec,pn,params,proc),p)))
       | Terminate 
       | GoOnAs    _      
       | WithNew   _

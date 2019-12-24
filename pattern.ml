@@ -70,7 +70,7 @@ let patprio p =
   | PatCons     _   -> listprio
 
 let pwrap topt p = {ptype=ref topt; pnode=p}
-let padorn pos topt p = adorn pos (pwrap topt p)
+let patadorn pos topt p = adorn pos (pwrap topt p)
 
 let mbl = revargs mustbracket_left
 let mbr = mustbracket_right

@@ -86,8 +86,8 @@ let compile_proc er env pn mon proc =
   let rec cmp proc =
     let ad = adorn proc.pos in
     let ade = eadorn proc.pos in
-    let adpat = Pattern.padorn proc.pos None in
     let adpar = adorn proc.pos in
+    let adpat = Pattern.patadorn proc.pos None in
     match proc.inst with
       | TestPoint (tpn, p) -> let p = Process.map cmp p in
                               let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in

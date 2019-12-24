@@ -43,6 +43,7 @@ and procnode =
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
+  | WithProc of pdecl * process
   | WithQstep of qstep * process
   | TestPoint of name instance * process        (* not typedname in this case ... *)
   | Iter of param list * process * expr * process
@@ -54,6 +55,29 @@ and procnode =
 and qspec = param * expr option
 
 and letspec = pattern * expr
+
+and pdecl = bool * typedname * param list * process   (* bool for recursion:
+                                                                   false -- proc pn = tau(params).proc 
+                                                                   true  -- proc pn(params) = proc
+                                                                *)
+
+let procadorn pos process =
+  adorn (match process with 
+         | Terminate
+         | GoOnAs     _
+         | Par        _
+         | GSum       _
+         | PMatch     _
+         | Cond       _      -> pos
+         | WithNew    (_, p) 
+         | WithQbit   (_, p) 
+         | WithLet    (_, p) 
+         | WithProc   (_, p)
+         | WithQstep  (_, p) 
+         | TestPoint  (_, p) -> spdiff pos p.pos
+         | Iter (_, _, _, p) -> spdiff pos p.pos
+        )
+        process
 
 let rec string_of_process proc = 
   match proc.inst with
@@ -70,6 +94,9 @@ let rec string_of_process proc =
                                             (trailing_sop p)
   | WithLet (lsc,p)       -> Printf.sprintf "(let %s)%s"
                                             (string_of_letspec lsc)
+                                            (trailing_sop p)
+  | WithProc (pdecl,p)    -> Printf.sprintf "(proc %s)%s"
+                                            (string_of_pdecl pdecl)
                                             (trailing_sop p)
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
@@ -115,6 +142,8 @@ and short_string_of_process proc =
                                             (commasep (List.map string_of_qspec xs))
   | WithLet (lsc,p)       -> Printf.sprintf "(let %s) ..."
                                             (string_of_letspec lsc)
+  | WithProc (pdecl,p)    -> Printf.sprintf "(proc %s) ..."
+                                            (string_of_pdecl pdecl)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
   | TestPoint (n,p)       -> Printf.sprintf "/^%s ..."
@@ -147,6 +176,22 @@ and string_of_letspec (pat,e) =
   				 (string_of_pattern pat)
   				 (string_of_expr e)
   				 
+and string_of_pdecl (recb, pn, params, proc) =
+  if recb then
+    Printf.sprintf "%s(%s) = %s"
+                    (match !(pn.inst.toptr) with 
+                     | None -> pn.inst.tnode 
+                     | Some t -> Printf.sprintf "(%s:%s)" (string_of_name pn.inst.tnode) (string_of_type t)
+                    )
+                    (string_of_params params)
+                    (string_of_process proc)
+  else
+    Printf.sprintf "%s%s = tau(%s).%s"
+                    (string_of_name pn.inst.tnode)
+                    (match !(pn.inst.toptr) with None -> "" | Some t -> ":" ^ string_of_type t)
+                    (string_of_params params)
+                    (string_of_process proc)
+  
 and string_of_procmatch (pat,proc) =
   Printf.sprintf "%s.%s" (string_of_pattern pat) (trailing_sop proc)
   
@@ -157,6 +202,7 @@ let _GoOnAs n es mes  = GoOnAs (n,es,mes)
 let _WithNew pars p = WithNew (pars,p)
 let _WithQbit qs p  = WithQbit (qs,p)
 let _WithLet l p    = WithLet (l,p)
+let _WithProc pd p  = WithProc (pd,p)
 let _WithQstep q p  = WithQstep (q,p)  
 let _TestPoint ni p = TestPoint (ni,p)
 let _Iter pars proc e p = Iter (pars,proc,e,p)
@@ -183,6 +229,7 @@ let optmap optf proc =
                      | WithNew  (ps, p)     -> trav p &~~ take1 (_WithNew ps)
                      | WithQbit (qs, p)     -> trav p &~~ take1 (_WithQbit qs)
                      | WithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
+                     | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
                      | WithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)
                      | TestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
                      | Iter (pars,proc,e,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pars,proc,e,p))
@@ -214,6 +261,12 @@ let rec frees proc =
                                NameSet.union (List.fold_left ff_opte NameSet.empty optes) 
                                              (NameSet.diff (ff set p) qset)
     | WithLet ((pat, e), p) -> NameSet.union (Expr.frees e) (NameSet.diff (ff set p) (Pattern.frees pat))
+    | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
+                               let pdfrees = NameSet.diff (frees proc) (paramset params) in
+                               if brec then
+                                 NameSet.remove pn.inst.tnode (NameSet.union pdfrees (ff set p))
+                               else
+                                 NameSet.union pdfrees (NameSet.remove pn.inst.tnode (ff set p))
     | WithQstep (qstep,p)   -> (match qstep.inst with
                                 | Measure (qe,optbe,pat) -> let qset = Expr.frees qe in
                                                             let bset = match optbe with
@@ -252,6 +305,7 @@ let optfold (optp: 'a -> process -> 'a option) x =
         | WithNew   (_,p) 
         | WithQbit  (_,p)
         | WithLet   (_,p)
+        | WithProc  (_,p)          (* note we don't go into pdecl *) 
         | WithQstep (_,p)
         | TestPoint (_,p)        -> ofold x p
         | Iter      (_,proc,_,p) -> Optionutils.optfold ofold x [proc;p]

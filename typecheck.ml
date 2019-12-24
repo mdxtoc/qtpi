@@ -199,6 +199,7 @@ let rec rewrite_process mon proc =
   | WithNew   (params, p)   -> rewrite_params params; rewrite_process mon p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
+  | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
   | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
                                rewrite_process mon mp; (* does it need mon? Let Compile judge *)
@@ -215,6 +216,8 @@ let rec rewrite_process mon proc =
                                List.iter (rewrite_g) gs
   | Par      ps             -> List.iter (rewrite_process mon) ps
 
+and rewrite_pdecl mon (_, pn, params, proc) =
+  rewrite_name pn; rewrite_params params; rewrite_process mon proc
 
 let rewrite_pdef (pn, params, proc, monparams, mon) = 
   rewrite_name pn;
@@ -807,6 +810,7 @@ and typecheck_process mon cxt p  =
       do_procparams "WithQbit" ntv cxt params proc [] mon
   | WithLet ((pat,e),proc) ->
       typecheck_letspec (fun cxt -> typecheck_process mon cxt proc) cxt pat e
+  | WithProc (pdecl, proc) -> typecheck_pdecl (fun cxt -> typecheck_process mon cxt proc) mon cxt pdecl
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
        | Measure (e, gopt, pat) ->
@@ -863,6 +867,15 @@ and typecheck_letspec contn cxt pat e =
      let t = generalise t in
    *)
   assigntype_pat contn cxt t pat
+
+and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
+  let tparams = List.map (fix_paramtype newcommtv) params in
+  let tp = adorn pn.pos (Process tparams) in
+  settype_typedname cxt tp pn;
+  let cxt = if brec then cxt<@+>(tnode pn,tp) else cxt in
+  do_procparams "WithProc" newcommtv cxt params proc [] mon;
+  let cxt = if brec then cxt else cxt<@+>(tnode pn,tp) in
+  contn cxt
 
 let make_library_assoc () =
   let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
@@ -925,6 +938,15 @@ let typecheck_pdefs assoc pdefs =
                     else t
       in
       let process_params = List.map process_param in
+      let t = adorn pn.pos (Process (process_params (ps@mps))) in
+      pn.inst.toptr := Some t; (* I hope *)
+      if assoc<%@?>pn.inst.tnode 
+       then raise (Error (pn.pos,
+                          Printf.sprintf "there is a previous definition of %s" 
+                                         (string_of_name pn.inst.tnode)
+                         )
+                  );
+      assoc <%@+> (tnode pn, t)
   in
   let pns = List.map (fun (pn,_,_,_,_) -> tnode pn, pn.pos) pdefs in
   check_unique_ns "process" pns;

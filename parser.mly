@@ -47,6 +47,8 @@
   let tadorn inst = Instance.adorn (get_sourcepos()) (twrap None inst)
   
   let patadorn inst = Instance.adorn (get_sourcepos()) (pwrap None inst)
+  
+  let procadorn inst = Process.procadorn (get_sourcepos()) inst
      
 (*  
   let warn s = report (Warning (get_sourcepos(), s))
@@ -192,9 +194,9 @@ typedname:
   name                                  {tadorn $1}
   
 fparam:
-  | name                                {padorn (PatName $1)}
-  | UNDERSCORE                          {padorn PatAny}
-  | LPAR RPAR                           {padorn PatUnit}
+  | name                                {patadorn (PatName $1)}
+  | UNDERSCORE                          {patadorn PatAny}
+  | LPAR RPAR                           {patadorn PatUnit}
   | LPAR bpattern RPAR                  {$2}
   
 fparams:
@@ -298,7 +300,7 @@ mpat:
 
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
-  | expr QUERY UNDERSCORE               {adorn (Read ($1, padorn PatAny))}
+  | expr QUERY UNDERSCORE               {adorn (Read ($1, patadorn PatAny))}
   | expr BANG expr                      {adorn (Write ($1,$3))}
   | expr BANG exprtuple                 {adorn (Write ($1, tadorn (Expr.delist $3)))}
 

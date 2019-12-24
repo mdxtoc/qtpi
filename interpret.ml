@@ -428,7 +428,7 @@ let rec interp env proc =
     let chan = mkchan c in
     VChan chan 
   in
-  let procnames = Hashtbl.create 100 in
+  let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
   let runners = PQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = PQueue.push runners runner in
   let addnewproc name = 

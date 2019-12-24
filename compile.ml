@@ -26,6 +26,7 @@ open Functionutils
 open Optionutils
 open Sourcepos
 open Instance
+open Type
 open Name
 open Expr
 open Process
@@ -95,7 +96,7 @@ let compile_proc er env pn mon proc =
                               let mn = mon_name tpn.pos pn tpn.inst in
                               let call = ad (GoOnAs (mn, [], [])) in
                               let par = ad (Par [call; gsum]) in
-                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
+                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], par)) in
                               Some mkchan
       | Terminate 
       | GoOnAs    _      
@@ -140,7 +141,7 @@ let rec bind_pdef er env (pn,params,p,monparams,mon as pdef) =
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (pn.inst, VProcess (er, strip_params params, strip_params monparams, proc))
+  env <@+> (pn.inst.tnode, VProcess (er, names_of_params params, names_of_params monparams, proc))
 
 
 

@@ -82,6 +82,10 @@ let sp_of_sps sps =
     | sp::sps -> enclosing (spos_of_spos2 spos sp) sps
   in
   enclosing dummy_spos sps
+
+let spdiff pos1 pos2 =
+  match pos1, pos2 with
+  | (fn,startpos,_), (_,endpos,_) -> (fn,startpos, endpos)
   
 (*
   

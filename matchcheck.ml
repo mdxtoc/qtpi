@@ -215,7 +215,7 @@ let matchcheck_pats string_of_rhs rules =
   let string_of_rules rules = "[" ^  string_of_list (string_of_pair string_of_pattern string_of_rhs ".") " <+> " rules ^ "]" in
   
   let sps = List.map (fun rule -> (fst rule).pos) rules in
-  let patspos = enclosing_sp_of_sps sps in
+  let patspos = sp_of_sps sps in
   
   let successes = Hashtbl.create (List.length rules) in         (* a sourcepos-indexed record of successes in the tree *)
   

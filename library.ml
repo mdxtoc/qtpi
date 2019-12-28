@@ -353,7 +353,8 @@ let rec get_string s =
   then String.sub input plength (ilength - plength)
   else input
   
-let rec read_num s = try VNum (num_of_string (get_string s)) with Failure _ -> print_endline "pardon?"; read_num s
+let rec read_num s = try VNum (num_of_string (get_string s)) with Failure _ 
+                                                                | Invalid_argument _ -> print_endline "pardon?"; read_num s
 let _ = Interpret.know ("read_num", "string -> num"                     , vfun read_num)
 
 let rec read_string s = vstring (get_string s) 

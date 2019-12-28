@@ -39,7 +39,7 @@ open Monenv (* do this last so we get the weird execution environment mechanism 
 
 exception Error of sourcepos * string
 
-let mon_name pos pn tpnum = tadorn pos ("#mon#" ^ pn.inst.tnode ^ "#" ^ tpnum)
+let mon_name pn tpnum = "#mon#" ^ pn.inst.tnode ^ "#" ^ tpnum
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
@@ -90,14 +90,17 @@ let compile_proc er env pn mon proc =
     let ade = tadorn proc.pos in
     let adpat = Pattern.patadorn proc.pos None in
     let adpar = tadorn proc.pos in
+    let adn = tadorn proc.pos in
     match proc.inst with
       | TestPoint (tpn, p) -> let p = Process.map cmp p in
                               let read = adorn tpn.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
-                              let gsum = ad (GSum [read, p]) in
-                              let mn = mon_name tpn.pos pn tpn.inst in
-                              let call = ad (GoOnAs (mn, [], [])) in
+                              let gsum = ad (GSum [(read, p)]) in
+                              let mn = mon_name pn tpn.inst in
+                              let call = ad (GoOnAs (adn mn, [], [])) in
                               let par = ad (Par [call; gsum]) in
-                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], par)) in
+                              let (_, monproc) = _The (find_monel tpn.inst mon) in
+                              let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
+                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], def)) in
                               Some mkchan
       | WithProc  ((brec,pn,params,proc),p) 
                            -> let p = Process.map cmp p in
@@ -117,26 +120,7 @@ let compile_proc er env pn mon proc =
   in
   env, Process.map cmp proc
 
-and compile_mon er pn called mon env =
-  (* only compile the monitor processes that are called: the others haven't been 
-     type or resource checked
-   *)
-  let compile env (tpnum, (tppos, proc)) =
-    if NameSet.mem tpnum called then
-    (let mn = mon_name tppos pn tpnum in
-     env <@+> (mn.inst.tnode, VProcess (er, [], [], compile_monbody tpnum proc))
-    )
-    else env
-  in
-  List.fold_left compile env mon
-
 let rec bind_pdef er env (pn,params,p,monparams,mon as pdef) =
-  let called = Process.called_mons p in
-  let called = NameSet.of_list (List.map fst called) in
-  let env = compile_mon er pn called mon env in
-  (* process names must be unique to make mon_name work ... 
-     so count the number of processes which already have the same name 
-   *)
   let pnum = Monenv.count pn.inst.tnode env in
   let pn' = if pnum=0 then pn 
             else {pn with inst = {pn.inst with tnode = pn.inst.tnode ^ "#" ^ string_of_int (pnum-1)}} 

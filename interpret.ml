@@ -44,7 +44,6 @@ open Monenv
 open Value
 open Event
 
-exception CompileError of sourcepos * string
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
@@ -184,7 +183,7 @@ let bmatch env pat v =
   
 let rec evale env e =
   try
-    match e.inst.enode with
+    match e.inst.tnode with
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
@@ -282,7 +281,7 @@ let rec evale env e =
                                                bmatch env pat v
                                            | EDFun (fn,pats,_, we) ->
                                                let stored_env = ref env in
-                                               let env = env <@+> bind_fun stored_env fn.inst pats we in
+                                               let env = env <@+> bind_fun stored_env fn.inst.tnode pats we in
                                                stored_env := env;
                                                env
                                  in
@@ -347,7 +346,7 @@ and bind_fun er n pats expr =
 and unitev env e =
   match evale env e with
   | VUnit -> ()
-  | v     -> mistyped e.pos (string_of_expr e) v "unit" 
+  | v     -> mistyped e.pos (string_of_expr e) v (string_of_tnode Unit) 
 
 and numev env e =
   match evale env e with
@@ -407,7 +406,7 @@ module ChanSet = MySet.Make (OrderedChan)
 
 type gsum = Grw of rwaiter | Gww of wwaiter
 
-let rec interp sysassoc proc =
+let rec interp env proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
   let chancount = ref 0 in
@@ -429,7 +428,7 @@ let rec interp sysassoc proc =
     let chan = mkchan c in
     VChan chan 
   in
-  let procnames = Hashtbl.create 100 in
+  let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
   let runners = PQueue.create (10) in (* 10 is a guess *)
   let addrunner runner = PQueue.push runners runner in
   let addnewproc name = 
@@ -498,33 +497,30 @@ let rec interp sysassoc proc =
               else ""
             in
             (match rproc.inst with
-             | Terminate         -> deleteproc pn; if !pstep then show_pstep "_0"
-             | Call (n, es, mes)      -> 
+             | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
+             | GoOnAs (gpn, es, mes) -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
-                  try (match env<@>n.inst with
-                       | VProcess (ns, ms, proc) -> let env = if es@mes=[] && Stringutils.starts_with n.inst "#mon#"
-                                                              then menv env (* it's a monitor process ... I hope *)
-                                                              else (let ne = List.length ns in
-                                                                    let locals = zip ns (take ne vs) in
-                                                                    let mons = zip ms (drop ne vs) in
-                                                                    monenv_of_lmg locals mons sysassoc
-                                                                   ) 
-                                                    in
-                                                    deleteproc pn;
-                                                    let pn' = addnewproc n.inst in
-                                                    addrunner (pn', proc, env);
-                                                    if !traceId then trace (EVChangeId (pn, [pn']));
-                                                    if !pstep then
-                                                      show_pstep (Printf.sprintf "%s(%s)" 
-                                                                                 n.inst 
-                                                                                 (string_of_list short_string_of_value "," vs)
-                                                                 )
-                       | v                       -> mistyped rproc.pos (string_of_name n.inst) v "a process"
+                  try (match env<@>gpn.inst.tnode with
+                       | VProcess (er, ns, ms, proc) -> 
+                           let ne = List.length ns in
+                           let locals = zip ns (take ne vs) in
+                           let mons = zip ms (drop ne vs) in
+                           let env = monenv_of_lmg locals mons (assoc_of_monenv !er) in
+                           deleteproc pn;
+                           let gpn' = addnewproc gpn.inst.tnode in
+                           addrunner (gpn', proc, env);
+                           if !traceId then trace (EVChangeId (pn, [gpn']));
+                           if !pstep then
+                             show_pstep (Printf.sprintf "%s(%s)" 
+                                                        gpn.inst.tnode 
+                                                        (string_of_list short_string_of_value "," vs)
+                                        )
+                       | v -> mistyped rproc.pos (string_of_name gpn.inst.tnode) v "a process"
                       )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name n.inst))
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name gpn.inst.tnode))
                  )
              | WithNew (ps, proc) ->
-                 let ps' = List.map (fun n -> (n, newchan ())) (strip_params ps) in
+                 let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
                  let env' = List.fold_left (<@+>) env ps' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -534,7 +530,7 @@ let rec interp sysassoc proc =
                  | None      -> None
                  | Some bve  -> Some (basisvv (evale env bve))
                  in
-                 let qs' = List.map (fun ({inst=n,_},vopt) -> (n, newqbit pn n (bv_eval vopt))) qs in
+                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (bv_eval vopt))) qs in
                  let env' = List.fold_left (<@+>) env qs' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -544,6 +540,12 @@ let rec interp sysassoc proc =
                  addrunner (pn, proc, bmatch env pat v);
                  if !pstep then 
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
+             | WithProc ((brec,pn',params,proc),p) ->
+                 let er = ref env in
+                 let procv = VProcess (er, names_of_params params, [], proc) in
+                 let env = env<@+>(tnode pn', procv) in
+                 if brec then er := env;
+                 addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
                   | Measure (e, gopt, pat) -> let q = qbitev env e in
@@ -692,6 +694,7 @@ let rec interp sysassoc proc =
                  List.iter (PQueue.push pq) ioprocs;
                  try_iosteps [] pq
              | TestPoint (n, p)  -> raise (Error (n.pos, "Cannot interpret TestPoint"))
+             | Iter _ -> raise (Error (proc.pos, "Can't interpret Iter yet"))
              | Cond (e, p1, p2)  ->
                  let bv = boolev env e in
                  addrunner (pn, (if bv then p1 else p2), env);
@@ -735,141 +738,49 @@ let rec interp sysassoc proc =
          step()
        ) (* end of else *)
   in
-  addrunner ("System", proc, (monenv_of_assoc sysassoc));
+  addrunner ("System", proc, env);
   step ()
 
 let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
 
-let bind_fdefs env = function
-  | Processdef   _      -> env 
-  | Functiondefs fdefs  -> (* recursive, hence jollity with reference *)
-                           let env = globalise env in
+let bind_def env = function
+  | Processdefs pdefs   -> let env = globalise env in
                            let er = ref env in
-                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst pats expr in
-                           let env = List.fold_left bind_fdef env fdefs in
+                           let env = globalise (List.fold_left (Compile.bind_pdef er) env pdefs) in
                            er := env;
-                           globalise env
+                           env
+  | Functiondefs fdefs  -> let env = globalise env in
+                           let er = ref env in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst.tnode pats expr in
+                           let env = globalise (List.fold_left bind_fdef env fdefs) in
+                           er := env;
+                           env
   | Letdef (pat, e)     -> (* not recursive, evaluate now *)
                            let v = evale env e in
                            globalise (bmatch env pat v)
-  
-let rec bind_pdefs env def =
-  match def with
-  | Processdef  (pn,params,p,monparams,mon) ->
-      (* only compile the monitor processes that are called: the others haven't been 
-         type or resource checked
-       *)
-      let called = Process.called_mons p in
-      let called = NameSet.of_list (List.map fst called) in
-      let env = compile_mon pn called mon env in
-      let proc = compile_proc pn mon p in
-      if !verbose || !verbose_interpret then
-        Printf.printf "Compiling .....\n%s\n......\n%s\n.......\n%s\n.........\n\n"
-                        (string_of_def def)
-                        (string_of_env env)
-                        (string_of_process proc);
-      env <@+> (pn.inst, VProcess (strip_params params, strip_params monparams, proc))
-  | Functiondefs _  -> env
-  | Letdef _        -> env
-
-and mon_name pos pn tpnum = adorn pos ("#mon#" ^ pn.inst ^ "#" ^ tpnum)
-
-and chan_name tpnum = "#chan#" ^ tpnum
-
-and compile_mon pn called mon env =
-  let compile env (tpnum, (tppos, proc)) =
-    if NameSet.mem tpnum called then
-    (let mn = mon_name tppos pn tpnum in
-     env <@+> (mn.inst, VProcess ([], [], compile_monbody tpnum proc))
-    )
-    else env
-  in
-  List.fold_left compile env mon
-
-(* Here is where we apply restrictions on monitor processes:
-    no Reading   (it's outside the protocol, so no input)
-    no Calling
-    no new qbits (it's outside the protocol, so no quantum stuff)
-    no gating    (ditto)
-    no measuring (ditto)
-    no Testpoint (come along now)
-    no Par
- *)
-and compile_monbody tpnum proc =
-  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let adio = adorn proc.pos in
-    let ade = eadorn proc.pos in
-    match proc.inst with
-    | Terminate         -> Some (ad (GSum [adio (Write (ade (EVar (chan_name tpnum)), ade EUnit)), proc]))
-    | GSum iops         -> let ciop (iostep, proc) = 
-                             match iostep.inst with
-                             | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
-                                                 bad iostep.pos "non-classical channel";
-                                               Process.optmap cmp proc 
-                                               &~~ (_Some <.> (fun proc -> iostep, proc))
-                             | _            -> bad iostep.pos "message receive"
-                           in
-                           Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
-    | Call _        -> bad proc.pos "process invocation"
-    | WithQbit _    -> bad proc.pos "qbit creation"
-    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
-    | TestPoint _   -> bad proc.pos "test point"
-    | Par _         -> bad proc.pos "parallel sum"
-    | WithNew _     
-    | WithLet _
-    | Cond    _
-    | PMatch  _     -> None
-  in
-  Process.map cmp proc
-  
-and compile_proc pn mon proc =
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let ade = eadorn proc.pos in
-    let adpat = Pattern.padorn proc.pos None in
-    let adpar = adorn proc.pos in
-    match proc.inst with
-      | TestPoint (tpn, p) -> let p = Process.map cmp p in
-                              let read = adorn proc.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
-                              let gsum = ad (GSum [read, p]) in
-                              let mn = mon_name tpn.pos pn tpn.inst in
-                              let call = ad (Call (mn, [], [])) in
-                              let par = ad (Par [call; gsum]) in
-                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst,ref None)], par)) in
-                              Some mkchan
-      | Terminate 
-      | Call      _      
-      | WithNew   _
-      | WithQbit  _
-      | WithLet   _
-      | WithQstep _
-      | Cond      _
-      | PMatch    _
-      | GSum      _
-      | Par       _        -> None
-  in
-  Process.map cmp proc
 
 let interpret defs =
   Random.self_init(); (* for all kinds of random things *)
-  (* make an assoc list of process defs and functions *)
+  (* make an assoc list of library stuff *)
   let knownassoc = List.map (fun (n,_,v) -> n, v) !knowns in
-  let sysenv = globalise (List.fold_left bind_fdefs (monenv_of_assoc knownassoc) defs) in
-  let sysenv = globalise (List.fold_left bind_pdefs sysenv defs) in
-  let maybe_add env (name, c) =
-    if env <@?> name then env else env <@+> (name, VChan (mkchan c))
+  (* add standard channels *)
+  let definitely_add env (name, c) =
+    if env <@?> name then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))
+    else env <@+> (name, VChan (mkchan c))
   in
-  let sysenv = globalise (List.fold_left maybe_add sysenv [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) in
+  let sysenv = globalise (List.fold_left definitely_add (monenv_of_assoc knownassoc) 
+                                            [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
+  in
+  (* bind definitions in order *)
+  let sysenv = globalise (List.fold_left bind_def sysenv defs) in
   if !verbose || !verbose_interpret then
-    Printf.printf "sysenv = [%s]\n\n" (string_of_env sysenv);
+    Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess ([], [], p) -> interp (assoc_of_monenv sysenv) p
-  | VProcess (ps, _ , _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
-  | _                    -> raise (Error (dummy_spos, "System doesn't name a process"))
+  | VProcess (er, [], [], p) -> interp !er p
+  | VProcess (_ , ps, _ , _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
+  | _                        -> raise (Error (dummy_spos, "no process named System"))

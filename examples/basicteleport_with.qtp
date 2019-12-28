@@ -1,4 +1,5 @@
-proc Alice (x:qbit, c:^(bit,bit)) = 
+proc 
+  Alice (x:qbit, c:^(bit,bit)) = 
     . (newq z) . /^ 1
     . z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) 
     . c!vz,vx 
@@ -7,7 +8,7 @@ proc Alice (x:qbit, c:^(bit,bit)) =
                                                 outq!(qval z) . out!["\n"] .
                                                 _0
 
-proc Bob(y:qbit, c:^(bit,bit)) = 
+  Bob(y:qbit, c:^(bit,bit)) = 
     . c?(pair) 
     . y >> match pair . + (0b0,0b0) . I
                         + (0b0,0b1) . X
@@ -19,9 +20,9 @@ proc Bob(y:qbit, c:^(bit,bit)) =
                                                 _0
     
 
-proc System () = 
-  . (newq x=|+>, y=|0>) 
-  . x,y>>CNot 
-  . (new c:^(bit,bit)) 
-  . | Alice(x,c) 
-    | Bob(y,c)
+  System () = 
+    . (newq x=|+>, y=|0>) 
+    . x,y>>CNot 
+    . (new c:^(bit,bit)) 
+    . | Alice(x,c) 
+      | Bob(y,c)

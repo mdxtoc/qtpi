@@ -1,0 +1,115 @@
+(* maybe one day there will be process values -- maybe now *)
+   proc Iter (xs,P,iterc) =
+     match xs .
+      + []    . iterc!() . _0
+      + x::xs . (new callc)
+                | P(x,callc)
+                | callc?(_) . Iter(xs,P,iterc)
+(* *)
+ 
+fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
+
+fun min_qbits k s cmin
+  = ceiling (max (rootn*rootn) (rootnmin*rootnmin))
+    where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
+    where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
+    
+proc Alice(M, w, hks, cMin, nSigma, qc, bsc) = 
+  
+  (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+     plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
+     message). We don't want the protocol to fail because we pick too few qbits, and 
+     nSigma is the number of standard deviations we want to be away from that possibility.
+     
+     If we set nSigma, cMin and w so that Alice doesn't always calculate enough qbits, 
+     then she may send short messages (we no longer do repetitions, because it messes up 
+     the analysis).
+          
+     The protocol uses about n/8 checkbits, but that's 
+     included in the formula calculation.
+   *)
+  (* for the basis of the calculation in min_qbits, see QKD_results.md *)
+  . (let n = min_qbits (length M + 5*w) nSigma cMin)  
+  
+  (* choose the basis and value for each qbit at random *)
+  . (let bs = randbits n) 
+  . (let vs = randbits n)
+  . /^1
+  
+  (* send Bob the qbits I chose *)
+  . .* (b,v) ((newq q = basisv_of_bits b v) qc!q . _0) (zip bs vs)
+    
+  (* tell each other the qbit bases we used - me first *)
+  . (let h0 = hwc bs hks 0 w)
+  . bsc!h0,bs                              (* send Bob my bases *)
+  . bsc?(h1,bBs)                           (* receive his bases *)
+  . /^2
+  
+  (* pick out the values for which our bases agree *)
+  . (let rvs = reconcile bBs bs vs)      
+  . /^3
+  
+  (* Now we both know the same _number_ of values. Bob sends me a mask of
+     that number of bits, and a list of the values it picks out from his
+     list.
+   *)
+  . bsc?(h2,mask)
+  . bsc?(h3,checkbitsB)
+  . /^4
+  
+  (* test to see if Bob and I agree on the bits selected by his mask *)
+  . (let checkbitsA = mask_filter 0b1 mask rvs)
+  . (let q_check = checkbitsB=checkbitsA)
+  
+  (* test for classical interference *)
+  . (let c_check = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB]))) 
+  
+  (* Because we allow experimentation with number of checkbits, nSigma etc. to 
+     provoke extreme statistical variation, it's possible to end up with fewer
+     codebits that we need, so we test to see if subtracting Bob's checkbits has left 
+     us enough codebits to make new hash codes and to encrypt M.  
+   *)
+  . (let enough = length rvs >= length checkbitsA + 5*w + length M)
+  
+  . /^5
+  
+  (* If Alice detects interference or doesn't have enough codebits she should go silent. 
+     But in this simulation she sends an empty message, to allow Bob to log what he's 
+     done and terminate.
+   *)
+  . if not (q_check && c_check && enough) then
+      . bsc!tagged hks 4 w []
+      . _0
+    else
+      (* The (secret) code bits are the ones Bob didn't mask. We take new WC hash codes 
+         and a secret message code from the secret code bits.
+       *)
+      . (let codebits = mask_filter 0b0 mask rvs)
+      . (let hks' = take (5*w) codebits)
+      . (let code = take (length M) (drop (5*w) codebits))
+      . (let encryptedM = xor_mask code M)
+      . (let h4 = hwc encryptedM hks 4 w)
+      . bsc!h4,encryptedM                  (* send the encrypted message *)
+      . /^7
+      . _0
+
+  with (log)
+    1: . log!bs . log!vs 
+       . _0
+    2: . log!h0 . log!bs                         
+       . log!h1 . log!bBs 
+       . _0 
+    3: . log!rvs 
+       . _0
+    4: . log!h2 . log!mask
+       . log!h3 . log!checkbitsB 
+       . _0 
+    5: . log![bool2bit q_check]
+       . log![bool2bit c_check]
+       . log![bool2bit enough]
+       . _0
+    7: . log!code
+       . log!M
+       . log!h4 . log!encryptedM
+       . log!hks'
+       . _0

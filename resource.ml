@@ -219,15 +219,10 @@ let oktouse stoppers n res use =
   in
   let rec findlevel stoppers =
     match stoppers with 
-    | (env,stop)::((outer,_)::_ as more) ->
-        if outer<@@>n = Some res    then findlevel more (* it's not mine *)
-        else if env<@@>n = Some res then police stop    (* it's mine *)
-                                    else true           (* it was yours all the time *)
-    | [(env,stop)]                       ->
-        if env<@@>n = Some res then police stop     (* it's mine *)
-                               else true            (* it was yours all the time *)
-    | []                                  ->
-        true
+    | (env,stop)::more ->
+        if env<@@>n = Some res then police stop && findlevel more   (* it's mine, but it might also be restricted more *)
+                               else true                            (* it was yours all the time *)
+    | []               -> true
   in
   findlevel stoppers
 
@@ -405,7 +400,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                        )
                                 )
       in
-      match e.inst.enode with
+      match e.inst.tnode with
       | EUnit 
       | ENil
       | ENum        _              
@@ -494,7 +489,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                                           runbind2 state env stoppers wpat (Some wr) 
                                     in
                                     r, ResourceSet.union used wused
-      | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst,RNull) in (* functions aren't resource *)
+      | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst.tnode,RNull) in (* functions aren't resource *)
                                     let wr, wused = rck_fun state env wfpats we in
                                     let r, used = resources_of_expr use state env stoppers e in
                                     r, ResourceSet.union used wused
@@ -517,7 +512,7 @@ and disjoint_resources_of_expr use = r_o_e true use
 
 and resource_of_params state params = 
   List.fold_right (fun param (state, nrs) ->
-                     let n, toptr = param.inst in
+                     let n, toptr = param.inst.tnode, param.inst.toptr in
                      let state, r = resource_of_type (param.pos,n) state (_The !toptr) in
                      state, (n,r)::nrs 
                   ) 
@@ -539,13 +534,13 @@ and rck_proc mon state env stoppers proc =
                                        (string_of_stoppers stoppers)
                                        (short_string_of_process proc);
     let r =
-      (match proc.inst with
+      match proc.inst with
       | Terminate               -> ResourceSet.empty
-      | Call (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
+      | GoOnAs (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
                                    let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) (es@mes) in
                                    (try disju ers with OverLap s -> badproc s)
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
-                                   let env = List.fold_left (fun env {inst=n,_} -> env <@+> (n,RNull)) env params in
+                                   let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
                                    rp state env stoppers proc
       | WithQbit (qspecs, proc) -> (* all new qbits *)
                                    let do_qspec (qs, used, state, env) (param, eopt) =
@@ -553,7 +548,7 @@ and rck_proc mon state env stoppers proc =
                                                     | Some e -> resources_of_expr URead state env stoppers e
                                                     | None   -> RNull, ResourceSet.empty
                                      in
-                                     let n, _ = param.inst in
+                                     let n = name_of_param param in
                                      let state, q = newqid (param.pos,n) state in
                                      RQbit q::qs, ResourceSet.union used usede, state, env <@+> (n,RQbit q)
                                    in
@@ -569,6 +564,9 @@ and rck_proc mon state env stoppers proc =
                                    in
                                    (* rck_pat does the runbinding *)
                                    ResourceSet.union used usede
+      | WithProc  (pdecl, proc) -> let (brec, pn, params, p) = pdecl in
+                                   let _ = rp state env ((env,StopUse)::stoppers) p in
+                                   rp state env stoppers proc
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
                                     | Measure (qe, gopt, pattern) -> 
                                         let destroys = !measuredestroys in
@@ -597,6 +595,11 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
+      | Iter (params, p, e, proc)                 
+                                -> let state', rparams = resource_of_params state params in
+                                   let pused = rp state' (List.fold_left (<@+>) env rparams) ((env,StopKill)::stoppers) p in
+                                   let _, eused = resources_of_expr URead state env stoppers e in
+                                   List.fold_left ResourceSet.union pused [eused; rp state env stoppers proc]
       | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                     | Some (_,monproc) -> ResourceSet.union (rp state env [(env, StopAllButRead)] monproc) 
                                                                             (rp state env stoppers proc)
@@ -640,7 +643,6 @@ and rck_proc mon state env stoppers proc =
                                         disju prs
                                     with OverLap s -> badproc s
                                    )
-      )
     in
     if !verbose then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
@@ -654,16 +656,18 @@ let rck_def env def =
                   (string_of_env env)
                   (string_of_def def);
   match def with
-  | Processdef (pn, params, proc, monparams, mon) -> 
-      let state, rparams = resource_of_params State.empty (params@monparams) in
-      if !verbose then
-        Printf.printf "\ndef %s params %s resource %s\n" 
-                      (string_of_name pn.inst)
-                      (bracketed_string_of_list string_of_param params)
-                      (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
-      (* here we go with the symbolic execution *)
-      let _ = rck_proc mon state (List.fold_left (<@+>) env rparams) [] proc in
-      ()
+  | Processdefs pdefs -> 
+      let rck_pdef (pn, params, proc, monparams, mon) =
+        let state, rparams = resource_of_params State.empty (params@monparams) in
+        if !verbose then
+          Printf.printf "\ndef %s params %s resource %s\n" 
+                        (string_of_name pn.inst.tnode)
+                        (bracketed_string_of_list string_of_param params)
+                        (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
+        (* here we go with the symbolic execution *)
+        ignore (rck_proc mon state (List.fold_left (<@+>) env rparams) [] proc) 
+      in
+      List.iter rck_pdef pdefs
   | Functiondefs fdefs ->
       let rck_fdef (fn, pats, _, expr) = ignore (rck_fun State.empty env pats expr) in
       List.iter rck_fdef fdefs
@@ -687,7 +691,7 @@ let frees = Expr.frees_fun ne_filter
                            NESet.empty
 
 let rec ffv_expr expr =
-  match expr.inst.enode with
+  match expr.inst.tnode with
   | EUnit
   | EVar       _
   | ENum       _
@@ -723,7 +727,7 @@ and ffv_fundef pos fnopt pats e =
   let veset = ne_filter (names_of_pats pats) veset in
   let veset = match fnopt with
               | None -> veset
-              | Some fn -> ne_filter (NameSet.singleton fn.inst) veset
+              | Some fn -> ne_filter (NameSet.singleton fn.inst.tnode) veset
   in
   let bad_veset = NESet.filter (fun (n,e) -> is_resource_type (type_of_expr e)) veset in
   if not (NESet.is_empty bad_veset) then
@@ -743,10 +747,12 @@ and ffv_fundef pos fnopt pats e =
 and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
-  | Call      (pn,es,mes)          -> List.iter ffv_expr es; List.iter ffv_expr mes
+  | GoOnAs      (pn,es,mes)          -> List.iter ffv_expr es; List.iter ffv_expr mes
   | WithNew   (params, proc)       -> ffv_proc mon proc
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
+  | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in
+                                      ffv_proc mon p; ffv_proc mon proc
   | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
   | TestPoint (n, proc)            -> (match find_monel n.inst mon with
                                        | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc
@@ -755,6 +761,7 @@ and ffv_proc mon proc =
                                                                     )
                                                        )
                                       )
+  | Iter      (params, p, e, proc) -> ffv_proc mon p; ffv_expr e; ffv_proc mon proc
   | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
   | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
   | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs
@@ -784,13 +791,14 @@ and ffv_def def =
     Printf.printf "\nffv_def %s\n"
                   (string_of_def def);
   match def with
-  | Processdef (pn, _, proc, _, mon) -> ffv_proc mon proc
-  | Functiondefs fdefs               -> List.iter ffv_fdef fdefs
-  | Letdef (pat,e)                   -> ffv_expr e
+  | Processdefs  pdefs -> List.iter ffv_pdef pdefs
+  | Functiondefs fdefs -> List.iter ffv_fdef fdefs
+  | Letdef (pat,e)     -> ffv_expr e
   
-and ffv_fdef (fn, pats, _, e) =
-  ffv_fundef fn.pos (Some fn) pats e
-  
+and ffv_fdef (fn, pats, _, e) = ffv_fundef fn.pos (Some fn) pats e
+
+and ffv_pdef (pn, _, proc, _, mon) = ffv_proc mon proc
+
 (* *************** main function: trigger the phases *************************** *)
 
 let resourcecheck defs = 
@@ -806,11 +814,12 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       match def with
-      | Processdef   (pn, _, _, _, _) -> env <@+> (pn.inst,RNull)
-      | Functiondefs fdefs            -> let do_fdef env (fn, _, _, _) = env <@+> (fn.inst,RNull) in
-                                         List.fold_left do_fdef env fdefs
-      | Letdef       (pat,e)          -> let ns = NameSet.elements (names_of_pattern pat) in
-                                         List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
+      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _, _) = env <@+> (tnode pn,RNull) in
+                                   List.fold_left do_pdef env pdefs
+      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (tnode fn,RNull) in
+                                   List.fold_left do_fdef env fdefs
+      | Letdef       (pat,e)    -> let ns = NameSet.elements (names_of_pattern pat) in
+                                   List.fold_left (fun env n -> env <@+> (n,RNull)) env ns
     in
     let env = List.fold_left do_def env defs in
     let add_std_channel env name =

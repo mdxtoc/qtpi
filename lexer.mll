@@ -120,6 +120,7 @@ rule make_token = parse
   | "where"     {WHERE}
   | "lam"       {LAMBDA}
   | "/^"        {TESTPOINT}
+  | ".*"        {PROCITER}
   
   | '?'         {QUERY}
   | '!'         {BANG}

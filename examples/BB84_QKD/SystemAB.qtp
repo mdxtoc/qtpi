@@ -11,10 +11,10 @@ proc System() = (let n = read_min_int 1 "length of message")
                 (let verbose = read_bool "with commentary" "y" "n")
                 Run (k, verbose, n, w, cMin, nSigma)
            
-proc Run (k, verbose, n, w, cMin, nSigma) = 
+Run (k, verbose, n, w, cMin, nSigma) = 
   Logger (k, 0, verbose, 0, 0, 0, [], n, w, randbits (5*w), cMin, nSigma)
 
-proc Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
+Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
   if i<k 
   then . out!if k<>1 then ["trial number "; show (i+1); if verbose then "\n" else " "] 
                   else []

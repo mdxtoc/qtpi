@@ -31,20 +31,21 @@ open Type
  * processes for resourcing
  *)
 
-type param = (name * _type option ref) instance 
+type param = typedname 
 
 let string_of_param p =
-  let n,rt = p.inst in
-  match !rt with
-  | Some t -> Printf.sprintf "%s:%s" (string_of_name n) (string_of_type t)  
-  | None   -> string_of_name n
+  match !(p.inst.toptr) with
+  | Some t -> Printf.sprintf "%s:%s" (string_of_name p.inst.tnode) (string_of_type t)  
+  | None   -> string_of_name p.inst.tnode
   
 let string_of_params = string_of_list string_of_param ", " 
 
-let strip_param p =
-  let n, _ = p.inst in
-  n
+let name_of_param p = p.inst.tnode
 
-let strip_params ps = List.map strip_param ps
+let names_of_params ps = List.map name_of_param ps
 
-let param_of_binding pos (n,t) = adorn pos (n, ref (Some t))
+let typeref_of_param p = p.inst.toptr
+
+let typerefs_of_params ps = List.map typeref_of_param ps
+
+let param_of_binding pos (n,t) = adorn pos {toptr = ref(Some t); tnode = n}

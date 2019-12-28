@@ -32,10 +32,17 @@ open Functionutils
    then mon, then global. If usemon is false, we look in local, then global.
    
    The 'local' assoc is for the main body of the process; the 'mon' is the monitor parameters;
-   'global' is the outside environment. Thus with usemon=false we get the env for the main body of a process;
-   with usemon=true we get then env for the monitor insertions.
+   'global' is the parameters plus outside environment. Thus with usemon=false we get the env 
+   for the main body of a process; with usemon=true we get the env for the monitor insertions.
  *)
 
+(* I think this three-way split would allow the global environment to be something more efficient 
+   than an assoc list. The local/mon split allows the monitor parameters to be always available
+   to the monitor process: rebinding them in the body has no effect. The local assoc doesn't 
+   include the parameters; the monenv just has the monitor parameters; global has the non-monitor
+   parameters and the rest of the world. (It says that above, too.)
+ *)
+ 
 type 'a monenv = (name * 'a) list * bool * (name * 'a) list * (name * 'a) list
 
 let (<%@>)  = Listutils.(<@>)       
@@ -67,3 +74,10 @@ let string_of_monenv sep string_of_a (local, usemon, mon, global) =
 let null (local, usemon, mon, global) = null local && (not usemon || null mon) && null global
 
 let filter f (local, usemon, mon, global) = List.filter f local, usemon, List.filter f mon, List.filter f global
+
+let filterg f (local, usemon, mon, global) = local, usemon, mon, List.filter f global
+
+let count n (local, usemon, mon, global) =
+  let c n e = List.length (List.filter (fun (n',_) -> n=n') e) in
+  c n local + (if usemon then c n mon else 0) + c n global
+  

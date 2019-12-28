@@ -90,7 +90,7 @@ type value =
   | VTuple of value list
   | VList of value list
   | VFun of (value -> value)        (* with the environment baked in for closures *)
-  | VProcess of name list * name list * process
+  | VProcess of env ref * name list * name list * process
 
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
@@ -109,7 +109,7 @@ and prob =
   | P_f              
   | P_g 
   | P_h of int              
-  | Psymb of int * bool * float     (* i, false=ai, true=bi, both random floats s.t. a**2+b**2 = 1; then the actual random value *)
+  | Psymb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
   | Pneg of prob
   | Pprod of prob list              (* associative *)
   | Psum of prob list               (* associative *)
@@ -956,13 +956,15 @@ let rec so_value optf v =
                | VTuple vs       -> "(" ^ string_of_list (so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (so_value optf) vs
                | VFun f          -> "<function>"
-               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s %s"
+               | VProcess (_,ns,ms,p) (* don't print the env: it will be an infinite recursion *)
+                                 -> Printf.sprintf "process .. (%s)%s %s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
                                                        else "/^(" ^ string_of_list string_of_name "," ms ^ ")"
                                                       )
                                                       (string_of_process p)
               )
+
 and short_so_value optf v =
   match optf v with
   | Some s -> s
@@ -971,7 +973,8 @@ and short_so_value optf v =
                | VChan c         -> "Chan " ^ short_so_chan optf c
                | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (short_so_value optf) vs
-               | VProcess (ns,ms,p) -> Printf.sprintf "process (%s)%s"
+               | VProcess (_,ns,ms,_) 
+                                 -> Printf.sprintf "process .. (%s)%s"
                                                       (string_of_list string_of_name "," ns)
                                                       (if ms=[] then ""
                                                        else "/^(" ^ string_of_list string_of_name "," ms ^ ")"
@@ -992,7 +995,7 @@ and short_so_chan optf {cname=i} =
 and so_env optf env =
   "{" ^ string_of_monenv "=" (so_value optf) env ^ "}"
 
-and short_so_env optf = so_env optf <.> (Monenv.filter (function 
+and short_so_env optf = so_env optf <.> (Monenv.filterg (function 
                                                         | _, VFun     _ 
                                                         | _, VProcess _ -> false
                                                         | _             -> true

@@ -32,38 +32,44 @@ open Param
 open Type
 
 (* to deal honestly with Hindley-Milner typechecking, a program is now a sequence of 
-   _groups_ of mutually-recursive function definitions and single process definitions.
-   Real Soon Now we will have Miranda-style type definitions in the functiondefs
+   _groups_ of mutually-recursive function definitions and _groups_ of mutually-recursive
+   process definitions.
+   Real Soon Now we will have Miranda-style type definitions in the functiondefs (oh, yeah? when?)
  *)
 type def = 
-  | Processdef of name instance * param list * process * param list * monitor
+  | Processdefs  of pdef list
   | Functiondefs of fdef list
-  | Letdef of pattern * expr
+  | Letdef       of pattern * expr
   
-and fdef = name instance * pattern list * _type option ref * expr 
+and pdef = typedname * param list * process * param list * monitor
+
+and fdef = typedname * pattern list * _type option ref * expr 
 
 and monitor = (name * (sourcepos * process)) list
 
 let rec string_of_def = function
-  | Processdef (pn,params,proc,monparams,mon) -> Printf.sprintf "proc %s(%s) = %s%s"
-                                                    (string_of_name pn.inst)
-                                                    (String.concat "," (List.map string_of_param params))
-                                                    (string_of_process proc)
-                                                    (string_of_maybe_monitor monparams mon)
-  | Functiondefs fdefs          ->  "fun " ^ Listutils.string_of_list string_of_fdef "\n" fdefs
+  | Processdefs  pdefs          -> "proc " ^ Listutils.string_of_list string_of_pdef "\n     " pdefs
+  | Functiondefs fdefs          -> "fun "  ^ Listutils.string_of_list string_of_fdef "\n    "  fdefs
   | Letdef (pat, e)             ->  Printf.sprintf "let %s = %s" 
                                                    (string_of_pattern pat) 
                                                    (string_of_expr e)
   
+and string_of_pdef (pn,params,proc,monparams,mon) =
+  Printf.sprintf "%s(%s) = %s%s"
+                    (string_of_name pn.inst.tnode)
+                    (String.concat "," (List.map string_of_param params))
+                    (string_of_process proc)
+                    (string_of_maybe_monitor monparams mon)
+                    
 and string_of_fdef (fn,pats,toptr,expr) =
   Printf.sprintf "%s %s%s = %s"
-  (string_of_name fn.inst)
-  (String.concat " " (List.map string_of_fparam pats))
-  (match !toptr with
-   | Some t -> Printf.sprintf " :%s" (string_of_type t)
-   | None   -> ""
-  )
-  (string_of_expr expr)
+                    (string_of_name fn.inst.tnode)
+                    (String.concat " " (List.map string_of_fparam pats))
+                    (match !toptr with
+                     | Some t -> Printf.sprintf " :%s" (string_of_type t)
+                     | None   -> ""
+                    )
+                    (string_of_expr expr)
 
 and string_of_monitor = 
   string_of_list (fun (n,(_,proc)) -> Printf.sprintf "%s: %s" n (string_of_process proc)) " "

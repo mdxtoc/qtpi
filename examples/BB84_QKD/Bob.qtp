@@ -29,24 +29,24 @@ proc Bob (w, hks, qc, bsc) =
       . /^8
       . _0
 
-with (log)
-     1: . log!bs . log!vs
-        . _0
-     2: . log!h0 . log!bAs
-        . _0
-     3: . log!h1 . log!bs
-        . _0
-     4: . log!rvs
-        . _0
-     5: . log!h2 . log!mask
-        . _0
-     6: . log!h3 . log!checkbits
-        . _0
-     8: . log!h4 . log!encryptedM
-        . log!code
-        . log!M
-        . log![bool2bit (not c_ok)]
-        . log!hks'
-        . _0
+    with (log)
+         1: . log!bs . log!vs
+            . _0
+         2: . log!h0 . log!bAs
+            . _0
+         3: . log!h1 . log!bs
+            . _0
+         4: . log!rvs
+            . _0
+         5: . log!h2 . log!mask
+            . _0
+         6: . log!h3 . log!checkbits
+            . _0
+         8: . log!h4 . log!encryptedM
+            . log!code
+            . log!M
+            . log![bool2bit (not c_ok)]
+            . log!hks'
+            . _0
                   
       

@@ -1,7 +1,7 @@
 
 proc Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
 
-proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB, bsB) = 
+Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB, bsB) = 
   if i=0 then out!["all done: "; 
                               show nGood; " Eve's; ";
                               show nBad; " Alice's; ";
@@ -27,16 +27,16 @@ proc Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB,
                            n,r,qB,bsB)
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
-proc AliceChoose(n, bvs, r, chosen) =
+AliceChoose(n, bvs, r, chosen) =
     (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
 
-proc AliceSend(verbose, bvs, qB, bsB, again) =
+AliceSend(verbose, bvs, qB, bsB, again) =
     (new done)  
     | AliceSendBits (bvs,qB,done)
     | done?(s) . AliceNegotiate (verbose, bvs, bsB, again)
 
 (* send encoded bits down channel qB *)
-proc AliceSendBits (bvs,qB,done) =   
+AliceSendBits (bvs,qB,done) =   
     match bvs .
     + []         . done!() . _0
     + (b,v)::bvs . (newq q = match (b,v) .
@@ -48,7 +48,7 @@ proc AliceSendBits (bvs,qB,done) =
                    qB!q.
                    AliceSendBits(bvs,qB,done)
 
-proc AliceNegotiate (verbose,bvs,bsB,again) =
+AliceNegotiate (verbose,bvs,bsB,again) =
     bsB!map fst bvs . (* send him my bases *)
     bsB?(bBs)       . (* receive his bases *)
     out!if verbose then ["Bob sent bases "; show bBs; "\n"] else [] .
@@ -67,20 +67,20 @@ proc AliceNegotiate (verbose,bvs,bsB,again) =
         again!b, length vBs .
         _0
     
-proc AliceCheck (vBs, vs, done) =
+AliceCheck (vBs, vs, done) =
   match (vBs, vs) .
   + ([]    , _     )  . done!true . _0
   + (v::vBs, v'::vs)  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0
   + _                 . done!false . _0
 
-proc Reconcile (bBs,bvs,vs,done) =
+Reconcile (bBs,bvs,vs,done) =
   match (bBs, bvs) .
   + ([]     , []        ) . (done!rev vs . _0)
   + (bB::bBs, (b,v)::bvs) . Reconcile (bBs, bvs, if bB=b then v::vs else vs, done)
   + _                     . out!["Reconcile failure"] . _0
   
 
-proc Bob(k, verbose, n:num, r:^bit, qA, bsA) = 
+Bob(k, verbose, n:num, r:^bit, qA, bsA) = 
   if k=0 then _0
   else
     (new done) 
@@ -101,7 +101,7 @@ proc Bob(k, verbose, n:num, r:^bit, qA, bsA) =
         Bob (k-1, verbose, n, r, qA, bsA)
   
 (* receive qbits down qA, measure them, record the results *)
-proc BobReceive(n,bvs,qA,r,done) =
+BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
          r?(basis).
@@ -109,7 +109,7 @@ proc BobReceive(n,bvs,qA,r,done) =
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
        
 (* a very naive eavesdropper. Sees Alice's bits but messes with them. Knows 'n', somehow *)
-proc Eve (k, verbose, n, r:^bit, qA, qB) =
+Eve (k, verbose, n, r:^bit, qA, qB) =
   if k=0 then _0
   else
     (new done) 
@@ -118,7 +118,7 @@ proc Eve (k, verbose, n, r:^bit, qA, qB) =
       out!if verbose then ["Eve saw "; show bvs; "\n"] else [] .
       Eve (k-1, verbose, n, r, qA, qB)
   
-proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
+EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
          r?(b) .
@@ -133,9 +133,9 @@ proc EvesDrop (n, bvs, r:^bit, qA, qB, done) =
          EvesDrop (n-1, (b,v)::bvs, r, qA, qB, done)
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
-proc Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
+Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
 
-proc System() = (let k = read_num "number of trials")
+System() = (let k = read_num "number of trials")
                 (let n = read_num "number of qbits")
                 (let s = read_string "with commentary (y/n)")
                 (let verbose = match s . 

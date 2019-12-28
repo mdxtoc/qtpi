@@ -1,13 +1,3 @@
-
-proc Alice(n:num, r:^bit, qB, vB, log) = 
-    r?(basis) .
-    (let vs = randbits n)
-    log![basis] .
-    log!vs .
-    (new done) 
-    | AliceSendBits (vs,basis,qB,done)
-    | done?(_) . vB!basis,vs . _0
-
 (* send values encoded in [basis] as qbits down channel [qB] *)
 proc AliceSendBits (vs,basis,qB,done) =   
     match vs .
@@ -21,6 +11,36 @@ proc AliceSendBits (vs,basis,qB,done) =
               qB!q.
               AliceSendBits(vs,basis,qB,done)
 
+proc Alice(n:num, r:^bit, qB, vB, log) = 
+    r?(basis) .
+    (let vs = randbits n)
+    log![basis] .
+    log!vs .
+    (new done) 
+    | AliceSendBits (vs,basis,qB,done)
+    | done?(_) . vB!basis,vs . _0
+
+(* receive qbits down qA, measure them, record the results *)
+proc BobReceive(n,bvs,qA,r,done) =
+  if n=0 then done!rev bvs . _0
+  else qA?(q).
+       r?(basis).
+       q -/-[if basis=0b1 then H else I] (value) .
+       BobReceive(n-1,(basis,value)::bvs,qA,r,done)
+
+(* check Alice's story *)
+proc Liar   (done) = done!false . _0
+proc Honest (done) = done!true  . _0
+
+proc BobVerify (basis,vs,bvs,done) =
+  match (vs, bvs) .
+  + ([]   , []         )  . Honest (done)
+  + ([]   , _          )  . Liar (done)
+  + (_    , []         )  . Liar (done)
+  + (v::vs, (b,v')::bvs)  . if b=basis && v<>v' 
+                            then Liar (done)
+                            else BobVerify(basis,vs,bvs,done)
+  
 proc Bob(n:num, r:^bit, qA, vA, log) = 
   (new done,verified) 
   | BobReceive(n,[],qA,r,done)
@@ -35,38 +55,8 @@ proc Bob(n:num, r:^bit, qA, vA, log) =
     log![if honest then 0b1 else 0b0] .
     _0
 
-(* receive qbits down qA, measure them, record the results *)
-proc BobReceive(n,bvs,qA,r,done) =
-    if n=0 then done!rev bvs . _0
-    else qA?(q).
-         r?(basis).
-         q -/-[if basis=0b1 then H else I] (value) .
-         BobReceive(n-1,(basis,value)::bvs,qA,r,done)
-
-(* verify Alice's story *)
-proc BobVerify (basis,vs,bvs,done) =
-  match (vs, bvs) .
-  + ([]   , []         )  . Honest (done)
-  + ([]   , _          )  . Liar (done)
-  + (_    , []         )  . Liar (done)
-  + (v::vs, (b,v')::bvs)  . if b=basis && v<>v' 
-                            then Liar (done)
-                            else BobVerify(basis,vs,bvs,done)
-  
-proc Liar   (done) = done!false . _0
-proc Honest (done) = done!true  . _0
-
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 proc Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
-
-proc System() = (let k = read_num "number of trials")
-           (let n = read_num "number of qbits")
-           (let verbose = read_bool "with commentary" "y" "n")
-           (new r)
-           | Run (k, verbose, n, r)
-           | Random(r)
-           
-proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc Control (k, i, verbose, nA, nB, nH, n, r) =
   if k=i then 
@@ -108,3 +98,14 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
                           else "Alice wins\n"
           ] . 
       Control (k, i+1, verbose, nA, nB, nH, n, r)
+
+proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
+
+proc System() = (let k = read_num "number of trials")
+                (let n = read_num "number of qbits")
+                (let verbose = read_bool "with commentary" "y" "n")
+                (new r)
+                | Run (k, verbose, n, r)
+                | Random(r)
+           
+

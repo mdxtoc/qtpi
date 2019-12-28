@@ -1,39 +1,40 @@
-proc Bob(nq,qc,ic,bc,logc,verbose) = 
-  (new rc)
-    | BobRead (nq,qc,rc,[]) 
-    | rc?(bvs) .
-      (let bs = map fst bvs)
-      ic?(bAs)  .
-      ic!bs     .
-      (let bAbvs = combine bAs bvs)
-      (let vBs = sanitise bAbvs)
-      bc?(vAs)  .
-      bc!vBs    .
-      (let ok = check verbose bs bAs vBs vAs (3,2) && check verbose bs bAs vBs vAs (1,2))
-      (* Alice goes first in reporting interference *)
-      bc?(Aliceok) .
-      (let Aliceok = bit2bool (hd (Aliceok)))
-      bc![bool2bit ok]   . logc![bool2bit ok]   .
-      if not (ok && Aliceok) then
-        (* Interference: log an empty message, but don't look for anything from Alice *)
-        logc![] .
-        _0
-      else 
-        (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
-        bc?(encrypted) .
-        (let message = xor_mask (take (length encrypted) key) encrypted)
-        (* out!["Bob receives "; show message; "\n"] . *)
-        logc!message .
-        _0
+proc
+  Bob(nq,qc,ic,bc,logc,verbose) = 
+    (new rc)
+      | BobRead (nq,qc,rc,[]) 
+      | rc?(bvs) .
+        (let bs = map fst bvs)
+        ic?(bAs)  .
+        ic!bs     .
+        (let bAbvs = combine bAs bvs)
+        (let vBs = sanitise bAbvs)
+        bc?(vAs)  .
+        bc!vBs    .
+        (let ok = check verbose bs bAs vBs vAs (3,2) && check verbose bs bAs vBs vAs (1,2))
+        (* Alice goes first in reporting interference *)
+        bc?(Aliceok) .
+        (let Aliceok = bit2bool (hd (Aliceok)))
+        bc![bool2bit ok]   . logc![bool2bit ok]   .
+        if not (ok && Aliceok) then
+          (* Interference: log an empty message, but don't look for anything from Alice *)
+          logc![] .
+          _0
+        else 
+          (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
+          bc?(encrypted) .
+          (let message = xor_mask (take (length encrypted) key) encrypted)
+          (* out!["Bob receives "; show message; "\n"] . *)
+          logc!message .
+          _0
 
-proc BobRead (nq,qc,rc,bvs) = 
-  if nq=0 then rc!rev bvs . _0
-  else
-    qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
+  BobRead (nq,qc,rc,bvs) = 
+    if nq=0 then rc!rev bvs . _0
+    else
+      qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
 
-proc BobMeasure (q,r) =
-  match rand4() .
-    + 1 . q-/-[Rz]     (b) . r!1,b . _0
-    + 2 . q-/-[Rz*Rz]   (b) . r!2,b . _0
-    + 3 . q-/-[Rz*Rz*Rz] (b) . r!3,b . _0
-    + _ . BobMeasure (q,r) (* 0 - try again *)
+  BobMeasure (q,r) =
+    match rand4() .
+      + 1 . q-/-[Rz]     (b) . r!1,b . _0
+      + 2 . q-/-[Rz*Rz]   (b) . r!2,b . _0
+      + 3 . q-/-[Rz*Rz*Rz] (b) . r!3,b . _0
+      + _ . BobMeasure (q,r) (* 0 - try again *)

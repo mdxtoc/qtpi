@@ -11,5 +11,5 @@ proc Q(x: qbit, toP:^qbit, fromP:^qbit) =
   x>>H . toP!x . fromP?(z) . z>>H . _0 
 
 proc System() = (newq x) 
-           (new s:^qbit, r:^qbit) 
-           | P(s, r) | Q(x,s,r)
+                (new s:^qbit, r:^qbit) 
+                | P(s, r) | Q(x,s,r)

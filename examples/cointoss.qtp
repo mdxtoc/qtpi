@@ -12,12 +12,12 @@ proc Q(q: qbit, s:^qbit, log) =
 
 proc System() = (let k = read_num "number of trials")
                 (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
-           out!["See output for results -- can print but can't examine qbit state\n"] .
-           Logger (k, bv)
+                out!["See output for results -- can print but can't examine qbit state\n"] .
+                Logger (k, bv)
 
-proc Logger (k, bv) = Run (k, bv, 0)
+Logger (k, bv) = Run (k, bv, 0)
 
-proc Run (k, bv, i) = 
+Run (k, bv, i) = 
   if i=k then out![show i; " trials\n"] . _0
   else
     (newq q = bv) 

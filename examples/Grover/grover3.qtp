@@ -1,29 +1,30 @@
-proc System () =
-  . (newq q0 = |+>)  
-  . (newq q1 = |+>)
-  . (newq q2 = |+>)
-  .
-  . (let n = 3)
-  . (let G = groverG n)
-  . (let bs = randbits n)
-  . (let U = groverU bs)
-  . (let GU = G*U)
-  . (let iters = floor (pi*sqrt(2**n)/4+0.5))
-  . /^1
-  . Grover (iters, GU, q0, q1, q2, bs)
-  
-                with 1: out!["grover 3  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
-
-proc Grover (iters, GU, q0, q1, q2) =
-  if iters=0 then
-    . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) 
+proc 
+  System () =
+    . (newq q0 = |+>)  
+    . (newq q1 = |+>)
+    . (newq q2 = |+>)
+    .
+    . (let n = 3)
+    . (let G = groverG n)
+    . (let bs = randbits n)
+    . (let U = groverU bs)
+    . (let GU = G*U)
+    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
     . /^1
-    . _0
-  else
-    . q0,q1,q2>>GU
-    . Grover (iters-1, GU, q0, q1, q2) /^ (bs)
+    . Grover (iters, GU, q0, q1, q2, bs)
   
-                with (bs)
-                  1: . out!["measurement says "; show [b0;b1;b2]; 
-                            if [b0;b1;b2]=bs then " ok" else " ** WRONG **"; "\n"] 
-                     . _0
+                  with 1: out!["grover 3  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+
+  Grover (iters, GU, q0, q1, q2) =
+    if iters=0 then
+      . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) 
+      . /^1
+      . _0
+    else
+      . q0,q1,q2>>GU
+      . Grover (iters-1, GU, q0, q1, q2) /^ (bs)
+  
+                  with (bs)
+                    1: . out!["measurement says "; show [b0;b1;b2]; 
+                              if [b0;b1;b2]=bs then " ok" else " ** WRONG **"; "\n"] 
+                       . _0

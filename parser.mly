@@ -44,9 +44,11 @@
 
   let adorn inst = Instance.adorn (get_sourcepos()) inst
   
-  let eadorn inst = Instance.adorn (get_sourcepos()) (ewrap None inst)
+  let tadorn inst = Instance.adorn (get_sourcepos()) (twrap None inst)
   
-  let padorn inst = Instance.adorn (get_sourcepos()) (pwrap None inst)
+  let patadorn inst = Instance.adorn (get_sourcepos()) (pwrap None inst)
+  
+  let procadorn inst = Process.procadorn (get_sourcepos()) inst
      
 (*  
   let warn s = report (Warning (get_sourcepos(), s))
@@ -70,7 +72,7 @@
 %token <char> CHAR 
 
 %token EOP OFFSIDE /* could it be EOP? No. */
-%token FUN PROC WHERE LAMBDA WITH TESTPOINT
+%token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE TYPEARROW
@@ -132,14 +134,21 @@ defs:
   | def defs                            {$1::$2}
 
 def:
-  | processdef                          {$1}
+  | processdefs                         {$1}
   | functiondefs                        {$1}
   | letdef                              {$1}
   
-processdef:
-  PROC procname LPAR procparams RPAR EQUALS processbody  
+processdefs:
+  PROC pdefs                            {Processdefs $2}
+
+pdefs:
+  | pdef                                {[$1]}
+  | pdef pdefs                          {$1::$2}
+  
+pdef:
+  typedname LPAR procparams RPAR EQUALS indentNext processbody outdent
                                         {let proc, monparams, monbody = $7 in
-                                         Processdef($2,$4,proc,monparams,monbody)
+                                         ($1,$3,proc,monparams,monbody)
                                         }
 
 processbody:
@@ -158,9 +167,6 @@ monitorelement:
 montpnum:
   | tpnum                               {adorn $1}
   
-procname:
-  | name                                {adorn $1}
-
 procparams:
   |                                     {[]}
   | paramseq                            {$1}
@@ -170,8 +176,8 @@ paramseq:
   | param COMMA paramseq                {$1::$3}
   
 param:
-  | name COLON typespec                 {adorn ($1,ref (Some $3))}
-  | name                                {adorn ($1,ref None)}
+  | name COLON typespec                 {adorn (twrap (Some $3) $1)}
+  | name                                {tadorn $1}
 
 functiondefs:
   FUN fdefs                             {Functiondefs $2}
@@ -181,16 +187,16 @@ fdefs:
   | fdef fdefs                          {$1::$2}
 
 fdef:
-  funname fparams restypeopt EQUALS indentNext expr outdent    
-                                        {let rt = ref $3 in ($1,$2,rt,$6)}
+  typedname fparams restypeopt EQUALS indentNext expr outdent    
+                                        {$1,$2,ref None,$6}
   
-funname:
-  name                                  {adorn $1}
+typedname:
+  name                                  {tadorn $1}
   
 fparam:
-  | name                                {padorn (PatName $1)}
-  | UNDERSCORE                          {padorn PatAny}
-  | LPAR RPAR                           {padorn PatUnit}
+  | name                                {patadorn (PatName $1)}
+  | UNDERSCORE                          {patadorn PatAny}
+  | LPAR RPAR                           {patadorn PatUnit}
   | LPAR bpattern RPAR                  {$2}
   
 fparams:
@@ -287,22 +293,22 @@ qstep:
   | exprtuple THROUGH expr              {adorn (Ugatestep ($1,$3))}
 
 mpat:
-  | UNDERSCORE                          {padorn (PatAny)}
-  | LPAR UNDERSCORE RPAR                {padorn (PatAny)}
-  | LPAR name RPAR                      {padorn (PatName $2)}
+  | UNDERSCORE                          {patadorn (PatAny)}
+  | LPAR UNDERSCORE RPAR                {patadorn (PatAny)}
+  | LPAR name RPAR                      {patadorn (PatName $2)}
   | LPAR name COLON typespec RPAR       {adorn (pwrap (Some $4) (PatName $2))}
 
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
-  | expr QUERY UNDERSCORE               {adorn (Read ($1, padorn PatAny))}
+  | expr QUERY UNDERSCORE               {adorn (Read ($1, patadorn PatAny))}
   | expr BANG expr                      {adorn (Write ($1,$3))}
-  | expr BANG exprtuple                 {adorn (Write ($1, eadorn (Expr.delist $3)))}
+  | expr BANG exprtuple                 {adorn (Write ($1, tadorn (Expr.delist $3)))}
 
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
-  | procname procargs                   {adorn (Call ($1,$2,[]))}
-  | procname procargs TESTPOINT procargs                  
-                                        {adorn (Call ($1,$2,$4))}
+  | typedname procargs                   {adorn (GoOnAs ($1,$2,[]))}
+  | typedname procargs TESTPOINT procargs                  
+                                        {adorn (GoOnAs ($1,$2,$4))}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ($3,$5))}
   | LPAR QBITDEC qspecs RPAR process    
@@ -313,6 +319,8 @@ simpleprocess:
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
+  | PROCITER LPAR procparams RPAR LPAR process RPAR expr DOT process
+                                        {adorn (Iter ($3,$6,$8,$10))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */
@@ -373,28 +381,28 @@ letspec:
   
 pattern:
   | simplepattern                       {$1}
-  | simplepattern CONS pattern          {padorn (PatCons ($1,$3))}
+  | simplepattern CONS pattern          {patadorn (PatCons ($1,$3))}
   
 simplepattern:
-  | UNDERSCORE                          {padorn PatAny}
-  | name                                {padorn (PatName $1)}
-  | BIT0                                {padorn (PatBit false)}
-  | BIT1                                {padorn (PatBit true)}
-  | NUM                                 {padorn (PatInt (int_of_string $1))}
-  | TRUE                                {padorn (PatBool (true))}
-  | FALSE                               {padorn (PatBool (false))}
-  | CHAR                                {padorn (PatChar $1)}
-  | STRING                              {padorn (PatString $1)}
-  | basisv                              {padorn (PatBasisv $1) }
+  | UNDERSCORE                          {patadorn PatAny}
+  | name                                {patadorn (PatName $1)}
+  | BIT0                                {patadorn (PatBit false)}
+  | BIT1                                {patadorn (PatBit true)}
+  | NUM                                 {patadorn (PatInt (int_of_string $1))}
+  | TRUE                                {patadorn (PatBool (true))}
+  | FALSE                               {patadorn (PatBool (false))}
+  | CHAR                                {patadorn (PatChar $1)}
+  | STRING                              {patadorn (PatString $1)}
+  | basisv                              {patadorn (PatBasisv $1) }
   | LSQPAR patternlist RSQPAR           {$2}
-  | LPAR RPAR                           {padorn PatUnit}
-  | LPAR patterns RPAR                  {padorn (Pattern.delist $2)}
+  | LPAR RPAR                           {patadorn PatUnit}
+  | LPAR patterns RPAR                  {patadorn (Pattern.delist $2)}
   | simplepattern COLON typespec        {adorn (pwrap (Some $3) $1.inst.pnode)}
   
 patternlist:
-  |                                     {padorn PatNil}
-  | pattern                             {padorn (PatCons ($1, padorn PatNil))}
-  | pattern SEMICOLON patternlist       {padorn (PatCons ($1,$3))}
+  |                                     {patadorn PatNil}
+  | pattern                             {patadorn (PatCons ($1, patadorn PatNil))}
+  | pattern SEMICOLON patternlist       {patadorn (PatCons ($1,$3))}
   
 patterns:   /* no 'empty' alternative */
   | pattern                             {[$1]}
@@ -403,16 +411,16 @@ patterns:   /* no 'empty' alternative */
 /* simpler form of pattern for lets, reads, and (for now) function defs. Can't fail to match */
 bpattern:
   | simplebpattern                      {$1}                
-  | simplebpattern COMMA bpatterns      {padorn (Pattern.delist ($1::$3))}
+  | simplebpattern COMMA bpatterns      {patadorn (Pattern.delist ($1::$3))}
   
 bpatterns:
   | simplebpattern                      {[$1]}                
   | simplebpattern COMMA bpatterns      {$1::$3}
   
 simplebpattern:
-  | UNDERSCORE                          {padorn PatAny}
-  | LPAR RPAR                           {padorn PatUnit}
-  | name                                {padorn (PatName $1)}
+  | UNDERSCORE                          {patadorn PatAny}
+  | LPAR RPAR                           {patadorn PatUnit}
+  | name                                {patadorn (PatName $1)}
   | LPAR bpattern RPAR                  {$2}
   | simplebpattern COLON typespec       {adorn (pwrap (Some $3) $1.inst.pnode)}
 
@@ -427,35 +435,35 @@ basisv:
   | VMINUS                              {BVminus}
 
 primary:
-  | LPAR RPAR                           {eadorn EUnit}
-  | name                                {eadorn (EVar $1)}
-  | BIT0                                {eadorn (EBit false)}
-  | BIT1                                {eadorn (EBit true)}
-  | NUM                                 {eadorn (ENum (Number.num_of_string $1))}
-  | TRUE                                {eadorn (EBool (true))}
-  | FALSE                               {eadorn (EBool (false))}
-  | CHAR                                {eadorn (EChar $1)}
-  | STRING                              {eadorn (EString $1)}
-  | basisv                              {eadorn (EBasisv $1) }
+  | LPAR RPAR                           {tadorn EUnit}
+  | name                                {tadorn (EVar $1)}
+  | BIT0                                {tadorn (EBit false)}
+  | BIT1                                {tadorn (EBit true)}
+  | NUM                                 {tadorn (ENum (Number.num_of_string $1))}
+  | TRUE                                {tadorn (EBool (true))}
+  | FALSE                               {tadorn (EBool (false))}
+  | CHAR                                {tadorn (EChar $1)}
+  | STRING                              {tadorn (EString $1)}
+  | basisv                              {tadorn (EBasisv $1) }
   | LSQPAR exprlist RSQPAR              {$2}
-  | LPAR exprtuple RPAR                 {eadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
-  | IF indentPrev eif outdent fiq       {eadorn($3.inst.enode)}
+  | LPAR exprtuple RPAR                 {tadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
+  | IF indentPrev eif outdent fiq       {tadorn($3.inst.tnode)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
     indentPrev 
       indentNext expr outdent
       DOT 
       indentNext ematches outdent
-    outdent                             {eadorn (EMatch ($4,$8))}
+    outdent                             {tadorn (EMatch ($4,$8))}
   
 eif:
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
     ELSE indentPrev indentNext expr outdent outdent
-                                        {eadorn (ECond ($2, $6, $11))}
+                                        {tadorn (ECond ($2, $6, $11))}
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
-    ELIF indentPrev eif outdent         {eadorn (ECond ($2, $6, $10))}
+    ELIF indentPrev eif outdent         {tadorn (ECond ($2, $6, $10))}
   
 fiq:    /* optional FI */
   | FI                                  {}              
@@ -472,32 +480,32 @@ ematch:
 expr:
   | nwexpr                              {$1}
   | expr WHERE indentPrev edecl outdent    
-                                        {eadorn (EWhere ($1,$4))}
+                                        {tadorn (EWhere ($1,$4))}
   
 edecl:
   | bpattern restypeopt EQUALS indentNext expr outdent
                                         {adorn (EDPat($1,$2,$5))}
-  | funname fparams restypeopt EQUALS indentNext expr outdent   
+  | typedname fparams restypeopt EQUALS indentNext expr outdent   
                                         {let rt = ref $3 in adorn (EDFun($1,$2,rt,$6))}
 
 nwexpr:  /* non-while expr: can be a cons */
   | nwlexpr                             {$1}
-  | nwlexpr CONS nwexpr                 {eadorn (ECons ($1,$3))}
+  | nwlexpr CONS nwexpr                 {tadorn (ECons ($1,$3))}
   
 nwlexpr: /* neither while nor cons */
   | primary                             {$1} 
   | app                                 {$1}
-  | MINUS primary                       {eadorn (EMinus $2)}
-  | NOT primary                         {eadorn (ENot $2)}
-  | nwexpr APPEND nwexpr                {eadorn (EAppend ($1,$3))}
-  | arith                               {let e1,op,e2 = $1 in eadorn (EArith (e1,op,e2))}
-  | compare                             {let e1,op,e2 = $1 in eadorn (ECompare (e1,op,e2))}
-  | bool                                {let e1,op,e2 = $1 in eadorn (EBoolArith (e1,op,e2))}
-  | LAMBDA fparams DOT expr             {eadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
+  | MINUS primary                       {tadorn (EMinus $2)}
+  | NOT primary                         {tadorn (ENot $2)}
+  | nwexpr APPEND nwexpr                {tadorn (EAppend ($1,$3))}
+  | arith                               {let e1,op,e2 = $1 in tadorn (EArith (e1,op,e2))}
+  | compare                             {let e1,op,e2 = $1 in tadorn (ECompare (e1,op,e2))}
+  | bool                                {let e1,op,e2 = $1 in tadorn (EBoolArith (e1,op,e2))}
+  | LAMBDA fparams DOT expr             {tadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
 
 app:
-  | primary primary                     {eadorn (EApp ($1,$2))}
-  | app primary                         {eadorn (EApp ($1,$2))}
+  | primary primary                     {tadorn (EApp ($1,$2))}
+  | app primary                         {tadorn (EApp ($1,$2))}
   
 arith:
   | nwexpr TENSORP nwexpr               {$1,TensorP,$3}
@@ -525,9 +533,9 @@ bool:
   | nwexpr OR nwexpr                    {$1,Or,$3}
   
 exprlist:
-  |                                     {eadorn ENil}
-  | expr                                {eadorn (ECons ($1, eadorn ENil))}
-  | expr SEMICOLON exprlist             {eadorn (ECons ($1, $3))}
+  |                                     {tadorn ENil}
+  | expr                                {tadorn (ECons ($1, tadorn ENil))}
+  | expr SEMICOLON exprlist             {tadorn (ECons ($1, $3))}
 
 exprtuple:                              /* no 'empty' alternative */
   | expr                                {[$1]}

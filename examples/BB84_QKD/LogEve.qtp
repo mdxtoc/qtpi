@@ -1,44 +1,45 @@
 
-proc LogEve (verbose, logAE, logEB, done) =
-  (new doneAE, doneEB)
-  | LogAliceEve (verbose, logAE, doneAE)
-  | LogEveBob (verbose, logEB, doneEB)
-  | doneAE?(resultAE)      .
-    doneEB?(resultEB)      .
-    done!resultAE,resultEB .
-    _0
+proc 
+  LogEve (verbose, logAE, logEB, done) =
+    (new doneAE, doneEB)
+    | LogAliceEve (verbose, logAE, doneAE)
+    | LogEveBob (verbose, logEB, doneEB)
+    | doneAE?(resultAE)      .
+      doneEB?(resultEB)      .
+      done!resultAE,resultEB .
+      _0
   
-proc LogAliceEve (verbose, log, done) = 
-  log?(encrypted)     .
-  out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
-                 else []
-                      .
-  log?(code)          .
-  out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
-                 else []
-                      .
-  log?(hkbsAE)        .
-  done!hkbsAE         .
-  _0
+  LogAliceEve (verbose, log, done) = 
+    log?(encrypted)     .
+    out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
+                   else []
+                        .
+    log?(code)          .
+    out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
+                   else []
+                        .
+    log?(hkbsAE)        .
+    done!hkbsAE         .
+    _0
 
-proc LogEveBob (verbose, log, done) = 
-  log?(bs)              .
-  log?(vs)              .
-  out!if verbose then ["Eve (as Alice) sent "; show (length bs); 
-                       " pairs: "; show (zip bs vs); "\n"] 
-                 else []
+  LogEveBob (verbose, log, done) = 
+    log?(bs)              .
+    log?(vs)              .
+    out!if verbose then ["Eve (as Alice) sent "; show (length bs); 
+                         " pairs: "; show (zip bs vs); "\n"] 
+                   else []
+                          .
+    log?(cs)              .
+    out!if verbose then ["Eve (as Alice) saw "; show (length cs); 
+                         " checkbits from Bob: "; show cs; "\n"] 
+                   else []
+                          .
+    log?(decoded)          .
+    (let decoded = bit2bool (hd decoded))
+    log?(message)       .
+    out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
+                              else []
                         .
-  log?(cs)              .
-  out!if verbose then ["Eve (as Alice) saw "; show (length cs); 
-                       " checkbits from Bob: "; show cs; "\n"] 
-                 else []
-                        .
-  log?(decoded)          .
-  (let decoded = bit2bool (hd decoded))
-  log?(message)       .
-  out!if verbose && decoded then ["Eve decodes message "; show message; "\n"] 
-                            else []
-                      .
-  log?(hkbsEB) .
-  done!decoded, message, length cs, hkbsEB .
-  _0
+    log?(hkbsEB) .
+    done!decoded, message, length cs, hkbsEB .
+    _0

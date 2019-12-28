@@ -1,37 +1,38 @@
-proc System () =
-  . (newq q0 = |+>)  
-  . (newq q1 = |+>)
-  . (newq q2 = |+>)
-  . (newq q3 = |+>)
-  . (newq q4 = |+>)
-  . (newq q5 = |+>)
-  . (newq q6 = |+>)
-  . (newq q7 = |+>)
-  . (newq q8 = |+>)
-  .
-  . (let n = 9)
-  . (let G = groverG n)
-  . (let bs = randbits n)
-  . (let U = groverU bs)
-  . (let GU = G*U)
-  . (let iters = floor (pi*sqrt(2**n)/4+0.5))
-  . /^1
-  . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8, bs)
-  
-                with 1: out!["grover "; show n; ";  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
-
-proc Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8) =
-  if iters=0 then
-    . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6) . q7-/-(b7) . q8-/-(b8)
+proc 
+  System () =
+    . (newq q0 = |+>)  
+    . (newq q1 = |+>)
+    . (newq q2 = |+>)
+    . (newq q3 = |+>)
+    . (newq q4 = |+>)
+    . (newq q5 = |+>)
+    . (newq q6 = |+>)
+    . (newq q7 = |+>)
+    . (newq q8 = |+>)
+    .
+    . (let n = 9)
+    . (let G = groverG n)
+    . (let bs = randbits n)
+    . (let U = groverU bs)
+    . (let GU = G*U)
+    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
     . /^1
-    . _0
-  else
-    . q0,q1,q2,q3,q4,q5,q6,q7,q8>>GU
-    . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8) /^ (bs)
+    . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8, bs)
   
-                with (bs)
-                  1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7;b8])
-                     . out!["measurement says "; show answer; 
-                            if answer=bs then " ok" else " ** WRONG **"; "\n"] 
-                     . _0
+                  with 1: out!["grover "; show n; ";  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+
+  Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8) =
+    if iters=0 then
+      . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6) . q7-/-(b7) . q8-/-(b8)
+      . /^1
+      . _0
+    else
+      . q0,q1,q2,q3,q4,q5,q6,q7,q8>>GU
+      . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8) /^ (bs)
+  
+                  with (bs)
+                    1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7;b8])
+                       . out!["measurement says "; show answer; 
+                              if answer=bs then " ok" else " ** WRONG **"; "\n"] 
+                       . _0
                      

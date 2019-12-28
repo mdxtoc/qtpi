@@ -1,5 +1,6 @@
 
-proc System () = (newq q) 
+proc System () = 
+  (newq q) 
   out!["to prove to Raja that qtpi can calculate "; show H;"*"; show H; "="; show (H*H); "\n"] .
   out!["initially "] . outq!(qval q) . out!["; "] .
   q>>H . 

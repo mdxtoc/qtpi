@@ -866,7 +866,7 @@ and typecheck_letspec contn cxt pat e =
   assigntype_pat contn cxt t pat
 
 and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
-  let tparams = List.map (fix_paramtype newcommtv) params in
+  let tparams = List.map (fix_paramtype newclasstv) params in (* not newcommtv: internal processes can't take qbit arguments *)
   let tp = adorn pn.pos (Process tparams) in
   assigntype_typedname tp pn;
   let cxt = if brec then cxt<@+>(tnode pn,tp) else cxt in

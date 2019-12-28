@@ -498,30 +498,26 @@ let rec interp env proc =
             in
             (match rproc.inst with
              | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
-             | GoOnAs (pn, es, mes) -> 
+             | GoOnAs (gpn, es, mes) -> 
                  (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
-                  try (match env<@>pn.inst.tnode with
+                  try (match env<@>gpn.inst.tnode with
                        | VProcess (er, ns, ms, proc) -> 
-                           let env = if es@mes=[] && Stringutils.starts_with pn.inst.tnode "#mon#"
-                                     then menv !er (* it's a monitor process ... I hope *)
-                                     else (let ne = List.length ns in
-                                           let locals = zip ns (take ne vs) in
-                                           let mons = zip ms (drop ne vs) in
-                                           monenv_of_lmg locals mons (assoc_of_monenv !er)
-                                          ) 
-                           in
-                           deleteproc pn.inst.tnode;
-                           let pn' = addnewproc pn.inst.tnode in
-                           addrunner (pn', proc, env);
-                           if !traceId then trace (EVChangeId (pn.inst.tnode, [pn']));
+                           let ne = List.length ns in
+                           let locals = zip ns (take ne vs) in
+                           let mons = zip ms (drop ne vs) in
+                           let env = monenv_of_lmg locals mons (assoc_of_monenv !er) in
+                           deleteproc pn;
+                           let gpn' = addnewproc gpn.inst.tnode in
+                           addrunner (gpn', proc, env);
+                           if !traceId then trace (EVChangeId (pn, [gpn']));
                            if !pstep then
                              show_pstep (Printf.sprintf "%s(%s)" 
-                                                        pn.inst.tnode 
+                                                        gpn.inst.tnode 
                                                         (string_of_list short_string_of_value "," vs)
                                         )
-                       | v -> mistyped rproc.pos (string_of_name pn.inst.tnode) v "a process"
+                       | v -> mistyped rproc.pos (string_of_name gpn.inst.tnode) v "a process"
                       )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name pn.inst.tnode))
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name gpn.inst.tnode))
                  )
              | WithNew (ps, proc) ->
                  let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
@@ -546,8 +542,8 @@ let rec interp env proc =
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithProc ((brec,pn',params,proc),p) ->
                  let er = ref env in
-                 let proc = VProcess (er, names_of_params params, [], proc) in
-                 let env = env<@+>(tnode pn', proc) in
+                 let procv = VProcess (er, names_of_params params, [], proc) in
+                 let env = env<@+>(tnode pn', procv) in
                  if brec then er := env;
                  addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->

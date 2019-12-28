@@ -1,36 +1,37 @@
-proc System () =
-  . (newq q0 = |+>)  
-  . (newq q1 = |+>)
-  . (newq q2 = |+>)
-  . (newq q3 = |+>)
-  . (newq q4 = |+>)
-  . (newq q5 = |+>)
-  . (newq q6 = |+>)
-  . (newq q7 = |+>)
-  .
-  . (let n = 8)
-  . (let G = groverG n)
-  . (let bs = randbits n)
-  . (let U = groverU bs)
-  . (let GU = G*U)
-  . (let iters = floor (pi*sqrt(2**n)/4+0.5))
-  . /^1
-  . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, bs)
-  
-                with 1: out!["grover 8  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
-
-proc Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7) =
-  if iters=0 then
-    . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6) . q7-/-(b7) 
+proc 
+  System () =
+    . (newq q0 = |+>)  
+    . (newq q1 = |+>)
+    . (newq q2 = |+>)
+    . (newq q3 = |+>)
+    . (newq q4 = |+>)
+    . (newq q5 = |+>)
+    . (newq q6 = |+>)
+    . (newq q7 = |+>)
+    .
+    . (let n = 8)
+    . (let G = groverG n)
+    . (let bs = randbits n)
+    . (let U = groverU bs)
+    . (let GU = G*U)
+    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
     . /^1
-    . _0
-  else
-    . q0,q1,q2,q3,q4,q5,q6,q7>>GU
-    . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7) /^ (bs)
+    . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, bs)
   
-                with (bs)
-                  1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7])
-                     . out!["measurement says "; show answer; 
-                            if answer=bs then " ok" else " ** WRONG **"; "\n"] 
-                     . _0
+                  with 1: out!["grover 8  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+
+  Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7) =
+    if iters=0 then
+      . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6) . q7-/-(b7) 
+      . /^1
+      . _0
+    else
+      . q0,q1,q2,q3,q4,q5,q6,q7>>GU
+      . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7) /^ (bs)
+  
+                  with (bs)
+                    1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7])
+                       . out!["measurement says "; show answer; 
+                              if answer=bs then " ok" else " ** WRONG **"; "\n"] 
+                       . _0
                      

@@ -9,9 +9,9 @@ proc Bob(y:qbit, c:^(bit,bit)) =
                          + (0b0,0b1) . 1
                          + (0b1,0b0) . 2 (* i.e. Y *)
                          + (0b1,0b1) . 3 (* i.e. Z *) (* this doesn't work *)
-						) . 
+                        ) . 
     out!["finally Bob's y is "] .  outq!(qval y) . out!["\n"] .
-  	_0
+    _0
   
 proc Alice'(s:^qbit,c:^(bit,bit),z:qbit) = s?(x:qbit) . Alice(x,c,z)
 
@@ -22,5 +22,5 @@ proc Source(s:^qbit,t:^qbit) = (newq x=|0>,y=|0>) x>>H . x,y>>CNot . s!x . t!y .
 proc System() = 
     out!["This is teleportation using the Phi collection I, X, Y, Z. It doesn't work\n"] .
     (newq z)(new c:^(bit,bit),s:^qbit,t:^qbit) | Alice'(s,c,z) 
-    										 | Bob'(t,c) 
-    										 | Source(s,t)
+                                             | Bob'(t,c) 
+                                             | Source(s,t)

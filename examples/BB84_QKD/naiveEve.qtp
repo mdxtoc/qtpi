@@ -26,15 +26,15 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB) =
       . /^3
       . _0
 
-with (logAE,logEB)
-  1: . logEB!bs. logEB!vs
-     . _0
-  2: . logEB!cs
-     . _0
-  3: . logAE!encrypted           
-     . logAE!code
-     . logEB![bool2bit true]             (* can decrypt, sort of *)
-     . logEB!M                           (* best guess *)
-     . logAE![]                          (* empty hash keys A<->E *)
-     . logEB![]                          (* empty hash keys E<->B *)
-     . _0            
+                with (logAE,logEB)
+                  1: . logEB!bs. logEB!vs
+                     . _0
+                  2: . logEB!cs
+                     . _0
+                  3: . logAE!encrypted           
+                     . logAE!code
+                     . logEB![bool2bit true]             (* can decrypt, sort of *)
+                     . logEB!M                           (* best guess *)
+                     . logAE![]                          (* empty hash keys A<->E *)
+                     . logEB![]                          (* empty hash keys E<->B *)
+                     . _0            

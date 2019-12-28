@@ -1,12 +1,13 @@
 
-proc System () = 
-  (new cA:^qbit, cB:^qbit, cAB:^(bit,bit)) 
-  | EPR(cA,cB)| Alice(cA,cAB) | Bob(cB,cAB)
+proc 
+  System () = 
+    (new cA:^qbit, cB:^qbit, cAB:^(bit,bit)) 
+    | EPR(cA,cB)| Alice(cA,cAB) | Bob(cB,cAB)
 
-proc EPR(cA:^qbit,cB:^qbit) = 
-  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
+  EPR(cA:^qbit,cB:^qbit) = 
+    (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
   
-proc Alice (cA:^qbit, cAB:^(bit,bit)) = 
+  Alice (cA:^qbit, cAB:^(bit,bit)) = 
     cA?(x) .
     (newq z) /^1
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
@@ -15,7 +16,7 @@ proc Alice (cA:^qbit, cAB:^(bit,bit)) =
                                         with 1: out!["initially Alice's z is "] . 
                                                 outq!(qval z) . out!["\n"] . _0
 
-proc Bob(cB:^qbit, cAB:^(bit,bit)) = 
+  Bob(cB:^qbit, cAB:^(bit,bit)) = 
     cB?(y) .
     cAB?(pair) . 
     y >> match pair . + (0b0,0b0) . I

@@ -10,7 +10,7 @@ The two things which make it interesting are the calculator and the static check
 
 Still under development, as I said. We're currently experimenting with some simple quantum calculation examples like Grover and quantum leadership election. And I'm experimenting with iterative constructs to aid description of algorithms.
 
-There is a [language description](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md) in the [docs directory](https://github.com/mdxtoc/qtpi/tree/master/docs), and there are examples in the [examples directory](https://github.com/mdxtoc/qtpi/tree/master/examples) -- and have a look at [the BBEdit worksheet](https://github.com/mdxtoc/qtpi/blob/master/Qtpi.worksheet) for how to run them. There are even a couple of binary releases. More to come, of course.
+There is a [language description](https://github.com/mdxtoc/qtpi/blob/master/docs/qtpi_description.md) in the [docs directory](https://github.com/mdxtoc/qtpi/tree/master/docs), and there are examples in the [examples directory](https://github.com/mdxtoc/qtpi/tree/master/examples) -- and have a look at [the BBEdit worksheet](https://github.com/mdxtoc/qtpi/blob/master/Qtpi.worksheet) for how to run them. There are even a couple of binary releases. See [HOW\_TO\_USE.md](https://github.com/mdxtoc/qtpi/blob/master/HOW_TO_USE.md) if you want to build it yourself.
 
 ## Acknowledgements
 

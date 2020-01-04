@@ -47,9 +47,6 @@ exception Disaster of string
 (* Back to assoc lists. Maps seem to be overkill, now that unknowns are not in the context *)
 
 type typecxt = _type monenv
-let new_cxt = monenv_of_assoc
-let mcxt = menv
-let assoc_of_cxt = assoc_of_monenv
 
 let string_of_typeassoc = string_of_monassoc "->" string_of_type
 
@@ -776,11 +773,7 @@ and typecheck_process mon cxt p  =
          with Not_found -> raise (Error (pn.pos, "undefined process " ^ string_of_name (tnode pn)))
         )
       in
-     let cxts = Listutils.tabulate arglength
-                                   (fun i -> if i<List.length args then cxt else mcxt cxt)
-     in
-     let trips = zip cxts (zip ts args) in
-      List.iter (fun (cxt,(t,e)) -> assigntype_expr cxt t e) trips
+      List.iter (fun (t,e) -> assigntype_expr cxt t e) (zip ts args)
   | WithNew (params, proc) ->
       (* all the params have to be channels *)
       let _ = 
@@ -833,7 +826,7 @@ and typecheck_process mon cxt p  =
   | TestPoint (n,proc) -> 
       (match find_monel n.inst mon with
        | Some (pos, monproc) -> (* typecheck the monproc in monitor context *)
-                                typecheck_process [] (mcxt cxt) monproc
+                                typecheck_process [] cxt monproc
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
@@ -871,6 +864,11 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   let cxt = if brec then cxt else cxt<@+>(tnode pn,tp) in
   contn cxt
 
+let (<%@>)  = Listutils.(<@>)       
+let (<%@+>) = Listutils.(<@+>)       
+let (<%@->) = Listutils.(<@->)       
+let (<%@?>) = Listutils.(<@?>)       
+
 let make_library_assoc () =
   let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let typ = adorn dummy_spos in
@@ -904,7 +902,7 @@ let typecheck_fdefs assoc fdefs =
     let rt = result_type fn.pos pats env_type in
     let rtv = newclasstv rt.pos in
     let _ = unifytypes rtv rt in
-    assigntype_fun (new_cxt assoc) (Type.instantiate env_type) pats expr;
+    assigntype_fun assoc (Type.instantiate env_type) pats expr;
     evalassoc assoc
   in
   let assoc = List.fold_left tc_fdef assoc fdefs in
@@ -960,7 +958,7 @@ let typecheck_pdefs assoc pdefs =
     check_distinct_params params;
     check_monlabels proc mon;
     let locals = List.map (process_param newcommtv) params in
-    typecheck_process mon (monenv_of_lmg locals [] assoc) proc;
+    typecheck_process mon (monenv_of_lg locals (globalise assoc)) proc;
     let assoc = evalassoc assoc in
     let tps = zip env_types params in
     let _ = List.iter (fun (t, par) -> unifytypes t (type_of_typedname par)) tps in
@@ -985,10 +983,10 @@ let typecheck_def assoc def =
   | Functiondefs fdefs   -> typecheck_fdefs assoc fdefs
   | Letdef       (pat,e) ->
       (* sneaky use of reference to allow typecheck_letspec to return unit *)
-      let cref = ref (new_cxt assoc) in
+      let cref = ref assoc in
       let contn cxt = cref := cxt in
-      typecheck_letspec contn (new_cxt assoc) pat e;
-      evalassoc (assoc_of_cxt !cref)
+      typecheck_letspec contn assoc pat e;
+      evalassoc !cref
 
 let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->

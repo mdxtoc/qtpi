@@ -989,12 +989,12 @@ and short_so_chan optf {cname=i} =
 and so_env optf env =
   "{" ^ string_of_monenv "=" (so_value optf) env ^ "}"
 
-and short_so_env optf = so_env optf <.> (Monenv.filterg (function 
+and short_so_env optf = so_env optf (* <.> (Monenv.filterg (function 
                                                         | _, VFun     _ 
                                                         | _, VProcess _ -> false
                                                         | _             -> true
                                                         )
-                                         )
+                                         ) *)
   
 and so_runner optf (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 

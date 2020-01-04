@@ -503,7 +503,7 @@ let rec interp env proc =
                   try (match env<@>gpn.inst.tnode with
                        | VProcess (er, ns, proc) -> 
                            let locals = zip ns vs in
-                           let env = monenv_of_lmg locals [] (assoc_of_monenv !er) in
+                           let env = monenv_of_lg locals !er in
                            deleteproc pn;
                            let gpn' = addnewproc gpn.inst.tnode in
                            addrunner (gpn', proc, env);
@@ -768,7 +768,7 @@ let interpret defs =
     if env <@?> name then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))
     else env <@+> (name, VChan (mkchan c))
   in
-  let sysenv = globalise (List.fold_left definitely_add (monenv_of_assoc knownassoc) 
+  let sysenv = globalise (List.fold_left definitely_add knownassoc 
                                             [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
   in
   (* bind definitions in order *)

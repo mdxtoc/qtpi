@@ -16,16 +16,16 @@ proc
   
                   with 1: out!["grover 4  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, q0, q1, q2, q3) =
+  Grover (iters, GU, q0, q1, q2, q3, bs) =
     if iters=0 then
       . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) 
       . /^1
       . _0
     else
       . q0,q1,q2,q3>>GU
-      . Grover (iters-1, GU, q0, q1, q2, q3) /^ (bs)
+      . Grover (iters-1, GU, q0, q1, q2, q3, bs)
   
-                  with (bs)
+                  with
                     1: . out!["measurement says "; show [b0;b1;b2;b3]; 
                               if [b0;b1;b2;b3]=bs then " ok" else " ** WRONG **"; "\n"] 
                        . _0

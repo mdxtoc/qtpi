@@ -1,6 +1,6 @@
 (* a sophisticated eavesdropper. Plays Bob to Alice, Alice to Bob *)
 
-proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB) =
+proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
     (new measured) 
     | . CopyQBits([],qcA,qcB,bcA,measured)
     | . measured?(bs)                       (* bs, vs are what I saw and then sent *)
@@ -43,7 +43,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB) =
       . /^3
        . _0
 
-  with (logAE, logEB)
+  with
     1: . logEB!bs. logEB!vs
        . _0
     2: . logEB!checkbitsB

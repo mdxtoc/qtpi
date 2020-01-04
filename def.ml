@@ -41,7 +41,7 @@ type def =
   | Functiondefs of fdef list
   | Letdef       of pattern * expr
   
-and pdef = typedname * param list * process * param list * monitor
+and pdef = typedname * param list * process * monitor
 
 and fdef = typedname * pattern list * _type option ref * expr 
 
@@ -54,12 +54,12 @@ let rec string_of_def = function
                                                    (string_of_pattern pat) 
                                                    (string_of_expr e)
   
-and string_of_pdef (pn,params,proc,monparams,mon) =
+and string_of_pdef (pn,params,proc,mon) =
   Printf.sprintf "%s(%s) = %s%s"
                     (string_of_name pn.inst.tnode)
                     (String.concat "," (List.map string_of_param params))
                     (string_of_process proc)
-                    (string_of_maybe_monitor monparams mon)
+                    (string_of_maybe_monitor mon)
                     
 and string_of_fdef (fn,pats,toptr,expr) =
   Printf.sprintf "%s %s%s = %s"
@@ -74,12 +74,10 @@ and string_of_fdef (fn,pats,toptr,expr) =
 and string_of_monitor = 
   string_of_list (fun (n,(_,proc)) -> Printf.sprintf "%s: %s" n (string_of_process proc)) " "
 
-and string_of_maybe_monitor monparams mon =
-  match monparams, mon with
-  | [], []  -> ""
-  | _       -> Printf.sprintf " with (%s) %s" 
-                              (String.concat "," (List.map string_of_param monparams))
-                              (string_of_monitor mon)
+and string_of_maybe_monitor mon =
+  match mon with
+  | []  -> ""
+  | _   -> Printf.sprintf " with %s" (string_of_monitor mon)
 
 and short_string_of_monitor mon =
   String.concat ":... " (List.map fst mon)

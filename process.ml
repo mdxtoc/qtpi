@@ -39,7 +39,7 @@ type process = procnode instance
 
 and procnode =
   | Terminate
-  | GoOnAs of typedname * expr list * expr list (* GoOnAs: homage to Laski *)
+  | GoOnAs of typedname * expr list             (* GoOnAs: homage to Laski *)
   | WithNew of param list * process
   | WithQbit of qspec list * process
   | WithLet of letspec * process
@@ -59,7 +59,7 @@ and letspec = pattern * expr
 and pdecl = bool * typedname * param list * process   (* bool for recursion:
                                                                    false -- proc pn = tau(params).proc 
                                                                    true  -- proc pn(params) = proc
-                                                                *)
+                                                       *)
 
 let procadorn pos process =
   adorn (match process with 
@@ -82,10 +82,9 @@ let procadorn pos process =
 let rec string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | GoOnAs (pn,es,mes)    -> Printf.sprintf "%s(%s)%s"
+  | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name pn.inst.tnode)
                                             (string_of_list string_of_expr "," es)
-                                            (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
@@ -132,10 +131,9 @@ and trailing_sop p =
 and short_string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"
-  | GoOnAs (pn,es,mes)    -> Printf.sprintf "%s(%s)%s"
+  | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name pn.inst.tnode)
                                             (string_of_list string_of_expr "," es)
-                                            (if mes=[] then "" else "/^(" ^ string_of_list string_of_expr "," mes ^ ")")
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
                                             (commasep (List.map string_of_param params))
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
@@ -198,7 +196,7 @@ and string_of_procmatch (pat,proc) =
 and short_string_of_procmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_pattern pat)
 
 (* I wish OCaml didn't force this ... *)
-let _GoOnAs n es mes  = GoOnAs (n,es,mes)
+let _GoOnAs n es    = GoOnAs (n,es)
 let _WithNew pars p = WithNew (pars,p)
 let _WithQbit qs p  = WithQbit (qs,p)
 let _WithLet l p    = WithLet (l,p)
@@ -250,7 +248,7 @@ let rec frees proc =
   let rec ff set p =
     match p.inst with
     | Terminate -> set
-    | GoOnAs (pn, es, mes)  -> NameSet.add pn.inst.tnode (ff_es (ff_es set es) mes)
+    | GoOnAs (pn, es)       -> NameSet.add pn.inst.tnode (ff_es set es)
     | WithNew (pars, p)     -> NameSet.diff (ff set p) (paramset pars)
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = paramset qs in

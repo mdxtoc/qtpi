@@ -147,15 +147,13 @@ pdefs:
   
 pdef:
   typedname LPAR procparams RPAR EQUALS indentNext processbody outdent
-                                        {let proc, monparams, monbody = $7 in
-                                         ($1,$3,proc,monparams,monbody)
+                                        {let proc, monbody = $7 in
+                                         ($1,$3,proc,monbody)
                                         }
 
 processbody:
-  | process                             {$1, [], []}
-  | process WITH monitor                {$1, [], $3}
-  | process WITH LPAR procparams RPAR monitor                
-                                        {$1, $4, $6}
+  | process                             {$1, []}
+  | process WITH monitor                {$1, $3}
 
 monitor:
   | monitorelement                      {[$1]}
@@ -306,9 +304,7 @@ iostep:
 
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
-  | typedname procargs                   {adorn (GoOnAs ($1,$2,[]))}
-  | typedname procargs TESTPOINT procargs                  
-                                        {adorn (GoOnAs ($1,$2,$4))}
+  | typedname procargs                  {adorn (GoOnAs ($1,$2))}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ($3,$5))}
   | LPAR QBITDEC qspecs RPAR process    

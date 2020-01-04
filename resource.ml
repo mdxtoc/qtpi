@@ -536,8 +536,8 @@ and rck_proc mon state env stoppers proc =
     let r =
       match proc.inst with
       | Terminate               -> ResourceSet.empty
-      | GoOnAs (n, es, mes)       -> (* disjoint resources in the arguments, no dead qbits used *)
-                                   let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) (es@mes) in
+      | GoOnAs (n, es)          -> (* disjoint resources in the arguments, no dead qbits used *)
+                                   let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) es in
                                    (try disju ers with OverLap s -> badproc s)
       | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
@@ -657,8 +657,8 @@ let rck_def env def =
                   (string_of_def def);
   match def with
   | Processdefs pdefs -> 
-      let rck_pdef (pn, params, proc, monparams, mon) =
-        let state, rparams = resource_of_params State.empty (params@monparams) in
+      let rck_pdef (pn, params, proc, mon) =
+        let state, rparams = resource_of_params State.empty params in
         if !verbose then
           Printf.printf "\ndef %s params %s resource %s\n" 
                         (string_of_name pn.inst.tnode)
@@ -747,7 +747,7 @@ and ffv_fundef pos fnopt pats e =
 and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
-  | GoOnAs      (pn,es,mes)          -> List.iter ffv_expr es; List.iter ffv_expr mes
+  | GoOnAs    (pn,es)              -> List.iter ffv_expr es
   | WithNew   (params, proc)       -> ffv_proc mon proc
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
@@ -797,7 +797,7 @@ and ffv_def def =
   
 and ffv_fdef (fn, pats, _, e) = ffv_fundef fn.pos (Some fn) pats e
 
-and ffv_pdef (pn, _, proc, _, mon) = ffv_proc mon proc
+and ffv_pdef (pn, _, proc, mon) = ffv_proc mon proc
 
 (* *************** main function: trigger the phases *************************** *)
 
@@ -814,7 +814,7 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       match def with
-      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _, _) = env <@+> (tnode pn,RNull) in
+      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _) = env <@+> (tnode pn,RNull) in
                                    List.fold_left do_pdef env pdefs
       | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (tnode fn,RNull) in
                                    List.fold_left do_fdef env fdefs

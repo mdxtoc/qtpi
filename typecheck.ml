@@ -195,7 +195,7 @@ let rec rewrite_process mon proc =
     Printf.printf "rewrite_process ... %s:%s\n" (string_of_sourcepos proc.pos) (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
-  | GoOnAs    (n,es,mes)    -> List.iter rewrite_expr es; List.iter rewrite_expr mes
+  | GoOnAs    (n,es)        -> List.iter rewrite_expr es
   | WithNew   (params, p)   -> rewrite_params params; rewrite_process mon p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
@@ -219,10 +219,9 @@ let rec rewrite_process mon proc =
 and rewrite_pdecl mon (_, pn, params, proc) =
   rewrite_typedname pn; rewrite_params params; rewrite_process mon proc
 
-let rewrite_pdef (pn, params, proc, monparams, mon) = 
+let rewrite_pdef (pn, params, proc, mon) = 
   rewrite_typedname pn;
-  rewrite_params params; rewrite_process mon proc;
-  rewrite_params monparams
+  rewrite_params params; rewrite_process mon proc
   (* and we don't rewrite unused monprocs *)
 
 let rewrite_def def = 
@@ -755,11 +754,9 @@ and typecheck_process mon cxt p  =
   if !verbose then
     Printf.printf "typecheck_process .. %s %s:%s\n" (string_of_typecxt cxt) (string_of_sourcepos p.pos) (short_string_of_process p);
   match p.inst with
-  | Terminate     -> ()
-  | GoOnAs (pn,args,margs) -> 
-      let arglength = List.length args + List.length margs in
-      if margs<>[] && mon=[] then
-        raise (Error (pn.pos, "split-arguments invocation in un-monitored process"));
+  | Terminate        -> ()
+  | GoOnAs (pn,args) -> 
+      let arglength = List.length args in
       ok_procname pn;
       let ts = 
         (try let t = Type.instantiate (evaltype (cxt<@>tnode pn)) in
@@ -768,7 +765,7 @@ and typecheck_process mon cxt p  =
                                raise (Error (pn.pos,  Printf.sprintf "%s: should have %d arguments: this invocation provides %d"
                                                            (string_of_name (tnode pn))
                                                            (List.length ts)
-                                                           (List.length args + List.length margs)
+                                                           arglength
                                            )
                                     );
                                     
@@ -782,7 +779,7 @@ and typecheck_process mon cxt p  =
      let cxts = Listutils.tabulate arglength
                                    (fun i -> if i<List.length args then cxt else mcxt cxt)
      in
-     let trips = zip cxts (zip ts (args@margs)) in
+     let trips = zip cxts (zip ts args) in
       List.iter (fun (cxt,(t,e)) -> assigntype_expr cxt t e) trips
   | WithNew (params, proc) ->
       (* all the params have to be channels *)
@@ -919,7 +916,7 @@ let typecheck_fdefs assoc fdefs =
 
 (* this is very similar to typecheck_fdefs, mutatis mutandis *)
 let typecheck_pdefs assoc pdefs =     
-  let precheck_pdef assoc (pn,ps,_,mps,_) = 
+  let precheck_pdef assoc (pn,ps,_,_) = 
       ok_procname pn;
       let process_param param = 
         let n,rt = param.inst.tnode, param.inst.toptr in
@@ -935,7 +932,7 @@ let typecheck_pdefs assoc pdefs =
                     else t
       in
       let process_params = List.map process_param in
-      let t = adorn pn.pos (Process (process_params (ps@mps))) in
+      let t = adorn pn.pos (Process (process_params ps)) in
       pn.inst.toptr := Some t; (* I hope *)
       if assoc<%@?>pn.inst.tnode 
        then raise (Error (pn.pos,
@@ -945,10 +942,10 @@ let typecheck_pdefs assoc pdefs =
                   );
       assoc <%@+> (tnode pn, t)
   in
-  let pns = List.map (fun (pn,_,_,_,_) -> tnode pn, pn.pos) pdefs in
+  let pns = List.map (fun (pn,_,_,_) -> tnode pn, pn.pos) pdefs in
   check_unique_ns "process" pns;
   let assoc = List.fold_left precheck_pdef assoc pdefs in
-  let tc_pdef assoc (pn,params,proc,monparams,mon as pdef) =
+  let tc_pdef assoc (pn,params,proc,mon as pdef) =
     if !verbose then
       Printf.printf "tc_pdef [%s]\n  %s\n\n" 
                      (string_of_typeassoc assoc)
@@ -960,13 +957,12 @@ let typecheck_pdefs assoc pdefs =
                                                        )
                                           )
     in
-    check_distinct_params (params@monparams);
+    check_distinct_params params;
     check_monlabels proc mon;
     let locals = List.map (process_param newcommtv) params in
-    let mons = List.map (process_param newcommtv) monparams in
-    typecheck_process mon (monenv_of_lmg locals mons assoc) proc;
+    typecheck_process mon (monenv_of_lmg locals [] assoc) proc;
     let assoc = evalassoc assoc in
-    let tps = zip env_types (params@monparams) in
+    let tps = zip env_types params in
     let _ = List.iter (fun (t, par) -> unifytypes t (type_of_typedname par)) tps in
     if !verbose then
       (rewrite_pdef pdef;

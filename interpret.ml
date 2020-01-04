@@ -498,14 +498,12 @@ let rec interp env proc =
             in
             (match rproc.inst with
              | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
-             | GoOnAs (gpn, es, mes) -> 
-                 (let vs = List.map (evale env) es @ List.map (evale (menv env)) mes in
+             | GoOnAs (gpn, es) -> 
+                 (let vs = List.map (evale env) es in
                   try (match env<@>gpn.inst.tnode with
-                       | VProcess (er, ns, ms, proc) -> 
-                           let ne = List.length ns in
-                           let locals = zip ns (take ne vs) in
-                           let mons = zip ms (drop ne vs) in
-                           let env = monenv_of_lmg locals mons (assoc_of_monenv !er) in
+                       | VProcess (er, ns, proc) -> 
+                           let locals = zip ns vs in
+                           let env = monenv_of_lmg locals [] (assoc_of_monenv !er) in
                            deleteproc pn;
                            let gpn' = addnewproc gpn.inst.tnode in
                            addrunner (gpn', proc, env);
@@ -542,7 +540,7 @@ let rec interp env proc =
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithProc ((brec,pn',params,proc),p) ->
                  let er = ref env in
-                 let procv = VProcess (er, names_of_params params, [], proc) in
+                 let procv = VProcess (er, names_of_params params, proc) in
                  let env = env<@+>(tnode pn', procv) in
                  if brec then er := env;
                  addrunner (pn, p, env)
@@ -781,6 +779,6 @@ let interpret defs =
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess (er, [], [], p) -> interp !er p
-  | VProcess (_ , ps, _ , _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
-  | _                        -> raise (Error (dummy_spos, "no process named System"))
+  | VProcess (er, [], p) -> interp !er p
+  | VProcess (_ , ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
+  | _                    -> raise (Error (dummy_spos, "no process named System"))

@@ -84,7 +84,7 @@ let compile_monbody tpnum proc =
   in
   Process.map cmp proc
   
-let compile_proc er env pn monparams mon proc =
+let compile_proc er env pn mon proc =
   let rec cmp proc =
     let ad = adorn proc.pos in
     let ade = tadorn proc.pos in
@@ -96,11 +96,10 @@ let compile_proc er env pn monparams mon proc =
                               let read = adorn tpn.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
                               let gsum = ad (GSum [(read, p)]) in
                               let mn = mon_name pn tpn.inst in
-                              let monargs = List.map (ade <.> (fun n -> EVar n) <.> name_of_param) monparams in
-                              let call = ad (GoOnAs (adn mn, [], monargs)) in
+                              let call = ad (GoOnAs (adn mn, [])) in
                               let par = ad (Par [call; gsum]) in
                               let (_, monproc) = _The (find_monel tpn.inst mon) in
-                              let def = ad (WithProc ((false, adn mn, monparams, compile_monbody tpn.inst monproc), par)) in
+                              let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
                               let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], def)) in
                               Some mkchan
       | WithProc  ((brec,pn,params,proc),p) 
@@ -121,17 +120,17 @@ let compile_proc er env pn monparams mon proc =
   in
   env, Process.map cmp proc
 
-let rec bind_pdef er env (pn,params,p,monparams,mon as pdef) =
+let rec bind_pdef er env (pn,params,p,mon as pdef) =
   let pnum = Monenv.count pn.inst.tnode env in
   let pn' = if pnum=0 then pn 
             else {pn with inst = {pn.inst with tnode = pn.inst.tnode ^ "#" ^ string_of_int (pnum-1)}} 
   in
-  let env, proc = compile_proc er env pn' monparams mon p in
+  let env, proc = compile_proc er env pn' mon p in
   if (!verbose || !verbose_compile) && p<>proc then
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (pn.inst.tnode, VProcess (er, names_of_params params, names_of_params monparams, proc))
+  env <@+> (pn.inst.tnode, VProcess (er, names_of_params params, proc))
 
 
 

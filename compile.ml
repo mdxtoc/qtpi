@@ -133,4 +133,12 @@ let bind_pdef er env (pn,params,p,mon as pdef) =
                     (string_of_process proc);
   env <@+> (pn.inst.tinst, VProcess (er, names_of_params params, proc))
 
+let compile_builtin (pn,params,p,mon as pdef) =
+  if !verbose || !verbose_compile then
+    Printf.printf "compiling built-in %s\n" (string_of_pdef pdef);
+  if not (null mon) then
+    raise (Settings.Error (Printf.sprintf "built_in %s has logging sub-processes" (string_of_typedname pn)));
+  (* all we do is append a # to the name ... *)
+  let pname = tinst pn in
+  ()
 

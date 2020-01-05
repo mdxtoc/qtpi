@@ -29,6 +29,7 @@ open Instance
 open Type
 open Name
 open Expr
+open Pattern
 open Process
 open Param
 open Step
@@ -43,6 +44,29 @@ let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
+let insert_returns check rc proc =
+  let bad pos s = raise (Error (pos, s ^ " not allowed in embedded process")) in
+  let rec cmp proc =
+    let ad = adorn proc.pos in
+    let adio = adorn proc.pos in
+    let ade = tadorn proc.pos in
+    match proc.inst with
+    | Terminate     -> Some (ad (GSum [adio (Write (ade (EVar rc), ade EUnit)), proc]))
+    | GoOnAs _      -> if check then bad proc.pos "process invocation" else None
+    | Par _         -> if check then bad proc.pos "parallel sum" else None
+    | WithNew _     
+    | WithQbit _    
+    | WithLet _
+    | WithProc _    
+    | WithQstep _ 
+    | GSum _
+    | Cond    _
+    | PMatch  _     
+    | TestPoint _   
+    | Iter _        -> None
+  in
+  Process.map cmp proc
+
 (* Here is where we apply restrictions on monitor processes:
     no Reading   (it's outside the protocol, so no input)
     no Calling
@@ -55,21 +79,16 @@ let chan_name tpnum = "#chan#" ^ tpnum
  
 let compile_monbody tpnum proc =
   let bad pos s = raise (Error (pos, s ^ " not allowed in monitor process")) in
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let adio = adorn proc.pos in
-    let ade = tadorn proc.pos in
+  let rec check proc =
     match proc.inst with
-    | Terminate         -> Some (ad (GSum [adio (Write (ade (EVar (chan_name tpnum)), ade EUnit)), proc]))
-    | GSum iops         -> let ciop (iostep, proc) = 
-                             match iostep.inst with
-                             | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
-                                                 bad iostep.pos "non-classical channel";
-                                               Process.optmap cmp proc 
-                                               &~~ (_Some <.> (fun proc -> iostep, proc))
-                             | _            -> bad iostep.pos "message receive"
-                           in
-                           Optionutils.optmap_any ciop iops &~~ (_Some <.> ad <.> _GSum) 
+    | Terminate     -> None (* will be done in insert_returns *)
+    | GSum iops     -> let ciop (iostep, _) = 
+                         match iostep.inst with
+                         | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
+                                             bad iostep.pos "non-classical channel"
+                         | _            -> bad iostep.pos "message receive"
+                       in
+                       List.iter ciop iops; None
     | GoOnAs _      -> bad proc.pos "process invocation"
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
@@ -82,41 +101,64 @@ let compile_monbody tpnum proc =
     | Cond    _
     | PMatch  _     -> None
   in
-  Process.map cmp proc
-  
-let compile_proc er env pn mon proc =
+  let _ = Process.map check proc in
+  let rc = chan_name tpnum in
+  insert_returns true rc proc
+
+let compile_proc env pn mon proc =
+  (* if !verbose || !verbose_compile then
+       Printf.printf "compile_proc env=%s\n  pn=%s\n  mon=(%s)\n proc=(%s)\n"
+                       (string_of_env env)
+                       (tinst pn)
+                       (string_of_monitor mon)
+                       (string_of_process proc); *)
+  let construct_callpar pos rc call p =
+    let read = adorn pos (Read (tadorn pos (EVar rc), tadorn pos PatAny)) in
+    let gsum = adorn pos (GSum [(read, p)]) in
+    adorn pos (Par [call; gsum])
+  in
   let rec cmp proc =
     let ad = adorn proc.pos in
     let ade = tadorn proc.pos in
-    let adpat = Pattern.patadorn proc.pos None in
     let adpar = tadorn proc.pos in
     let adn = tadorn proc.pos in
     match proc.inst with
-      | TestPoint (tpn, p) -> let p = Process.map cmp p in
-                              let read = adorn tpn.pos (Read (ade (EVar (chan_name tpn.inst)), adpat PatAny)) in
-                              let gsum = ad (GSum [(read, p)]) in
-                              let mn = mon_name pn tpn.inst in
-                              let call = ad (GoOnAs (adn mn, [])) in
-                              let par = ad (Par [call; gsum]) in
-                              let (_, monproc) = _The (find_monel tpn.inst mon) in
-                              let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
-                              let mkchan = ad (WithNew ([adpar (chan_name tpn.inst)], def)) in
-                              Some mkchan
-      | WithProc  ((brec,pn,params,proc),p) 
-                           -> let p = Process.map cmp p in
-                              let proc = Process.map cmp proc in
-                              Some (ad (WithProc ((brec,pn,params,proc),p)))
-      | Terminate 
-      | GoOnAs    _      
-      | WithNew   _
-      | WithQbit  _
-      | WithLet   _
-      | WithQstep _
-      | Cond      _
-      | PMatch    _
-      | GSum      _
-      | Par       _        -> None
-      | Iter _             -> raise (Error (proc.pos, "Can't compile Iter in compile_proc yet"))
+    | TestPoint (tpn, p) -> let p = Process.map cmp p in
+                            let rc = chan_name tpn.inst in
+                            let mn = mon_name pn tpn.inst in
+                            let call = ad (GoOnAs (adn mn, [])) in
+                            let par = construct_callpar tpn.pos rc call p in
+                            let (_, monproc) = _The (find_monel tpn.inst mon) in
+                            let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
+                            let mkchan = ad (WithNew ([adpar rc], def)) in
+                            Some mkchan
+    | WithProc  ((brec,pn,params,proc),p) 
+                         -> let p = Process.map cmp p in
+                            let proc = Process.map cmp proc in
+                            Some (ad (WithProc ((brec,pn,params,proc),p)))
+    | Iter (pat, ip, e, p)
+                         -> let p = Process.map cmp p in
+                            let rc = chan_name (short_string_of_sourcepos ip.pos) in
+                            let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
+                            let xname = "x#" in
+                            let cname = "c#" in
+                            let callIter = ad (GoOnAs (adn "Iter#", [e; ade (EVar ipname); ade (EVar rc)])) in
+                            let par = construct_callpar ip.pos rc callIter p in
+                            let ip = insert_returns true cname ip in
+                            let ip = ad (WithLet ((pat, ade (EVar xname)),ip)) in
+                            let def = ad (WithProc ((false, adn ipname, [adpar xname; adpar cname], ip), par)) in
+                            let mkchan = ad (WithNew ([adpar rc], def)) in
+                            Some mkchan
+    | Terminate 
+    | GoOnAs    _      
+    | WithNew   _
+    | WithQbit  _
+    | WithLet   _
+    | WithQstep _
+    | Cond      _
+    | PMatch    _
+    | GSum      _
+    | Par       _        -> None
   in
   env, Process.map cmp proc
 
@@ -126,7 +168,7 @@ let bind_pdef er env (pn,params,p,mon as pdef) =
   let pn' = if pnum=0 then pn 
             else {pn with inst = {pn.inst with tinst = tinst pn ^ "#" ^ string_of_int (pnum-1)}} 
   in
-  let env, proc = compile_proc er env pn' mon p in
+  let env, proc = compile_proc env pn' mon p in
   if (!verbose || !verbose_compile) && p<>proc then
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
@@ -138,7 +180,19 @@ let compile_builtin (pn,params,p,mon as pdef) =
     Printf.printf "compiling built-in %s\n" (string_of_pdef pdef);
   if not (null mon) then
     raise (Settings.Error (Printf.sprintf "built_in %s has logging sub-processes" (string_of_typedname pn)));
-  (* all we do is append a # to the name ... *)
+  (* all we do is append a # to the name in recursive calls ... *)
   let pname = tinst pn in
-  ()
+  let pname' = pname ^ "#" in
+  let hash pn = {pn with inst = {pn.inst with tinst = pname'}} in
+  let cmp proc =
+    match proc.inst with
+    | GoOnAs (pn',args) 
+      when tinst pn' = pname -> Some (adorn proc.pos (GoOnAs (hash pn', args)))
+    | _                      -> None
+  in
+  let pdef' = (hash pn, params, Process.map cmp p, mon) in
+  if !verbose || !verbose_compile then
+    Printf.printf "compiled to %s\n\n" (string_of_pdef pdef');
+  pdef'
+
 

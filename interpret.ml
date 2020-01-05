@@ -692,8 +692,8 @@ let rec interp env proc =
                  let pq = PQueue.create (List.length ioprocs) in
                  List.iter (PQueue.push pq) ioprocs;
                  try_iosteps [] pq
-             | TestPoint (n, p)  -> raise (Error (n.pos, "Cannot interpret TestPoint"))
-             | Iter _ -> raise (Error (proc.pos, "Can't interpret Iter yet"))
+             | TestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not compiled"))
+             | Iter _ -> raise (Error (proc.pos, "Iter not compiled"))
              | Cond (e, p1, p2)  ->
                  let bv = boolev env e in
                  addrunner (pn, (if bv then p1 else p2), env);

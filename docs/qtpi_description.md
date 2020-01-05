@@ -38,7 +38,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  
   | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  `with` *logging*  
-  | `proc` *N* `(`  *par*  `,`  ... `,` *par* `)` = *P*  `with` `(`  *par*  `,`  ... `,` *par* `)` *logging*  
   | `fun` *x* *pat* ... *pat*  = *E*  
   | `fun` *x* *pat* ... *pat* `:` *T* = *E*  
   | `let` *pat* `=` *E*  
@@ -49,6 +48,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `[bit] &rarr; ['a] &rarr; ['a]`. (One way this will be done more elegantly, as in Miranda.)
   * The result of a function must be entirely classical -- i.e. have nothing to do with qbits.
   * To allow mutually-recursive definitions, one `fun` can be followed by several definitions.
+  * Likewise, one `proc` can be followed by several mutually-recursive definitions.
     
 * Process *P* 
 
@@ -62,7 +62,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `( newq` *par* [ `=` *E* ] `,`  ... `,` *par* [ `=` *E* ] `)` *P*  
   | `( let` *pat* `=` *E* `)` *P*  
   | *N* `(` *E*  `,`  ... `,` *E*  `)`  
-  | *N* `(` *E*  `,`  ... `,` *E*  `)` `/^` `(`*E*  `,`  ... `,` *E* `)`  
   | `(` *P* `)`  
   | `_0` 
   | `.` *P*  
@@ -73,7 +72,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * `new` creates channels, like the pi calculus &nu;.    
   * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
-  * A process call may add additional arguments after `/^`, which may refer to parameters following `with` in the enclosing process definition.
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P*, part of CQP, is no longer included. It had become used exclusively for printing, and the output channels `out` and `outq` now do the job.  
   * You can execute an arbitrary expression via a `let` binding, if you wish.  Very non-pi if you write `(let _ =` *E*`)`, where *E* prints stuff.
@@ -135,7 +133,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
   * These types are now Miranda style (`[`*T*`]` rather than *T*` list`, `(`*T1*`,`*T2*`)` rather than *T1*`*`*T2*). 
   *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they should do), and you may have to make use of *floor*.
-  * Range types were in original CQP, but are no longer in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they may come back (I do hope so).  
+  * Range types are in CQP, but are not in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they might come back.  
   * `bit` ought to be a subtype of `int`, but I can't force the typechecker to agree.
   * `basisv` is the type of basis vectors (see below).  
   * `qstate` is the type of the result of the *qval* function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a *qstate* is to send it down the outq output channel, which prints it out.
@@ -197,7 +195,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples; it's still included.  
     * `::` (cons) is now included.  
-    * `+`, `-`, `*`, `/` `**` arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates). `**`'s second argument must be a whole number.
+    * `+`, `-`, `*`, `/` `**` are arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates). `**`'s second argument must be a whole number.
     * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*.
     * `&&`, `||`, boolean operators *bop*.
     * `><` tensor multiplication.
@@ -217,7 +215,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 
 * *loggingprocess*
   
-  A sub-process which may not include process invocations, parallel sub-processes or input commands. It may include output commands, but cannot send qubits. It may refer to the process's parameters, and also the parameters following `with`.
+  A sub-process which may not include process invocations, parallel sub-processes or input commands. It may include output commands, but cannot send qubits. It can only be called once from the main process text, and can refer to any names visible at the point of call.
 
 * *label*
 

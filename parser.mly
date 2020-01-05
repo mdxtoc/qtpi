@@ -108,10 +108,12 @@
 %start program             /* Entry point */
 %start readtype
 %start readexpr
+%start readpdef
 
 %type  <Def.def list> program
 %type  <Type._type> readtype
 %type  <Expr.expr> readexpr
+%type  <Def.pdef> readpdef
 
 %%
 indentPrev:                             
@@ -443,7 +445,7 @@ primary:
   | basisv                              {tadorn (EBasisv $1) }
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR exprtuple RPAR                 {tadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
-  | IF indentPrev eif outdent fiq       {tadorn($3.inst.tnode)}
+  | IF indentPrev eif outdent fiq       {tadorn($3.inst.tinst)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
     indentPrev 
@@ -551,4 +553,9 @@ readtype:
 readexpr:
   | expr EOP                            {$1}
 
+/* entry point for reading pdefs to save brain when defining special processes like Iter and Par */
+
+readpdef:
+  | pdef EOP                            {$1}
+  
 %%

@@ -62,7 +62,7 @@ let rec eval cxt n =
   try Some (evaltype (cxt<@>n)) with Not_found -> None
 
 and evaltype t = 
-  let adorn tnode = {pos=t.pos; inst=tnode} in
+  let adorn = Instance.adorn t.pos in
   let evu = function
     | (_, {contents=Some t}) -> evaltype t
     | _                      -> t
@@ -105,7 +105,7 @@ let rec rewrite_expr e =
   match !(e.inst.toptr) with
   | Some t -> 
       (e.inst.toptr := Some (evaltype t);
-       match e.inst.tnode with
+       match e.inst.tinst with
        | EUnit
        | ENil
        | EVar        _
@@ -173,7 +173,7 @@ and rewrite_param par = rewrite_typedname par
 and rewrite_typedname n =
   match !(toptr n) with
   | Some t -> toptr n := Some (evaltype t)
-  | None   -> raise (Error (n.pos, Printf.sprintf "typechecker didn't assign type to %s" (string_of_name (tnode n))))
+  | None   -> raise (Error (n.pos, Printf.sprintf "typechecker didn't assign type to %s" (string_of_name (tinst n))))
   
 and rewrite_params params = List.iter (rewrite_param) params
 
@@ -494,7 +494,7 @@ and assigntype_expr cxt t e =
        binary cxt tout tin1 tin2 f1 f2;
        unary cxt tout tin3 f3
      in
-     match e.inst.tnode with
+     match e.inst.tinst with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
      | ENum i               -> (* no longer is Bit a subtype of Num
@@ -545,13 +545,13 @@ and assigntype_expr cxt t e =
                                let _ = typecheck_pats tc cxt et ems in
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,op,e2)    -> let tnode = 
+     | EArith (e1,op,e2)    -> let tinst = 
                                  match op with
                                  | Times   -> OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
                                  | TensorP -> Gate
                                  | _       -> Num 
                                in
-                               binary cxt (adorn_x e tnode) (adorn_x e1 tnode) (adorn_x e2 tnode) e1 e2
+                               binary cxt (adorn_x e tinst) (adorn_x e1 tinst) (adorn_x e2 tinst) e1 e2
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
                                        let t = new_Unknown e1.pos UnkEq in
@@ -584,11 +584,11 @@ and assigntype_edecl cxt t e ed =
                                     check_distinct_fparams wfpats;
                                     let tf, tr = read_funtype wfpats wtoptr we in
                                     assigntype_typedname tf wfn;
-                                    let cxt = cxt <@+> (tnode wfn,tf) in
+                                    let cxt = cxt <@+> (tinst wfn,tf) in
                                     let _ = assigntype_fun cxt tf wfpats we in
                                     let rt = newclasstv we.pos in
                                     let _ = unifytypes rt tr in
-                                    let cxt = (cxt <@-> tnode wfn) <@+> (tnode wfn, generalise tf) in
+                                    let cxt = (cxt <@-> tinst wfn) <@+> (tinst wfn, generalise tf) in
                                     assigntype_expr cxt t e
 
 and assigntype_typedname t n =
@@ -655,13 +655,13 @@ and assigntype_fun cxt t pats e =
   | []          -> assigntype_expr cxt t e
   
 and ok_procname pn = 
-  let n = tnode pn in
+  let n = tinst pn in
   let c = Stringutils.first n in
   if not ('A' <= c && c <= 'Z') then raise (Error (pn.pos, "process name " ^ string_of_name n ^ " should start with upper case"))
 
 and ok_funname n =
-  let c = Stringutils.first n.inst.tnode in
-  if not ('a' <= c && c <= 'z') then raise (Error (n.pos, "function name " ^ string_of_name n.inst.tnode ^ " should start with lower case"))
+  let c = Stringutils.first n.inst.tinst in
+  if not ('a' <= c && c <= 'z') then raise (Error (n.pos, "function name " ^ string_of_name n.inst.tinst ^ " should start with lower case"))
 
 let check_distinct_params params =
   let check set param =
@@ -756,11 +756,11 @@ and typecheck_process mon cxt p  =
       let arglength = List.length args in
       ok_procname pn;
       let ts = 
-        (try let t = Type.instantiate (evaltype (cxt<@>tnode pn)) in
+        (try let t = Type.instantiate (evaltype (cxt<@>tinst pn)) in
              match t.inst with
              | Process ts -> if arglength <> List.length ts then
                                raise (Error (pn.pos,  Printf.sprintf "%s: should have %d arguments: this invocation provides %d"
-                                                           (string_of_name (tnode pn))
+                                                           (string_of_name (tinst pn))
                                                            (List.length ts)
                                                            arglength
                                            )
@@ -770,7 +770,7 @@ and typecheck_process mon cxt p  =
              | _          -> let ts = tabulate arglength (fun _ -> newcommtv p.pos) in
                              unifytypes t (adorn p.pos (Process ts));
                              ts
-         with Not_found -> raise (Error (pn.pos, "undefined process " ^ string_of_name (tnode pn)))
+         with Not_found -> raise (Error (pn.pos, "undefined process " ^ string_of_name (tinst pn)))
         )
       in
       List.iter (fun (t,e) -> assigntype_expr cxt t e) (zip ts args)
@@ -859,9 +859,9 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   let tparams = List.map (fix_paramtype newclasstv) params in (* not newcommtv: internal processes can't take qbit arguments *)
   let tp = adorn pn.pos (Process tparams) in
   assigntype_typedname tp pn;
-  let cxt = if brec then cxt<@+>(tnode pn,tp) else cxt in
+  let cxt = if brec then cxt<@+>(tinst pn,tp) else cxt in
   do_procparams "WithProc" newcommtv cxt params proc [] mon;
-  let cxt = if brec then cxt else cxt<@+>(tnode pn,tp) in
+  let cxt = if brec then cxt else cxt<@+>(tinst pn,tp) in
   contn cxt
 
 let make_library_assoc () =
@@ -886,13 +886,13 @@ let typecheck_fdefs assoc fdefs =
     let t, rt = read_funtype pats toptr e in
     toptr := Some rt; 
     if !(fn.inst.toptr)=None then fn.inst.toptr:=Some t;
-    assoc <%@+> (fn.inst.tnode, t)
+    assoc <%@+> (fn.inst.tinst, t)
   in
-  let fns = List.map (fun (fn,_,_,_) -> tnode fn, fn.pos) fdefs in
+  let fns = List.map (fun (fn,_,_,_) -> tinst fn, fn.pos) fdefs in
   check_unique_ns "function" fns;
   let assoc = List.fold_left precxt assoc fdefs in
   let tc_fdef assoc (fn,pats,topt,expr) = 
-    let env_type = assoc<%@>fn.inst.tnode in
+    let env_type = assoc<%@>fn.inst.tinst in
     (* force classical result type *)
     let rt = result_type fn.pos pats env_type in
     let rtv = newclasstv rt.pos in
@@ -912,7 +912,7 @@ let typecheck_pdefs assoc pdefs =
   let precheck_pdef assoc (pn,ps,_,_) = 
       ok_procname pn;
       let process_param param = 
-        let n,rt = param.inst.tnode, param.inst.toptr in
+        let n,rt = param.inst.tinst, param.inst.toptr in
         let unknown = new_unknown commU in
         match !rt with
         | None   -> adorn param.pos (Unknown unknown)
@@ -927,15 +927,15 @@ let typecheck_pdefs assoc pdefs =
       let process_params = List.map process_param in
       let t = adorn pn.pos (Process (process_params ps)) in
       pn.inst.toptr := Some t; (* I hope *)
-      if assoc<%@?>pn.inst.tnode 
+      if assoc<%@?>pn.inst.tinst 
        then raise (Error (pn.pos,
                           Printf.sprintf "there is a previous definition of %s" 
-                                         (string_of_name pn.inst.tnode)
+                                         (string_of_name pn.inst.tinst)
                          )
                   );
-      assoc <%@+> (tnode pn, t)
+      assoc <%@+> (tinst pn, t)
   in
-  let pns = List.map (fun (pn,_,_,_) -> tnode pn, pn.pos) pdefs in
+  let pns = List.map (fun (pn,_,_,_) -> tinst pn, pn.pos) pdefs in
   check_unique_ns "process" pns;
   let assoc = List.fold_left precheck_pdef assoc pdefs in
   let tc_pdef assoc (pn,params,proc,mon as pdef) =
@@ -943,10 +943,10 @@ let typecheck_pdefs assoc pdefs =
       Printf.printf "tc_pdef [%s]\n  %s\n\n" 
                      (string_of_typeassoc assoc)
                      (string_of_pdef pdef);
-    let env_types = match (assoc<%@>tnode pn).inst with
+    let env_types = match (assoc<%@>tinst pn).inst with
                     | Process ts -> ts
                     | _          -> raise (Can'tHappen (Printf.sprintf "%s not a process name"
-                                                                       (string_of_name tnode pn)
+                                                                       (string_of_name tinst pn)
                                                        )
                                           )
     in

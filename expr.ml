@@ -95,13 +95,13 @@ and edeclnode =
   | EDFun of typedname * pattern list * _type option ref * expr 
 
 let rec is_nilterminated e =
-  match e.inst.tnode with
+  match e.inst.tinst with
   | ENil        -> true
   | ECons (_,e) -> is_nilterminated e
   | _           -> false
   
 let rec list_of_expr e =
-  match e.inst.tnode with
+  match e.inst.tinst with
   | ENil          -> Some []    
   | ECons (hd,tl) -> list_of_expr tl &~~ (fun es -> Some (hd::es)) 
   | _             -> None
@@ -135,7 +135,7 @@ let primaryprio             =  NonAssoc, 1000
 (* let string_of_prio = bracketed_string_of_pair string_of_prioritydir string_of_int *)
 
 let rec exprprio e = 
-  match e.inst.tnode with 
+  match e.inst.tinst with 
   | EUnit                   
   | ENil
   | EVar        _   
@@ -165,7 +165,7 @@ let rec string_of_primary e =
   let bad () =
     raise (Error (e.pos, "string_of_primary (" ^ string_of_expr e ^ ")"))
   in
-  match e.inst.tnode with
+  match e.inst.tinst with
   | EUnit           -> "()"
   | ENil            -> "[]"
   | EVar x          -> string_of_name x
@@ -210,7 +210,7 @@ and bracket_right fprio rprio = if mustbracket_right fprio rprio then bracketed_
 and bracket_nonassoc supprio e = if mustbracket_nonassoc supprio (exprprio e) then bracketed_string_of_expr e
                                                                  else string_of_expr e                                                
 and string_of_expr e = 
-  match e.inst.tnode with 
+  match e.inst.tinst with 
   | EUnit       
   | ENil
   | EVar        _
@@ -246,7 +246,7 @@ and string_of_edecl edecl =
                                                (sot topt)
                                                (string_of_expr e)
   | EDFun (fn,pats,toptr, e)  -> Printf.sprintf "%s %s%s = %s"
-                                               (string_of_name fn.inst.tnode)
+                                               (string_of_name fn.inst.tinst)
                                                (String.concat " " (List.map string_of_fparam pats))
                                                (sot !toptr)
                                                (string_of_expr e)
@@ -279,11 +279,11 @@ and string_of_ematch (pat,e) =
 
 let delist = function
   | []  -> EUnit
-  | [e] -> e.inst.tnode
+  | [e] -> e.inst.tinst
   | es  -> ETuple es
   
 let relist e = 
-  match e.inst.tnode with
+  match e.inst.tinst with
   | EUnit     -> []
   | ETuple es -> es
   | _         -> [e]
@@ -295,7 +295,7 @@ let type_of_expr e = type_of_typedinstance string_of_expr e
 let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> 't) (s_union: 't -> 't -> 't) (s_empty: 't) : expr -> 't =
   let rec frees e =
     let rec _frees s e =
-      match e.inst.tnode with
+      match e.inst.tinst with
       | EVar        n          -> s_add n e s
       | EUnit  
       | ENum        _ 
@@ -326,7 +326,7 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
                                                               s_union s s'
                                    | EDFun (fn,pats, _,e') -> let s' = _frees_pats pats e' in   (* frees of e' - binders of pats *)
                                                               let s'' = _frees_pats pats e in   (* frees of e - binders of pats *)
-                                                              s_exclude (NameSet.singleton (fn.inst.tnode)) (s_union s (s_union s' s''))
+                                                              s_exclude (NameSet.singleton (fn.inst.tinst)) (s_union s (s_union s' s''))
                                                                                               (* frees of the lot - function name *)
                                   )
   

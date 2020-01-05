@@ -400,7 +400,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                        )
                                 )
       in
-      match e.inst.tnode with
+      match e.inst.tinst with
       | EUnit 
       | ENil
       | ENum        _              
@@ -489,7 +489,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                                           runbind2 state env stoppers wpat (Some wr) 
                                     in
                                     r, ResourceSet.union used wused
-      | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst.tnode,RNull) in (* functions aren't resource *)
+      | EDFun (wfn,wfpats,_, we) -> let env = env <@+> (wfn.inst.tinst,RNull) in (* functions aren't resource *)
                                     let wr, wused = rck_fun state env wfpats we in
                                     let r, used = resources_of_expr use state env stoppers e in
                                     r, ResourceSet.union used wused
@@ -512,7 +512,7 @@ and disjoint_resources_of_expr use = r_o_e true use
 
 and resource_of_params state params = 
   List.fold_right (fun param (state, nrs) ->
-                     let n, toptr = param.inst.tnode, param.inst.toptr in
+                     let n, toptr = param.inst.tinst, param.inst.toptr in
                      let state, r = resource_of_type (param.pos,n) state (_The !toptr) in
                      state, (n,r)::nrs 
                   ) 
@@ -661,7 +661,7 @@ let rck_def env def =
         let state, rparams = resource_of_params State.empty params in
         if !verbose then
           Printf.printf "\ndef %s params %s resource %s\n" 
-                        (string_of_name pn.inst.tnode)
+                        (string_of_name pn.inst.tinst)
                         (bracketed_string_of_list string_of_param params)
                         (bracketed_string_of_list (string_of_pair string_of_name string_of_resource ":") rparams);
         (* here we go with the symbolic execution *)
@@ -691,7 +691,7 @@ let frees = Expr.frees_fun ne_filter
                            NESet.empty
 
 let rec ffv_expr expr =
-  match expr.inst.tnode with
+  match expr.inst.tinst with
   | EUnit
   | EVar       _
   | ENum       _
@@ -727,7 +727,7 @@ and ffv_fundef pos fnopt pats e =
   let veset = ne_filter (names_of_pats pats) veset in
   let veset = match fnopt with
               | None -> veset
-              | Some fn -> ne_filter (NameSet.singleton fn.inst.tnode) veset
+              | Some fn -> ne_filter (NameSet.singleton fn.inst.tinst) veset
   in
   let bad_veset = NESet.filter (fun (n,e) -> is_resource_type (type_of_expr e)) veset in
   if not (NESet.is_empty bad_veset) then
@@ -814,9 +814,9 @@ let resourcecheck defs =
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =
       match def with
-      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _) = env <@+> (tnode pn,RNull) in
+      | Processdefs  pdefs      -> let do_pdef env (pn, _, _, _) = env <@+> (tinst pn,RNull) in
                                    List.fold_left do_pdef env pdefs
-      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (tnode fn,RNull) in
+      | Functiondefs fdefs      -> let do_fdef env (fn, _, _, _) = env <@+> (tinst fn,RNull) in
                                    List.fold_left do_fdef env fdefs
       | Letdef       (pat,e)    -> let ns = NameSet.elements (names_of_pattern pat) in
                                    List.fold_left (fun env n -> env <@+> (n,RNull)) env ns

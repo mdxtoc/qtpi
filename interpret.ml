@@ -183,7 +183,7 @@ let bmatch env pat v =
   
 let rec evale env e =
   try
-    match e.inst.tnode with
+    match e.inst.tinst with
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
@@ -281,7 +281,7 @@ let rec evale env e =
                                                bmatch env pat v
                                            | EDFun (fn,pats,_, we) ->
                                                let stored_env = ref env in
-                                               let env = env <@+> bind_fun stored_env fn.inst.tnode pats we in
+                                               let env = env <@+> bind_fun stored_env fn.inst.tinst pats we in
                                                stored_env := env;
                                                env
                                  in
@@ -500,22 +500,22 @@ let rec interp env proc =
              | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
              | GoOnAs (gpn, es) -> 
                  (let vs = List.map (evale env) es in
-                  try (match env<@>gpn.inst.tnode with
+                  try (match env<@>gpn.inst.tinst with
                        | VProcess (er, ns, proc) -> 
                            let locals = zip ns vs in
                            let env = monenv_of_lg locals !er in
                            deleteproc pn;
-                           let gpn' = addnewproc gpn.inst.tnode in
+                           let gpn' = addnewproc gpn.inst.tinst in
                            addrunner (gpn', proc, env);
                            if !traceId then trace (EVChangeId (pn, [gpn']));
                            if !pstep then
                              show_pstep (Printf.sprintf "%s(%s)" 
-                                                        gpn.inst.tnode 
+                                                        gpn.inst.tinst 
                                                         (string_of_list short_string_of_value "," vs)
                                         )
-                       | v -> mistyped rproc.pos (string_of_name gpn.inst.tnode) v "a process"
+                       | v -> mistyped rproc.pos (string_of_name gpn.inst.tinst) v "a process"
                       )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name gpn.inst.tnode))
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name gpn.inst.tinst))
                  )
              | WithNew (ps, proc) ->
                  let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
@@ -541,7 +541,7 @@ let rec interp env proc =
              | WithProc ((brec,pn',params,proc),p) ->
                  let er = ref env in
                  let procv = VProcess (er, names_of_params params, proc) in
-                 let env = env<@+>(tnode pn', procv) in
+                 let env = env<@+>(tinst pn', procv) in
                  if brec then er := env;
                  addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->
@@ -739,9 +739,28 @@ let rec interp env proc =
   addrunner ("System", proc, env);
   step ()
 
+(* Library 'declares' things by adding them to this list: name * type (as string) * value *)
+
 let knowns = (ref [] : (name * string * value) list ref)
 
 let know dec = knowns := dec :: !knowns
+
+(* these are the built-in pdefs -- with newlines and spaces for offside parsing *)
+
+let builtins = [
+  "Iter (xs,P,iterc) =                          \n" ^
+  "  match xs .                                 \n" ^
+  "  + []    . iterc!() . _0                    \n" ^
+  "  + x::xs . (new callc)                      \n" ^
+  "            | P(x,callc)                     \n" ^
+  "            | callc?(_) . Iter(xs,P,iterc)   \n"
+  ;
+  "Par (xs, P) =                                \n" ^
+  "  match xs .                                 \n" ^
+  "  + []     . _0                              \n" ^
+  "  + x:: xs . | P(x)                          \n" ^
+  "             | Par (xs, P)                   \n"
+]
 
 let bind_def env = function
   | Processdefs pdefs   -> let env = globalise env in
@@ -751,7 +770,7 @@ let bind_def env = function
                            env
   | Functiondefs fdefs  -> let env = globalise env in
                            let er = ref env in
-                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst.tnode pats expr in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst.tinst pats expr in
                            let env = globalise (List.fold_left bind_fdef env fdefs) in
                            er := env;
                            env
@@ -771,6 +790,8 @@ let interpret defs =
   let sysenv = globalise (List.fold_left definitely_add knownassoc 
                                             [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
   in
+  (* add built-ins *)
+  let bipdefs = List.map Compile.compile_builtin (List.map Parseutils.parse_pdefstring builtins) in
   (* bind definitions in order *)
   let sysenv = globalise (List.fold_left bind_def sysenv defs) in
   if !verbose || !verbose_interpret then

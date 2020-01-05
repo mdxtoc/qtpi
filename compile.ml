@@ -39,7 +39,7 @@ open Monenv (* do this last so we get the weird execution environment mechanism 
 
 exception Error of sourcepos * string
 
-let mon_name pn tpnum = "#mon#" ^ pn.inst.tnode ^ "#" ^ tpnum
+let mon_name pn tpnum = "#mon#" ^ pn.inst.tinst ^ "#" ^ tpnum
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
@@ -120,17 +120,17 @@ let compile_proc er env pn mon proc =
   in
   env, Process.map cmp proc
 
-let rec bind_pdef er env (pn,params,p,mon as pdef) =
-  let pnum = Monenv.count pn.inst.tnode env in
+(* I think this should be in Interpret, but then I think it should be here, but then ... *)
+let bind_pdef er env (pn,params,p,mon as pdef) =
+  let pnum = Monenv.count pn.inst.tinst env in
   let pn' = if pnum=0 then pn 
-            else {pn with inst = {pn.inst with tnode = pn.inst.tnode ^ "#" ^ string_of_int (pnum-1)}} 
+            else {pn with inst = {pn.inst with tinst = pn.inst.tinst ^ "#" ^ string_of_int (pnum-1)}} 
   in
   let env, proc = compile_proc er env pn' mon p in
   if (!verbose || !verbose_compile) && p<>proc then
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (pn.inst.tnode, VProcess (er, names_of_params params, proc))
-
+  env <@+> (pn.inst.tinst, VProcess (er, names_of_params params, proc))
 
 

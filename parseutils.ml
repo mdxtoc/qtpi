@@ -62,6 +62,8 @@ let parse_typestring s = Parserparams.filename := ""; parse_string Parser.readty
 
 let parse_exprstring s = Parserparams.filename := ""; parse_string Parser.readexpr s
 
+let parse_pdefstring s = Parserparams.filename := ""; parse_string Parser.readpdef s
+
 let parse_program filename =
   Parserparams.filename := filename; 
   let in_channel = try open_in filename with Sys_error s -> raise (Error ("** " ^ s)) in

@@ -66,13 +66,13 @@ and unknown = name * _type option ref (* unknowns start with '?', which doesn't 
 
 and 'a typedinstance = 'a tinst instance
 
-and 'a tinst = {toptr: _type option ref; tnode: 'a}
+and 'a tinst = {toptr: _type option ref; tinst: 'a}
 
-let twrap opt tnode = {toptr=ref opt; tnode=tnode}
+let twrap opt tinst = {toptr=ref opt; tinst=tinst}
 
 let tadorn pos = adorn pos <.> twrap None
 
-let tnode x = x.inst.tnode
+let tinst x = x.inst.tinst
 let toptr x = x.inst.toptr
 
 let type_of_typedinstance string_of x =
@@ -82,7 +82,7 @@ let type_of_typedinstance string_of x =
 
 type typedname = name typedinstance
 
-let string_of_typedname n = string_of_name (tnode n) 
+let string_of_typedname n = string_of_name (tinst n) 
 
 let type_of_typedname n = type_of_typedinstance string_of_typedname n
 

@@ -37,6 +37,11 @@ let (<@+>) = Listutils.(<@+>)
 let (<@->) = Listutils.(<@->)       
 let (<@?>) = Listutils.(<@?>)       
 
+let (<%@>)  = Listutils.(<@>)       
+let (<%@+>) = Listutils.(<@+>)       
+let (<%@->) = Listutils.(<@->)       
+let (<%@?>) = Listutils.(<@?>)       
+
 (* just in case one day I want to use hash tables (or something else) as the global environment *)
 let monenv_of_lg local global = local@global
 let assoc_of_monenv env = env

@@ -864,11 +864,6 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   let cxt = if brec then cxt else cxt<@+>(tnode pn,tp) in
   contn cxt
 
-let (<%@>)  = Listutils.(<@>)       
-let (<%@+>) = Listutils.(<@+>)       
-let (<%@->) = Listutils.(<@->)       
-let (<%@?>) = Listutils.(<@?>)       
-
 let make_library_assoc () =
   let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let typ = adorn dummy_spos in

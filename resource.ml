@@ -595,11 +595,12 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | Iter (params, p, e, proc)                 
-                                -> let state', rparams = resource_of_params state params in
-                                   let pused = rp state' (List.fold_left (<@+>) env rparams) ((env,StopKill)::stoppers) p in
-                                   let _, eused = resources_of_expr URead state env stoppers e in
-                                   List.fold_left ResourceSet.union pused [eused; rp state env stoppers proc]
+      | Iter (pat, p, e, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
+                                   let pused state env stoppers p = rp state env ((env,StopKill)::stoppers) p in
+                                   let used = rck_pat (fun state env stoppers -> pused state env stoppers p) 
+                                                       runbind state env stoppers pat (Some re)
+                                   in
+                                   List.fold_left ResourceSet.union used [eused; rp state env stoppers proc]
       | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                     | Some (_,monproc) -> ResourceSet.union (rp state env [(env, StopAllButRead)] monproc) 
                                                                             (rp state env stoppers proc)

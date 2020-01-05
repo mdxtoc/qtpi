@@ -315,7 +315,7 @@ simpleprocess:
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
-  | PROCITER LPAR procparams RPAR LPAR process RPAR expr DOT process
+  | PROCITER LPAR bpattern RPAR LPAR process RPAR expr DOT process
                                         {adorn (Iter ($3,$6,$8,$10))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)

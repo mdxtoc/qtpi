@@ -201,8 +201,8 @@ let rec rewrite_process mon proc =
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
                                rewrite_process mon mp; (* does it need mon? Let Compile judge *)
                                rewrite_process mon p
-  | Iter      (params, proc, e, p)
-                            -> rewrite_params params; rewrite_process mon proc;
+  | Iter      (pat, proc, e, p)
+                            -> rewrite_pattern pat; rewrite_process mon proc;
                                rewrite_expr e; rewrite_process mon p
   | Cond     (e, p1, p2)    -> rewrite_expr e; rewrite_process mon p1; rewrite_process mon p2
   | PMatch    (e,pms)       -> rewrite_expr e; 
@@ -830,13 +830,10 @@ and typecheck_process mon cxt p  =
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
-  | Iter (params, proc, expr, p) -> 
-      do_procparams "Iter" newclasstv cxt params proc [] mon;
-      let ts = List.map (_The <.> (!) <.> typeref_of_param) params in
-      let sps = List.map (function {pos=pos} -> pos) params in
-      let tpos = sp_of_sps sps in
-      let t = adorn tpos (Tuple ts) in
-      let _ = assigntype_expr cxt (adorn tpos (List t)) expr in
+  | Iter (pat, proc, expr, p) -> 
+      let t = newclasstv expr.pos in
+      let _ = assigntype_expr cxt (adorn expr.pos (List t)) expr in
+      assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt t pat;
       typecheck_process mon cxt p
   | Cond (e,p1,p2) ->
       let _ = assigntype_expr cxt (adorn e.pos Bool) e in

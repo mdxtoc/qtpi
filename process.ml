@@ -46,7 +46,7 @@ and procnode =
   | WithProc of pdecl * process
   | WithQstep of qstep * process
   | TestPoint of name instance * process        (* not typedname in this case ... *)
-  | Iter of param list * process * expr * process
+  | Iter of pattern * process * expr * process
   | Cond of expr * process * process
   | PMatch of expr * (pattern * process) list
   | GSum of (iostep * process) list
@@ -103,9 +103,9 @@ let rec string_of_process proc =
   | TestPoint (n,p)       -> Printf.sprintf "/^%s %s"
                                             (string_of_name n.inst)
                                             (trailing_sop p)
-  | Iter (params, proc, e, p)
-                          -> Printf.sprintf ".* (%s) (%s) %s . %s"
-                                            (commasep (List.map string_of_param params))
+  | Iter (pat, proc, e, p)
+                          -> Printf.sprintf ".* %s (%s) %s . %s"
+                                            (string_of_pattern pat)
                                             (string_of_process proc)
                                             (string_of_expr e)
                                             (trailing_sop p)
@@ -146,9 +146,9 @@ and short_string_of_process proc =
                                             (string_of_qstep q)
   | TestPoint (n,p)       -> Printf.sprintf "/^%s ..."
                                             (string_of_name n.inst)
-  | Iter (params, proc, e, p)
-                          -> Printf.sprintf ".* (%s) (..) %s . .."
-                                            (commasep (List.map string_of_param params))
+  | Iter (pat, proc, e, p)
+                          -> Printf.sprintf ".* %s (..) %s . .."
+                                            (string_of_pattern pat)
                                             (string_of_expr e)
   | GSum [i,p]            -> Printf.sprintf "%s. .." (string_of_iostep i) 
   | GSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_iostep g) in
@@ -203,7 +203,7 @@ let _WithLet l p    = WithLet (l,p)
 let _WithProc pd p  = WithProc (pd,p)
 let _WithQstep q p  = WithQstep (q,p)  
 let _TestPoint ni p = TestPoint (ni,p)
-let _Iter pars proc e p = Iter (pars,proc,e,p)
+let _Iter pat proc e p = Iter (pat,proc,e,p)
 let _Cond e p1 p2   = Cond (e,p1,p2)
 let _PMatch e pms   = PMatch (e,pms)
 let _GSum iops      = GSum iops
@@ -230,7 +230,7 @@ let optmap optf proc =
                      | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
                      | WithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)
                      | TestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
-                     | Iter (pars,proc,e,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pars,proc,e,p))
+                     | Iter (pat,proc,e,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pat,proc,e,p))
                      | Cond (e, p1, p2)     -> trav2 p1 p2 &~~ take2 (_Cond e)
                      | PMatch (e, pms)      -> Optionutils.optmap_any (fun (pat,p) -> trav p &~~ (_Some <.> (fun p -> pat,p))) pms 
                                                &~~ take1 (_PMatch e)
@@ -275,7 +275,7 @@ let rec frees proc =
                                 | Ugatestep (qes, ge)    -> ff (ff_es set (ge::qes)) p
                                )
     | TestPoint (tpn,p)     -> (* tpn not included *) ff set p
-    | Iter (pars,proc,e,p)  -> let set = NameSet.diff (ff set proc) (NameSet.of_list (names_of_params pars)) in
+    | Iter (pat,proc,e,p)   -> let set = NameSet.diff (ff set proc) (Pattern.frees pat) in
                                NameSet.union (Expr.frees e) (ff set p)
     | Cond (e, p1, p2)      -> NameSet.union (Expr.frees e) (ff (ff set p1) p2)
     | PMatch (e, pps)       -> let ff_pp set (pat, proc) = NameSet.diff (ff set proc) (Pattern.frees pat) in

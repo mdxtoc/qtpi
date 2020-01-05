@@ -74,16 +74,18 @@ let tadorn pos = adorn pos <.> twrap None
 let tinst x = x.inst.tinst
 let toptr x = x.inst.toptr
 
-let type_of_typedinstance string_of x =
+let type_of_typedinstance x =
   match !(toptr x) with
   | Some t -> t
-  | None   -> raise (Error (x.pos, Printf.sprintf "(Type.type_of_typedinstance) typecheck didn't mark %s" (string_of x)))
+  | None   -> raise (Error (x.pos, "(Type.type_of_typedinstance) typecheck didn't mark something"))
 
 type typedname = name typedinstance
 
 let string_of_typedname n = string_of_name (tinst n) 
 
-let type_of_typedname n = type_of_typedinstance string_of_typedname n
+let type_of_typedname n = 
+  try type_of_typedinstance n
+  with _ -> raise (Error (n.pos, Printf.sprintf "(Type.type_of_typedname) typecheck didn't mark %s" (string_of_typedname n)))
 
 let processprio = 0 (* lower than tuple, channel, function *)
 let funprio = 1     (* lower than tuple *)

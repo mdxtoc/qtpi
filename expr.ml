@@ -288,7 +288,8 @@ let relist e =
   | ETuple es -> es
   | _         -> [e]
   
-let type_of_expr e = type_of_typedinstance string_of_expr e
+let type_of_expr e = try type_of_typedinstance e
+                     with _ -> raise (Error (e.pos, Printf.sprintf "(Expr.type_of_expr) typecheck didn't mark %s" (string_of_expr e)))
   
 (* this is parameterised to allow various kinds of sets. Well, a few anyway: sets of names / types / source locations. More? *)
 

@@ -227,7 +227,7 @@ let rewrite_def def =
   | Functiondefs fdefs ->
       let rewrite_fdef (fn, pats, toptr, expr) =
         rewrite_typedname fn;
-        let nt = type_of_typedinstance string_of_typedname fn in
+        let nt = type_of_typedname fn in
         rewrite_fparams pats; rewrite_expr expr; toptr := Some (evaltype (result_type fn.pos pats nt))
       in
       List.iter rewrite_fdef fdefs

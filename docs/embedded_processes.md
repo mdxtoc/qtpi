@@ -184,9 +184,9 @@ In a parallel construct the arms of the par can't use the same quantum resource.
  
  ### Parallel nested anonymous processes
  
- At the moment we don't have collections of qbits. Suppose that we did. Suppose that Q is such a collection. How about the following
+ At the moment we don't have collections of qbits. Suppose that we did. Suppose that Q were such a collection. How about the following
  
-        (new rc)
+          (new rc)
         . |* (i,q) (q-/-(b) . rc!(i,b) ._0) Q
         
 The `|*` symbol is an explicit statement of parallelisation. This would create a number of parallel processes, each given one of the qbits in Q, each sending the result of measuring that qbit down channel `rc` together with the index-position of that qbit in Q. This arises in the quantum election example, where Q would be a collection entangled in a W state. The process obeys the restrictions: no use of free qbits; no process invocations.

@@ -69,7 +69,6 @@ and 'a typedinstance = 'a tinst instance
 and 'a tinst = {toptr: _type option ref; tinst: 'a}
 
 let twrap opt tinst = {toptr=ref opt; tinst=tinst}
-
 let tadorn pos = adorn pos <.> twrap None
 
 let tinst x = x.inst.tinst
@@ -78,7 +77,7 @@ let toptr x = x.inst.toptr
 let type_of_typedinstance string_of x =
   match !(toptr x) with
   | Some t -> t
-  | None   -> raise (Error (x.pos, Printf.sprintf "typecheck didn't mark %s" (string_of x)))
+  | None   -> raise (Error (x.pos, Printf.sprintf "(Type.type_of_typedinstance) typecheck didn't mark %s" (string_of x)))
 
 type typedname = name typedinstance
 

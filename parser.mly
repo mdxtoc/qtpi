@@ -45,9 +45,7 @@
   let adorn inst = Instance.adorn (get_sourcepos()) inst
   
   let tadorn inst = Instance.adorn (get_sourcepos()) (twrap None inst)
-  
-  let patadorn inst = Instance.adorn (get_sourcepos()) (pwrap None inst)
-  
+    
   let procadorn inst = Process.procadorn (get_sourcepos()) inst
      
 (*  
@@ -194,9 +192,9 @@ typedname:
   name                                  {tadorn $1}
   
 fparam:
-  | name                                {patadorn (PatName $1)}
-  | UNDERSCORE                          {patadorn PatAny}
-  | LPAR RPAR                           {patadorn PatUnit}
+  | name                                {tadorn (PatName $1)}
+  | UNDERSCORE                          {tadorn PatAny}
+  | LPAR RPAR                           {tadorn PatUnit}
   | LPAR bpattern RPAR                  {$2}
   
 fparams:
@@ -293,14 +291,14 @@ qstep:
   | exprtuple THROUGH expr              {adorn (Ugatestep ($1,$3))}
 
 mpat:
-  | UNDERSCORE                          {patadorn (PatAny)}
-  | LPAR UNDERSCORE RPAR                {patadorn (PatAny)}
-  | LPAR name RPAR                      {patadorn (PatName $2)}
-  | LPAR name COLON typespec RPAR       {adorn (pwrap (Some $4) (PatName $2))}
+  | UNDERSCORE                          {tadorn (PatAny)}
+  | LPAR UNDERSCORE RPAR                {tadorn (PatAny)}
+  | LPAR name RPAR                      {tadorn (PatName $2)}
+  | LPAR name COLON typespec RPAR       {adorn (twrap (Some $4) (PatName $2))}
 
 iostep:
   | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
-  | expr QUERY UNDERSCORE               {adorn (Read ($1, patadorn PatAny))}
+  | expr QUERY UNDERSCORE               {adorn (Read ($1, tadorn PatAny))}
   | expr BANG expr                      {adorn (Write ($1,$3))}
   | expr BANG exprtuple                 {adorn (Write ($1, tadorn (Expr.delist $3)))}
 
@@ -379,28 +377,28 @@ letspec:
   
 pattern:
   | simplepattern                       {$1}
-  | simplepattern CONS pattern          {patadorn (PatCons ($1,$3))}
+  | simplepattern CONS pattern          {tadorn (PatCons ($1,$3))}
   
 simplepattern:
-  | UNDERSCORE                          {patadorn PatAny}
-  | name                                {patadorn (PatName $1)}
-  | BIT0                                {patadorn (PatBit false)}
-  | BIT1                                {patadorn (PatBit true)}
-  | NUM                                 {patadorn (PatInt (int_of_string $1))}
-  | TRUE                                {patadorn (PatBool (true))}
-  | FALSE                               {patadorn (PatBool (false))}
-  | CHAR                                {patadorn (PatChar $1)}
-  | STRING                              {patadorn (PatString $1)}
-  | basisv                              {patadorn (PatBasisv $1) }
+  | UNDERSCORE                          {tadorn PatAny}
+  | name                                {tadorn (PatName $1)}
+  | BIT0                                {tadorn (PatBit false)}
+  | BIT1                                {tadorn (PatBit true)}
+  | NUM                                 {tadorn (PatInt (int_of_string $1))}
+  | TRUE                                {tadorn (PatBool (true))}
+  | FALSE                               {tadorn (PatBool (false))}
+  | CHAR                                {tadorn (PatChar $1)}
+  | STRING                              {tadorn (PatString $1)}
+  | basisv                              {tadorn (PatBasisv $1) }
   | LSQPAR patternlist RSQPAR           {$2}
-  | LPAR RPAR                           {patadorn PatUnit}
-  | LPAR patterns RPAR                  {patadorn (Pattern.delist $2)}
-  | simplepattern COLON typespec        {adorn (pwrap (Some $3) $1.inst.pnode)}
+  | LPAR RPAR                           {tadorn PatUnit}
+  | LPAR patterns RPAR                  {tadorn (Pattern.delist $2)}
+  | simplepattern COLON typespec        {adorn (twrap (Some $3) (tinst $1))}
   
 patternlist:
-  |                                     {patadorn PatNil}
-  | pattern                             {patadorn (PatCons ($1, patadorn PatNil))}
-  | pattern SEMICOLON patternlist       {patadorn (PatCons ($1,$3))}
+  |                                     {tadorn PatNil}
+  | pattern                             {tadorn (PatCons ($1, tadorn PatNil))}
+  | pattern SEMICOLON patternlist       {tadorn (PatCons ($1,$3))}
   
 patterns:   /* no 'empty' alternative */
   | pattern                             {[$1]}
@@ -409,18 +407,18 @@ patterns:   /* no 'empty' alternative */
 /* simpler form of pattern for lets, reads, and (for now) function defs. Can't fail to match */
 bpattern:
   | simplebpattern                      {$1}                
-  | simplebpattern COMMA bpatterns      {patadorn (Pattern.delist ($1::$3))}
+  | simplebpattern COMMA bpatterns      {tadorn (Pattern.delist ($1::$3))}
   
 bpatterns:
   | simplebpattern                      {[$1]}                
   | simplebpattern COMMA bpatterns      {$1::$3}
   
 simplebpattern:
-  | UNDERSCORE                          {patadorn PatAny}
-  | LPAR RPAR                           {patadorn PatUnit}
-  | name                                {patadorn (PatName $1)}
+  | UNDERSCORE                          {tadorn PatAny}
+  | LPAR RPAR                           {tadorn PatUnit}
+  | name                                {tadorn (PatName $1)}
   | LPAR bpattern RPAR                  {$2}
-  | simplebpattern COLON typespec       {adorn (pwrap (Some $3) $1.inst.pnode)}
+  | simplebpattern COLON typespec       {adorn (twrap (Some $3) (tinst $1))}
 
 tpnum:
   | NUM                                 {$1}

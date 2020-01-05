@@ -40,6 +40,7 @@ open Def
 open Qsim
 open Number
 open Monenv
+open Compile
 
 open Value
 open Event
@@ -154,7 +155,7 @@ let matcher pos env pairs value =
     let yes env = succeed env work rhs pairs in
     let no () = fail pairs in
     let maybe b = if b then yes env else no () in
-    match pat.inst.pnode, v with
+    match tinst pat, v with
     | PatAny            , _                 
     | PatUnit           , VUnit             
     | PatNil            , VList []          -> yes env
@@ -559,7 +560,7 @@ let rec interp env proc =
                                               let gv = (gateev env ||~~ g_I) gopt in
                                               let v = vbit (qmeasure disposed pn gv q = 1) in
                                               if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
-                                              let env' = (match pat.inst.pnode with
+                                              let env' = (match tinst pat with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)
                                                           | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
@@ -765,7 +766,7 @@ let builtins = [
 let bind_def env = function
   | Processdefs pdefs   -> let env = globalise env in
                            let er = ref env in
-                           let env = globalise (List.fold_left (Compile.bind_pdef er) env pdefs) in
+                           let env = globalise (List.fold_left (bind_pdef er) env pdefs) in
                            er := env;
                            env
   | Functiondefs fdefs  -> let env = globalise env in
@@ -791,7 +792,10 @@ let interpret defs =
                                             [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
   in
   (* add built-ins *)
-  let bipdefs = List.map Compile.compile_builtin (List.map Parseutils.parse_pdefstring builtins) in
+  let bipdefs = List.map compile_builtin (List.map Parseutils.parse_pdefstring builtins) in
+  let er = ref sysenv in
+  let sysenv = globalise (List.fold_left (bind_pdef er) sysenv bipdefs) in
+  er := sysenv; 
   (* bind definitions in order *)
   let sysenv = globalise (List.fold_left bind_def sysenv defs) in
   if !verbose || !verbose_interpret then

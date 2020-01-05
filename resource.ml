@@ -99,10 +99,10 @@ let rec is_resource_type t =
   | Process _       -> false
 
 let type_of_pattern p =
-  match !(p.inst.ptype) with
+  match !(toptr p) with
   | Some t -> t
-  | None   -> raise (Disaster (p.pos, Printf.sprintf "typecheck didn't mark pattern %s"
-                                                     (string_of_pattern p)
+  | None   -> raise (Disaster (p.pos, Printf.sprintf "(Resource.type_of_pattern) typecheck didn't mark pattern %s"
+                                                        (string_of_pattern p)
                               )
                     )
   
@@ -340,7 +340,7 @@ let rec rck_pat contn unbind state env stoppers pat resopt =
                                              (string_of_stoppers stoppers)
                                              (string_of_pattern pat)
                                              (string_of_option string_of_resource resopt);
-  match pat.inst.pnode with
+  match tinst pat with
   | PatAny    
   | PatUnit   
   | PatNil
@@ -504,7 +504,7 @@ and rck_fun state env pats expr = (* note: no stoppers *)
   let pos = pos_of_instances pats in
   rck_pat (fun state env stoppers -> resources_of_expr URead state env stoppers expr) runbind2 
           state env stoppers 
-          (adorn pos (pwrap None (PatTuple pats))) (* not in the tree, so nobody should notice *)
+          (adorn pos (twrap None (PatTuple pats))) (* not in the tree, so nobody should notice *)
           None
   
 and resources_of_expr use = r_o_e false use
@@ -575,7 +575,7 @@ and rck_proc mon state env stoppers proc =
                                                             UMeasure state env stoppers qe 
                                         in
                                         let usedg = ((snd <.> resources_of_expr URead state env stoppers) ||~~ ResourceSet.empty) gopt in
-                                        let env' = match pattern.inst.pnode with
+                                        let env' = match tinst pattern with
                                                    | PatAny    -> env
                                                    | PatName n -> env <@+> (n,RNull)
                                                    | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))

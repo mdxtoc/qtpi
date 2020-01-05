@@ -144,10 +144,10 @@ and rewrite_edecl edecl =
 and rewrite_fparams fps = List.iter rewrite_pattern fps
 
 and rewrite_pattern p =
-  match !(p.inst.ptype) with
+  match !(toptr p) with
   | Some t -> 
-      (p.inst.ptype := Some (evaltype t);
-       match p.inst.pnode with
+      (toptr p := Some (evaltype t);
+       match tinst p with
        | PatAny
        | PatName    _
        | PatUnit
@@ -405,11 +405,11 @@ and assigntype_pat contn cxt t p : unit =
                   (short_string_of_typecxt cxt)
                   (string_of_type t)
                   (string_of_pattern p);
-  (match !(p.inst.ptype) with
+  (match !(toptr p) with
    | Some pt -> unifytypes t pt
-   | None    -> p.inst.ptype := Some t
+   | None    -> toptr p := Some t
   );
-  try match p.inst.pnode with
+  try match tinst p with
       | PatAny          -> contn cxt
       | PatName n       -> contn (cxt <@+> (n,t)) 
       | PatUnit         -> unifytypes t (adorn p.pos Unit); contn cxt
@@ -610,7 +610,7 @@ and read_funtype pats toptr e =
                             | Some t -> t
                    in tr, tr
   and inventtype_pat pat =
-    let f = match pat.inst.pnode with
+    let f = match tinst pat with
             | PatName _ 
             | PatAny          -> (fun () -> ntv pat.pos)            (* note this is UnkAll -- any type of argument. Hmmm. *)
             | PatUnit         -> (fun () -> adorn pat.pos Unit)
@@ -619,15 +619,15 @@ and read_funtype pats toptr e =
                                  (fun () -> adorn pat.pos (Tuple (List.rev ts)))
             | _               -> raise (Can'tHappen (Printf.sprintf "inventtype_pat %s" (string_of_pattern pat)))
     in
-    match !(pat.inst.ptype) with
+    match !(Type.toptr pat) with
     | Some t -> t   (* not all that work for nothing: the PatNames have been typed *)
-    | None   -> let t = f () in pat.inst.ptype := Some t; t
+    | None   -> let t = f () in Type.toptr pat := Some t; t
   in 
   itf pats
   
 and check_distinct_fparams pats =
   let rec cdfp set pat =
-    match pat.inst.pnode with
+    match tinst pat with
     | PatName   n -> if NameSet.mem n set then
                        raise (Error (pat.pos, Printf.sprintf "repeated parameter %s" n))
                      else NameSet.add n set

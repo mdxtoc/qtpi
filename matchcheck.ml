@@ -351,7 +351,7 @@ let matchcheck_pats string_of_rhs rules =
                     (string_of_work work) 
                     (string_of_rhs rhs) 
                     (string_of_rules rules);
-    let casopt = match pat.inst.pnode with
+    let casopt = match tinst pat with
                  | PatAny
                  | PatName   _      -> None
                  | PatUnit          -> Some ({con=CUnit     ; arity=0             ; span=1       }, []   ) 

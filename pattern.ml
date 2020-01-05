@@ -32,9 +32,7 @@ open Type
 open Basisv
 open Printpriority
 
-type pattern = pinst instance
-
-and pinst = {ptype: _type option ref; pnode: pnode} 
+type pattern = pnode typedinstance
 
 and pnode =
   | PatAny
@@ -55,7 +53,7 @@ let listprio  = Right   , 6
 let tupleprio = NonAssoc, 3 (* it's the comma priority, really *)
 
 let patprio p =
-  match p.inst.pnode with
+  match tinst p with
   | PatAny
   | PatName     _
   | PatUnit
@@ -69,17 +67,14 @@ let patprio p =
   | PatTuple    _   -> constprio (* now tuples must be bracketed *)
   | PatCons     _   -> listprio
 
-let pwrap topt p = {ptype=ref topt; pnode=p}
-let patadorn pos topt p = adorn pos (pwrap topt p)
-
 let mbl = revargs mustbracket_left
 let mbr = mustbracket_right
 let mbn = mustbracket_nonassoc
 
 let rec string_of_pattern p =
   let rec sp p =
-    let {pnode=pn; ptype=tor} = p.inst in
-    match !tor, pn with 
+    let pn = tinst p in
+    match !(toptr p), pn with 
     | Some t, PatCons  _
     | Some t, PatTuple _ -> "(" ^ spnode pn ^ "):" ^ string_of_type t
     | Some t, _          -> spnode pn ^ ":" ^ string_of_type t
@@ -104,8 +99,7 @@ let rec string_of_pattern p =
   sp p
 
 let string_of_fparam pat =
-  let {pnode=pn; ptype=tor} = pat.inst in
-  match pn, !tor with
+  match tinst pat, !(toptr pat) with
   | PatUnit   , None
   | PatName _ , None
   | PatAny    , None -> string_of_pattern pat
@@ -113,11 +107,11 @@ let string_of_fparam pat =
 
 let delist = function
   | []      -> PatUnit
-  | [p]     -> p.inst.pnode
+  | [p]     -> tinst p
   | ps      -> PatTuple ps
 
 let name_of_qpat pat = 
-  match pat.inst.pnode with
+  match tinst pat with
   | PatName n -> Some n
   | PatAny    -> None
   | _         -> raise (Can'tHappen (string_of_sourcepos pat.pos ^ " name_of_qpat " ^ string_of_pattern pat))
@@ -129,7 +123,7 @@ let qpat_binds pat =
   
 let names_of_pattern =
   let rec nps set p =
-    match p.inst.pnode with
+    match tinst p with
     | PatAny
     | PatUnit
     | PatNil

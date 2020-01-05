@@ -34,17 +34,17 @@ open Type
 type param = typedname 
 
 let string_of_param p =
-  match !(p.inst.toptr) with
-  | Some t -> Printf.sprintf "%s:%s" (string_of_name p.inst.tinst) (string_of_type t)  
-  | None   -> string_of_name p.inst.tinst
+  match !(toptr p) with
+  | Some t -> Printf.sprintf "%s:%s" (string_of_name (tinst p)) (string_of_type t)  
+  | None   -> string_of_name (tinst p)
   
 let string_of_params = string_of_list string_of_param ", " 
 
-let name_of_param p = p.inst.tinst
+let name_of_param p = (tinst p)
 
 let names_of_params ps = List.map name_of_param ps
 
-let typeref_of_param p = p.inst.toptr
+let typeref_of_param p = toptr p
 
 let typerefs_of_params ps = List.map typeref_of_param ps
 

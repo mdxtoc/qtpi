@@ -445,7 +445,7 @@ primary:
   | basisv                              {tadorn (EBasisv $1) }
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR exprtuple RPAR                 {tadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
-  | IF indentPrev eif outdent fiq       {tadorn($3.inst.tinst)}
+  | IF indentPrev eif outdent fiq       {tadorn(tinst $3)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
     indentPrev 

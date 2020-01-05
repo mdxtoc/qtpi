@@ -183,7 +183,7 @@ let bmatch env pat v =
   
 let rec evale env e =
   try
-    match e.inst.tinst with
+    match tinst e with
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
@@ -281,7 +281,7 @@ let rec evale env e =
                                                bmatch env pat v
                                            | EDFun (fn,pats,_, we) ->
                                                let stored_env = ref env in
-                                               let env = env <@+> bind_fun stored_env fn.inst.tinst pats we in
+                                               let env = env <@+> bind_fun stored_env (tinst fn) pats we in
                                                stored_env := env;
                                                env
                                  in
@@ -500,22 +500,22 @@ let rec interp env proc =
              | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
              | GoOnAs (gpn, es) -> 
                  (let vs = List.map (evale env) es in
-                  try (match env<@>gpn.inst.tinst with
+                  try (match env<@>tinst gpn with
                        | VProcess (er, ns, proc) -> 
                            let locals = zip ns vs in
                            let env = monenv_of_lg locals !er in
                            deleteproc pn;
-                           let gpn' = addnewproc gpn.inst.tinst in
+                           let gpn' = addnewproc (tinst gpn) in
                            addrunner (gpn', proc, env);
                            if !traceId then trace (EVChangeId (pn, [gpn']));
                            if !pstep then
                              show_pstep (Printf.sprintf "%s(%s)" 
-                                                        gpn.inst.tinst 
+                                                        (tinst gpn) 
                                                         (string_of_list short_string_of_value "," vs)
                                         )
-                       | v -> mistyped rproc.pos (string_of_name gpn.inst.tinst) v "a process"
+                       | v -> mistyped rproc.pos (string_of_name (tinst gpn)) v "a process"
                       )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name gpn.inst.tinst))
+                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name (tinst gpn)))
                  )
              | WithNew (ps, proc) ->
                  let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
@@ -770,7 +770,7 @@ let bind_def env = function
                            env
   | Functiondefs fdefs  -> let env = globalise env in
                            let er = ref env in
-                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er n.inst.tinst pats expr in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er (tinst n) pats expr in
                            let env = globalise (List.fold_left bind_fdef env fdefs) in
                            er := env;
                            env

@@ -102,10 +102,10 @@ let short_string_of_typecxt = string_of_typecxt
 (* ***************************** rewriting stuff ********************************* *)
 
 let rec rewrite_expr e =
-  match !(e.inst.toptr) with
+  match !(toptr e) with
   | Some t -> 
-      (e.inst.toptr := Some (evaltype t);
-       match e.inst.tinst with
+      (toptr e := Some (evaltype t);
+       match tinst e with
        | EUnit
        | ENil
        | EVar        _
@@ -471,7 +471,7 @@ and assigntype_expr cxt t e =
                   (short_string_of_typecxt cxt)
                   (string_of_type (evaltype t))
                   (string_of_expr e);
-  e.inst.toptr := Some t; (* for rewriting later *)
+  toptr e := Some t; (* for rewriting later *)
   let utaf cxt = uncurry2 (assigntype_expr cxt) in
   try 
     let unary cxt tout tin e = 
@@ -494,7 +494,7 @@ and assigntype_expr cxt t e =
        binary cxt tout tin1 tin2 f1 f2;
        unary cxt tout tin3 f3
      in
-     match e.inst.tinst with
+     match tinst e with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
      | ENum i               -> (* no longer is Bit a subtype of Num
@@ -592,9 +592,9 @@ and assigntype_edecl cxt t e ed =
                                     assigntype_expr cxt t e
 
 and assigntype_typedname t n =
-  match !(n.inst.toptr) with
+  match !(toptr n) with
   | Some t' -> unifytypes t t'
-  | None    -> n.inst.toptr := Some t
+  | None    -> toptr n := Some t
   
 and read_funtype pats toptr e = 
   (* with mutually-recursive function definitions, read_funtype gets called more than once.
@@ -660,8 +660,8 @@ and ok_procname pn =
   if not ('A' <= c && c <= 'Z') then raise (Error (pn.pos, "process name " ^ string_of_name n ^ " should start with upper case"))
 
 and ok_funname n =
-  let c = Stringutils.first n.inst.tinst in
-  if not ('a' <= c && c <= 'z') then raise (Error (n.pos, "function name " ^ string_of_name n.inst.tinst ^ " should start with lower case"))
+  let c = Stringutils.first (tinst n) in
+  if not ('a' <= c && c <= 'z') then raise (Error (n.pos, "function name " ^ string_of_name (tinst n) ^ " should start with lower case"))
 
 let check_distinct_params params =
   let check set param =
@@ -885,14 +885,14 @@ let typecheck_fdefs assoc fdefs =
     check_distinct_fparams pats;
     let t, rt = read_funtype pats toptr e in
     toptr := Some rt; 
-    if !(fn.inst.toptr)=None then fn.inst.toptr:=Some t;
-    assoc <%@+> (fn.inst.tinst, t)
+    if !(Type.toptr fn)=None then Type.toptr fn:=Some t;
+    assoc <%@+> (tinst fn, t)
   in
   let fns = List.map (fun (fn,_,_,_) -> tinst fn, fn.pos) fdefs in
   check_unique_ns "function" fns;
   let assoc = List.fold_left precxt assoc fdefs in
   let tc_fdef assoc (fn,pats,topt,expr) = 
-    let env_type = assoc<%@>fn.inst.tinst in
+    let env_type = assoc<%@>tinst fn in
     (* force classical result type *)
     let rt = result_type fn.pos pats env_type in
     let rtv = newclasstv rt.pos in
@@ -912,7 +912,7 @@ let typecheck_pdefs assoc pdefs =
   let precheck_pdef assoc (pn,ps,_,_) = 
       ok_procname pn;
       let process_param param = 
-        let n,rt = param.inst.tinst, param.inst.toptr in
+        let n,rt = tinst param, toptr param in
         let unknown = new_unknown commU in
         match !rt with
         | None   -> adorn param.pos (Unknown unknown)
@@ -926,11 +926,11 @@ let typecheck_pdefs assoc pdefs =
       in
       let process_params = List.map process_param in
       let t = adorn pn.pos (Process (process_params ps)) in
-      pn.inst.toptr := Some t; (* I hope *)
-      if assoc<%@?>pn.inst.tinst 
+      toptr pn := Some t; (* I hope *)
+      if assoc<%@?>tinst pn 
        then raise (Error (pn.pos,
                           Printf.sprintf "there is a previous definition of %s" 
-                                         (string_of_name pn.inst.tinst)
+                                         (string_of_name tinst pn)
                          )
                   );
       assoc <%@+> (tinst pn, t)

@@ -83,7 +83,7 @@ let rec string_of_process proc =
   match proc.inst with
   | Terminate             -> "_0"
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
-                                            (string_of_name pn.inst.tinst)
+                                            (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)
   | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
                                             (commasep (List.map string_of_param params))
@@ -132,7 +132,7 @@ and short_string_of_process proc =
   match proc.inst with
   | Terminate             -> "_0"
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
-                                            (string_of_name pn.inst.tinst)
+                                            (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)
   | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
                                             (commasep (List.map string_of_param params))
@@ -177,16 +177,16 @@ and string_of_letspec (pat,e) =
 and string_of_pdecl (recb, pn, params, proc) =
   if recb then
     Printf.sprintf "%s(%s) = %s"
-                    (match !(pn.inst.toptr) with 
-                     | None -> pn.inst.tinst 
-                     | Some t -> Printf.sprintf "(%s:%s)" (string_of_name pn.inst.tinst) (string_of_type t)
+                    (match !(toptr pn) with 
+                     | None -> tinst pn 
+                     | Some t -> Printf.sprintf "(%s:%s)" (string_of_name (tinst pn)) (string_of_type t)
                     )
                     (string_of_params params)
                     (string_of_process proc)
   else
     Printf.sprintf "%s%s = tau(%s).%s"
-                    (string_of_name pn.inst.tinst)
-                    (match !(pn.inst.toptr) with None -> "" | Some t -> ":" ^ string_of_type t)
+                    (string_of_name (tinst pn))
+                    (match !(toptr pn) with None -> "" | Some t -> ":" ^ string_of_type t)
                     (string_of_params params)
                     (string_of_process proc)
   
@@ -248,7 +248,7 @@ let rec frees proc =
   let rec ff set p =
     match p.inst with
     | Terminate -> set
-    | GoOnAs (pn, es)       -> NameSet.add pn.inst.tinst (ff_es set es)
+    | GoOnAs (pn, es)       -> NameSet.add (tinst pn) (ff_es set es)
     | WithNew (pars, p)     -> NameSet.diff (ff set p) (paramset pars)
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = paramset qs in
@@ -262,9 +262,9 @@ let rec frees proc =
     | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
                                let pdfrees = NameSet.diff (frees proc) (paramset params) in
                                if brec then
-                                 NameSet.remove pn.inst.tinst (NameSet.union pdfrees (ff set p))
+                                 NameSet.remove (tinst pn) (NameSet.union pdfrees (ff set p))
                                else
-                                 NameSet.union pdfrees (NameSet.remove pn.inst.tinst (ff set p))
+                                 NameSet.union pdfrees (NameSet.remove (tinst pn) (ff set p))
     | WithQstep (qstep,p)   -> (match qstep.inst with
                                 | Measure (qe,optbe,pat) -> let qset = Expr.frees qe in
                                                             let bset = match optbe with

@@ -76,7 +76,7 @@ let tinst x = x.inst.tinst
 let toptr x = x.inst.toptr
 
 let type_of_typedinstance string_of x =
-  match !(x.inst.toptr) with
+  match !(toptr x) with
   | Some t -> t
   | None   -> raise (Error (x.pos, Printf.sprintf "typecheck didn't mark %s" (string_of x)))
 

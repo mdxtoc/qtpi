@@ -28,6 +28,7 @@ open Listutils
 open Tupleutils
 open Functionutils
 open Optionutils
+open Type
 open Expr
 open Basisv
 open Process
@@ -401,7 +402,7 @@ let matchcheck_pats string_of_rhs rules =
 let rec matchcheck_expr e =
   if !verbose then 
     Printf.printf "\nmatchcheck_expr %s\n" (string_of_expr e);
-  match e.inst.tinst with
+  match tinst e with
   | EUnit
   | EVar        _
   | ENum        _

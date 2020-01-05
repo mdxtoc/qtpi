@@ -56,14 +56,14 @@ let rec string_of_def = function
   
 and string_of_pdef (pn,params,proc,mon) =
   Printf.sprintf "%s(%s) = %s%s"
-                    (string_of_name pn.inst.tinst)
+                    (string_of_name (tinst pn))
                     (String.concat "," (List.map string_of_param params))
                     (string_of_process proc)
                     (string_of_maybe_monitor mon)
                     
 and string_of_fdef (fn,pats,toptr,expr) =
   Printf.sprintf "%s %s%s = %s"
-                    (string_of_name fn.inst.tinst)
+                    (string_of_name (tinst fn))
                     (String.concat " " (List.map string_of_fparam pats))
                     (match !toptr with
                      | Some t -> Printf.sprintf " :%s" (string_of_type t)

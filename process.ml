@@ -40,7 +40,7 @@ type process = procnode instance
 and procnode =
   | Terminate
   | GoOnAs of typedname * expr list             (* GoOnAs: homage to Laski *)
-  | WithNew of param list * process
+  | WithNew of (bool * param list) * process    (* bool is traced *)
   | WithQbit of qspec list * process
   | WithLet of letspec * process
   | WithProc of pdecl * process
@@ -85,7 +85,9 @@ let rec string_of_process proc =
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)
-  | WithNew (params,p)    -> Printf.sprintf "(new %s)%s"
+  | WithNew ((traced,params),p) 
+                          -> Printf.sprintf "(%s %s)%s"
+                                            (if traced then "newuntraced" else "new")
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
   | WithQbit (qs,p)       -> Printf.sprintf "(newq %s)%s"
@@ -134,7 +136,9 @@ and short_string_of_process proc =
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)
-  | WithNew (params,p)    -> Printf.sprintf "(new %s) ..."
+  | WithNew ((traced,params),p)    
+                          -> Printf.sprintf "(%s %s) ..."
+                                            (if traced then "newuntraced" else "new")
                                             (commasep (List.map string_of_param params))
   | WithQbit (xs,p)       -> Printf.sprintf "(newq %s) ..."
                                             (commasep (List.map string_of_qspec xs))
@@ -197,7 +201,7 @@ and short_string_of_procmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_pat
 
 (* I wish OCaml didn't force this ... *)
 let _GoOnAs n es    = GoOnAs (n,es)
-let _WithNew pars p = WithNew (pars,p)
+let _WithNew bpars p = WithNew (bpars,p)
 let _WithQbit qs p  = WithQbit (qs,p)
 let _WithLet l p    = WithLet (l,p)
 let _WithProc pd p  = WithProc (pd,p)
@@ -224,7 +228,7 @@ let optmap optf proc =
     | _           -> match proc.inst with 
                      | Terminate
                      | GoOnAs     _          -> None
-                     | WithNew  (ps, p)     -> trav p &~~ take1 (_WithNew ps)
+                     | WithNew  (bps, p)     -> trav p &~~ take1 (_WithNew bps)
                      | WithQbit (qs, p)     -> trav p &~~ take1 (_WithQbit qs)
                      | WithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
                      | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
@@ -249,7 +253,7 @@ let rec frees proc =
     match p.inst with
     | Terminate -> set
     | GoOnAs (pn, es)       -> NameSet.add (tinst pn) (ff_es set es)
-    | WithNew (pars, p)     -> NameSet.diff (ff set p) (paramset pars)
+    | WithNew ((_,pars), p) -> NameSet.diff (ff set p) (paramset pars)
     | WithQbit (qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = paramset qs in
                                let ff_opte set = function

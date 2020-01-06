@@ -75,7 +75,7 @@
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
-%token NEWDEC QBITDEC LETDEC MATCH 
+%token NEWDEC UNTRACED QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
 %token PLUS MINUS DIV MOD POW TENSORP
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
@@ -306,7 +306,9 @@ simpleprocess:
   | TERMINATE                           {adorn Terminate}
   | typedname procargs                  {adorn (GoOnAs ($1,$2))}
   | LPAR NEWDEC paramseq RPAR process   
-                                        {adorn (WithNew ($3,$5))}
+                                        {adorn (WithNew ((true,$3),$5))}
+  | LPAR NEWDEC UNTRACED paramseq RPAR process   
+                                        {adorn (WithNew ((false,$4),$6))}
   | LPAR QBITDEC qspecs RPAR process    
                                         {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    

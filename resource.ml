@@ -539,7 +539,8 @@ and rck_proc mon state env stoppers proc =
       | GoOnAs (n, es)          -> (* disjoint resources in the arguments, no dead qbits used *)
                                    let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) es in
                                    (try disju ers with OverLap s -> badproc s)
-      | WithNew (params, proc)  -> (* all channels, no new resource, nothing used *)
+      | WithNew ((_,params), proc)  
+                                -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
                                    rp state env stoppers proc
       | WithQbit (qspecs, proc) -> (* all new qbits *)
@@ -749,7 +750,7 @@ and ffv_proc mon proc =
   match proc.inst with
   | Terminate                      -> ()
   | GoOnAs    (pn,es)              -> List.iter ffv_expr es
-  | WithNew   (params, proc)       -> ffv_proc mon proc
+  | WithNew   ((_,params), proc)   -> ffv_proc mon proc
   | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
   | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in

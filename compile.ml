@@ -130,7 +130,7 @@ let compile_proc env pn mon proc =
                             let par = construct_callpar tpn.pos rc call p in
                             let (_, monproc) = _The (find_monel tpn.inst mon) in
                             let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
-                            let mkchan = ad (WithNew ([adpar rc], def)) in
+                            let mkchan = ad (WithNew ((false,[adpar rc]), def)) in
                             Some mkchan
     | WithProc  ((brec,pn,params,proc),p) 
                          -> let p = Process.map cmp p in
@@ -147,7 +147,7 @@ let compile_proc env pn mon proc =
                             let ip = insert_returns true cname ip in
                             let ip = ad (WithLet ((pat, ade (EVar xname)),ip)) in
                             let def = ad (WithProc ((false, adn ipname, [adpar xname; adpar cname], ip), par)) in
-                            let mkchan = ad (WithNew ([adpar rc], def)) in
+                            let mkchan = ad (WithNew ((false, [adpar rc]), def)) in
                             Some mkchan
     | Terminate 
     | GoOnAs    _      

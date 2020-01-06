@@ -193,7 +193,8 @@ let rec rewrite_process mon proc =
   match proc.inst with
   | Terminate               -> ()
   | GoOnAs    (n,es)        -> List.iter rewrite_expr es
-  | WithNew   (params, p)   -> rewrite_params params; rewrite_process mon p
+  | WithNew   ((_,params), p)   
+                            -> rewrite_params params; rewrite_process mon p
   | WithQbit  (qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
   | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
@@ -774,7 +775,7 @@ and typecheck_process mon cxt p  =
         )
       in
       List.iter (fun (t,e) -> assigntype_expr cxt t e) (zip ts args)
-  | WithNew (params, proc) ->
+  | WithNew ((_,params), proc) ->
       (* all the params have to be channels *)
       let _ = 
         List.iter (fun par -> 

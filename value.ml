@@ -132,7 +132,7 @@ and qbit = int
    The space leak is because we keep a set stuck_chans (a set?) for diagnostic printing purposes.
  *)
  
-and chan = {cname: int; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) PQueue.t; rwaiters: (rwaiter*gsum_info) PQueue.t}
+and chan = {cname: int; traced: bool; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) PQueue.t; rwaiters: (rwaiter*gsum_info) PQueue.t}
 
 and gsum_info = (bool * chan list) ref
 
@@ -968,7 +968,7 @@ and short_so_value optf v =
   | Some s -> s
   | None   -> (match v with
                | VQbit q         -> "Qbit " ^ short_string_of_qbit q
-               | VChan c         -> "Chan " ^ short_so_chan optf c
+               | VChan c         -> "Chan " ^ short_so_chan optf c ^ if c.traced then "" else "(untraced)"
                | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (short_so_value optf) vs
                | VProcess (n,_,ns,_) 
@@ -978,9 +978,10 @@ and short_so_value optf v =
                | v               -> so_value optf v
               )
   
-and so_chan optf {cname=i; stream=vs; rwaiters=rq; wwaiters=wq} =
-    Printf.sprintf "%d = vs:{%s} rs:{%s} ws:{%s}"
+and so_chan optf {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq} =
+    Printf.sprintf "%d%s = vs:{%s} rs:{%s} ws:{%s}"
                    i
+                   (if traced then "" else "(untraced)")
                    (string_of_queue (so_value optf) "; " vs)
                    (string_of_pqueue (short_so_rwaiter optf) "; " rq)
                    (string_of_pqueue (short_so_wwaiter optf) "; " wq)

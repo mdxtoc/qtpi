@@ -394,10 +394,11 @@ and gateev env e =
   | VGate g -> g
   | v       -> mistyped e.pos (string_of_expr e) v "a gate"
 
-let mkchan c = {cname=c; stream=Queue.create (); 
-                         rwaiters=PQueue.create 10; (* 10 is a guess *)
-                         wwaiters=PQueue.create 10; (* 10 is a guess *)
-               }
+let mkchan c traced = {cname=c; traced= traced;
+                                stream=Queue.create (); 
+                                rwaiters=PQueue.create 10; (* 10 is a guess *)
+                                wwaiters=PQueue.create 10; (* 10 is a guess *)
+                      }
 
 module OrderedChan = struct type t = chan 
                             let compare c1 c2 = Stdlib.compare c1.cname c2.cname
@@ -423,10 +424,10 @@ let rec interp env proc =
     then
       stuck_chans := ChanSet.remove c !stuck_chans
   in
-  let newchan () = 
+  let newchan b = 
     let c = !chancount in 
     chancount := !chancount+1; 
-    let chan = mkchan c in
+    let chan = mkchan c b in
     VChan chan 
   in
   let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
@@ -518,8 +519,8 @@ let rec interp env proc =
                       )  
                   with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name (tinst gpn)))
                  )
-             | WithNew (ps, proc) ->
-                 let ps' = List.map (fun n -> (n, newchan ())) (names_of_params ps) in
+             | WithNew ((traced, ps), proc) ->
+                 let ps' = List.map (fun n -> (n, newchan traced)) (names_of_params ps) in
                  let env' = List.fold_left (<@+>) env ps' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -541,7 +542,7 @@ let rec interp env proc =
                    show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
              | WithProc ((brec,pn',params,proc),p) ->
                  let er = ref env in
-                 let procv = VProcess (er, names_of_params params, proc) in
+                 let procv = VProcess (tinst pn', er, names_of_params params, proc) in
                  let env = env<@+>(tinst pn', procv) in
                  if brec then er := env;
                  addrunner (pn, p, env)
@@ -606,7 +607,7 @@ let rec interp env proc =
                        withdraw chans;
                        PQueue.excite c.wwaiters;
                        addrunner (pn', proc', env');
-                       if !traceevents then trace (EVMessage (c, pn', pn, v'));
+                       if !traceevents && c.traced then trace (EVMessage (c, pn', pn, v'));
                        do_match v'
                    with PQueue.Empty -> None
                  in
@@ -642,7 +643,7 @@ let rec interp env proc =
                        PQueue.excite c.rwaiters;
                        let v' = bmatch env' pat' v in
                        addrunner (pn', proc', v');
-                       if !traceevents then trace (EVMessage (c, pn, pn', v));
+                       if !traceevents && c.traced then trace (EVMessage (c, pn, pn', v));
                        true
                    with PQueue.Empty -> 
                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
@@ -752,7 +753,7 @@ let builtins = [
   "Iter (xs,P,iterc) =                          \n" ^
   "  match xs .                                 \n" ^
   "  + []    . iterc!() . _0                    \n" ^
-  "  + x::xs . (new callc)                      \n" ^
+  "  + x::xs . (new untraced callc)             \n" ^
   "            | P(x,callc)                     \n" ^
   "            | callc?(_) . Iter(xs,P,iterc)   \n"
   ;
@@ -786,7 +787,7 @@ let interpret defs =
   (* add standard channels *)
   let definitely_add env (name, c) =
     if env <@?> name then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))
-    else env <@+> (name, VChan (mkchan c))
+    else env <@+> (name, VChan (mkchan c true))
   in
   let sysenv = globalise (List.fold_left definitely_add knownassoc 
                                             [("dispose", dispose_c); ("out", out_c); ("outq", outq_c); ("in", in_c)]) 
@@ -804,6 +805,6 @@ let interpret defs =
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess (er, [], p) -> interp !er p
-  | VProcess (_ , ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
-  | _                    -> raise (Error (dummy_spos, "no process named System"))
+  | VProcess (_, er, [], p) -> interp !er p
+  | VProcess (_, _ , ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
+  | _                       -> raise (Error (dummy_spos, "no process named System"))

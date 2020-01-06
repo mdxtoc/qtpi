@@ -110,6 +110,7 @@ rule make_token = parse
   | ".."        {DOTDOT}
     
   | "new"       {NEWDEC}
+  | "untraced"  {UNTRACED}
   | "newq"      {QBITDEC}
   | "let"       {LETDEC}
   | "match"     {MATCH}

@@ -502,11 +502,11 @@ let rec interp env proc =
              | GoOnAs (gpn, es) -> 
                  (let vs = List.map (evale env) es in
                   try (match env<@>tinst gpn with
-                       | VProcess (er, ns, proc) -> 
+                       | VProcess (n, er, ns, proc) -> 
                            let locals = zip ns vs in
                            let env = monenv_of_lg locals !er in
                            deleteproc pn;
-                           let gpn' = addnewproc (tinst gpn) in
+                           let gpn' = addnewproc n in
                            addrunner (gpn', proc, env);
                            if !traceId then trace (EVChangeId (pn, [gpn']));
                            if !pstep then

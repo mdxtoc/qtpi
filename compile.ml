@@ -164,16 +164,12 @@ let compile_proc env pn mon proc =
 
 (* I think this should be in Interpret, but then I think it should be here, but then ... *)
 let bind_pdef er env (pn,params,p,mon as pdef) =
-  let pnum = Monenv.count (tinst pn) env in
-  let pn' = if pnum=0 then pn 
-            else {pn with inst = {pn.inst with tinst = tinst pn ^ "#" ^ string_of_int (pnum-1)}} 
-  in
-  let env, proc = compile_proc env pn' mon p in
+  let env, proc = compile_proc env pn mon p in
   if (!verbose || !verbose_compile) && p<>proc then
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (tinst pn, VProcess (er, names_of_params params, proc))
+  env <@+> (tinst pn, VProcess (tinst pn,er, names_of_params params, proc))
 
 let compile_builtin (pn,params,p,mon as pdef) =
   if !verbose || !verbose_compile then

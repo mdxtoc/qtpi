@@ -1,18 +1,17 @@
 proc W(n,c) =
-  if n<=0 then (let _ = abandon ["W("; show n; ",_)"]) . _0
-  elif n=1 then (newq q = |1>) c!q . _0
+  if n=1 then (newq q = |1>) c!q . _0
   else . (let k = powerceiling 2 n)
        . (new c')
        . | W(k/2, c')
          | . c'?(lefts)
-           . (newqs rights@(k/2) = |0>..|0>)
+           . (newqs rights (k/2) = |0>..|0>)
            . (newq anc = |+>)
-           . .* ((i) . anc,lefts@i,rights@i>>Cswap . _0) [0..k/2-1]
-           . .* ((i) . rights@i,anc>>Cnot . _0) [0..k/2-1]
+           . #Iter (i) (anc,lefts@i,rights@i>>Cswap . _0) [0..k/2-1]
+           . #Iter (i) (rights@i,anc>>Cnot . _0) [0..k/2-1]
            . dispose!anc
            . (join lefts, rights as qs)
-           . (split qs as ws@n, tail)
-           . tail-/-(bs)
+           . (take n from qs giving ws, rest)
+           . #Tabulate bs (q) (q-/-(b). _0 -> b) rest
            . if forall (= 0b0) bs then c!ws . _0 else W(n,c) (* infinite recursion; terminates prob 1 *)
 
 fun powerceiling b n =

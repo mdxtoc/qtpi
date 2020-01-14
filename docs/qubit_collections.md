@@ -1,6 +1,10 @@
-# Qbit collections
+# Can we have indexable collections of qbits?
 
-Here's a simulation of an 8-way quantum election protocol:
+Yes we can, if we proceed with care. Their use has to be *very* restricted.
+
+## The need for indexable collections
+
+Here's a simulation of an 8-way quantum election protocol, which sets up 8 qbits in the W state (entangled so that only one of the 8 can be measured as 1) and then measures them:
 
         proc W1q (c1) = (newq q=|1>) c1!q . _0
 
@@ -60,17 +64,39 @@ Here's a simulation of an 8-way quantum election protocol:
           | bc?(b0) . bc?(b1) . bc?(b2) . bc?(b3) . bc?(b4) . bc?(b5) . bc?(b6) . bc?(b7) 
             . out!["elected "; show [b0;b1;b2;b3;b4;b5;b6;b7]; "\n"] . _0
             
-Look at the `System` process. It invokes `W8q(qc)` which prepares 8 qbits in the W state, then sends them out serially (could be parallel) on the `qc` channel. In parallel with that it sets up 8 processes, each receiving one qbit on `qc`, measuring it and sending the measurement result on `bc`. In parallel with all that it receives 8 messages on `bc`, each 1 or 0, and prints out the result as a list. The result is always a list of all 0s except for a single 1, because of the properties of the W state.
+The `System` process invokes `W8q(qc)` which prepares 8 qbits in the W state, then sends them out serially (could be parallel) on the `qc` channel. In parallel with that System sets up 8 processes, each receiving one qbit on `qc`, measuring it and sending the measurement result on `bc`. In parallel with all that it receives those 8 messages, each 1 or 0, and prints out the result as a list. The result is always a list of all 0s except for a single 1, because of the properties of the W state.
 
 The work is all in the `W?q` processes. The technique is taken from [the Q\# Kata on superposition](https://github.com/microsoft/QuantumKatas/blob/master/Superposition/ReferenceImplementation.qs), task 16, *WState_PowerOfTwo_Reference*. To make 2<sup>*k*</sup> qbits in the W state, make 2<sup>*k*-1</sup> in the W state and 2<sup>*k*-1</sup> |0>s, then use the F (Fredkin, CSwap) gate and CNot to combine the two halves. 
 
-It is then possible, though not demonstrated here, to make some number between 2<sup>*k*-1</sup> and 2<sup>*k*</sup> of qbits by measuring the surplus qbits: if they are all 0 then job done; if one of them is 1 then start again. 
+The illustrated mechanism works for numbers of qbits which are a power of 2. It is possible to make a number between 2<sup>*k*-1</sup> and 2<sup>*k*</sup> of qbits by measuring the surplus qbits: if they are all 0 then job done; if any of them is 1 then start again. 
 
-Neither of those W-state algorithms is easily expressed in qtpi, though it can of course be done for any particular number of qbits (one algorithm per number). To do so in general -- one algorithm for any number of qbits -- would require some kind of indexable collection of qbits, which we don't have. If we had such collections, though, it might be possible to express parallel processing of the qbits in such a collection, rather than explicitly listing the separate processes as in `System` above.
+Neither of those mechanisms is nicely expressed in qtpi, though they can of course be done for any particular number of qbits (one algorithm per number). To do so in general -- one algorithm for any number of qbits -- would require an indexable collection of qbits, which we don't have. If we had such collections, though, it might be possible to express parallel processing of the qbits in such a collection, rather than explicitly listing the separate processes as in `System` above.
 
-All very maybe at the moment, but I do think this is a straw in the wind, and that if we try to simulate more quantum algorithms we'll come across more examples that need qbit collections.
+## a first attempt
+
+        proc W(n,c) =
+          if n=1 then (newq q = |1>) c!q . _0
+          else . (let k = powerceiling 2 n)
+               . (new c')
+               . | W(k/2, c')
+                 | . c'?(lefts)
+                   . (newqs rights (k/2) = |0>..|0>)
+                   . (newq anc = |+>)
+                   . #Iter (i) (anc,lefts@i,rights@i>>Cswap . _0) [0..k/2-1]
+                   . #Iter (i) (rights@i,anc>>Cnot . _0) [0..k/2-1]
+                   . dispose!anc
+                   . (join lefts, rights as qs)
+                   . (take n from qs giving ws, rest)
+                   . #Tabulate bs (q) (q-/-(b). _0 -> b) rest
+                   . if forall (= 0b0) bs then c!ws . _0 else W(n,c) (* infinite recursion; terminates prob 1 *)
+
+        fun powerceiling b n =
+          pwc 1
+          where pwc c = if c>=n then c else pwc (b*c)
+
+-- but much to be invented yet.
 
 Richard Bornat
-2019/12/14
+2020/01/14
 
   

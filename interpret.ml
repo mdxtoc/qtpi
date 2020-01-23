@@ -408,6 +408,8 @@ module ChanSet = MySet.Make (OrderedChan)
 
 type gsum = Grw of rwaiter | Gww of wwaiter
 
+let stepcount = ref 0
+
 let rec interp env proc =
   Qsim.init ();
   let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
@@ -454,14 +456,16 @@ let rec interp env proc =
         (if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
             not (ChanSet.is_empty !stuck_chans)
          then
-           Printf.printf "All %s!\n channels=%s\n %s\n\n"
+           Printf.printf "All %s! (%d interpreter steps)\n channels=%s\n %s\n\n"
                           (if ChanSet.is_empty !stuck_chans then "done" else "stuck")
+                          !stepcount
                           (string_of_stuck_chans ())
                           (String.concat "\n " (strings_of_qsystem ()))
          else 
          if !pstep then
-           Printf.printf "all done\n"
-         else ();
+           Printf.printf "all done (%d interpreter steps)\n" !stepcount
+         else 
+           Printf.printf "\n%d interpreter steps\n" !stepcount;
          if !traceevents then
            (Printf.printf "\nEvent Trace:\n\n";
             Event.show_trace ();
@@ -470,6 +474,7 @@ let rec interp env proc =
         )
       else
         ((try 
+            stepcount := !stepcount+1;
             if !verbose || !verbose_interpret then
               print_interp_state stdout;
             let runner = PQueue.pop runners in

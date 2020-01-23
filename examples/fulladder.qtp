@@ -12,10 +12,12 @@ proc System () =
         (newq qSum=|0>, qCout=|0>) .
         (* qA>>X . *) qA,qSum>>CNot . qB,qSum>>CNot . qCin,qSum>>CNot .
         qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T .
-        (* qSum-/-(sum) . qCout-/-(carry) . *)
+        
         out!["full adder sum of "; show (a,b,c); " is ("] . outq!qval qCout . out![","] . outq!qval qSum . out![")\n"] .
+        
+        (* collapse entanglements and dispose, to simplify trace *)
+        qSum-/-(sum) . qCout-/-(carry) . 
         dispose!qA . dispose!qB . dispose!qCin . 
-        dispose!qSum . dispose!qCout . 
         _0
   ] . 
   _0

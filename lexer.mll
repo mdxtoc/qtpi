@@ -51,8 +51,7 @@
 }
 
 let BLANK = [' ' '\t']
-let NEWLINE = '\n'
-let LINE = [^ '\n']* ('\n' | eof)
+let NEWLINE = '\n' | "\r\n"
 
 let DIGIT = ['0'-'9']
 let ALPHA =  ['a'-'z'] | ['A'-'Z']
@@ -65,8 +64,6 @@ let name   = ALPHA (ALPHA | DIGIT | '_' | '\'')*
 let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
 let tpnum = DIGIT+ ('.' DIGIT+)*
-
-let eol = '\n'
 
 rule make_token = parse
 
@@ -200,6 +197,7 @@ and bracomment spos = parse
                       bracomment spos lexbuf
                     }
     |   "*)"        { () }
+    |   "\r\n"
     |   '\n'        { inc_linenum lexbuf; bracomment spos lexbuf }
     |   eof         { raise (LexError (spos, "unmatched comment-bracket '(*'")) }
     |   _           { bracomment spos lexbuf }
@@ -215,5 +213,4 @@ and string spos = parse
 {
   let build_prog_from_string s =
     Parser.program make_token (Lexing.from_string s)
-
 }

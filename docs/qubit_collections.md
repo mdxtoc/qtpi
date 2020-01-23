@@ -80,15 +80,16 @@ Neither of those mechanisms is nicely expressed in qtpi, though they can of cour
                . (new c')
                . | W(k/2, c')
                  | . c'?(lefts)
-                   . (newqs rights (k/2) = |0>..|0>)
+                   . -- somehow make k/2 qbits, all |0>. #Tabulate?
                    . (newq anc = |+>)
                    . #Iter (i) (anc,lefts@i,rights@i>>Cswap . _0) [0..k/2-1]
                    . #Iter (i) (rights@i,anc>>Cnot . _0) [0..k/2-1]
                    . dispose!anc
-                   . (join lefts, rights as qs)
-                   . (take n from qs giving ws, rest)
-                   . #Tabulate bs (q) (q-/-(b). _0 -> b) rest
+                   . (join lefts, rights as qs)             -- now lefts, rights are dead
+                   . (take n from qs giving ws, rest)       -- now qs is dead
+                   . -- somehow read each of rest. #Tabulate?
                    . if forall (= 0b0) bs then c!ws . _0 else W(n,c) (* infinite recursion; terminates prob 1 *)
+                                                            -- should dispose ws. #Iter? #Par?
 
         fun powerceiling b n =
           pwc 1

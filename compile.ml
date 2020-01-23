@@ -145,6 +145,7 @@ let compile_proc env pn mon proc =
                             let callIter = ad (GoOnAs (adn "Iter#", [e; ade (EVar ipname); ade (EVar rc)])) in
                             let par = construct_callpar ip.pos rc callIter p in
                             let ip = insert_returns true cname ip in
+                            let ip = Process.map cmp ip in
                             let ip = ad (WithLet ((pat, ade (EVar xname)),ip)) in
                             let def = ad (WithProc ((false, adn ipname, [adpar xname; adpar cname], ip), par)) in
                             let mkchan = ad (WithNew ((false, [adpar rc]), def)) in

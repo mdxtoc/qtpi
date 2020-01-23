@@ -2,17 +2,43 @@
 
 The pi calculus is a stark language, invented to explore the semantics of processes. Qtpi uses the pi calculus, augmented with qbit creation and quantum steps. It's also augmented with `let` declarations and `match` conditionals. Qtpi is intended as a programming language, and it's reasonable to include mechanisms designed to increase clarity, even at the expense of starkness.
 
-On the other hand, qtpi exploits the starkness of the pi calculus to enable it to make a static check on ownership and uniqueness of qbits, so as to prohibit sharing between processes and cloning. Additions can't be allowed to compromise that check.
+On the other hand, qtpi exploits the starkness of the pi calculus to enable it to make a static check on ownership and uniqueness of qbits, so as to prohibit qbit sharing between processes and qbit cloning. Modifications to the language can't be allowed to compromise that check.
 
-It would be useful to allow subprocesses to be defined within the body of an enclosing process, so that they can use names free at the point of definition. This mechanism has already allowed qtpi to have *logging* subprocesses, so that a computation's description isn't obscured by commands which log process state, progress etc. It will shortly allow iterated processes as well.
+It would be useful to allow subprocesses to be defined within the body of an enclosing process, so that they can use names free at the point of definition. This mechanism has already allowed qtpi to have *logging* subprocesses, so that a computation's description isn't obscured by commands which log process state, progress etc. 
 
 If embedded processes can be compiled into the pi calculus, then we can understand how to check their resource use statically and we can safely include them in the language.
 
-## Calling a non-embedded process
- 
-A pi calculus process body is more or less a straight-line sequence of steps; guarded sums allow us to choose between sequences; conditionals (and matches in qtpi) likewise allow choice. But there's no looping, and a process terminates (`_0` in qtpi) or changes into another process by a process invocation. That invocation, unlike a conventional function call, never returns. But, given some restrictions on the shape of a process body, we can imitate call and return using process-par and messages.
+### Embedded anonymous processes
 
-Suppose process `P` has a body which always terminates with `_0`, not with a process invocation, and doesn't contain a process-par. Suppose we make a new process `P`<sub>`r`</sub> by replacing each `_0` by `rc!()._0`, where `rc` isn't used elsewhere in `P`, and adding `rc` to the parameters. Then the construct
+Embedded process definitions, which make use of values from the enclosing process, are nothing new in the pi calculus. Every process par uses them:
+
+        <preamble>
+        | process 1
+        | process 2
+
+Both process 1 and process 2 can call on names declared in the preamble. If we allowed anonymous process expressions, using &tau; just as anonymous function expressions use &lambda;, we could rewrite this as 
+
+        <preamble>
+        | (tau().process 1)()
+        | (tau().process 2)()
+
+-- we wouldn't gain anything by it, but it's not utterly outlandish.
+
+Qtpi doesn't have an equivalent of the pi-calculus '`!`*P*' construct, but it wouldn't be very strange to invent a bounded-bang construct 
+
+>  `!` *pat* `<-` *E* : *P*
+        
+in which the embedded process *P* can refer to variables bound in *pat* -- i.e. each parallel process *P* is parameterised by values drawn from the list *E*. That might not seem very useful on first sight, but an iterative rather than parallel construct might be very useful indeed
+  
+>  `[` *pat* `<-` *E* : *P0* `]` . *P1*
+
+Here the various iterated processes defined by *P0* are parameterised by values drawn from the list *E*. The idea is that instances of *P0* are stitched together, in order, and the whole thing is followed by *P1*. The idea of stitching steps together in order, followed by a final process, is not new: making the 'steps' into processes is radical.
+
+## A mechanism for 'calling' a non-embedded process
+ 
+A pi calculus process body is most simply a straight-line sequence of steps; guarded sums allow us to choose between sequences; conditionals (and matches in qtpi) likewise allow choice. But there's no looping, and a process terminates (`_0` in qtpi) or changes into another process by a process invocation. That invocation, unlike a conventional function call, never returns. But, given some restrictions on the shape of a process body, we can imitate call and return using process-par and messages.
+
+Suppose process `P` has a body which always terminates with `_0`, not with a process invocation, and doesn't contain a process-par. Suppose we make a new process `P`<sub>`r`</sub> by replacing each `_0` by `rc!()._0`, where `rc` is a fresh channel, and adding `rc` to the parameters. Then the construct
 
         <preamble>
         (new rc)
@@ -23,17 +49,17 @@ will execute the preamble, then the body of `P`, and finally the continuation. I
 
 Since this is just a bit of programming within the pi calculus tradition, normal qtpi resource-checking can be applied: the two apparently-parallel (but really sequential) arms can't share any quantum resource. But if `P` were to take a qbit as argument, then the call takes that qbit out of the ownership of the calling process, and it can't be used in the continuation. 
 
-We could use this pattern as the compiled program which corresponds to `<preamble> . call P(arguments) . <continuation>`, if it were helpful to have such a construct in qtpi's language. (**NB**: I'm not proposing to include `call` in qtpi: it's a device to aid discussion of simulation and compilation.)
+We could use this pattern as the compiled program which corresponds to `<preamble> . call P(arguments) . <continuation>`, if it were helpful to have a 'call' construct in qtpi's language. (**NB**: I'm not proposing to include `call` in qtpi: it's a device to aid discussion of simulation and compilation.)
 
-Note that the mechanism requires that the called process `P` can't end with a process invocation (unless it's a recursive invocation of `P`) and can't use a process-par, else we couldn't insert the `rc!()` steps which signal its termination to the calling process.
+It's important that the mechanism requires that the called process `P` can't end with a process invocation (unless it's a recursive invocation of `P`) and can't use a process-par, else we couldn't insert the `rc!()` steps which signal its termination to the calling process.
 
-### Returning a value
+### A mechanism for returning a value
 
 There's no reason why the return channel `rc` could not carry a return value, in which case `P`<sub>`r`</sub> could return a value. 
 
-## Recursive non-embedded-process call
+## Recursive non-embedded-process 'call'
 
-If `P` is recursive then some of its executions will invoke a new execution of itself. Change those to calls of `P`<sub>`r`</sub> and we can call recursive `P`<sub>`r`</sub> and the same mechanism works: `P`<sub>`r`</sub> is called, and it returns. I used this mechanism to simulate BB84 QKD. Alice defines a list of bases `bs` and values `vs` and sends qbits to Bob encoding those values down the previously-defined channel `qc`. (Please ignore the flagrant use of extra unnecessary separating dots in qtpi code: I'm experimenting with it to make programs easier to write and to read -- but note that otherwise this is just standard qtpi stuff, with no fancy constructs)
+If `P` is recursive then some of its executions will invoke a new execution of itself. Change those to calls of `P`<sub>`r`</sub> and we can 'call' recursive `P`<sub>`r`</sub> and the same mechanism works: `P`<sub>`r`</sub> is called, and it returns. I used this mechanism to simulate BB84 QKD. Alice defines a list of bases `bs` and values `vs` and sends qbits to Bob encoding those values down the previously-defined channel `qc`. (Please ignore the flagrant use of extra unnecessary separating dots in qtpi code: I'm experimenting with it to make programs easier to write and to read -- but note that otherwise this is just standard qtpi stuff, with no fancy constructs)
 
         <preamble>
       . (let bs = randbits n) 
@@ -52,25 +78,7 @@ Separately I defined the called process `SendQbits`
                          qc!q    .
                          SendQbits (bvs,qc,sent)
 
-For each `(b,v)` pair, `SendQbits` makes a new qbit `q` and sends it down channel qc. But lots of mechanism intruding on what ought to be a simple iterative mechanism: send one qbit for each (*b*,*v*) pair. For solution see [Iterative embedded-process call](#iterativeembeddedprocesscall).
-
-## Defining and calling an embedded process
-
-Non-embedded processes don't have free names, other than the names of other processes that they might invoke, and it would seem that if we are to call process `P` it would be better if it didn't invoke other processes. Embedded processes do have free names -- that's the point.
-
-Suppose that we have a program
-
-          <preamble>
-        . (proc R(x,y,z) = <process body>)
-        . <intermediate>
-        . call R(argA,argB,argC)
-        . <continuation>
-        
--- a process `R` defined so that it can make use of names from `<preamble>` and with arguments `x`, `y` and `z`, called at a later point in the process. (Again **nb**: I'm not proposing a `call` mechanism, just using it to facilitate description.)
-
-It is possible, I believe, to implement such a mechanism in pure pi calculus, using process arguments to deal with free names in `<process body>` and messages to deal with arguments in the `call`. But I do not propose that, so I don't describe it. Instead I propose (and have already implemented) **process closures**: processes with environments. And I also propose (and have already implemented) a `proc` declaration, though for the time being only implemented as an interpretation mechanism and not given a syntactic form.
-
-Given `proc`, the `call` mechanism could be just as for non-embedded processes -- i.e. construct `R`<sub>`r`</sub> using a fresh channel `rc` and call that. But as a language mechanism it would all get a bit strange, so I don't actually propose it.
+For each `(b,v)` pair, `SendQbits` makes a new qbit `q` and sends it down channel qc. But lots of mechanism intruding on what ought to be a simple iterative mechanism: send one qbit for each (*b*,*v*) pair. 
 
 <a name="iterativeembeddedprocesscall"></a>
 ## Iterative embedded-process call
@@ -82,27 +90,37 @@ Here's what I would prefer to write, and intend to implement:
         <preamble>
       . (let bs = randbits n) 
       . (let vs = randbits n)  
-      . .* (b,v)  ((newq q = basisv_of_bits b v) . qc!q ._0) (zip bs vs)
+      . [ (b,v) <- zip bs vs : (newq q = basisv_of_bits b v) . qc!q . _0 ]
+      . <continuation>
+
+or even (easier to write, perhaps harder to implement):
+
+        <preamble>
+      . (let bs = randbits n) 
+      . (let vs = randbits n)  
+      . [ b <- bs, v <- vs : (newq q = basisv_of_bits b v) . qc!q . _0 ]
       . <continuation>
 
 This is an expression of process iteration, giving the process arguments, the process body, the list to be iterated over. For each (*b*,*v*) in (*zip* *bs* *vs*), make a new qbit *q* and send it down channel *qc*, and that's all
--- one line of code; no mechanism, other than an explicit statement of iteration (the `.*` symbol), an anonymous nested process, and a statement of the list of values to be used. Far simpler. So, how to make it work?
+-- one line of code; no mechanism, other than an explicit statement of iteration, an anonymous nested process, and a statement of the list of values to be used. Far simpler. So, how to make it work?
 
-### Embedded anonymous processes
+## Defining and 'calling' an embedded process
 
-Embedded process definitions, which make use of values from the enclosing process, are nothing new in the pi calculus. Every process par uses them:
+Non-embedded processes don't have free names, other than the names of other processes that they might invoke, and it would seem that if we are to call process `P` it would be better if it didn't invoke other processes. Embedded processes do have free names -- that's the point.
 
-        <preamble>
-        | process 1
-        | process 2
+Suppose that we have a program
 
-Both process 1 and process 2 can call on names declared in the preamble. If we allowed anonymous process expressions, using &tau; just as anonymous function expressions use &lambda;, we could rewrite this as 
+          <preamble>
+        . (proc R(x,y,z) = <process body>)
+        . <intermediate>
+        . call R(argA,argB,argC)
+        . <continuation>
+        
+-- a process `R` defined so that it can make use of names from `<preamble>` and with arguments `x`, `y` and `z`, 'called' at a later point in the process. (Again **nb**: I'm not proposing a `call` mechanism, just using it to facilitate description.)
 
-        <preamble>
-        | (tau().process 1)()
-        | (tau().process 2)()
+It is possible, I believe, to implement such a mechanism in pure pi calculus, using process arguments to deal with free names in `<process body>` and messages to deal with arguments in the `call`. But I do not propose that, so I don't describe it. Instead I propose (and have already implemented) **process closures**: processes with environments. And I also propose (and have already implemented) a `proc` declaration, though for the time being only implemented as an interpretation mechanism and not given a syntactic form.
 
--- we wouldn't gain anything by it, but it's not utterly outlandish.
+Given `proc`, the `call` mechanism could be just as for non-embedded processes -- i.e. construct `R`<sub>`r`</sub> using a fresh channel `rc` and call that. But as a language mechanism it would all get a bit strange, so I don't actually propose it.
 
 ### Logging with embedded processes
 

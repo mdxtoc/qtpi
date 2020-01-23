@@ -226,16 +226,16 @@ let dagger g =
 
 let qcopy (n,v) = n, Array.copy v (* nobody ought to know about this: I need a .mli for this file *)
 
+(* this is in the wrong place *)
+let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
+
 let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the references *)
   let qbitcount = ref 0 in
-  let qfrees = ref [] in (* for disposed single qbits *)
+  let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
   let qlimbo = ref [] in (* for disposed entangled bits *)
   let newqbit pn n vopt =
     let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
-             let tryfrees () = match !qfrees with
-                               | q::qs -> qfrees:=qs; q 
-                               | _     -> fresh ()
-             in
+             let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in
              match vopt, !qlimbo with
              | None, _     -> fresh () (* a qbit with symbolic probabilities must be fresh, or
                                           we might re-use symbolic variables which are still in
@@ -286,9 +286,9 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
     if !verbose || !verbose_qsim then
       Printf.printf "%s disposes %s " (Name.string_of_name pn) (string_of_qbit q);
     match Hashtbl.find qstate q with
-                      | [q],_ -> Hashtbl.remove qstate q; qfrees := q::!qfrees;
+                      | [q],_ -> Hashtbl.remove qstate q; Queue.add q qfrees;
                                  if !verbose || !verbose_qsim then
-                                   Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit !qfrees)
+                                   Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit (queue_elements qfrees))
                       | qv    -> (* don't dispose entangled qbits *)
                                  if !verbose || !verbose_qsim then
                                    Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
@@ -301,7 +301,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
                                                  ;
                                  qlimbo := q::!qlimbo
   in
-  let string_of_qfrees () = bracketed_string_of_list string_of_qbit !qfrees in
+  let string_of_qfrees () = bracketed_string_of_list string_of_qbit (queue_elements qfrees) in
   let string_of_qlimbo () = bracketed_string_of_list string_of_qbit !qlimbo in
   newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo
   

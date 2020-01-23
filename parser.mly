@@ -82,7 +82,7 @@
 %token APPEND CONS
 %token AND OR NOT
 %token UNIT TERMINATE
-%token COMMA STAR SEMICOLON
+%token COMMA STAR SEMICOLON LEFTARROW
 %token TRUE FALSE BIT0 BIT1
 %token VZERO VONE VPLUS VMINUS
 %token FORALL PROCESS
@@ -319,6 +319,8 @@ simpleprocess:
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
   | PROCITER LPAR bpattern RPAR LPAR process RPAR expr DOT process
                                         {adorn (Iter ($3,$6,$8,$10))}
+  | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR DOT process /* alternative syntax for Iter ... */
+                                        {adorn (Iter ($2,$6,$4,$9))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */

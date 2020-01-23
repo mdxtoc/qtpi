@@ -82,6 +82,7 @@ rule make_token = parse
   | '='         {EQUALS}
   | '*'         {STAR}
   | "><"        {TENSORP}
+  | "<-"        {LEFTARROW}
   
   | "true"      {TRUE}
   | "false"     {FALSE}

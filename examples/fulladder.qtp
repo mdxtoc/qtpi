@@ -14,8 +14,8 @@ proc System () =
         /^2 . 
         
         (* collapse entanglements and dispose, to simplify trace *)
-        qSum-/-(sum) . qCout-/-(carry) . 
-        dispose!qA . dispose!qB . dispose!qCin . 
+        qA-/-(_) . qB-/-(_) . qCin-/-(_) . 
+        qSum-/-(_) . qCout-/-(_) . 
         _0
   ] . 
   _0

@@ -115,6 +115,9 @@ time ./Qtpi examples/W4q.qtp
 time ./Qtpi examples/W8q.qtp
 
 time ./Qtpi examples/election8.qtp
+
+time ./Qtpi examples/fulladder.qtp
+
 </string>
 </dict>
 </plist>

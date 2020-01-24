@@ -202,7 +202,7 @@ let rec rewrite_process mon proc =
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
                                rewrite_process mon mp; (* does it need mon? Let Compile judge *)
                                rewrite_process mon p
-  | Iter      (pat, proc, e, p)
+  | Iter      (pat, e, proc, p)
                             -> rewrite_pattern pat; rewrite_process mon proc;
                                rewrite_expr e; rewrite_process mon p
   | Cond     (e, p1, p2)    -> rewrite_expr e; rewrite_process mon p1; rewrite_process mon p2
@@ -831,7 +831,7 @@ and typecheck_process mon cxt p  =
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
-  | Iter (pat, proc, expr, p) -> 
+  | Iter (pat, expr, proc, p) -> 
       let t = newclasstv expr.pos in
       let _ = assigntype_expr cxt (adorn expr.pos (List t)) expr in
       assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt t pat;

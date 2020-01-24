@@ -461,7 +461,7 @@ let rec matchcheck_proc mon proc =
                                                             )
                                );
                                matchcheck_proc mon proc
-  | Iter      (params, p, e, proc)
+  | Iter      (params, e, p, proc)
                             -> matchcheck_proc mon p; matchcheck_expr e; matchcheck_proc mon proc
   | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc mon p1; matchcheck_proc mon p2 
   | PMatch    (e,pms)       -> matchcheck_expr e; 

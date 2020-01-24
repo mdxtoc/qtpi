@@ -318,9 +318,9 @@ simpleprocess:
   | iostep DOT process                  {adorn (GSum [$1,$3])}
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
   | PROCITER LPAR bpattern RPAR LPAR process RPAR expr DOT process
-                                        {adorn (Iter ($3,$6,$8,$10))}
+                                        {adorn (Iter ($3,$8,$6,$10))}
   | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR DOT process /* alternative syntax for Iter ... */
-                                        {adorn (Iter ($2,$6,$4,$9))}
+                                        {adorn (Iter ($2,$4,$6,$9))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */

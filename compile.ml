@@ -136,7 +136,7 @@ let compile_proc env pn mon proc =
                          -> let p = Process.map cmp p in
                             let proc = Process.map cmp proc in
                             Some (ad (WithProc ((brec,pn,params,proc),p)))
-    | Iter (pat, ip, e, p)
+    | Iter (pat, e, ip, p)
                          -> let p = Process.map cmp p in
                             let rc = chan_name (short_string_of_sourcepos ip.pos) in
                             let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in

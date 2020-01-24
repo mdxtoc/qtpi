@@ -596,7 +596,7 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | Iter (pat, p, e, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
+      | Iter (pat, e, p, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
                                    let pused state env stoppers p = rp state env ((env,StopKill)::stoppers) p in
                                    let used = rck_pat (fun state env stoppers -> pused state env stoppers p) 
                                                        runbind state env stoppers pat (Some re)
@@ -763,7 +763,7 @@ and ffv_proc mon proc =
                                                                     )
                                                        )
                                       )
-  | Iter      (params, p, e, proc) -> ffv_proc mon p; ffv_expr e; ffv_proc mon proc
+  | Iter      (params, e, p, proc) -> ffv_proc mon p; ffv_expr e; ffv_proc mon proc
   | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
   | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
   | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs

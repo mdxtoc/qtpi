@@ -75,7 +75,8 @@ and evaltype t =
   | String
   | Bit 
   | Basisv
-  | Gate            
+  | Gate
+  | Matrix
   | Qbit            
   | Qstate          -> t
   | Unknown u       -> evu u 
@@ -323,7 +324,8 @@ and canunifytype n t =
       | _       , Bit 
       | _       , Basisv   
    (* | _       , Range   _ *)
-      | _       , Gate          -> true
+      | _       , Gate          
+      | _       , Matrix        -> true
      
       (* Unkall takes anything *)
       | UnkAll  , _             -> true
@@ -380,7 +382,8 @@ and force_kind kind t =
     | Basisv   
     | Known   _
  (* | Range   _ *)
-    | Gate           
+    | Gate   
+    | Matrix
     | Qbit            
     | Qstate          
     | Fun _           

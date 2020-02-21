@@ -44,21 +44,22 @@ and tnode =
   | Qstate
   | Basisv
   | Gate                            (* arity is no longer a static property, because of multiplication *)
+  | Matrix                          (* Gate is a square unitary Matrix; matrices can be calculated *)
   | Unknown of unknown          
   | Known   of name                 (* knowns start with '\'', which doesn't appear in parseable names *)
   | OneOf   of unknown * _type list (* constrained unknown, for overloading *)
                                     (* and the typechecker won't work unless those are straightforward types:
                                        no unknowns, no OneOfs.
                                      *)
-                                    (* at the moment OneOf is used for Num and Gate.
+                                    (* at the moment OneOf is used for Num and Gate and Matrix in arithmetic operations.
                                        This simpifies the treatment in typecheck and resource. If it gets
                                        used more, I shall have to think again.
                                      *)
-  | Poly    of name list * _type
+  | Poly    of name list * _type    (* oh dear this could be Poly of Poly ... would that be ok? *)
 (*| Range   of int * int *)
   | List    of _type
   | Tuple   of _type list
-  | Channel of _type            (* cos if it's _type list, as in tuple, then typechecking is harder *)
+  | Channel of _type                (* cos if it's _type list, as in tuple, then typechecking is harder *)
   | Fun     of _type * _type
   | Process of _type list
 
@@ -104,6 +105,7 @@ let typeprio t =
   | Qstate
   | Basisv
   | Gate     
+  | Matrix
   | Unknown _ 
   | Known   _ 
   | OneOf   _
@@ -139,6 +141,7 @@ and string_of_tnode = function
   | Qstate           -> "qstate"
   | Basisv           -> "basisv"
   | Gate             -> "gate"
+  | Matrix           -> "matrix"
   | Unknown (_, {contents=Some t})        -> string_of_type t
   | Unknown u                             -> (*"Unknown " ^*) string_of_unknown u
   | OneOf   ((_, {contents=Some t}), _)   -> string_of_type t
@@ -179,18 +182,19 @@ let rec freetvs t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate            -> s
+    | Gate            
+    | Matrix                -> s
     | Unknown (_, {contents=Some t'})    
-                      -> _freetvs s t'      
-    | Unknown (n, _)  -> NameSet.add n s      
-    | Known   n       -> NameSet.add n s 
-    | OneOf   ((n, _), _)  -> NameSet.add n s
-    | Poly    (ns,t)  -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
+                            -> _freetvs s t'      
+    | Unknown (n, _)        -> NameSet.add n s      
+    | Known   n             -> NameSet.add n s 
+    | OneOf   ((n, _), _)   -> NameSet.add n s
+    | Poly    (ns,t)        -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
     | Channel t   
-    | List    t       -> _freetvs s t  
+    | List    t             -> _freetvs s t  
     | Process ts   
-    | Tuple   ts      -> List.fold_left _freetvs s ts
-    | Fun     (t1,t2) -> _freetvs (_freetvs s t1) t2
+    | Tuple   ts            -> List.fold_left _freetvs s ts
+    | Fun     (t1,t2)       -> _freetvs (_freetvs s t1) t2
   in
   _freetvs NameSet.empty t
 
@@ -210,12 +214,13 @@ let freeunknowns t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate           -> s
+    | Gate            
+    | Matrix          -> s
     | Unknown (_, {contents=Some t'})    
                       -> _freeuks s t'      
     | Unknown u       -> UnknownSet.add u s      
     | Known   n       -> s 
-    | OneOf   (u, _) -> UnknownSet.add u s
+    | OneOf   (u, _)  -> UnknownSet.add u s
     | Poly    (ns,t)  -> raise (Invalid_argument ("freeunknowns " ^ string_of_type t))
     | Channel t   
     | List    t       -> _freeuks s t  
@@ -317,7 +322,8 @@ let generalise t0 =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate              -> t
+    | Gate              
+    | Matrix            -> t
     | Unknown (n, {contents=Some t'})  
                         -> replace (unknown_to_known t').inst  
     | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
@@ -325,8 +331,9 @@ let generalise t0 =
     | Known   _         -> t
     | OneOf ((n, {contents=Some t'}),_)  
                         -> replace (unknown_to_known t').inst 
-    | OneOf   _         -> raise (Error (t0.pos, Printf.sprintf "Cannot generalise type %s: multiplication ambiguity (gate or num?)" 
+    | OneOf (_, ts)     -> raise (Error (t0.pos, Printf.sprintf "Cannot generalise type %s: ambiguity between %s" 
                                                                     (string_of_type t0)
+                                                                    (Stringutils.phrase (List.map string_of_type ts))
                                         )
                                  )
     | Poly    _         -> raise (Invalid_argument ("Type.generalise polytype " ^ string_of_type t0))
@@ -355,7 +362,8 @@ let instantiate t =
     | Qstate
     | Basisv
   (*| Range   _ *)
-    | Gate            -> t
+    | Gate            
+    | Matrix          -> t
     | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
     | Unknown _       
     | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
@@ -384,7 +392,8 @@ let rec is_classical t =
   | String
   | Bit 
   | Basisv
-  | Gate            -> true
+  | Gate            
+  | Matrix          -> true
   | Qstate          -> true    (* really *)
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    

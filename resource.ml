@@ -78,7 +78,8 @@ let rec is_resource_type t =
   | String
   | Bit 
   | Basisv
-  | Gate            -> false
+  | Gate            
+  | Matrix          -> false
   | Qstate          -> false    (* really *)
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    
@@ -246,7 +247,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Unit  
   | Basisv         
   (* | Range _ *)
-  | Gate            
+  | Gate      
+  | Matrix
   | Qstate          -> state, RNull
   | Qbit            -> let state, q = newqid rid state in state, RQbit q
   | Unknown _       

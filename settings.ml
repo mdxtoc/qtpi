@@ -61,6 +61,8 @@ let showsymbolicgate = ref true
 
 let symbq = ref true
 
+let showstepcount = ref false
+
 let traceevents = ref false
 let traceId = ref false
 let traceIO = ref false

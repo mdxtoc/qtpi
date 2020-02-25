@@ -453,19 +453,24 @@ let rec interp env proc =
   in
   let rec step () =
       if PQueue.is_empty runners then 
-        (if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
+        (let string_of_stepcount () =
+           if !Settings.showstepcount then
+             Printf.sprintf "%d interpreter steps" !stepcount
+           else ""
+         in
+         if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
             not (ChanSet.is_empty !stuck_chans)
          then
-           Printf.printf "All %s! (%d interpreter steps)\n channels=%s\n %s\n\n"
+           Printf.printf "All %s! %s\n channels=%s\n %s\n\n"
                           (if ChanSet.is_empty !stuck_chans then "done" else "stuck")
-                          !stepcount
+                          (string_of_stepcount ())
                           (string_of_stuck_chans ())
                           (String.concat "\n " (strings_of_qsystem ()))
          else 
          if !pstep then
-           Printf.printf "all done (%d interpreter steps)\n" !stepcount
+           Printf.printf "all done\n%s\n" (string_of_stepcount ())
          else 
-           Printf.printf "\n%d interpreter steps\n" !stepcount;
+           Printf.printf "\n%s\n" (string_of_stepcount ());
          if !traceevents then
            (Printf.printf "\nEvent Trace:\n\n";
             Event.show_trace ();

@@ -863,6 +863,12 @@ let g_Phi = function (* as Pauli *)
   | 3 -> g_Z  
   | i -> raise (Disaster ("** _Phi(" ^ string_of_int i ^ ")"))
 
+let g_Swap =
+  make_g [[c_1; c_0; c_0; c_0];
+          [c_0; c_0; c_1; c_0];
+          [c_0; c_1; c_0; c_0];
+          [c_0; c_0; c_0; c_1]]
+          
 let g_Toffoli = (* tediously, sorry *)
   make_g  [[c_1; c_0; c_0; c_0; c_0; c_0; c_0; c_0 ];
            [c_0; c_1; c_0; c_0; c_0; c_0; c_0; c_0 ];
@@ -1095,6 +1101,7 @@ and string_of_gate g =
                    if g=g_Rz      then Some "Rz" else
                    if g=g_Rx      then Some "Rx" else
                    if g=g_Cnot    then Some "Cnot" else
+                   if g=g_Swap    then Some "Swap" else
                    if g=g_Toffoli then Some "T" else 
                    if g=g_Fredkin then Some "F" else 
                    None

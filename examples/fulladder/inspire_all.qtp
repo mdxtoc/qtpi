@@ -1,0 +1,22 @@
+
+proc System () =
+  [ (a,b,c) <- [(|0>,|0>,|0>); (|0>,|0>,|1>); (|0>,|1>,|0>); (|0>,|1>,|1>); 
+                (|1>,|0>,|0>); (|1>,|0>,|1>); (|1>,|1>,|0>); (|1>,|1>,|1>);
+                (|+>,|0>,|0>); (|0>,|+>,|0>); (|0>,|0>,|+>); 
+                (|+>,|+>,|0>); (|+>,|0>,|+>); (|0>,|+>,|+>);
+                (|+>,|+>,|+>)] :
+        (newq qA   = a, 
+              qB   = b,
+              qCin_Sum = c) . /^1 .
+              
+        (newq qCout=|0>) .
+        qA,qB,qCout>>T . qA,qB>>CNot . qB,qCin_Sum,qCout>>T . qB,qCin_Sum>>CNot . qA,qB>>CNot . 
+        /^2 . 
+        
+        (* collapse entanglements and dispose, to simplify trace *)
+        qA-/-(_) . qB-/-(_) . qCin_Sum-/-(_) . . qCout-/-(_) . 
+        _0
+  ] . 
+  _0
+            with 1: out!["full adder sum of (A="] . outq!qval qA . out![", B="] . outq!qval qB . out![", Cin="] . outq!qval qCin_Sum . out![")"] ._0
+                 2: out![" is (Cout="] . outq!qval qCout . out![", Sum="] . outq!qval qCin_Sum . out![")\n"] .  _0

@@ -1,0 +1,20 @@
+fun basis x = 
+  read_alternative x "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)]
+
+proc System () =
+  (newq qA   = basis "A", 
+        qB   = basis "B",
+        qCin_Sum = basis "Cin") . 
+  
+  out!["full adder sum of (A="] . outq!qval qA . out![", B="] . outq!qval qB . out![", Cin="] . outq!qval qCin_Sum . out![")"] .
+  
+  (newq qCout=|0>) .
+  qA,qB,qCout>>T . qA,qB>>CNot . qB,qCin_Sum,qCout>>T . qB,qCin_Sum>>CNot . qA,qB>>CNot . 
+  
+  out![" is (Cout="] . outq!qval qCout . out![", Sum="] . outq!qval qCin_Sum . out![")\n"] . 
+  
+  qA-/-(bA) . qB-/-(bB) . qCin_Sum-/-(bSum) . qCout-/-(bCout) . 
+  
+  out!["A measures "; show bA; ", B "; show bB; "; Cin/Sum "; show bSum; "; Cout "; show bCout; ".\n"] .
+
+  _0

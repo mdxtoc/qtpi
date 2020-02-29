@@ -1,0 +1,10 @@
+proc System () =
+  out!["Swap><I = "; show (Swap><I); "\n"] .  
+  out!["I><CNot = "; show (I><CNot); "\n"] .
+  out!["(Swap><I)*(I><CNot)*(Swap><I) = "; show ((Swap><I)*(I><CNot)*(Swap><I)); "\n"] .
+  out!["(Swap><I)*(I><CNot)*(Swap><I)*(I><CNot) = "; show ((Swap><I)*(I><CNot)*(Swap><I)*(I><CNot)); "\n"] .
+  out!["(I><CNot)*(Swap><I)*(I><CNot)*(Swap><I) = "; show ((I><CNot)*(Swap><I)*(I><CNot)*(Swap><I)); "\n"] .
+  out!["(Swap><I)*(I><CNot)*(Swap><I)*(I><CNot) = (I><CNot)*(Swap><I)*(I><CNot)*(Swap><I) is "; 
+       show ((CNot><I)*(I><CNot) = (I><CNot)*(CNot><I)); "\n"] .
+  _0
+  

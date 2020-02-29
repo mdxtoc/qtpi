@@ -116,7 +116,14 @@ time ./Qtpi examples/W8q.qtp
 
 time ./Qtpi examples/election8.qtp
 
-time ./Qtpi examples/fulladder.qtp
+time ./Qtpi examples/fulladder/Coggins_all.qtp
+time ./Qtpi examples/fulladder/Coggins.qtp
+time ./Qtpi examples/fulladder/inspire.qtp
+time ./Qtpi examples/fulladder/inspire_all.qtp
+
+./Qtpi examples/fulladder/commutetest.qtp
+
+
 
 </string>
 </dict>

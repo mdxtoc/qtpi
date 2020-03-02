@@ -60,7 +60,17 @@ let string_of_event = function
   | EVChangeId (pn, npns)       -> Printf.sprintf "%s morphs into %s" (string_of_name pn)
                                                                       (string_of_list string_of_name ", " npns)
                                                                  
-let tev q = Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
+let tev qs = 
+  let rec tqs prevqs qs =
+    match qs with 
+    | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qval q=Qsim.qval q') prevqs in
+                    Printf.sprintf "%s=%s" (string_of_qbit q) (string_of_qbit prevq)
+                with Not_found -> 
+                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
+               ) :: tqs (prevqs@[q]) qs
+    | _     -> []
+  in
+  tqs [] qs
 
 let stored_trace = (ref [] : event list ref)
 

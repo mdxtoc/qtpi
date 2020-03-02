@@ -564,13 +564,13 @@ let rec interp env proc =
                                               let qv, aqs = 
                                                 if !traceevents then 
                                                   let qs = fst (qval q) in
-                                                  tev q, (if disposed then remove q qs else qs) 
+                                                  List.hd (tev [q]), (if disposed then remove q qs else qs) 
                                                 else 
                                                   "", [] 
                                               in
                                               let gv = (gateev env ||~~ g_I) gopt in
                                               let v = vbit (qmeasure disposed pn gv q = 1) in
-                                              if !traceevents then trace (EVMeasure (pn, qv, gv, v, List.map tev aqs));
+                                              if !traceevents then trace (EVMeasure (pn, qv, gv, v, tev aqs));
                                               let env' = (match tinst pat with
                                                           | PatAny    -> env
                                                           | PatName n -> env <@+> (n,v)
@@ -585,10 +585,10 @@ let rec interp env proc =
                                                       )
                   | Ugatestep (es, g)      -> let qs = List.map (qbitev env) es in
                                               let g = gateev env g in
-                                              let qvs = if !traceevents then List.map tev qs else [] in
+                                              let qvs = if !traceevents then tev qs else [] in
                                               ugstep pn qs g;
                                               addrunner (pn, proc, env);
-                                              if !traceevents then trace (EVGate (pn, qvs, g, List.map tev qs));
+                                              if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
                                               if !pstep then 
                                                 show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )

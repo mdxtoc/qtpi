@@ -21,19 +21,20 @@
     (or look at http://www.gnu.org).
 *)
 
-type basisv =
-  | BVzero
-  | BVone
-  | BVplus
-  | BVminus
+(* type basisv =
+     | BVzero
+     | BVone
+     | BVplus
+     | BVminus
 
-let nBasisv=4 (* for matchchecker *)
+   let nBasisv=4 (* for matchchecker *)
 
-let string_of_basisv = function
-  | BVzero				-> "|0>"
-  | BVone				-> "|1>"
-  | BVplus				-> "|+>"
-  | BVminus				-> "|->"
+   let string_of_basisv = function
+     | BVzero				-> "|0>"
+     | BVone				-> "|1>"
+     | BVplus				-> "|+>"
+     | BVminus				-> "|->"
+ *)
   
 type bkelement =
   | BKOne

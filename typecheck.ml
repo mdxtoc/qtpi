@@ -74,7 +74,8 @@ and evaltype t =
   | Char
   | String
   | Bit 
-  | Basisv
+  | Bra
+  | Ket
   | Gate
   | Matrix
   | Qbit            
@@ -115,7 +116,8 @@ let rec rewrite_expr e =
        | EChar       _
        | EString     _
        | EBit        _          
-       | EBasisv     _          -> ()
+       | EBra        _          
+       | EKet        _          -> ()
        | EMinus      e          
        | ENot        e          -> rewrite_expr e
        | ETuple      es         -> List.iter rewrite_expr es
@@ -158,7 +160,8 @@ and rewrite_pattern p =
        | PatBool    _
        | PatChar    _
        | PatString  _
-       | PatBasisv  _       -> ()
+       | PatBra     _
+       | PatKet     _       -> ()
        | PatCons    (ph,pt) -> List.iter rewrite_pattern [ph;pt]
        | PatTuple   ps      -> List.iter rewrite_pattern ps
        
@@ -322,7 +325,8 @@ and canunifytype n t =
       | _       , Char
       | _       , String
       | _       , Bit 
-      | _       , Basisv   
+      | _       , Bra
+      | _       , Ket
    (* | _       , Range   _ *)
       | _       , Gate          
       | _       , Matrix        -> true
@@ -379,7 +383,8 @@ and force_kind kind t =
     | String
     | Bit 
     | Unit
-    | Basisv   
+    | Bra
+    | Ket
     | Known   _
  (* | Range   _ *)
     | Gate   
@@ -425,7 +430,8 @@ and assigntype_pat contn cxt t p : unit =
       | PatBool _       -> unifytypes t (adorn p.pos Bool); contn cxt
       | PatChar _       -> unifytypes t (adorn p.pos Char); contn cxt
       | PatString _     -> unifytypes t (adorn p.pos String); contn cxt
-      | PatBasisv _     -> unifytypes t (adorn p.pos Basisv); contn cxt
+      | PatBra _        -> unifytypes t (adorn p.pos Bra); contn cxt
+      | PatKet _        -> unifytypes t (adorn p.pos Ket); contn cxt
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
                            let lt = adorn p.pos (List vt) in
                            let cf cxt = 
@@ -524,7 +530,8 @@ and assigntype_expr cxt t e =
                                 )
                                 *)
                                unifytypes t (adorn_x e Bit) 
-     | EBasisv _            -> unifytypes t (adorn_x e Basisv)
+     | EBra    _            -> unifytypes t (adorn_x e Bra)
+     | EKet    _            -> unifytypes t (adorn_x e Ket)
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = newclasstv e.pos in (* result always classical *)
@@ -789,10 +796,10 @@ and typecheck_process mon cxt p  =
       check_distinct_params params;
       do_procparams "WithNew" newcommtv cxt params proc [] mon
   | WithQbit (qss,proc) ->
-      let typecheck_qspec cxt (par, bvopt) =
+      let typecheck_qspec cxt (par, kopt) =
         let _ = unify_paramtype (toptr par) (adorn par.pos Qbit) in
-        match bvopt with
-        | Some bve -> assigntype_expr cxt (adorn bve.pos Basisv) bve
+        match kopt with
+        | Some k   -> assigntype_expr cxt (adorn k.pos Ket) k
         | None     -> ()
       in
       let _ = List.iter (typecheck_qspec cxt) qss in

@@ -65,6 +65,11 @@ let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
 let tpnum = DIGIT+ ('.' DIGIT+)*
 
+let bke = ['0' '1' '+' '-']
+
+let bra = '<' bke+ '|'
+let ket = '|' bke+ '>'
+
 rule make_token = parse
 
   | BLANK       { make_token lexbuf} (* Skip blanks and tabs *)
@@ -136,11 +141,6 @@ rule make_token = parse
   (* and STAR as multiply *)
   | "**"        {POW}
     
-  | "|0>"       {VZERO}
-  | "|1>"       {VONE}
-  | "|+>"       {VPLUS}
-  | "|->"       {VMINUS}
-  
   | '='         {EQUALS}
   | "<>"        {NOTEQUAL}
   | '<'         {LESS}
@@ -186,6 +186,9 @@ rule make_token = parse
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
   | tpnum       {TPNUM (Lexing.lexeme lexbuf)}
   
+  | bra         {BRA (Lexing.lexeme lexbuf)}
+  | ket         {KET (Lexing.lexeme lexbuf)}
+
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
                                                   Char.escaped (Lexing.lexeme_char lexbuf 0) ^ 
                                                   "'"

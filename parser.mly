@@ -30,7 +30,7 @@
   open Type
   open Name
   open Expr
-  open Basisv
+  open Braket
   open Pattern
   open Sourcepos
   open Instance
@@ -67,7 +67,9 @@
 %token <string> TVNAME 
 %token <string> TPNUM 
 %token <string> STRING 
-%token <char> CHAR 
+%token <string> BRA
+%token <string> KET
+%token <char>   CHAR 
 
 %token EOP OFFSIDE /* could it be EOP? No. */
 %token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
@@ -84,7 +86,6 @@
 %token UNIT TERMINATE
 %token COMMA STAR SEMICOLON LEFTARROW
 %token TRUE FALSE BIT0 BIT1
-%token VZERO VONE VPLUS VMINUS
 %token FORALL PROCESS
 
 /* remember %left %right %nonassoc and increasing priority */
@@ -393,7 +394,8 @@ simplepattern:
   | FALSE                               {tadorn (PatBool (false))}
   | CHAR                                {tadorn (PatChar $1)}
   | STRING                              {tadorn (PatString $1)}
-  | basisv                              {tadorn (PatBasisv $1) }
+  | BRA                                 {tadorn (PatBra (bkelements_of_string $1)) }
+  | KET                                 {tadorn (PatKet (bkelements_of_string $1)) }
   | LSQPAR patternlist RSQPAR           {$2}
   | LPAR RPAR                           {tadorn PatUnit}
   | LPAR patterns RPAR                  {tadorn (Pattern.delist $2)}
@@ -428,12 +430,6 @@ tpnum:
   | NUM                                 {$1}
   | TPNUM                               {$1}
   
-basisv:
-  | VZERO                               {BVzero }
-  | VONE                                {BVone  }
-  | VPLUS                               {BVplus }
-  | VMINUS                              {BVminus}
-
 primary:
   | LPAR RPAR                           {tadorn EUnit}
   | name                                {tadorn (EVar $1)}
@@ -444,7 +440,8 @@ primary:
   | FALSE                               {tadorn (EBool (false))}
   | CHAR                                {tadorn (EChar $1)}
   | STRING                              {tadorn (EString $1)}
-  | basisv                              {tadorn (EBasisv $1) }
+  | BRA                                 {tadorn (EBra (bkelements_of_string $1)) }
+  | KET                                 {tadorn (EKet (bkelements_of_string $1)) }
   | LSQPAR exprlist RSQPAR              {$2}
   | LPAR exprtuple RPAR                 {tadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
   | IF indentPrev eif outdent fiq       {tadorn(tinst $3)}

@@ -32,7 +32,7 @@ open Sourcepos
 open Instance
 open Type
 open Pattern
-open Basisv
+open Braket
 open Printpriority
 
 exception Error of sourcepos * string
@@ -47,7 +47,8 @@ and enode =
   | EChar of char
   | EString of string
   | EBit of bool        (* 1=true *)
-  | EBasisv of basisv
+  | EBra of bra
+  | EKet of ket
   | EMinus of expr
   | ENot of expr
   | ETuple of expr list
@@ -144,7 +145,8 @@ let rec exprprio e =
   | EChar       _
   | EString     _
   | EBit        _ 
-  | EBasisv     _
+  | EBra        _
+  | EKet        _
   | ECond       _           
   | EMatch      _           -> primaryprio
   | EMinus      _           
@@ -170,7 +172,8 @@ let rec string_of_primary e =
   | ENil            -> "[]"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
-  | EBasisv bv      -> string_of_basisv bv
+  | EBra b          -> string_of_bra b
+  | EKet k          -> string_of_ket k
   | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
@@ -215,7 +218,8 @@ and string_of_expr e =
   | ENil
   | EVar        _
   | EBit        _
-  | EBasisv     _
+  | EBra        _
+  | EKet        _
   | ENum        _
   | EBool       _
   | EChar       _
@@ -304,7 +308,8 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       | EChar       _ 
       | EString     _ 
       | EBit        _ 
-      | EBasisv     _ 
+      | EBra        _ 
+      | EKet        _ 
       | ENil                   -> s
       | EMinus      e 
       | ENot        e          -> _frees s e

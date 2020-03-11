@@ -252,10 +252,10 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
             | _            -> tryfrees ()
     in
     let vec = match vopt with
-              | Some Basisv.BVzero  -> qcopy v_zero
-              | Some Basisv.BVone   -> qcopy v_one
-              | Some Basisv.BVplus  -> qcopy v_plus
-              | Some Basisv.BVminus -> qcopy v_minus
+              | Some Braket.BKZero  -> qcopy v_zero
+              | Some Braket.BKOne   -> qcopy v_one
+              | Some Braket.BKPlus  -> qcopy v_plus
+              | Some Braket.BKMinus -> qcopy v_minus
               | None                -> if !Settings.symbq then
                                          ((* this could be a bug if we used qfrees *)
                                           let pa_sq = Random.float 1.0 in
@@ -276,7 +276,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
       Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
                     (Name.string_of_name pn)
                     (Name.string_of_name n)
-                    (string_of_option Basisv.string_of_basisv vopt)
+                    (string_of_option (Braket.string_of_ket <.> (fun e -> [e])) vopt)
                     (string_of_qbit q)
                     (string_of_qbit q)
                     (string_of_qval qv);

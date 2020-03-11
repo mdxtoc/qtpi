@@ -30,7 +30,7 @@ open Functionutils
 open Optionutils
 open Type
 open Expr
-open Basisv
+open Braket
 open Process
 open Def
 open Step
@@ -54,7 +54,8 @@ type constructor =
   | CString of string
   | CBit    of bool          
   | CUnit          
-  | CBasisv of basisv
+  | CBra    of bra
+  | CKet    of ket
   | CGate   of string    
 
 type con = {con:constructor; arity:int; span:int}
@@ -79,7 +80,8 @@ let string_of_constructor = function
   | CString s   -> Printf.sprintf "CString\"%s\"" (String.escaped s)
   | CBit    b   -> Printf.sprintf "CBit 0b%d" (if b then 1 else 0)           
   | CUnit       -> "CUnit"          
-  | CBasisv bv  -> Printf.sprintf "CBasisv %s" (string_of_basisv bv)
+  | CBra    b   -> Printf.sprintf "CBra %s" (string_of_bra b)
+  | CKet    k   -> Printf.sprintf "CKet %s" (string_of_ket k)
   | CGate   s   -> Printf.sprintf "CGate %s" s   
 
 let short_string_of_constructor = function
@@ -92,7 +94,8 @@ let short_string_of_constructor = function
   | CString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | CBit    b       -> Printf.sprintf "0b%d" (if b then 1 else 0)           
   | CUnit           -> "CUnit"          
-  | CBasisv bv      -> Printf.sprintf "%s" (string_of_basisv bv)
+  | CBra    b       -> Printf.sprintf "%s" (string_of_bra b)
+  | CKet    k       -> Printf.sprintf "%s" (string_of_ket k)
   | CGate   "Phi"   -> "Phi _"
   | CGate   s       -> s
 
@@ -241,7 +244,8 @@ let matchcheck_pats string_of_rhs rules =
       | CChar   c   -> several "a char"
       | CString s   -> several "a string"
       | CBit    b   -> Printf.sprintf "0b%d" (if not b then 1 else 0)           
-      | CBasisv bv  -> several "a basis vector" 
+      | CBra    b   -> several "a bra" 
+      | CKet    k   -> several "a ket" 
       | CGate   s   -> several "a gate" 
                       
     in
@@ -356,12 +360,13 @@ let matchcheck_pats string_of_rhs rules =
                  | PatName   _      -> None
                  | PatUnit          -> Some ({con=CUnit     ; arity=0             ; span=1       }, []   ) 
                  | PatNil           -> Some ({con=CNil      ; arity=0             ; span=2       }, []   )
-                 | PatInt    i      -> Some ({con=CInt    i ; arity=0             ; span= -1     }, []   )
+                 | PatInt    i      -> Some ({con=CInt    i ; arity=0             ; span=(-1)    }, []   )
                  | PatBit    b      -> Some ({con=CBit    b ; arity=0             ; span=2       }, []   )
                  | PatBool   b      -> Some ({con=CBool   b ; arity=0             ; span=2       }, []   )
                  | PatChar   c      -> Some ({con=CChar   c ; arity=0             ; span=128     }, []   )
                  | PatString s      -> Some ({con=CString s ; arity=0             ; span=(-1)    }, []   )
-                 | PatBasisv bv     -> Some ({con=CBasisv bv; arity=0             ; span=nBasisv }, []   )
+                 | PatBra    b      -> Some ({con=CBra    b ; arity=0             ; span=(-1)    }, []   )
+                 | PatKet    k      -> Some ({con=CKet    k ; arity=0             ; span=(-1)    }, []   )
                  | PatCons   (h,t)  -> Some ({con=CCons     ; arity=2             ; span=2       }, [h;t])
                  | PatTuple  ps     -> Some ({con=CTuple    ; arity=List.length ps; span=1       }, ps   )
     in
@@ -410,7 +415,8 @@ let rec matchcheck_expr e =
   | EChar       _
   | EString     _
   | EBit        _
-  | EBasisv     _
+  | EBra        _
+  | EKet        _
   | ENil                    -> ()
   | EMinus      e           
   | ENot        e           -> matchcheck_expr e

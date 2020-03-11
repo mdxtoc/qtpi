@@ -29,7 +29,7 @@ open Functionutils
 open Instance
 open Name
 open Type
-open Basisv
+open Braket
 open Printpriority
 
 type pattern = pnode typedinstance
@@ -44,7 +44,8 @@ and pnode =
   | PatBool of bool
   | PatChar of char
   | PatString of string
-  | PatBasisv of basisv
+  | PatBra of bra
+  | PatKet of ket
   | PatCons of pattern * pattern
   | PatTuple of pattern list
 
@@ -62,7 +63,8 @@ let patprio p =
   | PatBit      _
   | PatBool     _
   | PatChar     _
-  | PatBasisv   _
+  | PatBra      _
+  | PatKet      _
   | PatString   _   -> constprio
   | PatTuple    _   -> constprio (* now tuples must be bracketed *)
   | PatCons     _   -> listprio
@@ -91,7 +93,8 @@ let rec string_of_pattern p =
     | PatBool   b       -> string_of_bool b
     | PatChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
     | PatString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-    | PatBasisv bv      -> string_of_basisv bv
+    | PatBra    b       -> string_of_bra b
+    | PatKet    k       -> string_of_ket k
   and spb mb p =
     let s = sp p in
     if mb (patprio p) then "(" ^ s ^ ")" else s
@@ -132,7 +135,8 @@ let names_of_pattern =
     | PatBool   _
     | PatChar   _
     | PatString _
-    | PatBasisv _       -> set
+    | PatBra    _
+    | PatKet    _       -> set
     | PatName   n       -> NameSet.add n set 
     | PatCons   (ph,pt) -> nps (nps set ph) pt
     | PatTuple  ps      -> List.fold_left nps set ps

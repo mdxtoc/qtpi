@@ -26,7 +26,7 @@ open Listutils
 open Functionutils
 open Optionutils
 open Tupleutils
-open Basisv
+open Braket
 open Number
 open Name
 open Process
@@ -81,7 +81,8 @@ type value =
   | VNum of num
   | VBool of bool
   | VChar of char
-  | VBasisv of basisv
+  | VBra of bra
+  | VKet of ket
   | VGate of gate
   | VString of string
   | VQbit of qbit
@@ -952,7 +953,8 @@ let rec so_value optf v =
                | VBit b          -> if b then "1" else "0"
                | VNum n          -> string_of_num n
                | VBool b         -> string_of_bool b
-               | VBasisv bv      -> string_of_basisv bv
+               | VBra b          -> string_of_bra b
+               | VKet k          -> string_of_ket k
                | VGate gate      -> string_of_gate gate
                | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)

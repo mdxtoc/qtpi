@@ -77,7 +77,8 @@ let rec is_resource_type t =
   | Char
   | String
   | Bit 
-  | Basisv
+  | Bra
+  | Ket
   | Gate            
   | Matrix          -> false
   | Qstate          -> false    (* really *)
@@ -245,7 +246,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | String
   | Bit 
   | Unit  
-  | Basisv         
+  | Bra
+  | Ket
   (* | Range _ *)
   | Gate      
   | Matrix
@@ -351,7 +353,8 @@ let rec rck_pat contn unbind state env stoppers pat resopt =
   | PatBool   _
   | PatChar   _
   | PatString _
-  | PatBasisv _       -> contn state env stoppers (* no resources here *)
+  | PatBra    _       
+  | PatKet    _       -> contn state env stoppers (* no resources here *)
   | PatName   n       -> let state, res = match resopt with
                            | Some res -> state, res
                            | None     -> resource_of_type (pat.pos,n) state (type_of_pattern pat) 
@@ -410,7 +413,8 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       | EChar       _
       | EString     _
       | EBit        _         
-      | EBasisv     _         -> RNull, ResourceSet.empty
+      | EBra        _
+      | EKet        _         -> RNull, ResourceSet.empty
       | EMinus      e         
       | ENot        e         -> re use e
       | EArith      (e1,_,e2) 
@@ -703,7 +707,8 @@ let rec ffv_expr expr =
   | EChar      _
   | EString    _
   | EBit       _
-  | EBasisv    _
+  | EBra       _
+  | EKet       _
   | ENil                    -> ()
   | EMinus     e
   | ENot       e            -> ffv_expr e

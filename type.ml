@@ -42,7 +42,8 @@ and tnode =
   | Bit 
   | Qbit
   | Qstate
-  | Basisv
+  | Bra
+  | Ket
   | Gate                            (* arity is no longer a static property, because of multiplication *)
   | Matrix                          (* Gate is a square unitary Matrix; matrices can be calculated *)
   | Unknown of unknown          
@@ -103,7 +104,8 @@ let typeprio t =
   | Unit          
   | Qbit
   | Qstate
-  | Basisv
+  | Bra
+  | Ket
   | Gate     
   | Matrix
   | Unknown _ 
@@ -139,7 +141,8 @@ and string_of_tnode = function
   | Unit             -> "()"
   | Qbit             -> "qbit"
   | Qstate           -> "qstate"
-  | Basisv           -> "basisv"
+  | Bra              -> "bra"
+  | Ket              -> "ket"
   | Gate             -> "gate"
   | Matrix           -> "matrix"
   | Unknown (_, {contents=Some t})        -> string_of_type t
@@ -180,7 +183,8 @@ let rec freetvs t =
     | Unit
     | Qbit 
     | Qstate
-    | Basisv
+    | Bra
+    | Ket
   (*| Range   _ *)
     | Gate            
     | Matrix                -> s
@@ -212,7 +216,8 @@ let freeunknowns t =
     | Unit
     | Qbit 
     | Qstate
-    | Basisv
+    | Bra
+    | Ket
   (*| Range   _ *)
     | Gate            
     | Matrix          -> s
@@ -320,7 +325,8 @@ let generalise t0 =
     | Unit
     | Qbit 
     | Qstate
-    | Basisv
+    | Bra
+    | Ket
   (*| Range   _ *)
     | Gate              
     | Matrix            -> t
@@ -360,7 +366,8 @@ let instantiate t =
     | Unit
     | Qbit 
     | Qstate
-    | Basisv
+    | Bra
+    | Ket
   (*| Range   _ *)
     | Gate            
     | Matrix          -> t
@@ -391,7 +398,8 @@ let rec is_classical t =
   | Char
   | String
   | Bit 
-  | Basisv
+  | Bra
+  | Ket
   | Gate            
   | Matrix          -> true
   | Qstate          -> true    (* really *)

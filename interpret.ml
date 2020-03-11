@@ -30,7 +30,7 @@ open Sourcepos
 open Instance
 open Name
 open Expr
-open Basisv
+open Braket
 open Pattern
 open Type
 open Param
@@ -70,7 +70,8 @@ let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
 let stringv = function VString s       -> s      | v -> miseval "stringv"  v
-let basisvv = function VBasisv bv      -> bv     | v -> miseval "basisvv"  v
+let brav    = function VBra    b       -> b      | v -> miseval "brav"     v
+let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
 let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
 let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
@@ -165,7 +166,8 @@ let matcher pos env pairs value =
     | PatBool   b       , VBool   b'        -> maybe (b=b')
     | PatChar   c       , VChar   c'        -> maybe (c=c')
     | PatString s       , VString s'        -> maybe (s=s')
-    | PatBasisv v       , VBasisv v'        -> maybe (v=v')
+    | PatBra    b       , VBra    b'        -> maybe (b=b')
+    | PatKet    k       , VKet    k'        -> maybe (k=k')
     | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
     | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
     | _                                     -> no () (* can happen: [] vs ::, :: vs [] *)
@@ -196,7 +198,8 @@ let rec evale env e =
     | EChar c             -> VChar c
     | EString s           -> VString s
     | EBit b              -> VBit b
-    | EBasisv bv          -> VBasisv bv
+    | EBra b              -> VBra b
+    | EKet k              -> VKet k
     | EMinus e            -> VNum (~-/ (numev env e))
     | ENot   e            -> VBool (not (boolev env e))
     | ETuple es           -> VTuple (List.map (evale env) es)
@@ -318,7 +321,8 @@ and deepcompare = function (* list everything to be sure I don't make a mistake 
   | VBit     v1 , VBit     v2  
   | VBool    v1 , VBool    v2  -> Stdlib.compare v1 v2 
   | VChar    v1 , VChar    v2  -> Stdlib.compare v1 v2 
-  | VBasisv  v1 , VBasisv  v2  -> Stdlib.compare v1 v2
+  | VBra     v1 , VBra     v2  -> Stdlib.compare v1 v2
+  | VKet     v1 , VKet     v2  -> Stdlib.compare v1 v2
   | VGate    v1 , VGate    v2  -> Stdlib.compare v1 v2
   | VString  v1 , VString  v2  -> Stdlib.compare v1 v2    (* none of these hide values *)
   | _                          -> raise (Can'tHappen "deepcompare given different types")
@@ -536,11 +540,18 @@ let rec interp env proc =
                  if !pstep then 
                    show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
              | WithQbit (qs, proc) ->
-                 let bv_eval = function
+                 let ket_eval = function
                  | None      -> None
-                 | Some bve  -> Some (basisvv (evale env bve))
+                 | Some kv   -> let k = ketv (evale env kv) in
+                                (match k with
+                                 | [e] -> Some e
+                                 | _   -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
+                                                                                  (string_of_ket k)
+                                                       )
+                                                )
+                                )
                  in
-                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (bv_eval vopt))) qs in
+                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (ket_eval vopt))) qs in
                  let env' = List.fold_left (<@+>) env qs' in
                  addrunner (pn, proc, env');
                  if !pstep then 

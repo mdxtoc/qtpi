@@ -48,6 +48,8 @@
     | c   -> c
 
   let stringbuffer = Buffer.create 256
+  
+  let bkconvert s = String.init (String.length s - 2) (fun i -> String.get s (i+1))
 }
 
 let BLANK = [' ' '\t']
@@ -64,6 +66,11 @@ let name   = ALPHA (ALPHA | DIGIT | '_' | '\'')*
 let tvname = '\'' (name | '\'' name | '^' name | '*' name)
 
 let tpnum = DIGIT+ ('.' DIGIT+)*
+
+let bke = ['0' '1' '+' '-']
+
+let bra = '<' bke+ '|'
+let ket = '|' bke+ '>'
 
 rule make_token = parse
 
@@ -136,11 +143,6 @@ rule make_token = parse
   (* and STAR as multiply *)
   | "**"        {POW}
     
-  | "|0>"       {VZERO}
-  | "|1>"       {VONE}
-  | "|+>"       {VPLUS}
-  | "|->"       {VMINUS}
-  
   | '='         {EQUALS}
   | "<>"        {NOTEQUAL}
   | '<'         {LESS}
@@ -186,6 +188,9 @@ rule make_token = parse
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
   | tpnum       {TPNUM (Lexing.lexeme lexbuf)}
   
+  | bra         {BRA (bkconvert (Lexing.lexeme lexbuf))}
+  | ket         {KET (bkconvert (Lexing.lexeme lexbuf))}
+
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
                                                   Char.escaped (Lexing.lexeme_char lexbuf 0) ^ 
                                                   "'"

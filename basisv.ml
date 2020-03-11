@@ -27,12 +27,29 @@ type basisv =
   | BVplus
   | BVminus
 
-let nBasisv =4 (* for matchchecker *)
+let nBasisv=4 (* for matchchecker *)
 
-let string_of_basisv bv =
-  match bv with
+let string_of_basisv = function
   | BVzero				-> "|0>"
   | BVone				-> "|1>"
   | BVplus				-> "|+>"
   | BVminus				-> "|->"
   
+type bkelement =
+  | BKOne
+  | BKZero
+  | BKPlus
+  | BKMinus
+  
+type ket = bkelement list
+type bra = bkelement list
+
+let string_of_bkelement = function
+  | BKOne       -> "1"
+  | BKZero      -> "0"
+  | BKPlus      -> "+"
+  | BKMinus     -> "-"
+  
+let string_of_bkes es = String.concat "" (List.map string_of_bkelement es)
+let string_of_ket k = "|" ^ string_of_bkes k ^ ">"
+let string_of_bra b = "<" ^ string_of_bkes b ^ "|"

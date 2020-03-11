@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
 
+exception Disaster of string
+
 (* type basisv =
      | BVzero
      | BVone
@@ -50,6 +52,16 @@ let string_of_bkelement = function
   | BKZero      -> "0"
   | BKPlus      -> "+"
   | BKMinus     -> "-"
+
+let bkelement_of_char = function
+  | '1'       -> BKOne
+  | '0'       -> BKZero 
+  | '+'       -> BKPlus
+  | '-'       -> BKMinus
+  | c         -> raise (Disaster (Printf.sprintf "bkelement_of_char %c" c))
+
+let bkelements_of_string s =
+  List.map bkelement_of_char (List.init (String.length s) (String.get s))
   
 let string_of_bkes es = String.concat "" (List.map string_of_bkelement es)
 let string_of_ket k = "|" ^ string_of_bkes k ^ ">"

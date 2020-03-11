@@ -47,17 +47,7 @@
   let tadorn inst = Instance.adorn (get_sourcepos()) (twrap None inst)
     
   let procadorn inst = Process.procadorn (get_sourcepos()) inst
-     
-(*  
-  let warn s = report (Warning (get_sourcepos(), s))
-  
- *)   
-  (* let check_conditional_assign assign =
-       match classify_assign true true assign with
-       | LocbecomesEs (true,_) (*as a*) -> bad "store-conditional not supported. Sorry." (*; a*)
-       | _                              -> bad ("conditional assignment must be store-conditional")
-   *)
-    
+         
 %}
 
 %token LPAR RPAR

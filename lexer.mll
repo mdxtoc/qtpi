@@ -48,6 +48,8 @@
     | c   -> c
 
   let stringbuffer = Buffer.create 256
+  
+  let bkconvert s = String.init (String.length s - 2) (fun i -> String.get s (i+1))
 }
 
 let BLANK = [' ' '\t']
@@ -186,8 +188,8 @@ rule make_token = parse
   | tvname      {TVNAME (Lexing.lexeme lexbuf)} (* should be interned *)
   | tpnum       {TPNUM (Lexing.lexeme lexbuf)}
   
-  | bra         {BRA (Lexing.lexeme lexbuf)}
-  | ket         {KET (Lexing.lexeme lexbuf)}
+  | bra         {BRA (bkconvert (Lexing.lexeme lexbuf))}
+  | ket         {KET (bkconvert (Lexing.lexeme lexbuf))}
 
   | _           {raise (LexError (get_loc lexbuf, "Invalid character '" ^ 
                                                   Char.escaped (Lexing.lexeme_char lexbuf 0) ^ 

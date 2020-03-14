@@ -200,7 +200,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     * `**`'s second argument must be a whole number.
     * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*. Both operands must be numbers.
     * `&&`, `||`, boolean operators *bop*.
-    * `><` tensor multiplication.
+    * `><` tensor multiplication (currently only gates; soon to be lots more).
     
 * Process name *N*
 

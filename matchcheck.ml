@@ -304,16 +304,9 @@ let matchcheck_pats string_of_rhs rules =
       | _                  -> short_string_of_con con
     in
     match dsc with
-    | Neg (neg::negs)  -> 
-        Printf.eprintf "Warning! %s: this match is incomplete. It will fail on %s\n"
-                      (string_of_sourcepos patspos)
-                      (neginfo neg negs)
-    | Neg []         -> 
-        Printf.eprintf "Warning! %s: this match has no patterns. It is certain to fail\n" (string_of_sourcepos patspos)
-    | Pos (con,args) -> 
-        Printf.eprintf "Warning! %s: this match is incomplete. It will fail on %s\n" 
-                                      (string_of_sourcepos patspos)
-                                      (posinfo "x" con args)
+    | Neg (neg::negs) -> warning patspos (Printf.sprintf "this match is incomplete. It will fail on %s" (neginfo neg negs))                      
+    | Neg []          -> warning patspos "this match has no patterns. It is certain to fail"
+    | Pos (con,args)  -> warning patspos (Printf.sprintf "this match is incomplete. It will fail on %s" (posinfo "x" con args))
   in
   
   let rec fail dsc rules =
@@ -399,8 +392,7 @@ let matchcheck_pats string_of_rhs rules =
                   (string_of_rules rules)
                   (string_of_dtree string_of_rhs dtree);
   let redundancy (pat,rhs) = if Hashtbl.mem successes rhs.pos then ()
-                             else Printf.eprintf "Warning! %s: this pattern is redundant (can never match)\n"
-                                  (string_of_sourcepos pat.pos)
+                             else warning pat.pos "this pattern is redundant (can never match)"
   in
   List.iter redundancy rules
 

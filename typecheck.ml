@@ -102,9 +102,6 @@ let evalcxt (local, usemon, mon, global) =
 
 let short_string_of_typecxt = string_of_typecxt
 
-let warning pos string =
-  Printf.printf "\n** Warning! %s: %s **\n" (string_of_sourcepos pos) string
-
 (* ***************************** rewriting stuff ********************************* *)
 
 let rec rewrite_expr e =
@@ -777,10 +774,8 @@ let check_monlabels proc mon =
   let tpnset = NameSet.of_list (List.map fst tpns) in
   List.iter (fun (lab,(pos,_)) -> 
                if not (NameSet.mem lab tpnset) then
-                 Printf.eprintf "%s: Warning! The logging process labelled %s is unused. \
-                                 It isn't inserted anywhere, so it can't be type, match or resource checked\n"
-                                (string_of_sourcepos pos)
-                                lab;
+                 warning pos "this logging process is unused. \
+                              It isn't inserted anywhere, so it can't be type, match or resource checked";
               flush stderr
             ) 
             mon

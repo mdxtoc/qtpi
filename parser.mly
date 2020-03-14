@@ -65,7 +65,7 @@
 %token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON EQUALS
 %token IF THEN ELSE ELIF FI
-%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE TYPEARROW
+%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC UNTRACED QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -224,7 +224,12 @@ simple_typespec:
   | GATETYPE                            {adorn Gate}
   | QBITTYPE                            {adorn Qbit}
   | QSTATETYPE                          {adorn Qstate}
+  | MATRIXTYPE                          {adorn Matrix}
+  | BRATYPE                             {adorn Bra}
+  | KETTYPE                             {adorn Ket}
+  
   | typevar                             {adorn (Known ($1))}
+  
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
                                          if low<=high then adorn (Range (low,high))

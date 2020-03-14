@@ -91,8 +91,6 @@ let rec is_resource_type t =
                     -> let k = kind_of_unknown n in
                        k=UnkAll || k=UnkComm
   | Poly    (ns, t) -> is_resource_type t 
-  | OneOf   ((_, {contents=Some t}), _) -> is_resource_type t 
-  | OneOf   (_, ts) -> List.exists is_resource_type ts
   | List    t       -> is_resource_type t 
   | Channel t       -> false
   | Tuple   ts      -> List.exists is_resource_type ts
@@ -256,10 +254,6 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Unknown _       
   | Known   _       -> state, RNull  
   | Poly _          -> state, RNull  
-  | OneOf (_, ts)   -> let srs = List.map (resource_of_type rid state) ts in
-                       if List.exists (fun (_,r) -> r<>RNull) srs then
-                         raise (Disaster (t.pos, "resource checker sees type " ^ string_of_type t))
-                       else state, RNull
   | List t          -> let _, r = resource_of_type rid state t in
                        state, (if r=RNull then RNull else RList rid)
   | Tuple ts        -> let subrt (i,state,rs) t = 

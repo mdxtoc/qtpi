@@ -47,8 +47,8 @@ and enode =
   | EChar of char
   | EString of string
   | EBit of bool        (* 1=true *)
-  | EBra of bra
-  | EKet of ket
+  | EBra of bkconst
+  | EKet of bkconst
   | EMinus of expr
   | ENot of expr
   | ETuple of expr list
@@ -172,8 +172,8 @@ let rec string_of_primary e =
   | ENil            -> "[]"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
-  | EBra b          -> string_of_bra b
-  | EKet k          -> string_of_ket k
+  | EBra b          -> string_of_braconst b
+  | EKet k          -> string_of_ketconst k
   | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)

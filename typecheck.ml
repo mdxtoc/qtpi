@@ -57,6 +57,7 @@ let ntv pos = new_Unknown pos UnkAll
 let newclasstv pos = new_Unknown pos (if !Settings.resourcecheck then UnkClass else UnkAll)
 let commU = if !Settings.resourcecheck then UnkComm else UnkAll
 let newcommtv pos = new_Unknown pos commU
+let neweqtv pos = new_Unknown pos UnkEq
 
 let rec eval cxt n =
   try Some (evaltype (cxt<@>n)) with Not_found -> None
@@ -82,7 +83,6 @@ and evaltype t =
   | Qstate          -> t
   | Unknown u       -> evu u 
   | Known n         -> t
-  | OneOf (u, _)    -> evu u
   | Poly (ns,t')    -> adorn (Poly (ns,evaltype t'))
 (*| Range _         -> t *)
   | List t          -> adorn (List (evaltype t))
@@ -267,19 +267,8 @@ let rec unifytypes t1 t2 =
                                                       then r1:=Some t2 
                                                       else r2:=Some t1
                                                      )
-  | Unknown (n1,r1)     , OneOf (_,ts)          -> if List.for_all (canunifytype n1) ts then ut n1 r1 t2 else raise exn (* I think *)
-  | OneOf (_,ts)        , Unknown (n2,r2)       -> if List.for_all (canunifytype n2) ts then ut n2 r2 t1 else raise exn (* I think *)
   | Unknown (n1,r1)     , _                     -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _                   , Unknown (n2,r2)       -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
-  | OneOf ((n1,r1),t1s)  , OneOf ((n2,r2),t2s)  -> if n1<>n2 then
-                                                     (if List.for_all (fun t2 -> List.exists (fun t1 -> t1.inst=t2.inst) t1s) t2s
-                                                       then ut n1 r1 t2 else 
-                                                      if List.for_all (fun t1 -> List.exists (fun t2 -> t1.inst=t2.inst) t2s) t1s
-                                                       then ut n2 r2 t1 else 
-                                                      raise exn
-                                                     ) 
-  | OneOf ((n1,r1),t1s)  , _                    -> if List.exists (fun t1 -> t1.inst=t2.inst) t1s then ut n1 r1 t2 else raise exn
-  | _                   , OneOf ((n2,r2),t2s)   -> if List.exists (fun t2 -> t1.inst=t2.inst) t2s then ut n2 r2 t1 else raise exn
   | Tuple t1s           , Tuple t2s             
   | Process t1s         , Process t2s           -> unifylists exn t1s t2s 
   | Channel t1          , Channel t2        
@@ -313,10 +302,6 @@ and canunifytype n t =
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
-      
-      (* try OneOf one at a time: they must all be ok *)
-      | _       , OneOf ((_, {contents=Some t'}), _) -> cu t'
-      | _       , OneOf ((n',_), ts) -> n<>n' && List.for_all cu ts
       
       (* everybody takes the basic ones *)
       | _       , Unit
@@ -373,8 +358,6 @@ and force_kind kind t =
     | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
                        then () 
                        else (let u' = new_Unknown t.pos kind in r:=Some u')
-    | OneOf ((n,{contents=Some t'}), _)  -> fk t'
-    | OneOf ((n,r),ts)                   -> List.iter fk ts
     | Tuple ts      -> List.iter fk ts
     | List t        -> fk t
     | Num
@@ -556,13 +539,66 @@ and assigntype_expr cxt t e =
                                let _ = typecheck_pats tc cxt et ems in
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,op,e2)    -> let tinst = 
+     | EArith (e1,op,e2)    -> let tn1, tn2, tnout = 
                                  match op with
-                                 | Times   -> OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
-                                 | TensorP -> Gate
-                                 | _       -> Num 
+                                 | Times   -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq) 
+                                 | TensorP -> Gate, Gate, Gate
+                                 | _       -> Num , Num , Num
                                in
-                               binary cxt (adorn_x e tinst) (adorn_x e1 tinst) (adorn_x e2 tinst) e1 e2
+                               let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
+                               (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
+                               binary cxt tout t1 t2 e1 e2;
+                               (match op with
+                                 | Times   -> 
+                                     (* we currently have the following (and if this mechanism works, we will have more)
+                                          Num    -> Num    -> Num   (* the default, unless explicit typing tells us otherwise *)
+                                          Gate   -> Gate   -> Gate
+                                          Matrix -> Matrix -> Matrix
+                                          Matrix -> Ket    -> Ket
+                                          Gate   -> Ket    -> Ket
+                                          Ket    -> Bra    -> Matrix
+                                          Bra    -> Ket    -> Num    (* not until we have Num as complex ... *)
+                                          Num    -> Matrix -> Matrix (* ditto? *)
+                                          Num    -> Gate   -> Matrix (* ditto? *)
+                                      *)
+                                     (let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
+                                      (* recall that t1 is the output ... *)
+                                      let twarn ee s =
+                                         warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
+                                                                         %s is assumed to be type %s"
+                                                                            (string_of_expr ee)
+                                                                            s
+                                                      )
+                                      in
+                                     let twarn2 s =
+                                        warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
+                                                                         %s and %s are assumed to be type %s"
+                                                                            (string_of_expr e1)
+                                                                            (string_of_expr e2)
+                                                                            s
+                                                      )
+                                      in
+                                      match t1.inst, t2.inst, tout.inst with
+                                      | Num      , Num      , _ 
+                                      | Gate     , Gate     , _    
+                                      | _        , Num      , Num 
+                                      | _        , Gate     , Gate      -> unifytypes t1 tout
+                                      | Num      , _        , Num 
+                                      | Gate     , _        , Gate      -> unifytypes t2 tout
+                                      | Unknown _, Unknown _, Num       -> twarn2 "num";
+                                                                           unifytypes t1 tout; unifytypes t2 tout
+                                      | Num      , Unknown _, Unknown _ -> twarn e2 "num";
+                                                                           unifytypes t1 tout; unifytypes t2 tout
+                                      | _                               ->
+                                          raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
+                                                                                 (string_of_type t1)
+                                                                                 (string_of_type t2)
+                                                                                 (string_of_type tout)
+                                                       )
+                                                )
+                                     )
+                                 | _       -> ()
+                               )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
                                        let t = new_Unknown e1.pos UnkEq in
@@ -720,10 +756,8 @@ let check_monlabels proc mon =
   let tpnset = NameSet.of_list (List.map fst tpns) in
   List.iter (fun (lab,(pos,_)) -> 
                if not (NameSet.mem lab tpnset) then
-                 Printf.eprintf "%s: Warning! The logging process labelled %s is unused. \
-                                 It isn't inserted anywhere, so it can't be type, match or resource checked\n"
-                                (string_of_sourcepos pos)
-                                lab;
+                 warning pos "this logging process is unused. \
+                              It isn't inserted anywhere, so it can't be type, match or resource checked";
               flush stderr
             ) 
             mon

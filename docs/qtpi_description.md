@@ -70,7 +70,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * A guarded sum starts with a `+`, and a parallel composition starts with a `|`. Neither needs to be bracketed, because the offside parser ensures that everything is to the right of the `+` or `|`, as appropriate.  
   * matches also use the `+` separator, and use the offside parser.  
   * `new` creates channels, like the pi calculus &nu;.    
-  * `newq` creates qbits. Initialisation to basis vectors is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
+  * `newq` creates qbits. Initialisation to a ket is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P*, part of CQP, is no longer included. It had become used exclusively for printing, and the output channels `out` and `outq` now do the job.  
@@ -119,7 +119,8 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `string`  
   | `char`  
   | `gate`  
-  | `basisv`  
+  | `bra`  
+  | `ket`
   | `qstate`  
   | `'`*x*  
   | `''`*x*  
@@ -135,7 +136,6 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they should do), and you may have to make use of *floor*.
   * Range types are in CQP, but are not in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they might come back.  
   * `bit` ought to be a subtype of `int`, but I can't force the typechecker to agree.
-  * `basisv` is the type of basis vectors (see below).  
   * `qstate` is the type of the result of the *qval* function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a *qstate* is to send it down the outq output channel, which prints it out.
   * Process types are necessary in typechecking, but I think they are more or less useless. Process names do have a type, however ...  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
@@ -183,7 +183,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* *bop* *E*  
   | `lam` *pat* ... *pat* `.` *E*  
   
-  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; basis vectors`|0>`, `|1>`, `|+>` and `|->`.
+  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; ket constants `|0>`, `|1>`, `|+>` and `|->`; bra constants `<0|`, `<1|`, `<+|` and `<-|`; (and longer bras and kets like `<-++|` or `|0100>`).
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
   * Tuples are always bracketed, as in Miranda.  
@@ -195,10 +195,12 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples; it's still included.  
     * `::` (cons) is now included.  
-    * `+`, `-`, `*`, `/` `**` are arithmetic operators *aop*.  `*` deals both with numbers and matrices (gates). `**`'s second argument must be a whole number.
-    * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*.
+    * `+`, `-`, `*`, `/` `**` are arithmetic operators *aop*.  
+    * `*` deals both with numbers and gates. In the absence of helpful type declarations, it is biased towards multiplying numbers. (In the immediate future it will handle many more forms of multiplication.)
+    * `**`'s second argument must be a whole number.
+    * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*. Both operands must be numbers.
     * `&&`, `||`, boolean operators *bop*.
-    * `><` tensor multiplication.
+    * `><` tensor multiplication (currently only gates; soon to be lots more).
     
 * Process name *N*
 

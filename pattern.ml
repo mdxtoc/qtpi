@@ -44,8 +44,8 @@ and pnode =
   | PatBool of bool
   | PatChar of char
   | PatString of string
-  | PatBra of bra
-  | PatKet of ket
+  | PatBra of bkconst
+  | PatKet of bkconst
   | PatCons of pattern * pattern
   | PatTuple of pattern list
 
@@ -93,8 +93,8 @@ let rec string_of_pattern p =
     | PatBool   b       -> string_of_bool b
     | PatChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
     | PatString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-    | PatBra    b       -> string_of_bra b
-    | PatKet    k       -> string_of_ket k
+    | PatBra    b       -> string_of_braconst b
+    | PatKet    k       -> string_of_ketconst k
   and spb mb p =
     let s = sp p in
     if mb (patprio p) then "(" ^ s ^ ")" else s

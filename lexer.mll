@@ -110,6 +110,9 @@ rule make_token = parse
   | "^"         {CHANTYPE}
   | "char"      {CHARTYPE}
   | "string"    {STRINGTYPE}
+  | "matrix"    {MATRIXTYPE}
+  | "bra"       {BRATYPE}
+  | "ket"       {KETTYPE}
   
   | '.'         {DOT}
   | ".."        {DOTDOT}

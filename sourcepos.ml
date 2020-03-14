@@ -104,3 +104,10 @@ let spdiff pos1 pos2 =
    let string_of_positionedlabel poslab = 
      bracketed_string_of_pair string_of_sourcepos string_of_label (poslab.labspos, poslab.lablab)
 *)
+
+(* a service to the world ... *)
+let warning pos string =
+  flush stdout; 
+  Printf.eprintf "\n** Warning! %s: %s **\n" (string_of_sourcepos pos) string;
+  flush stderr
+

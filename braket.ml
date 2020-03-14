@@ -44,8 +44,7 @@ type bkelement =
   | BKPlus
   | BKMinus
   
-type ket = bkelement list
-type bra = bkelement list
+type bkconst = bkelement list
 
 let string_of_bkelement = function
   | BKOne       -> "1"
@@ -62,7 +61,7 @@ let bkelement_of_char = function
 
 let bkelements_of_string s =
   List.map bkelement_of_char (List.init (String.length s) (String.get s))
-  
+
 let string_of_bkes es = String.concat "" (List.map string_of_bkelement es)
-let string_of_ket k = "|" ^ string_of_bkes k ^ ">"
-let string_of_bra b = "<" ^ string_of_bkes b ^ "|"
+let string_of_braconst b = "<" ^ string_of_bkes b ^ "|"
+let string_of_ketconst k = "|" ^ string_of_bkes k ^ ">"

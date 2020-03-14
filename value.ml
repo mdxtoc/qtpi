@@ -32,42 +32,12 @@ open Name
 open Process
 open Pattern
 open Monenv
+open Prob
+open Forutils
 
 exception Disaster of string
 exception Error of string
 
-let vsize = Array.length
-
-let _for i inc n f = (* n is size, so up to n-1 *)
-  let rec rf i =
-    if i<n then (f i; rf (i+inc)) (* else skip *)
-  in
-  rf i
-  
-let _for_leftfold i inc n f v =
-  let rec ff i v =
-    if i<n then ff (i+inc) (f i v) else v
-  in
-  ff i v
-
-let rec _for_rightfold i inc n f v =
-  let rec ff i v =
-    if i<n then f i (ff (i+inc) v) else v
-  in
-  ff i v
-
-let _for_all i inc n f = 
-  let rec ff i =
-    i=n || (f i && ff (i+inc))
-  in
-  ff i 
-  
-let _for_exists i inc n f v = 
-  let rec ff i =
-    i<n && (f i || ff (i+inc))
-  in
-  ff i 
-  
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
 
@@ -81,8 +51,8 @@ type value =
   | VNum of num
   | VBool of bool
   | VChar of char
-  | VBra of bra
-  | VKet of ket
+  | VBra of probvec
+  | VKet of probvec
   | VGate of gate
   | VString of string
   | VQbit of qbit
@@ -92,34 +62,6 @@ type value =
   | VList of value list
   | VFun of (value -> value)        (* with the environment baked in for closures *)
   | VProcess of name * env ref * name list * process
-
-(* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
-   f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
-   g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
-   
-   Note h^2 = 1/2; 
-        f^2 = (1+h)/2 = h^2(1+h) = h^2+h^3;
-        g^2 = (1-h)/2 = h^2(1-h) = h^2-h^3;
-        fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = sqrt(h^6) = h^3  
-        
-   Also f^2+g^2 = 1 (which will fall out of the above)
- *)
-and prob = 
-  | P_0
-  | P_1
-  | P_f              
-  | P_g 
-  | P_h of int              
-  | Psymb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
-  | Pneg of prob
-  | Pprod of prob list              (* associative *)
-  | Psum of prob list               (* associative *)
-
-and cprob = C of prob*prob (* complex prob A + iB *)
-
-and modulus = prob
-
-and probvec = modulus * cprob array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
 
 and gate = 
     | MGate of cprob array array   (* square matrix *)
@@ -149,68 +91,9 @@ let gsize = function
   | MGate m -> vsize m  (* assuming square gates *)
   | DGate v -> vsize v
   
-let rec string_of_prob p = 
-  (* Everything is associative, but the normal form is sum of negated products.
-   * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
-   *)
-  let prio = function
-    | P_0
-    | P_1
-    | P_f  
-    | P_g 
-    | P_h  _ 
-    | Psymb _         -> 10
-    | Pprod _         -> 8
-    | Pneg  _         -> 6
-    | Psum  _         -> 4
-  in
-  let possbra p' = 
-    let supprio = prio p in
-    let subprio = prio p' in
-    let s = string_of_prob p' in
-    if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
-  in
-  match p with
-  | P_0             -> "0"
-  | P_1             -> "1"
-  | P_f             -> "f"
-  | P_g             -> "g"
-  | P_h 1           -> "h"
-  | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_int q) 
-                                                (if !showabvalues then Printf.sprintf "[%f]" f else "")
-  | Pneg p'         -> "-" ^ possbra p'
-  | Pprod ps        -> String.concat "*" (List.map possbra ps)
-  | Psum  ps        -> sum_separate (List.map possbra ps)    
+let string_of_qbit i = "#" ^ string_of_int i
 
-and sum_separate = function
- | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
-                 else p1 ^ "+" ^ sum_separate (p2::ps) 
- | [p]        -> p
- | []         -> raise (Can'tHappen "sum_separate []")
-
-and string_of_cprob (C (x,y)) =
-  let im y = 
-    match y with
-    | P_1     -> "i"
-    | P_f  
-    | P_g 
-    | P_h   _ 
-    | Psymb _ 
-    | Pprod _ -> "i*" ^ string_of_prob y
-    | _       -> "i*(" ^ string_of_prob y ^ ")"
-  in
-  match x,y with
-  | P_0, P_0    -> "0"
-  | _  , P_0    -> string_of_prob x
-  | P_0, Pneg p -> "-" ^ im p
-  | P_0, _      -> im y
-  | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
-  | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
-  
-and string_of_qbit i = "#" ^ string_of_int i
-
-and short_string_of_qbit i = string_of_qbit i
+let short_string_of_qbit = string_of_qbit
 
 (* *********************** simplification ************************************ *)
 
@@ -953,8 +836,8 @@ let rec so_value optf v =
                | VBit b          -> if b then "1" else "0"
                | VNum n          -> string_of_num n
                | VBool b         -> string_of_bool b
-               | VBra b          -> string_of_bra b
-               | VKet k          -> string_of_ket k
+               | VBra b          -> string_of_probvec PVBra b
+               | VKet k          -> string_of_probvec PVKet k
                | VGate gate      -> string_of_gate gate
                | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
@@ -1044,55 +927,6 @@ and short_so_wwaiter optf ((n, v, proc, env),gsir) = (* infinite loop if we prin
 and so_runnerqueue optf sep rq =
   string_of_pqueue (so_runner optf) sep rq
 
-and so_pv v =
-  if !Settings.fancyvec then 
-    (let n = vsize v in
-     let rec ln2 n r = if n=1 then r
-                       else ln2 (n lsr 1) (r+1)
-     in
-     let width = ln2 n 0 in
-     let string_of_bin i =
-       let rec sb i k =
-         if k=width then ""
-         else sb (i/2) (k+1) ^ (if i mod 2 = 0 then "0" else "1")
-       in
-       sb i 0
-     in
-     let string_of_basis_idx i =
-       Printf.sprintf "|%s>" (string_of_bin i)
-     in
-     let mustbracket (C(real,im)) = 
-       (* all but simple real sums are bracketed in string_of_cprob *)
-       match real, im with
-       | Psum _, P_0 -> true
-       | _           -> false
-     in
-     let estrings = _for_leftfold 0 1 n
-                      (fun i ss -> match string_of_cprob v.(i) with
-                                   | "0"  -> ss
-                                   | "1"  -> (string_of_basis_idx i) :: ss
-                                   | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
-                                   | s   ->  (Printf.sprintf "%s%s" 
-                                                             (if mustbracket v.(i) then "(" ^s ^ ")" else s) 
-                                                             (string_of_basis_idx i)
-                                             ) :: ss
-                      )
-                      []
-     in
-     match estrings with
-     | []  -> "??empty probvec??"
-     | [e] -> e
-     | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
-    )
-  else
-    (let estrings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
-     Printf.sprintf "(%s)" (String.concat " <,> " estrings)
-    )
-  
-and string_of_probvec = function
-  | P_1, vv -> so_pv vv
-  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_prob vm) (so_pv vv)
-  
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then
                   (if g=g_I       then Some "I" else

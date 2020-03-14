@@ -198,7 +198,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
     * `+`, `-`, `*`, `/` `**` are arithmetic operators *aop*.  
     * `*` deals both with numbers and gates. In the absence of helpful type declarations, it is biased towards multiplying numbers. (In the immediate future it will handle many more forms of multiplication.)
     * `**`'s second argument must be a whole number.
-    * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*. Both operands must be numbers.
+    * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*. `=` handles anything which is an equality type (no qbits, qstates, functions, processes, channels). Operands of the inequality operators must be numbers.
     * `&&`, `||`, boolean operators *bop*.
     * `><` tensor multiplication (currently only gates; soon to be lots more).
     

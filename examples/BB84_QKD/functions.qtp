@@ -73,7 +73,7 @@ fun read_min_int m s
       where j = read_num s
     
 fun int_sqrt n = i_s 0 n
-                   where i_s k n = if k*k>=n then k else i_s (k+1) n 
+                   where i_s (k:num) n = if k*k>=n then k else i_s (k+1) n 
   
 fun histo buckets ns
   = match ns .

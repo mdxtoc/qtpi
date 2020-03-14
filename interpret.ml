@@ -43,6 +43,7 @@ open Monenv
 open Compile
 
 open Value
+open Prob
 open Event
 
 exception Error of sourcepos * string
@@ -166,8 +167,8 @@ let matcher pos env pairs value =
     | PatBool   b       , VBool   b'        -> maybe (b=b')
     | PatChar   c       , VChar   c'        -> maybe (c=c')
     | PatString s       , VString s'        -> maybe (s=s')
-    | PatBra    b       , VBra    b'        -> maybe (b=b')
-    | PatKet    k       , VKet    k'        -> maybe (k=k')
+    | PatBra    b       , VBra    b'        -> maybe (pv_of_braket b=b')
+    | PatKet    k       , VKet    k'        -> maybe (pv_of_braket k=k')
     | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
     | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
     | _                                     -> no () (* can happen: [] vs ::, :: vs [] *)
@@ -198,8 +199,8 @@ let rec evale env e =
     | EChar c             -> VChar c
     | EString s           -> VString s
     | EBit b              -> VBit b
-    | EBra b              -> VBra b
-    | EKet k              -> VKet k
+    | EBra b              -> VBra (pv_of_braket b)
+    | EKet k              -> VKet (pv_of_braket k)
     | EMinus e            -> VNum (~-/ (numev env e))
     | ENot   e            -> VBool (not (boolev env e))
     | ETuple es           -> VTuple (List.map (evale env) es)
@@ -543,12 +544,12 @@ let rec interp env proc =
                  let ket_eval = function
                  | None      -> None
                  | Some kv   -> let k = ketv (evale env kv) in
-                                (match k with
-                                 | [e] -> Some e
-                                 | _   -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
-                                                                                  (string_of_ket k)
-                                                       )
-                                                )
+                                (match pvsize k with
+                                 | 2 -> Some k
+                                 | _ -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
+                                                                                  (string_of_probvec PVKet k)
+                                                         )
+                                                  )
                                 )
                  in
                  let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (ket_eval vopt))) qs in

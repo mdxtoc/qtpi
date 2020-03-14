@@ -28,18 +28,21 @@ open Functionutils
 open Optionutils
 open Tupleutils
 open Value (* for ugv and qbit *)
+open Prob
+open Forutils
+open Braket
 open Number (* for num *)
 
 exception Error of string
 
-type qval = qbit list * probvec (* with n qbits, 2^n probs in the array *)
+type qval = qbit list * probvec (* with n qbits, 2^n probs in the vector; and it's a ket *)
 
 let string_of_qval_full full (qs,v) =
   match full, qs with
-  | false, [_] -> string_of_probvec v
+  | false, [_] -> string_of_probvec PVKet v
   | _          -> Printf.sprintf "[%s]%s"
                           (string_of_list string_of_qbit ";" qs)
-                          (string_of_probvec v)
+                          (string_of_probvec PVKet v)
                 
 let string_of_qval = string_of_qval_full false
 
@@ -84,9 +87,9 @@ let tensor_qq (mA,vA) (mB,vB) =
   in
   let vR = tensor_vv vA vB in
   if !verbose_qcalc then Printf.printf "%s (><) %s -> %s\n"
-                                       (string_of_probvec (mA,vA))
-                                       (string_of_probvec (mB,vB))
-                                       (string_of_probvec (mR,vR));
+                                       (string_of_probvec PVKet (mA,vA))
+                                       (string_of_probvec PVKet (mB,vB))
+                                       (string_of_probvec PVKet (mR,vR));
   mR,vR
   
 let tensor_gg gA gB =
@@ -165,19 +168,19 @@ let rowcolprod n row col =
   C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
 let mult_gv g (vm,vv as v) =
-  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec v);
+  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec PVKet v);
   let n = Array.length vv in
   if gsize g <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gv %s %s"
                                  (string_of_gate g)
-                                 (string_of_probvec v)
+                                 (string_of_probvec PVKet v)
                  )
           );
   let v' = vm, match g with
                | MGate m -> Array.init n (fun i -> let row = m.(i) in rowcolprod n (fun j -> row.(j)) (fun j -> vv.(j)))
                | DGate d -> Array.init n (fun i -> cprod d.(i) vv.(i))
   in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec v');
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec PVKet v');
   v'
                
 let mult_gg gA gB = 
@@ -226,6 +229,19 @@ let dagger g =
 
 let qcopy (n,v) = n, Array.copy v (* nobody ought to know about this: I need a .mli for this file *)
 
+let pv_of_braket bks = 
+  let rec pv (rm,rv as r) =
+    function 
+    | bk::bks -> let (m1,v1) = match bk with
+                           | Braket.BKZero  -> v_zero
+                           | Braket.BKOne   -> v_one
+                           | Braket.BKPlus  -> v_plus
+                           | Braket.BKMinus -> v_minus
+                 in pv (rprod rm m1, tensor_vv rv v1) bks
+    | []      -> r
+  in 
+  pv v_1 bks
+
 (* this is in the wrong place *)
 let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
 
@@ -252,23 +268,20 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
             | _            -> tryfrees ()
     in
     let vec = match vopt with
-              | Some Braket.BKZero  -> qcopy v_zero
-              | Some Braket.BKOne   -> qcopy v_one
-              | Some Braket.BKPlus  -> qcopy v_plus
-              | Some Braket.BKMinus -> qcopy v_minus
-              | None                -> if !Settings.symbq then
-                                         ((* this could be a bug if we used qfrees *)
-                                          let pa_sq = Random.float 1.0 in
-                                          let pb_sq = 1.0 -. pa_sq in
-                                          make_v (List.map c_of_p [Psymb (q, false, sqrt(pa_sq)); Psymb (q, true, sqrt(pb_sq))]) 
-                                         )
-                                       else (* random basis, random fixed value *)
-                                        qcopy (match Random.bool (), Random.bool ()  with
-                                               | false, false -> v_zero 
-                                               | false, true  -> v_one
-                                               | true , false -> v_plus 
-                                               | true , true  -> v_minus
-                                              )
+              | Some bk  -> bk
+              | None     -> if !Settings.symbq then
+                              ((* this could be a bug if we used qfrees *)
+                               let pa_sq = Random.float 1.0 in
+                               let pb_sq = 1.0 -. pa_sq in
+                               make_v (List.map c_of_p [Psymb (q, false, sqrt(pa_sq)); Psymb (q, true, sqrt(pb_sq))]) 
+                              )
+                            else (* random basis, random fixed value *)
+                             qcopy (match Random.bool (), Random.bool ()  with
+                                    | false, false -> v_zero 
+                                    | false, true  -> v_one
+                                    | true , false -> v_plus 
+                                    | true , true  -> v_minus
+                                   )
     in
     let qv = [q],vec in
     Hashtbl.add qstate q qv;
@@ -276,7 +289,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
       Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
                     (Name.string_of_name pn)
                     (Name.string_of_name n)
-                    (string_of_option (Braket.string_of_ket <.> (fun e -> [e])) vopt)
+                    (string_of_option (string_of_probvec PVKet) vopt)
                     (string_of_qbit q)
                     (string_of_qbit q)
                     (string_of_qval qv);
@@ -343,7 +356,7 @@ let make_nth qs (vm,vv as v) n iq =
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
                                         (bracketed_string_of_list string_of_qbit qs)
-                                        (string_of_probvec v)
+                                        (string_of_probvec PVKet v)
                                         n
                                         iq
                                         s
@@ -352,7 +365,7 @@ let make_nth qs (vm,vv as v) n iq =
   in
   if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
                                                         (bracketed_string_of_list string_of_qbit qs)
-                                                        (string_of_probvec v)
+                                                        (string_of_probvec PVKet v)
                                                         n
                                                         iq;
   let nqs = List.length qs in
@@ -402,7 +415,7 @@ let make_nth qs (vm,vv as v) n iq =
      in
      if !verbose || !verbose_qsim then Printf.printf "-> qs' %s v' %s\n" 
                                                         (bracketed_string_of_list string_of_qbit qs')
-                                                        (string_of_probvec v');
+                                                        (string_of_probvec PVKet v');
      qs', v'
     )
     
@@ -438,11 +451,11 @@ let try_split qs (vm,vv as v) =
   let r = if worth_a_try then t_s 0 qs vv else None in
   if !verbose_qcalc then
     Printf.printf "try_split %s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
-                  (string_of_probvec v)
+                  (string_of_probvec PVKet v)
                   nzs nvs worth_a_try
                   (string_of_option (string_of_triple (bracketed_string_of_list string_of_qbit)
-                                                      string_of_probvec 
-                                                      string_of_probvec 
+                                                      (string_of_probvec PVKet) 
+                                                      (string_of_probvec PVKet) 
                                                       ","
                                     )
                                     r
@@ -521,7 +534,7 @@ let ugstep_padded pn qs g gpad =
                                    (string_of_gate gpad)
                                    (string_of_gate g')
                                    (bracketed_string_of_list string_of_qbit qs')
-                                   (string_of_probvec v')
+                                   (string_of_probvec PVKet v')
      in
   
      (* because of the way qbit state works, values of qbits will either be disjoint or identical *)

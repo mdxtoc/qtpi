@@ -57,6 +57,7 @@ let ntv pos = new_Unknown pos UnkAll
 let newclasstv pos = new_Unknown pos (if !Settings.resourcecheck then UnkClass else UnkAll)
 let commU = if !Settings.resourcecheck then UnkComm else UnkAll
 let newcommtv pos = new_Unknown pos commU
+let neweqtv pos = new_Unknown pos UnkEq
 
 let rec eval cxt n =
   try Some (evaltype (cxt<@>n)) with Not_found -> None
@@ -100,6 +101,9 @@ let evalcxt (local, usemon, mon, global) =
   evalassoc local, usemon, evalassoc mon, evalassoc global
 
 let short_string_of_typecxt = string_of_typecxt
+
+let warning pos string =
+  Printf.printf "\n** Warning! %s: %s **\n" (string_of_sourcepos pos) string
 
 (* ***************************** rewriting stuff ********************************* *)
 
@@ -556,13 +560,66 @@ and assigntype_expr cxt t e =
                                let _ = typecheck_pats tc cxt et ems in
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,op,e2)    -> let tinst = 
+     | EArith (e1,op,e2)    -> let tn1, tn2, tnout = 
                                  match op with
-                                 | Times   -> OneOf(new_unknown UnkEq, [adorn_x e Num; adorn_x e Gate]) 
-                                 | TensorP -> Gate
-                                 | _       -> Num 
+                                 | Times   -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq) 
+                                 | TensorP -> Gate, Gate, Gate
+                                 | _       -> Num , Num , Num
                                in
-                               binary cxt (adorn_x e tinst) (adorn_x e1 tinst) (adorn_x e2 tinst) e1 e2
+                               let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
+                               (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
+                               binary cxt tout t1 t2 e1 e2;
+                               (match op with
+                                 | Times   -> 
+                                     (* we currently have the following (and if this mechanism works, we will have more)
+                                          Num    -> Num    -> Num   (* the default, unless explicit typing tells us otherwise *)
+                                          Gate   -> Gate   -> Gate
+                                          Matrix -> Matrix -> Matrix
+                                          Matrix -> Ket    -> Ket
+                                          Gate   -> Ket    -> Ket
+                                          Ket    -> Bra    -> Matrix
+                                          Bra    -> Ket    -> Num    (* not until we have Num as complex ... *)
+                                          Num    -> Matrix -> Matrix (* ditto? *)
+                                          Num    -> Gate   -> Matrix (* ditto? *)
+                                      *)
+                                     (let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
+                                      (* recall that t1 is the output ... *)
+                                      let twarn ee s =
+                                         warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
+                                                                         %s is assumed to be type %s"
+                                                                            (string_of_expr ee)
+                                                                            s
+                                                      )
+                                      in
+                                     let twarn2 s =
+                                        warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
+                                                                         %s and %s are assumed to be type %s"
+                                                                            (string_of_expr e1)
+                                                                            (string_of_expr e2)
+                                                                            s
+                                                      )
+                                      in
+                                      match t1.inst, t2.inst, tout.inst with
+                                      | Num      , Num      , _ 
+                                      | Gate     , Gate     , _    
+                                      | _        , Num      , Num 
+                                      | _        , Gate     , Gate      -> unifytypes t1 tout
+                                      | Num      , _        , Num 
+                                      | Gate     , _        , Gate      -> unifytypes t2 tout
+                                      | Unknown _, Unknown _, Num       -> twarn2 "num";
+                                                                           unifytypes t1 tout; unifytypes t2 tout
+                                      | Num      , Unknown _, Unknown _ -> twarn e2 "num";
+                                                                           unifytypes t1 tout; unifytypes t2 tout
+                                      | _                               ->
+                                          raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
+                                                                                 (string_of_type t1)
+                                                                                 (string_of_type t2)
+                                                                                 (string_of_type tout)
+                                                       )
+                                                )
+                                     )
+                                 | _       -> ()
+                               )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
                                        let t = new_Unknown e1.pos UnkEq in

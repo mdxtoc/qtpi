@@ -54,8 +54,8 @@ type constructor =
   | CString of string
   | CBit    of bool          
   | CUnit          
-  | CBra    of bra
-  | CKet    of ket
+  | CBra    of bkconst
+  | CKet    of bkconst
   | CGate   of string    
 
 type con = {con:constructor; arity:int; span:int}
@@ -80,8 +80,8 @@ let string_of_constructor = function
   | CString s   -> Printf.sprintf "CString\"%s\"" (String.escaped s)
   | CBit    b   -> Printf.sprintf "CBit 0b%d" (if b then 1 else 0)           
   | CUnit       -> "CUnit"          
-  | CBra    b   -> Printf.sprintf "CBra %s" (string_of_bra b)
-  | CKet    k   -> Printf.sprintf "CKet %s" (string_of_ket k)
+  | CBra    b   -> Printf.sprintf "CBra %s" (string_of_braconst b)
+  | CKet    k   -> Printf.sprintf "CKet %s" (string_of_ketconst k)
   | CGate   s   -> Printf.sprintf "CGate %s" s   
 
 let short_string_of_constructor = function
@@ -94,8 +94,8 @@ let short_string_of_constructor = function
   | CString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | CBit    b       -> Printf.sprintf "0b%d" (if b then 1 else 0)           
   | CUnit           -> "CUnit"          
-  | CBra    b       -> Printf.sprintf "%s" (string_of_bra b)
-  | CKet    k       -> Printf.sprintf "%s" (string_of_ket k)
+  | CBra    b       -> Printf.sprintf "%s" (string_of_braconst b)
+  | CKet    k       -> Printf.sprintf "%s" (string_of_ketconst k)
   | CGate   "Phi"   -> "Phi _"
   | CGate   s       -> s
 

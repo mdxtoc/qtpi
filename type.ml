@@ -48,14 +48,6 @@ and tnode =
   | Matrix                          (* Gate is a square unitary Matrix; matrices can be calculated *)
   | Unknown of unknown          
   | Known   of name                 (* knowns start with '\'', which doesn't appear in parseable names *)
-  | OneOf   of unknown * _type list (* constrained unknown, for overloading *)
-                                    (* and the typechecker won't work unless those are straightforward types:
-                                       no unknowns, no OneOfs.
-                                     *)
-                                    (* at the moment OneOf is used for Num and Gate and Matrix in arithmetic operations.
-                                       This simpifies the treatment in typecheck and resource. If it gets
-                                       used more, I shall have to think again.
-                                     *)
   | Poly    of name list * _type    (* oh dear this could be Poly of Poly ... would that be ok? *)
 (*| Range   of int * int *)
   | List    of _type
@@ -110,7 +102,6 @@ let typeprio t =
   | Matrix
   | Unknown _ 
   | Known   _ 
-  | OneOf   _
 (*| Range   _ *) 
   | Poly    _       -> primaryprio
   | List    _       -> primaryprio
@@ -147,8 +138,6 @@ and string_of_tnode = function
   | Matrix           -> "matrix"
   | Unknown (_, {contents=Some t})        -> string_of_type t
   | Unknown u                             -> (*"Unknown " ^*) string_of_unknown u
-  | OneOf   ((_, {contents=Some t}), _)   -> string_of_type t
-  | OneOf   (u,ts)                        -> (*"OneOf "^*) string_of_unknown u ^ "<" ^ bracketed_string_of_list string_of_type ts
   | Known   n        -> (*"Known " ^*) string_of_name n
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
@@ -192,7 +181,6 @@ let rec freetvs t =
                             -> _freetvs s t'      
     | Unknown (n, _)        -> NameSet.add n s      
     | Known   n             -> NameSet.add n s 
-    | OneOf   ((n, _), _)   -> NameSet.add n s
     | Poly    (ns,t)        -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
     | Channel t   
     | List    t             -> _freetvs s t  
@@ -225,7 +213,6 @@ let freeunknowns t =
                       -> _freeuks s t'      
     | Unknown u       -> UnknownSet.add u s      
     | Known   n       -> s 
-    | OneOf   (u, _)  -> UnknownSet.add u s
     | Poly    (ns,t)  -> raise (Invalid_argument ("freeunknowns " ^ string_of_type t))
     | Channel t   
     | List    t       -> _freeuks s t  
@@ -335,13 +322,6 @@ let generalise t0 =
     | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
                            replace (Known n')
     | Known   _         -> t
-    | OneOf ((n, {contents=Some t'}),_)  
-                        -> replace (unknown_to_known t').inst 
-    | OneOf (_, ts)     -> raise (Error (t0.pos, Printf.sprintf "Cannot generalise type %s: ambiguity between %s" 
-                                                                    (string_of_type t0)
-                                                                    (Stringutils.phrase (List.map string_of_type ts))
-                                        )
-                                 )
     | Poly    _         -> raise (Invalid_argument ("Type.generalise polytype " ^ string_of_type t0))
     | List    t         -> replace (List (unknown_to_known t))  
     | Channel t         -> replace (Channel (unknown_to_known t))
@@ -374,7 +354,6 @@ let instantiate t =
     | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
     | Unknown _       
     | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
-    | OneOf   _       -> t (* I think *)
     | List    t       -> replace (List (rename assoc t))   
     | Channel t       -> replace (Channel (rename assoc t))
     | Process ts      -> replace (Process (List.map (rename assoc) ts))
@@ -412,8 +391,6 @@ let rec is_classical t =
                     -> let k = kind_of_unknown n in
                        k=UnkClass || k=UnkEq
   | Poly    (ns, t) -> is_classical t 
-  | OneOf   ((_, {contents=Some t}), _) -> is_classical t 
-  | OneOf   (_, ts) -> List.for_all is_classical ts
   | List    t       -> is_classical t 
   | Channel t       -> is_classical t
   | Tuple   ts      -> List.for_all is_classical ts

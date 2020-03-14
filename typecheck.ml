@@ -83,7 +83,6 @@ and evaltype t =
   | Qstate          -> t
   | Unknown u       -> evu u 
   | Known n         -> t
-  | OneOf (u, _)    -> evu u
   | Poly (ns,t')    -> adorn (Poly (ns,evaltype t'))
 (*| Range _         -> t *)
   | List t          -> adorn (List (evaltype t))
@@ -268,19 +267,8 @@ let rec unifytypes t1 t2 =
                                                       then r1:=Some t2 
                                                       else r2:=Some t1
                                                      )
-  | Unknown (n1,r1)     , OneOf (_,ts)          -> if List.for_all (canunifytype n1) ts then ut n1 r1 t2 else raise exn (* I think *)
-  | OneOf (_,ts)        , Unknown (n2,r2)       -> if List.for_all (canunifytype n2) ts then ut n2 r2 t1 else raise exn (* I think *)
   | Unknown (n1,r1)     , _                     -> if canunifytype n1 t2 then ut n1 r1 t2 else raise exn
   | _                   , Unknown (n2,r2)       -> if canunifytype n2 t1 then ut n2 r2 t1 else raise exn
-  | OneOf ((n1,r1),t1s)  , OneOf ((n2,r2),t2s)  -> if n1<>n2 then
-                                                     (if List.for_all (fun t2 -> List.exists (fun t1 -> t1.inst=t2.inst) t1s) t2s
-                                                       then ut n1 r1 t2 else 
-                                                      if List.for_all (fun t1 -> List.exists (fun t2 -> t1.inst=t2.inst) t2s) t1s
-                                                       then ut n2 r2 t1 else 
-                                                      raise exn
-                                                     ) 
-  | OneOf ((n1,r1),t1s)  , _                    -> if List.exists (fun t1 -> t1.inst=t2.inst) t1s then ut n1 r1 t2 else raise exn
-  | _                   , OneOf ((n2,r2),t2s)   -> if List.exists (fun t2 -> t1.inst=t2.inst) t2s then ut n2 r2 t1 else raise exn
   | Tuple t1s           , Tuple t2s             
   | Process t1s         , Process t2s           -> unifylists exn t1s t2s 
   | Channel t1          , Channel t2        
@@ -314,10 +302,6 @@ and canunifytype n t =
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
       | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
-      
-      (* try OneOf one at a time: they must all be ok *)
-      | _       , OneOf ((_, {contents=Some t'}), _) -> cu t'
-      | _       , OneOf ((n',_), ts) -> n<>n' && List.for_all cu ts
       
       (* everybody takes the basic ones *)
       | _       , Unit
@@ -374,8 +358,6 @@ and force_kind kind t =
     | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
                        then () 
                        else (let u' = new_Unknown t.pos kind in r:=Some u')
-    | OneOf ((n,{contents=Some t'}), _)  -> fk t'
-    | OneOf ((n,r),ts)                   -> List.iter fk ts
     | Tuple ts      -> List.iter fk ts
     | List t        -> fk t
     | Num

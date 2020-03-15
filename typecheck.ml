@@ -557,8 +557,8 @@ and assigntype_expr cxt t e =
                                           Matrix -> Ket    -> Ket
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
-                                          Bra    -> Ket    -> Num    (* not until we have Num as complex ... *)
-                                          Num    -> Matrix -> Matrix (* ditto? *)
+                                          Bra    -> Ket    -> cprob  (* we don't have cprob yet ... *)
+                                          Num    -> Matrix -> Matrix (* should it be CNum? we wait ... *)
                                           Num    -> Gate   -> Matrix (* ditto? *)
                                       *)
                                      (let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
@@ -579,16 +579,20 @@ and assigntype_expr cxt t e =
                                                       )
                                       in
                                       match t1.inst, t2.inst, tout.inst with
-                                      | Num      , Num      , _ 
-                                      | Gate     , Gate     , _    
-                                      | _        , Num      , Num 
-                                      | _        , Gate     , Gate      -> unifytypes t1 tout
-                                      | Num      , _        , Num 
-                                      | Gate     , _        , Gate      -> unifytypes t2 tout
+                                      | Num      , Num      , Num
+                                      | Gate     , Gate     , Gate
+                                      | Ket      , Bra      , Matrix    -> ()
+                                      | Num      , Num      , Unknown _ 
+                                      | Gate     , Gate     , Unknown _    
+                                      | Unknown _, Num      , Num 
+                                      | Unknown _, Gate     , Gate      -> unifytypes t1 tout
+                                      | Num      , Unknown _, Num 
+                                      | Gate     , Unknown _, Gate      -> unifytypes t2 tout
                                       | Unknown _, Unknown _, Num       -> twarn2 "num";
                                                                            unifytypes t1 tout; unifytypes t2 tout
                                       | Num      , Unknown _, Unknown _ -> twarn e2 "num";
                                                                            unifytypes t1 tout; unifytypes t2 tout
+                                      | Ket      , Bra      , Unknown _ -> unifytypes tout (adorn_x e Matrix)
                                       | _                               ->
                                           raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
                                                                                  (string_of_type t1)

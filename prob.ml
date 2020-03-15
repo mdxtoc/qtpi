@@ -166,4 +166,5 @@ let string_of_probvec bksign =
   | P_1, vv -> so_pv vv
   | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_prob vm) (so_pv vv)
   
-
+let string_of_bra = string_of_probvec PVBra
+let string_of_ket = string_of_probvec PVKet

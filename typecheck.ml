@@ -539,53 +539,57 @@ and assigntype_expr cxt t e =
                                let _ = typecheck_pats tc cxt et ems in
                                ()
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
-     | EArith (e1,op,e2)    -> let tn1, tn2, tnout = 
+     | EArith (e1,op,e2)    -> (let tn1, tn2, tnout = 
+                                  match op with
+                                  | Times       
+                                  | TensorProd -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
+                                  | _          -> Num , Num , Num
+                                in
+                                let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
+                                (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
+                                binary cxt tout t1 t2 e1 e2;
+                                let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
+                                
+                                let bad s =
+                                  raise (Error (e.pos, Printf.sprintf "overloaded %s: we have %s -> %s -> %s"
+                                                                         s
+                                                                         (string_of_type t1)
+                                                                         (string_of_type t2)
+                                                                         (string_of_type tout)
+                                               )
+                                        )
+                                in
+                                let twarn op ee t =
+                                  warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
+                                                                  %s is assumed to be type %s"
+                                                                     op
+                                                                     (string_of_expr ee)
+                                                                     (string_of_type t)
+                                               )
+                                in
+                                let twarn2 op e1 e2 t =
+                                  warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
+                                                                   %s and %s are assumed to be type %s"
+                                                                      op
+                                                                      (string_of_expr e1)
+                                                                      (string_of_expr e2)
+                                                                      (string_of_type t)
+                                                )
+                                 in
+                                 
                                  match op with
-                                 | Times      -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq) 
-                                 | TensorProd -> Gate, Gate, Gate
-                                 | _          -> Num , Num , Num
-                               in
-                               let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
-                               (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
-                               binary cxt tout t1 t2 e1 e2;
-                               (match op with
-                                 | Times   -> 
-                                     (* we currently have the following (and if this mechanism works, we will have more)
+                                 | Times      -> 
+                                     (* we currently have the following
                                           Num    -> Num    -> Num   
                                           Gate   -> Gate   -> Gate
                                           Matrix -> Matrix -> Matrix
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
-                                          Bra    -> Ket    -> Prob
-                                          Prob   -> Matrix -> Matrix 
-                                          Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...
+                                          ( -- Bra    -> Ket    -> Prob   -- not until Prob is a type)
+                                          ( -- Prob   -> Matrix -> Matrix -- ditto)
+                                          ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                       *)
-                                     (let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
-                                      (* recall that t1 is the output ... *)
-                                      let twarn ee s =
-                                         warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
-                                                                         %s is assumed to be type %s"
-                                                                            (string_of_expr ee)
-                                                                            s
-                                                      )
-                                      in
-                                     let twarn2 s =
-                                        warning e.pos (Printf.sprintf "overloaded multiplication: in the absence of type information, \
-                                                                         %s and %s are assumed to be type %s"
-                                                                            (string_of_expr e1)
-                                                                            (string_of_expr e2)
-                                                                            s
-                                                      )
-                                      in
-                                      let bad () =
-                                        raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
-                                                                               (string_of_type t1)
-                                                                               (string_of_type t2)
-                                                                               (string_of_type tout)
-                                                     )
-                                              )
-                                      in
-                                      match t1.inst, t2.inst, tout.inst with
+                                     (match t1.inst, t2.inst, tout.inst with
                                       | Num      , Num      , _ 
                                       | Gate     , Gate     , _    
                                       | Matrix   , Matrix   , _    
@@ -595,19 +599,74 @@ and assigntype_expr cxt t e =
                                       | _        , Num      , Num 
                                       | _        , Gate     , Gate     
                                       | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
-                                                                            with _ -> bad ()
+                                                                            with _ -> bad "*"
                                                                            )
-                                      | Unknown _, Unknown _, Num       -> twarn2 "num";
-                                                                           unifytypes t1 tout; unifytypes t2 tout
-                                      | Num      , Unknown _, Unknown _ -> twarn e2 "num";
-                                                                           unifytypes t1 tout; unifytypes t2 tout
                                       | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
-                                                                            with _ -> bad ()
+                                                                            with _ -> bad "*"
                                                                            )
-                                      | _                               -> bad ()
-                                          
+                                      | _        , _        , Num       -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                                twarn2 "*" e1 e2 tout
+                                                                            with _ -> bad "*"
+                                                                           )
+                                      | Num      , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                                twarn "*" e2 t1
+                                                                            with _ -> bad "*"
+                                                                           )
+                                      | Unknown _, Unknown _, _         -> 
+                                          raise (Error (e.pos, Printf.sprintf "overloaded *: cannot deduce type of %s or %s"
+                                                                                (string_of_expr e1)
+                                                                                (string_of_expr e2)
+                                                       )
+                                                )
+                                      | _                               -> bad "*"
                                      )
-                                 | _       -> ()
+                                 | TensorProd -> 
+                                     (* we currently have the following
+                                          Bra    -> Bra    -> Bra
+                                          Ket    -> Ket    -> Ket
+                                          Gate   -> Gate   -> Gate
+                                          Matrix -> Matrix -> Matrix
+                                      *)
+                                     (match t1.inst, t2.inst, tout.inst with
+                                      | Bra      , Bra      , _ 
+                                      | Ket      , Ket      , _ 
+                                      | Gate     , Gate     , _    
+                                      | Matrix   , Matrix   , _    
+                                      | Bra      , _        , Bra
+                                      | Ket      , _        , Ket
+                                      | Gate     , _        , Gate
+                                      | Matrix   , _        , Matrix   
+                                      | _        , Bra      , Bra 
+                                      | _        , Ket      , Ket 
+                                      | _        , Gate     , Gate     
+                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
+                                                                            with _ -> bad "><"
+                                                                           )
+                                      | Bra      , _        , _          
+                                      | Ket      , _        , _          
+                                      | Gate     , _        , _          
+                                      | Matrix   , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                                twarn "><" e2 t1
+                                                                            with _ -> bad "><"
+                                                                           )  
+
+                                      | _        , Bra      , _          
+                                      | _        , Ket      , _          
+                                      | _        , Gate     , _          
+                                      | _        , Matrix   , _         -> (try unifytypes t2 tout; unifytypes t1 tout;
+                                                                                twarn "><" e1 t2
+                                                                            with _ -> bad "><"
+                                                                           )  
+                                      
+                                      | Unknown _, Unknown _, _         -> 
+                                          raise (Error (e.pos, Printf.sprintf "overloaded ><: cannot deduce type of %s or %s"
+                                                                                (string_of_expr e1)
+                                                                                (string_of_expr e2)
+                                                       )
+                                                )
+                                      | _                               -> bad "><"
+                                     )
+                                 | _          -> ()
                                )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->

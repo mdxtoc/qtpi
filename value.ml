@@ -665,7 +665,7 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
  *)
 (* *********************** defining vectors, matrices ************************************ *)
 
-let make_v ps = P_1, Array.of_list ps
+let make_pv ps = P_1, Array.of_list ps
 
 let pcneg  (C (x,y)) = (* only for local use, please *)
   let negate = function
@@ -674,13 +674,13 @@ let pcneg  (C (x,y)) = (* only for local use, please *)
   in
   C (negate x, negate y) 
 
-let v_zero  = make_v [c_1   ; c_0         ]
-let v_one   = make_v [c_0   ; c_1         ]
-let v_plus  = make_v [c_h   ; c_h         ]
-let v_minus = make_v [c_h   ; pcneg c_h   ]
+let pv_zero  = make_pv [c_1   ; c_0         ]
+let pv_one   = make_pv [c_0   ; c_1         ]
+let pv_plus  = make_pv [c_h   ; c_h         ]
+let pv_minus = make_pv [c_h   ; pcneg c_h   ]
 
-let v_1 = make_v [c_1] (* a unit for folding *)
-let v_0 = make_v [c_0] (* another unit for folding *)
+let pv_1 = make_pv [c_1] (* a unit for folding *)
+let pv_0 = make_pv [c_0] (* another unit for folding *)
 
 let string_of_cpaa m = 
   let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in

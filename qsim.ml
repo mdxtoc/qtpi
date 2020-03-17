@@ -267,14 +267,14 @@ let pv_of_braket bks =
   let rec pv (rm,rv as r) =
     function 
     | bk::bks -> let (m1,v1) = match bk with
-                           | Braket.BKZero  -> v_zero
-                           | Braket.BKOne   -> v_one
-                           | Braket.BKPlus  -> v_plus
-                           | Braket.BKMinus -> v_minus
+                           | Braket.BKZero  -> pv_zero
+                           | Braket.BKOne   -> pv_one
+                           | Braket.BKPlus  -> pv_plus
+                           | Braket.BKMinus -> pv_minus
                  in pv (rprod rm m1, tensor_vv rv v1) bks
     | []      -> r
   in 
-  pv v_1 bks
+  pv pv_1 bks
 
 (* this is in the wrong place *)
 let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
@@ -307,14 +307,14 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
                               ((* this could be a bug if we used qfrees *)
                                let pa_sq = Random.float 1.0 in
                                let pb_sq = 1.0 -. pa_sq in
-                               make_v (List.map c_of_p [Psymb (q, false, sqrt(pa_sq)); Psymb (q, true, sqrt(pb_sq))]) 
+                               make_pv (List.map c_of_p [Psymb (q, false, sqrt(pa_sq)); Psymb (q, true, sqrt(pb_sq))]) 
                               )
                             else (* random basis, random fixed value *)
                              qcopy (match Random.bool (), Random.bool ()  with
-                                    | false, false -> v_zero 
-                                    | false, true  -> v_one
-                                    | true , false -> v_plus 
-                                    | true , true  -> v_minus
+                                    | false, false -> pv_zero 
+                                    | false, true  -> pv_one
+                                    | true , false -> pv_plus 
+                                    | true , true  -> pv_minus
                                    )
     in
     let qv = [q],vec in
@@ -469,13 +469,13 @@ let try_split qs (vm,vv as v) =
          Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
        let n = vsize vv in
        let nh = n / 2 in
-       (* if the first half is all zeros then use v_one, which is 0+1 *)
+       (* if the first half is all zeros then use pv_one, which is 0+1 *)
        if _for_all 0 1 nh (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy v_one, (vm,Array.init nh (fun i -> vv.(nh+i))))
+         Some (qs, qcopy pv_one, (vm,Array.init nh (fun i -> vv.(nh+i))))
        else
-       (* if the second half is all zeros then use v_zero, which is 1+0 *)
+       (* if the second half is all zeros then use pv_zero, which is 1+0 *)
        if _for_all nh 1 n (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy v_zero, (vm,Array.init nh (fun i -> vv.(i))))
+         Some (qs, qcopy pv_zero, (vm,Array.init nh (fun i -> vv.(i))))
        else
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
@@ -574,7 +574,7 @@ let ugstep_padded pn qs g gpad =
      (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
      let qvals = Listutils.mkset (List.map qval qs) in
      let qss, vs = List.split qvals in
-     let qs', v' = List.concat qss, List.fold_left tensor_qq v_1 vs in
+     let qs', v' = List.concat qss, List.fold_left tensor_qq pv_1 vs in
   
      (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
      (* But we don't want to do this too enthusiastically ... *)

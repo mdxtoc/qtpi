@@ -254,7 +254,7 @@ let rec evale env e =
                                                                                     (string_of_num v2)
                                                              )
                                                       )
-                              | TensorP -> VGate (tensor_gg (gateev env e1) (gateev env e2))
+                              | TensorProd -> VGate (tensor_gg (gateev env e1) (gateev env e2))
                              )
     | ECompare (e1,op,e2) -> let v1 = evale env e1 in
                              let v2 = evale env e2 in

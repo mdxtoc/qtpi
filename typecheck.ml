@@ -541,9 +541,9 @@ and assigntype_expr cxt t e =
      | ECond  (c,e1,e2)     -> ternary cxt t (adorn_x c Bool) t t c e1 e2
      | EArith (e1,op,e2)    -> let tn1, tn2, tnout = 
                                  match op with
-                                 | Times   -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq) 
-                                 | TensorP -> Gate, Gate, Gate
-                                 | _       -> Num , Num , Num
+                                 | Times      -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq) 
+                                 | TensorProd -> Gate, Gate, Gate
+                                 | _          -> Num , Num , Num
                                in
                                let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
                                (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)

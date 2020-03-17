@@ -224,13 +224,14 @@ let rec evale env e =
                                   (let v1 = evale env e1 in
                                    let v2 = evale env e2 in
                                    match v1, v2 with
-                                   | VNum  n1, VNum  n2 -> VNum (n1 */ n2)
-                                   | VGate g1, VGate g2 -> VGate (mult_gg g1 g2)
-                                   | VKet   k, VBra  b  -> VMatrix (mult_kb k b)
-                                   | _                  -> 
-                                      raise (Disaster (e.pos, Printf.sprintf "%s * %s" 
-                                                                 (string_of_value (evale env e1)) 
-                                                                 (string_of_value (evale env e2))
+                                   | VNum    n1, VNum  n2   -> VNum (n1 */ n2)
+                                   | VGate   g1, VGate g2   -> VGate (mult_gg g1 g2)
+                                   | VKet     k, VBra  b    -> VMatrix (mult_kb k b)
+                                   | VMatrix m1, VMatrix m2 -> VMatrix (mult_mm m1 m2)
+                                   | _                      -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "multiply %s * %s" 
+                                                                 (string_of_value v1) 
+                                                                 (string_of_value v2)
                                                       )
                                             )
                                   )
@@ -254,7 +255,21 @@ let rec evale env e =
                                                                                     (string_of_num v2)
                                                              )
                                                       )
-                              | TensorProd -> VGate (tensor_gg (gateev env e1) (gateev env e2))
+                              | TensorProd -> 
+                                  (let v1 = evale env e1 in
+                                   let v2 = evale env e2 in
+                                   match v1, v2 with
+                                   | VGate   g1, VGate g2   -> VGate (tensor_gg g1 g2)
+                                   | VBra    b1, VBra  b2   -> VBra (tensor_pv2 b1 b2)
+                                   | VKet    k1, VKet  k2   -> VBra (tensor_pv2 k1 k2)
+                                   | VMatrix m1, VMatrix m2 -> VMatrix (tensor_mm m1 m2)
+                                   | _                      -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "tensor product %s >< %s" 
+                                                                 (string_of_value v1) 
+                                                                 (string_of_value v2)
+                                                      )
+                                            )
+                                  )
                              )
     | ECompare (e1,op,e2) -> let v1 = evale env e1 in
                              let v2 = evale env e2 in
@@ -834,6 +849,6 @@ let interpret defs =
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess (_, er, [], p) -> interp !er p
+  | VProcess (_, er, [], p) -> flush_all(); interp !er p
   | VProcess (_, _ , ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
   | _                       -> raise (Error (dummy_spos, "no process named System"))

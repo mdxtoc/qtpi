@@ -121,10 +121,14 @@ let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
-let tensor_n_gs n g = 
-  if n=0 then g_1 else
-  if n=1 then g else
-              List.fold_left tensor_gg g (Listutils.tabulate (n-1) (const g))
+let fpow f one v n =
+  List.fold_left f one (Listutils.tabulate n (const v))
+
+let pow_g = fpow tensor_gg g_1 
+let pow_pv = fpow tensor_pv2 pv_1
+let pow_m = fpow tensor_mm m_1
+
+let tensor_n_gs n g = pow_g g n
               
 (* (* I thought this might be quicker than folding, but it isn't *)
    let rec tensor_n_gs n g =

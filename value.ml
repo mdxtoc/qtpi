@@ -695,6 +695,7 @@ let string_of_cpad v =
   Printf.sprintf "diag{" ^ string_of_list string_of_cprob " " (Array.to_list v) ^ "}"
   
 let make_cpaa rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+
 let cpaa_of_gate = function
   | MGate m -> m
   | DGate v -> let n = vsize v in
@@ -790,6 +791,9 @@ let g_Cnot = g_CX
                       
 let g_1 = make_g [[c_1]] (* a unit for folding *)
 let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
+
+let m_1 = make_cpaa [[c_1]]
+let m_0 = make_cpaa [[c_0]]
 
 (* the special Grover gate. Oh this is a filthy hack. *)
 let groverG n =

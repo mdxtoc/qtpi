@@ -542,8 +542,9 @@ and assigntype_expr cxt t e =
      | EArith (e1,op,e2)    -> (let tn1, tn2, tnout = 
                                   match op with
                                   | Times       
-                                  | TensorProd -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
-                                  | _          -> Num , Num , Num
+                                  | TensorProd  -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
+                                  | TensorPower -> Unknown (new_unknown UnkEq), Num, Unknown (new_unknown UnkEq)
+                                  | _           -> Num , Num , Num
                                 in
                                 let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
                                 (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
@@ -578,7 +579,7 @@ and assigntype_expr cxt t e =
                                  in
                                  
                                  match op with
-                                 | Times      -> 
+                                 | Times       -> 
                                      (* we currently have the following
                                           Num    -> Num    -> Num   
                                           Gate   -> Gate   -> Gate
@@ -618,9 +619,10 @@ and assigntype_expr cxt t e =
                                                                                 (string_of_expr e2)
                                                        )
                                                 )
+                                      
                                       | _                               -> bad "*"
                                      )
-                                 | TensorProd -> 
+                                 | TensorProd  -> 
                                      (* we currently have the following
                                           Bra    -> Bra    -> Bra
                                           Ket    -> Ket    -> Ket
@@ -664,9 +666,35 @@ and assigntype_expr cxt t e =
                                                                                 (string_of_expr e2)
                                                        )
                                                 )
+                                      
                                       | _                               -> bad "><"
                                      )
-                                 | _          -> ()
+                                 | TensorPower ->
+                                     (* we currently have the following
+                                          Bra    -> Num    -> Bra
+                                          Ket    -> Num    -> Ket
+                                          Gate   -> Num    -> Gate
+                                          Matrix -> Num    -> Matrix
+                                      *)
+                                     (match t1.inst, tout.inst with
+                                      | Bra      , _                  
+                                      | Ket      , _                  
+                                      | Gate     , _                  
+                                      | Matrix   , _          
+                                      | _        , Bra      
+                                      | _        , Ket      
+                                      | _        , Gate     
+                                      | _        , Matrix    -> (try unifytypes t1 tout with _ -> bad "><><")  
+                                      
+                                      | Unknown _, Unknown _ -> 
+                                          raise (Error (e.pos, Printf.sprintf "overloaded ><: cannot deduce type of %s"
+                                                                                (string_of_expr e1)
+                                                       )
+                                                )
+                                      
+                                      | _                    -> bad "><><"
+                                     )
+                                 | _           -> ()
                                )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->

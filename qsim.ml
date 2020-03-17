@@ -78,24 +78,35 @@ let tensor_vv vA vB =
   let vR = new_v (nA*nB) in
   _for 0 1 nA (fun i -> _for 0 1 nB (fun j -> vR.(i*nB+j) <- cprod vA.(i) vB.(j)));
   vR
+
+let tensor_pv2 (mA,vA) (mB,vB) = (rprod mA mB, tensor_vv vA vB)
   
-let tensor_qq (mA,vA) (mB,vB) =
-  let mR = match mA,mB with
-           | P_1, _   -> mB
-           | _  , P_1 -> mA
-           | _        -> rprod mA mB
-  in
-  let vR = tensor_vv vA vB in
+let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
+  let mR, vR = tensor_pv2 pvA pvB in
   if !verbose_qcalc then Printf.printf "%s (><) %s -> %s\n"
                                        (string_of_ket (mA,vA))
                                        (string_of_ket (mB,vB))
                                        (string_of_ket (mR,vR));
   mR,vR
+
+let tensor_mm mA mB =
+  let rA, cA = rsize mA, csize mA in
+  let rB, cB = rsize mB, csize mB in
+  let mC = new_cpaa (rA*rB) (cA*cB) in
+  for i = 0 to rA-1 do
+    for j = 0 to cA-1 do
+      let aij = mA.(i).(j) in
+      for m = 0 to rB-1 do
+        for p = 0 to cB-1 do
+          mC.(i*rB+m).(j*cB+p) <- cprod aij mB.(m).(p)
+        done (* p *)
+      done (* n *)
+    done (* j *)
+  done (* i *);
+  mC
   
 let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
-  let nA = gsize gA in
-  let nB = gsize gB in
   let g = if gA=g_1 then gB else
           if gB=g_1 then gA else
             (match gA, gB with
@@ -103,18 +114,8 @@ let tensor_gg gA gB =
              | _                  ->
                  let mA = cpaa_of_gate gA in
                  let mB = cpaa_of_gate gB in
-                 let mt = new_ug (nA*nB) in
-                 _for 0 1 nA (fun i -> 
-                                _for 0 1 nA (fun j -> 
-                                               let aij = mA.(i).(j) in
-                                               _for 0 1 nB (fun m ->
-                                                              _for 0 1 nB (fun p ->
-                                                                             mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
-                                                                          )
-                                                           )
-                                            )
-                             );
-                 gate_of_cpaa mt
+                 let mC = tensor_mm mA mB in
+                 gate_of_cpaa mC
             )  
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
@@ -167,16 +168,6 @@ let rowcolprod n row col =
   let reals, ims = List.split els in
   C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
-(* mA is m*n, mB is n*p *)
-let mult_cpaa2 m n p mA mB =
-   let mC = new_cpaa m p in
-   for i = 0 to m-1 do
-     for j = 0 to p-1 do
-       mC.(i).(j) <- let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j))
-     done 
-   done;
-   mC
-
 let mult_gv g (vm,vv as v) =
   if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_ket v);
   let n = Array.length vv in
@@ -192,12 +183,30 @@ let mult_gv g (vm,vv as v) =
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_ket v');
   v'
-               
+
+let mult_mm mA mB = 
+  let m = rsize mA in
+  let n = csize mA in
+  if n<>rsize mB then
+    raise (Error (Printf.sprintf "matrix size mismatch in multiply: %s * %s"
+                                 (string_of_cpaa mA)
+                                 (string_of_cpaa mB)
+                 )
+          );
+  let p = csize mB in
+  let mC = new_cpaa m p in
+  for i = 0 to m-1 do
+    for j = 0 to p-1 do
+      mC.(i).(j) <- let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j))
+    done 
+  done;
+  mC
+  
 let mult_gg gA gB = 
   if !verbose_qcalc then Printf.printf "mult_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
   let n = gsize gA in
   if n <> gsize gB then (* our gates are square *)
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gg %s %s"
+    raise (Error (Printf.sprintf "gate size mismatch in multiply: %s * %s"
                                  (string_of_gate gA)
                                  (string_of_gate gB)
                  )
@@ -207,7 +216,7 @@ let mult_gg gA gB =
           | _                  -> 
               let mA = cpaa_of_gate gA in   
               let mB = cpaa_of_gate gB in
-              let m' = mult_cpaa2 n n n mA mB in
+              let m' = mult_mm mA mB in
               gate_of_cpaa m' 
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);

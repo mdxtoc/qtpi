@@ -54,6 +54,8 @@ and probvec = modulus * cprob array (* modulus, vector: written as 1/sqrt(modulu
 
 let vsize = Array.length
 let pvsize (p,v) = vsize v
+let rsize = Array.length
+let csize m = vsize m.(1)
 
 let rec string_of_prob p = 
   (* Everything is associative, but the normal form is sum of negated products.

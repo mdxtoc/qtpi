@@ -270,6 +270,30 @@ let rec evale env e =
                                                       )
                                             )
                                   )
+                              | TensorPower ->
+                                  (let v = evale env e1 in
+                                   let num = numev env e2 in
+                                   let n = if is_int num then
+                                             if num >=/ zero then int_of_num num
+                                             else raise (Error (e.pos, Printf.sprintf "negative tensor-power exponent %s" (string_of_num num)
+                                                               )
+                                                        )
+                                           else raise (Error (e.pos, Printf.sprintf "fractional tensor-power exponent %s" (string_of_num num)
+                                                             )
+                                                      )
+                                   in
+                                   match v with
+                                   | VGate   g   -> VGate (pow_g g n)
+                                   | VBra    b   -> VBra (pow_pv b n)
+                                   | VKet    k   -> VKet (pow_pv k n)
+                                   | VMatrix m   -> VMatrix (pow_m m n)
+                                   | _           -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "tensor power %s ><>< %s" 
+                                                                 (string_of_value v) 
+                                                                 (string_of_num num)
+                                                      )
+                                            )
+                                  )
                              )
     | ECompare (e1,op,e2) -> let v1 = evale env e1 in
                              let v2 = evale env e2 in

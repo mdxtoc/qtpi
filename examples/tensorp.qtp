@@ -1,4 +1,4 @@
-fun tp a b =
+fun tp (a:gate) (b:gate) =
   [show a; "><"; show b; "="; show (a><b); "\n"]
   
 proc System () =

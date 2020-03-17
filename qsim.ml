@@ -39,10 +39,10 @@ type qval = qbit list * probvec (* with n qbits, 2^n probs in the vector; and it
 
 let string_of_qval_full full (qs,v) =
   match full, qs with
-  | false, [_] -> string_of_probvec PVKet v
+  | false, [_] -> string_of_ket v
   | _          -> Printf.sprintf "[%s]%s"
                           (string_of_list string_of_qbit ";" qs)
-                          (string_of_probvec PVKet v)
+                          (string_of_ket v)
                 
 let string_of_qval = string_of_qval_full false
 
@@ -62,11 +62,11 @@ let qval q = try Hashtbl.find qstate q
                                             )
                                      )
 
-(* from here on down, I just assume (hope) that we are working with square matrices *)
-(* maybe later that typechecking trick ... *)
+(* note that gates are square matrices, but we also have unsquare matrices *)
 
 let new_v n = Array.make n c_0
-let new_ug n = Array.make_matrix n n c_0
+let new_cpaa n m = Array.make_matrix n m c_0
+let new_ug n = new_cpaa n n
 
 let bigI n = let m = Array.make_matrix n n c_0 in
              _for 0 1 n (fun i -> m.(i).(i) <- c_1);
@@ -78,24 +78,35 @@ let tensor_vv vA vB =
   let vR = new_v (nA*nB) in
   _for 0 1 nA (fun i -> _for 0 1 nB (fun j -> vR.(i*nB+j) <- cprod vA.(i) vB.(j)));
   vR
+
+let tensor_pv2 (mA,vA) (mB,vB) = (rprod mA mB, tensor_vv vA vB)
   
-let tensor_qq (mA,vA) (mB,vB) =
-  let mR = match mA,mB with
-           | P_1, _   -> mB
-           | _  , P_1 -> mA
-           | _        -> rprod mA mB
-  in
-  let vR = tensor_vv vA vB in
+let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
+  let mR, vR = tensor_pv2 pvA pvB in
   if !verbose_qcalc then Printf.printf "%s (><) %s -> %s\n"
-                                       (string_of_probvec PVKet (mA,vA))
-                                       (string_of_probvec PVKet (mB,vB))
-                                       (string_of_probvec PVKet (mR,vR));
+                                       (string_of_ket (mA,vA))
+                                       (string_of_ket (mB,vB))
+                                       (string_of_ket (mR,vR));
   mR,vR
+
+let tensor_mm mA mB =
+  let rA, cA = rsize mA, csize mA in
+  let rB, cB = rsize mB, csize mB in
+  let mC = new_cpaa (rA*rB) (cA*cB) in
+  for i = 0 to rA-1 do
+    for j = 0 to cA-1 do
+      let aij = mA.(i).(j) in
+      for m = 0 to rB-1 do
+        for p = 0 to cB-1 do
+          mC.(i*rB+m).(j*cB+p) <- cprod aij mB.(m).(p)
+        done (* p *)
+      done (* n *)
+    done (* j *)
+  done (* i *);
+  mC
   
 let tensor_gg gA gB =
   if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
-  let nA = gsize gA in
-  let nB = gsize gB in
   let g = if gA=g_1 then gB else
           if gB=g_1 then gA else
             (match gA, gB with
@@ -103,18 +114,8 @@ let tensor_gg gA gB =
              | _                  ->
                  let mA = cpaa_of_gate gA in
                  let mB = cpaa_of_gate gB in
-                 let mt = new_ug (nA*nB) in
-                 _for 0 1 nA (fun i -> 
-                                _for 0 1 nA (fun j -> 
-                                               let aij = mA.(i).(j) in
-                                               _for 0 1 nB (fun m ->
-                                                              _for 0 1 nB (fun p ->
-                                                                             mt.(i*nB+m).(j*nB+p) <- cprod aij (mB.(m).(p))
-                                                                          )
-                                                           )
-                                            )
-                             );
-                 gate_of_cpaa mt
+                 let mC = tensor_mm mA mB in
+                 gate_of_cpaa mC
             )  
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
@@ -168,47 +169,80 @@ let rowcolprod n row col =
   C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
 let mult_gv g (vm,vv as v) =
-  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_probvec PVKet v);
+  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_ket v);
   let n = Array.length vv in
   if gsize g <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gv %s %s"
                                  (string_of_gate g)
-                                 (string_of_probvec PVKet v)
+                                 (string_of_ket v)
                  )
           );
   let v' = vm, match g with
                | MGate m -> Array.init n (fun i -> let row = m.(i) in rowcolprod n (fun j -> row.(j)) (fun j -> vv.(j)))
                | DGate d -> Array.init n (fun i -> cprod d.(i) vv.(i))
   in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_probvec PVKet v');
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_ket v');
   v'
-               
+
+let mult_mm mA mB = 
+  let m = rsize mA in
+  let n = csize mA in
+  if n<>rsize mB then
+    raise (Error (Printf.sprintf "matrix size mismatch in multiply: %s * %s"
+                                 (string_of_cpaa mA)
+                                 (string_of_cpaa mB)
+                 )
+          );
+  let p = csize mB in
+  let mC = new_cpaa m p in
+  for i = 0 to m-1 do
+    for j = 0 to p-1 do
+      mC.(i).(j) <- let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j))
+    done 
+  done;
+  mC
+  
 let mult_gg gA gB = 
   if !verbose_qcalc then Printf.printf "mult_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
   let n = gsize gA in
   if n <> gsize gB then (* our gates are square *)
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gg %s %s"
+    raise (Error (Printf.sprintf "gate size mismatch in multiply: %s * %s"
                                  (string_of_gate gA)
                                  (string_of_gate gB)
                  )
           );
   let g = match gA, gB with
           | DGate dA, DGate dB -> DGate (Array.init n (fun i -> cprod dA.(i) dB.(i)))
-          | _                  ->
+          | _                  -> 
               let mA = cpaa_of_gate gA in   
               let mB = cpaa_of_gate gB in
-              let m' = new_ug n in
-              _for 0 1 n (fun i ->
-                            (_for 0 1 n (fun j ->
-                                           m'.(i).(j) <- let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j))
-                                        )
-                            )
-                         );
+              let m' = mult_mm mA mB in
               gate_of_cpaa m' 
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
   g
 
+let mult_kb (km, kv as k) (bm, bv as b) =
+  let n = vsize kv in
+  if vsize bv<>n then
+    raise (Error (Printf.sprintf "size mismatch in ket*bra: %d*%d\n%s\n%s" 
+                                        (vsize kv) (vsize bv)
+                                        (string_of_ket k) (string_of_bra b)
+                 )
+          );
+  if bm<>P_1 || km<>P_1 then 
+    raise (Error (Printf.sprintf "bra*ket multiplication with non-unit modulus\n%s\n%s"
+                                        (string_of_ket k) (string_of_bra b)
+                 )
+          );
+  let m = new_cpaa n n in
+  for i = 0 to n-1 do
+    for j = 0 to n-1 do
+      m.(i).(j) <- cprod kv.(i) bv.(j)
+    done
+  done;
+  m
+  
 (* conjugate transpose: transpose and piecewise complex conjugate *)
 let dagger g = 
   if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_gate g);
@@ -289,7 +323,7 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
       Printf.printf "%s newqbit %s (%s) -> %s; now %s|->%s\n"
                     (Name.string_of_name pn)
                     (Name.string_of_name n)
-                    (string_of_option (string_of_probvec PVKet) vopt)
+                    (string_of_option (string_of_ket) vopt)
                     (string_of_qbit q)
                     (string_of_qbit q)
                     (string_of_qval qv);
@@ -356,7 +390,7 @@ let make_nth qs (vm,vv as v) n iq =
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
                                         (bracketed_string_of_list string_of_qbit qs)
-                                        (string_of_probvec PVKet v)
+                                        (string_of_ket v)
                                         n
                                         iq
                                         s
@@ -365,7 +399,7 @@ let make_nth qs (vm,vv as v) n iq =
   in
   if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
                                                         (bracketed_string_of_list string_of_qbit qs)
-                                                        (string_of_probvec PVKet v)
+                                                        (string_of_ket v)
                                                         n
                                                         iq;
   let nqs = List.length qs in

@@ -68,7 +68,7 @@ and arithop =
   | Plus
   | Minus
   | Times
-  | TensorP
+  | TensorProd
   | Div
   | Mod
   | Power
@@ -120,7 +120,7 @@ let compprio _              =  NonAssoc, 100
 let arithprio = function
   | Plus                    -> Assoc   , 200
   | Minus                   -> Left    , 200
-  | TensorP                 -> Left    , 205
+  | TensorProd              -> Left    , 205
   | Power                   -> Left    , 210
   | Times                   -> Assoc   , 220
   | Div | Mod               -> Left    , 220
@@ -256,13 +256,13 @@ and string_of_edecl edecl =
                                                (string_of_expr e)
 
 and string_of_arithop = function
-  | Plus    -> "+"
-  | Minus   -> "-"
-  | Times   -> "*"
-  | TensorP -> "><"
-  | Div     -> "/"
-  | Mod     -> "%"
-  | Power   -> "**"
+  | Plus       -> "+"
+  | Minus      -> "-"
+  | Times      -> "*"
+  | TensorProd -> "><"
+  | Div        -> "/"
+  | Mod        -> "%"
+  | Power      -> "**"
   
 and string_of_compareop = function
   | Lt  -> "<"

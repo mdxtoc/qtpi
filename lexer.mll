@@ -88,7 +88,7 @@ rule make_token = parse
   | ':'         {COLON}
   | '='         {EQUALS}
   | '*'         {STAR}
-  | "><"        {TENSORP}
+  | "><"        {TENSORPROD}
   | "<-"        {LEFTARROW}
   
   | "true"      {TRUE}

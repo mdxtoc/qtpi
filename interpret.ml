@@ -73,6 +73,7 @@ let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
 let stringv = function VString s       -> s      | v -> miseval "stringv"  v
 let brav    = function VBra    b       -> b      | v -> miseval "brav"     v
 let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
+let matrixv = function VMatrix m       -> m      | v -> miseval "matrixv"  v
 let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
 let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
@@ -217,38 +218,58 @@ let rec evale env e =
     | EApp (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
-    | EArith (e1,op,e2)   -> let v1 = evale env e1 in
-                             (match v1, op with
-                              | VGate v1, TensorP ->
-                                  let v2 = gateev env e2 in
-                                  VGate (tensor_gg v1 v2)
-                              | VGate v1, Times ->
-                                  let v2 = gateev env e2 in
-                                  VGate (mult_gg v1 v2)
-                              | VNum  v1, _     -> 
-                                  let v2 = numev env e2 in
-                                  VNum (match op with
-                                        | Plus    -> v1+/v2    
-                                        | Minus   -> v1-/v2
-                                        | Times   -> v1*/v2
-                                        | Div     -> v1//v2
-                                        | Power   -> if is_int v2 then
-                                                        v1**/int_of_num v2
-                                                     else raise (Error (e.pos, Printf.sprintf "fractional power: %s ** %s"
-                                                                                              (string_of_num v1)
-                                                                                              (string_of_num v2)
-                                                                       )
-                                                                )
-                                        | Mod     -> if is_int v1 && is_int v2 then
-                                                       rem v1 v2
-                                                     else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"
-                                                                                              (string_of_num v1)
-                                                                                              (string_of_num v2)
-                                                                       )
-                                                                )
-                                        | TensorP -> raise (Can'tHappen ("tensor product of nums"))
-                                       )
-                              | _ -> raise (Disaster (e.pos, "neither Num op Num nor Gate * Gate"))
+    | EArith (e1,op,e2)   -> (match op with
+                              | Plus    -> VNum (numev env e1 +/ numev env e2)    
+                              | Times   ->
+                                  (let v1 = evale env e1 in
+                                   let v2 = evale env e2 in
+                                   match v1, v2 with
+                                   | VNum    n1, VNum  n2   -> VNum (n1 */ n2)
+                                   | VGate   g1, VGate g2   -> VGate (mult_gg g1 g2)
+                                   | VKet     k, VBra  b    -> VMatrix (mult_kb k b)
+                                   | VMatrix m1, VMatrix m2 -> VMatrix (mult_mm m1 m2)
+                                   | _                      -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "multiply %s * %s" 
+                                                                 (string_of_value v1) 
+                                                                 (string_of_value v2)
+                                                      )
+                                            )
+                                  )
+                              | Minus   -> VNum (numev env e1 -/ numev env e2)
+                              | Div     -> VNum (numev env e1 // numev env e2)
+                              | Power   -> let v1 = numev env e1 in
+                                           let v2 = numev env e2 in
+                                           if is_int v2 then
+                                             VNum (v1 **/ int_of_num v2)
+                                           else raise (Error (e.pos, Printf.sprintf "fractional power: %s ** %s"
+                                                                                    (string_of_num v1)
+                                                                                    (string_of_num v2)
+                                                             )
+                                                      )
+                              | Mod     -> let v1 = numev env e1 in
+                                           let v2 = numev env e2 in
+                                           if is_int v1 && is_int v2 then
+                                             VNum (rem v1 v2)
+                                           else raise (Error (e.pos, Printf.sprintf "fractional mod: %s %% %s"
+                                                                                    (string_of_num v1)
+                                                                                    (string_of_num v2)
+                                                             )
+                                                      )
+                              | TensorProd -> 
+                                  (let v1 = evale env e1 in
+                                   let v2 = evale env e2 in
+                                   match v1, v2 with
+                                   | VGate   g1, VGate g2   -> VGate (tensor_gg g1 g2)
+                                   | VBra    b1, VBra  b2   -> VBra (tensor_pv2 b1 b2)
+                                   | VKet    k1, VKet  k2   -> VBra (tensor_pv2 k1 k2)
+                                   | VMatrix m1, VMatrix m2 -> VMatrix (tensor_mm m1 m2)
+                                   | _                      -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "tensor product %s >< %s" 
+                                                                 (string_of_value v1) 
+                                                                 (string_of_value v2)
+                                                      )
+                                            )
+                                  )
                              )
     | ECompare (e1,op,e2) -> let v1 = evale env e1 in
                              let v2 = evale env e2 in
@@ -324,6 +345,7 @@ and deepcompare = function (* list everything to be sure I don't make a mistake 
   | VChar    v1 , VChar    v2  -> Stdlib.compare v1 v2 
   | VBra     v1 , VBra     v2  -> Stdlib.compare v1 v2
   | VKet     v1 , VKet     v2  -> Stdlib.compare v1 v2
+  | VMatrix  v1 , VMatrix  v2  -> Stdlib.compare v1 v2
   | VGate    v1 , VGate    v2  -> Stdlib.compare v1 v2
   | VString  v1 , VString  v2  -> Stdlib.compare v1 v2    (* none of these hide values *)
   | _                          -> raise (Can'tHappen "deepcompare given different types")
@@ -547,7 +569,7 @@ let rec interp env proc =
                                 (match pvsize k with
                                  | 2 -> Some k
                                  | _ -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
-                                                                                  (string_of_probvec PVKet k)
+                                                                                  (string_of_ket k)
                                                          )
                                                   )
                                 )
@@ -827,6 +849,6 @@ let interpret defs =
              with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
-  | VProcess (_, er, [], p) -> interp !er p
+  | VProcess (_, er, [], p) -> flush_all(); interp !er p
   | VProcess (_, _ , ps, _) -> raise (Error (dummy_spos, "can't interpret System with non-null parameter list"))
   | _                       -> raise (Error (dummy_spos, "no process named System"))

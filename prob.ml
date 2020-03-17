@@ -54,6 +54,8 @@ and probvec = modulus * cprob array (* modulus, vector: written as 1/sqrt(modulu
 
 let vsize = Array.length
 let pvsize (p,v) = vsize v
+let rsize = Array.length
+let csize m = vsize m.(1)
 
 let rec string_of_prob p = 
   (* Everything is associative, but the normal form is sum of negated products.
@@ -166,4 +168,5 @@ let string_of_probvec bksign =
   | P_1, vv -> so_pv vv
   | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_prob vm) (so_pv vv)
   
-
+let string_of_bra = string_of_probvec PVBra
+let string_of_ket = string_of_probvec PVKet

@@ -1,7 +1,3 @@
 proc System () =
-  out!["H><I="; show (H><I); "\n"] .
-  out!["I><H="; show (I><H); "\n"] .
-  out!["(H><I)*(I><H)="; show ((H><I)*(I><H)); "\n"] .
-  out!["H><H="; show (H><H); "\n"] .
-  out!["(H><I)*(I><H)=H><H is "; show ((H><I)*(I><H)=H><H); "\n"] .
+  out!["|+++++> * <+++++|="; show (|+++++> * <+++++|); "\n"] .
   _0

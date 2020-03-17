@@ -69,7 +69,7 @@
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC UNTRACED QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUS MINUS DIV MOD POW TENSORP
+%token PLUS MINUS DIV MOD POW TENSORPROD
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -88,7 +88,7 @@
 %nonassoc EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %left PLUS MINUS
 %left mult_op STAR DIV MOD POW
-%left TENSORP
+%left TENSORPROD
 %left APPEND
 
 %right TYPEARROW
@@ -500,7 +500,7 @@ app:
   | app primary                         {tadorn (EApp ($1,$2))}
   
 arith:
-  | nwexpr TENSORP nwexpr               {$1,TensorP,$3}
+  | nwexpr TENSORPROD nwexpr            {$1,TensorProd,$3}
   | nwexpr POW nwexpr                   {$1,Power,$3}
   | nwexpr STAR nwexpr                  {$1,Times,$3}
   | nwexpr DIV nwexpr                   {$1,Div,$3}

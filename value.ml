@@ -53,6 +53,7 @@ type value =
   | VChar of char
   | VBra of probvec
   | VKet of probvec
+  | VMatrix of matrix
   | VGate of gate
   | VString of string
   | VQbit of qbit
@@ -66,6 +67,8 @@ type value =
 and gate = 
     | MGate of cprob array array   (* square matrix *)
     | DGate of cprob array         (* diagonal matrix *)
+
+and matrix = cprob array array     (* not necessarily square *)
 
 and qbit = int
 
@@ -836,9 +839,10 @@ let rec so_value optf v =
                | VBit b          -> if b then "1" else "0"
                | VNum n          -> string_of_num n
                | VBool b         -> string_of_bool b
-               | VBra b          -> string_of_probvec PVBra b
-               | VKet k          -> string_of_probvec PVKet k
-               | VGate gate      -> string_of_gate gate
+               | VBra b          -> string_of_bra b
+               | VKet k          -> string_of_ket k
+               | VMatrix m       -> string_of_matrix m
+               | VGate g         -> string_of_gate g
                | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
                | VQbit q         -> "Qbit " ^ string_of_qbit q
@@ -950,6 +954,7 @@ and string_of_gate g =
                | MGate m -> string_of_cpaa m
                | DGate v -> string_of_cpad v
               )
+and string_of_matrix m = string_of_cpaa m
 
 (* ********************************************************************************************************** *)
 

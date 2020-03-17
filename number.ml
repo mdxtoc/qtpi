@@ -151,6 +151,8 @@ module Local = struct
       in (Q.make q one, Q.make r one)
    
   let is_int: num -> bool = fun n -> Z.equal n.den one
+  
+  let is_zero: num -> bool = fun n -> (match Q.classify n with Q.ZERO -> true | _ -> false)
    
   let pow: num -> int -> num =
     fun x exp ->
@@ -194,6 +196,7 @@ let numden_num:          num -> num*num     = Local.numden;;
 let divmod_num:          num -> num*num     = Local.divmod;;
 let integer_num:         num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
+let is_zero:             num -> bool        = Local.is_zero;;
 let zint_of_num:         num -> zint        = Local.zint_of_num;;
 let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
 

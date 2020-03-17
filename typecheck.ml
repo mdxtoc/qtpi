@@ -551,15 +551,14 @@ and assigntype_expr cxt t e =
                                (match op with
                                  | Times   -> 
                                      (* we currently have the following (and if this mechanism works, we will have more)
-                                          Num    -> Num    -> Num   (* the default, unless explicit typing tells us otherwise *)
+                                          Num    -> Num    -> Num   
                                           Gate   -> Gate   -> Gate
                                           Matrix -> Matrix -> Matrix
-                                          Matrix -> Ket    -> Ket
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
-                                          Bra    -> Ket    -> cprob  (* we don't have cprob yet ... *)
-                                          Num    -> Matrix -> Matrix (* should it be CNum? we wait ... *)
-                                          Num    -> Gate   -> Matrix (* ditto? *)
+                                          Bra    -> Ket    -> Prob
+                                          Prob   -> Matrix -> Matrix 
+                                          Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...
                                       *)
                                      (let t1, t2, tout = evaltype t1, evaltype t2, evaltype tout in
                                       (* recall that t1 is the output ... *)
@@ -578,28 +577,35 @@ and assigntype_expr cxt t e =
                                                                             s
                                                       )
                                       in
+                                      let bad () =
+                                        raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
+                                                                               (string_of_type t1)
+                                                                               (string_of_type t2)
+                                                                               (string_of_type tout)
+                                                     )
+                                              )
+                                      in
                                       match t1.inst, t2.inst, tout.inst with
-                                      | Num      , Num      , Num
-                                      | Gate     , Gate     , Gate
-                                      | Ket      , Bra      , Matrix    -> ()
-                                      | Num      , Num      , Unknown _ 
-                                      | Gate     , Gate     , Unknown _    
-                                      | Unknown _, Num      , Num 
-                                      | Unknown _, Gate     , Gate      -> unifytypes t1 tout
-                                      | Num      , Unknown _, Num 
-                                      | Gate     , Unknown _, Gate      -> unifytypes t2 tout
+                                      | Num      , Num      , _ 
+                                      | Gate     , Gate     , _    
+                                      | Matrix   , Matrix   , _    
+                                      | Num      , _        , Num
+                                      | Gate     , _        , Gate
+                                      | Matrix   , _        , Matrix   
+                                      | _        , Num      , Num 
+                                      | _        , Gate     , Gate     
+                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
+                                                                            with _ -> bad ()
+                                                                           )
                                       | Unknown _, Unknown _, Num       -> twarn2 "num";
                                                                            unifytypes t1 tout; unifytypes t2 tout
                                       | Num      , Unknown _, Unknown _ -> twarn e2 "num";
                                                                            unifytypes t1 tout; unifytypes t2 tout
-                                      | Ket      , Bra      , Unknown _ -> unifytypes tout (adorn_x e Matrix)
-                                      | _                               ->
-                                          raise (Error (e.pos, Printf.sprintf "overloaded *: we have %s -> %s -> %s"
-                                                                                 (string_of_type t1)
-                                                                                 (string_of_type t2)
-                                                                                 (string_of_type tout)
-                                                       )
-                                                )
+                                      | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
+                                                                            with _ -> bad ()
+                                                                           )
+                                      | _                               -> bad ()
+                                          
                                      )
                                  | _       -> ()
                                )

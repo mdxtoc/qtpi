@@ -236,6 +236,7 @@ and ihs i ps = if i=0 then ps else P_h i::ps
 and simplify_sum ps = 
   let r = let rec scompare p1 p2 = (* ignore negation *)
             match p1, p2 with
+            | Pneg p1  , Pneg p2   -> scompare p1 p2
             | Pneg p1  , _         -> scompare p1 p2
             | _        , Pneg p2   -> scompare p1 p2
          (* | Pprod p1s, Pprod p2s -> Stdlib.compare p1s p2s *)
@@ -587,6 +588,8 @@ let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | _  , _  , P_0, P_0  -> c1
   | _                   -> C (rsum x1 x2, rsum y1 y2)
 
+let cdiff c1 c2 = csum c1 (cneg c2)
+
 let cconj (C (x,y))               = C (x, rneg y)
 
 let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
@@ -803,6 +806,7 @@ let groverG n =
    let size = 1 lsl n in
    let row _ = Array.init size (fun _ -> cp) in
    let m = Array.init size row in
+   let p' = cdiff cp c_1 in
    for i=0 to size-1 do
      m.(i).(i) <- p'
    done;

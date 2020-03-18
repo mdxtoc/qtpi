@@ -682,7 +682,7 @@ let pv_minus = make_pv [c_h   ; pcneg c_h   ]
 let pv_1 = make_pv [c_1] (* a unit for folding *)
 let pv_0 = make_pv [c_0] (* another unit for folding *)
 
-let string_of_cpaa m = 
+let string_of_matrix m = 
   let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
   let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
   let rwidth r = List.fold_left max 0 (List.map String.length r) in
@@ -694,20 +694,20 @@ let string_of_cpaa m =
 let string_of_cpad v =
   Printf.sprintf "diag{" ^ string_of_list string_of_cprob " " (Array.to_list v) ^ "}"
   
-let make_cpaa rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+let make_m rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 
-let cpaa_of_gate = function
+let matrix_of_gate = function
   | MGate m -> m
   | DGate v -> let n = vsize v in
                let zs = Listutils.tabulate n (const c_0) in
                let rows = Listutils.tabulate n (const zs) in
-               let m = make_cpaa rows in
+               let m = make_m rows in
                for i = 0 to n-1 do
                  m.(i).(i) <- v.(i)
                done;
                m
                
-let gate_of_cpaa m =
+let gate_of_matrix m =
   let n = vsize m in
   let isdiag = _for_all 0 1 n (fun i ->
                                let row = m.(i) in
@@ -719,7 +719,7 @@ let gate_of_cpaa m =
   else MGate m
   
 let make_g rows = 
-  gate_of_cpaa (make_cpaa rows)
+  gate_of_matrix (make_m rows)
 
 let g_I  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
@@ -778,7 +778,7 @@ let g_Fredkin = (* tediously, sorry *)
            [c_0; c_0; c_0; c_0; c_0; c_0; c_0; c_1 ]]
            
 let make_C g = 
-  let m = cpaa_of_gate g in
+  let m = matrix_of_gate g in
   make_g  [[c_1; c_0; c_0      ; c_0       ];
            [c_0; c_1; c_0      ; c_0       ];
            [c_0; c_0; m.(0).(0); m.(0).(1) ];
@@ -792,8 +792,8 @@ let g_Cnot = g_CX
 let g_1 = make_g [[c_1]] (* a unit for folding *)
 let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
 
-let m_1 = make_cpaa [[c_1]]
-let m_0 = make_cpaa [[c_0]]
+let m_1 = make_m [[c_1]]
+let m_0 = make_m [[c_0]]
 
 (* the special Grover gate. Oh this is a filthy hack. *)
 let groverG n =
@@ -803,11 +803,10 @@ let groverG n =
    let size = 1 lsl n in
    let row _ = Array.init size (fun _ -> cp) in
    let m = Array.init size row in
-   let p' = csum (cneg c_1) cp in
    for i=0 to size-1 do
      m.(i).(i) <- p'
    done;
-   gate_of_cpaa m
+   gate_of_matrix m
   )
   
 let groverU bs =
@@ -825,10 +824,10 @@ let groverU bs =
                               ) 
   in
   let m = Array.init size row in
-  gate_of_cpaa m
-  
+  gate_of_matrix m
 
-(* string_of_ functions *)
+(* ********************* string_of_ functions ***************************** *)
+
 let string_of_pqueue stringof sep pq = 
   "{" ^ string_of_list stringof sep (PQueue.elements pq) ^ "}"
 ;;
@@ -955,10 +954,9 @@ and string_of_gate g =
   match nameopt with 
   | Some s -> s
   | None   -> (match g with
-               | MGate m -> string_of_cpaa m
+               | MGate m -> string_of_matrix m
                | DGate v -> string_of_cpad v
               )
-and string_of_matrix m = string_of_cpaa m
 
 (* ********************************************************************************************************** *)
 

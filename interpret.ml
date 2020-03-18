@@ -44,6 +44,8 @@ open Compile
 
 open Value
 open Prob
+open Vmgarith
+
 open Event
 
 exception Error of sourcepos * string
@@ -89,6 +91,9 @@ let vnum    n       = VNum    n
 let vbool   b       = VBool   b
 let vchar   c       = VChar   c
 let vstring s       = VString s
+let vbra    b       = VBra    b
+let vket    k       = VKet    k
+let vmatrix m       = VMatrix m
 let vgate   g       = VGate   g
 let vchan   c       = VChan   c
 let vqbit   q       = VQbit   q
@@ -219,7 +224,22 @@ let rec evale env e =
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
     | EArith (e1,op,e2)   -> (match op with
-                              | Plus    -> VNum (numev env e1 +/ numev env e2)    
+                              | Plus        
+                              | Minus   ->
+                                  (let v1 = evale env e1 in
+                                   let v2 = evale env e2 in
+                                   match v1, v2 with
+                                   | VNum    n1, VNum    n2 -> VNum ((if op=Plus then (+/) else (-/)) n1 n2)
+                                   | VMatrix m1, VMatrix m2 -> VMatrix ((if op=Plus then add_mm else sub_mm) m1 m2)
+                                   | _                      -> 
+                                      raise (Disaster (e.pos, Printf.sprintf "(%s) %s (%s)" 
+                                                                 (string_of_value v1) 
+                                                                 (string_of_arithop op)
+                                                                 (string_of_value v2)
+                                                      )
+                                            )
+                                   
+                                  )
                               | Times   ->
                                   (let v1 = evale env e1 in
                                    let v2 = evale env e2 in
@@ -235,7 +255,6 @@ let rec evale env e =
                                                       )
                                             )
                                   )
-                              | Minus   -> VNum (numev env e1 -/ numev env e2)
                               | Div     -> VNum (numev env e1 // numev env e2)
                               | Power   -> let v1 = numev env e1 in
                                            let v2 = numev env e2 in
@@ -283,10 +302,10 @@ let rec evale env e =
                                                       )
                                    in
                                    match v with
-                                   | VGate   g   -> VGate (pow_g g n)
-                                   | VBra    b   -> VBra (pow_pv b n)
-                                   | VKet    k   -> VKet (pow_pv k n)
-                                   | VMatrix m   -> VMatrix (pow_m m n)
+                                   | VGate   g   -> VGate (tensorpow_g g n)
+                                   | VBra    b   -> VBra (tensorpow_pv b n)
+                                   | VKet    k   -> VKet (tensorpow_pv k n)
+                                   | VMatrix m   -> VMatrix (tensorpow_m m n)
                                    | _           -> 
                                       raise (Disaster (e.pos, Printf.sprintf "tensor power %s ><>< %s" 
                                                                  (string_of_value v) 

@@ -6,7 +6,7 @@ from [GitHub](https://github.com/mdxtoc/qtpi): use the "Clone or download" butto
 
   You will need OCaml (in January 2020 I'm building with version 4.09.0), ocamlbuild and ocamlfind. On Windows you need cygwin. On any operating system you need OCaml's zarith which needs GNU gmp. If you use OCaml's wonderful `opam` to manage your OCaml downloads it can be persuaded to sort it out for you. Otherwise on MacOS `brew install gmp`; on Windows get libgmp from Cygwin and copy it into `C:\\Windows32`; on Linux `apt install libgmp10`
   
-  You will need OCaml's sedlex: `opam install sedlex` and menhir: `opam install menhir`
+  You will need OCaml's sedlex: `opam install sedlex` and menhirlib: `opam install menhirlib` -- you don't need menhir itself.
   
   Then, in a terminal/console
 

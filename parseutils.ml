@@ -26,17 +26,34 @@ open Sourcepos
 
 exception Error of string
 
+(* In order to use a sedlex lexer with a Menhir (or indeed an ocamlyacc) parser, 
+   it is necessary to do a peculiar dance. This is that dance, taken from
+    https://stackoverflow.com/questions/52474076/using-ocamlyacc-with-sedlex
+ *)
+ 
+ let provider make_token lexbuf () =
+    let tok = make_token lexbuf in
+    let start, stop =  Sedlexing.lexing_positions lexbuf in
+    tok, start, stop
+
+ let parser entry lexbuf = MenhirLib.Convert.Simplified.traditional2revised
+     entry (provider (Linesperson.make_make_token lexbuf) lexbuf)
+
+(* end of dance *)
+
 let parse_string entry string =
-  let lexbuf = Lexing.from_string string in
+  let lexbuf = Sedlexing.from_gen (Utf8.from_string string) in
+  Sedlexing.set_filename lexbuf "";
+  Sedlexing.set_position lexbuf {Lexing.pos_fname=""; Lexing.pos_lnum=1; Lexing.pos_bol=0; Lexing.pos_cnum=0};
   try
-    entry (Linesperson.make_make_token lexbuf) lexbuf
+    parser entry lexbuf
   with 
   | Parsing.Parse_error ->
-         (let curr = lexbuf.Lexing.lex_curr_p in
+         (let curr, _ = Sedlexing.lexing_positions lexbuf in
           raise (Error (Printf.sprintf "**Parse error at character %d (just before \"%s\") \
                                         when parsing string \"%s\""
                                        (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
-                                       (Lexing.lexeme lexbuf)
+                                       (Lexer.string_of_lexeme (Sedlexing.lexeme lexbuf))
                                        string
                        )
                 )
@@ -58,29 +75,30 @@ let parse_string entry string =
                      )
               )
 
-let parse_typestring s = Parserparams.filename := ""; parse_string Parser.readtype s
+let parse_typestring s = parse_string Parser.readtype s
 
-let parse_exprstring s = Parserparams.filename := ""; parse_string Parser.readexpr s
+let parse_exprstring s = parse_string Parser.readexpr s
 
-let parse_pdefstring s = Parserparams.filename := ""; parse_string Parser.readpdef s
+let parse_pdefstring s = parse_string Parser.readpdef s
 
 let parse_program filename =
-  Parserparams.filename := filename; 
   let in_channel = try open_in filename with Sys_error s -> raise (Error ("** " ^ s)) in
-  let lexbuf = Lexing.from_channel in_channel in
+  let lexbuf = Sedlexing.from_gen (Utf8.from_channel in_channel) in
+  Sedlexing.set_filename lexbuf filename;
+  Sedlexing.set_position lexbuf {Lexing.pos_fname=filename; Lexing.pos_lnum=1; Lexing.pos_bol=0; Lexing.pos_cnum=0};
   try
-    let result = Parser.program (Linesperson.make_make_token lexbuf) lexbuf in
+    let result = parser Parser.program lexbuf in
     close_in in_channel; 
     result
   with
   | Parsing.Parse_error ->
       (close_in in_channel;
-       let curr = lexbuf.Lexing.lex_curr_p in
+       let curr, _ = Sedlexing.lexing_positions lexbuf in
        raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"
                                     filename
                                     (curr.Lexing.pos_lnum)
                                     (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
-                                    (Lexing.lexeme lexbuf)
+                                    (Lexer.string_of_lexeme (Sedlexing.lexeme lexbuf))
                     )
              )
       )

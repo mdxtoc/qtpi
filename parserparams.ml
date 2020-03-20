@@ -21,8 +21,6 @@
     (or look at http://www.gnu.org).
 *)
 
-let filename = ref ""			(* for creating sourcepos values *)
-
 let offsideline = ref 0
 let offsidelines = (ref [] : int list ref)
 

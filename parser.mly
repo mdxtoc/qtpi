@@ -21,10 +21,9 @@
     (or look at http://www.gnu.org).
 */
 
-/* this file was once an ocamlyacc file, but menhir seems to be a better parser-generator.
-   The downside of menhir is that it needs the $loc parameter: can't be done, as it once
-   was, in the OCaml header. And it needs an elaborate dance to interface with the 
-   Sedlex lexer: see parserutils.ml
+/* this file is still an ocamlyacc file, because menhir doesn't seem to be able to
+   handle the pseudo-rules that do the offside parsing. But it still needs an elaborate 
+   dance to interface with the Sedlex lexer, and that comes from MenhirLib: see parserutils.ml
  */
  
 %{
@@ -43,11 +42,13 @@
   
   exception ParserCrash of string
   
-  let adorn = Instance.adorn
+  let loc() = Parsing.symbol_start_pos(), Parsing.symbol_end_pos()
+
+  let adorn inst = Instance.adorn (loc()) inst
   
-  let tadorn = Type.tadorn
+  let tadorn inst = Type.tadorn (loc()) inst
     
-  let procadorn = Process.procadorn
+  let procadorn inst = Process.procadorn (loc()) inst
          
 %}
 
@@ -153,7 +154,7 @@ monitorelement:
   | montpnum COLON process              {$1.inst,($1.pos,$3)}
 
 montpnum:
-  | tpnum                               {adorn $loc $1}
+  | tpnum                               {adorn $1}
   
 procparams:
   |                                     {[]}
@@ -164,8 +165,8 @@ paramseq:
   | param COMMA paramseq                {$1::$3}
   
 param:
-  | name COLON typespec                 {adorn $loc (twrap (Some $3) $1)}
-  | name                                {tadorn $loc $1}
+  | name COLON typespec                 {adorn (twrap (Some $3) $1)}
+  | name                                {tadorn $1}
 
 functiondefs:
   FUN fdefs                             {Functiondefs $2}
@@ -179,12 +180,12 @@ fdef:
                                         {$1,$2,ref None,$6}
   
 typedname:
-  name                                  {tadorn $loc $1}
+  name                                  {tadorn $1}
   
 fparam:
-  | name                                {tadorn $loc (PatName $1)}
-  | UNDERSCORE                          {tadorn $loc PatAny}
-  | LPAR RPAR                           {tadorn $loc PatUnit}
+  | name                                {tadorn (PatName $1)}
+  | UNDERSCORE                          {tadorn PatAny}
+  | LPAR RPAR                           {tadorn PatUnit}
   | LPAR bpattern RPAR                  {$2}
   
 fparams:
@@ -203,41 +204,41 @@ letdef:
   
 typespec:
   | func_typespec                       {$1}
-  | typespec PROCESS                    {adorn $loc (Process (Type.relist $1))}
+  | typespec PROCESS                    {adorn (Process (Type.relist $1))}
 
 func_typespec:
   | chan_typespec                       {$1}
   | chan_typespec TYPEARROW func_typespec    
-                                        {adorn $loc (Fun ($1,$3))}
+                                        {adorn (Fun ($1,$3))}
   
 chan_typespec:
   | simple_typespec                     {$1}
-  | CHANTYPE simple_typespec            {adorn $loc (Channel $2)}
+  | CHANTYPE simple_typespec            {adorn (Channel $2)}
   
 simple_typespec:
-  | NUMTYPE                             {adorn $loc Num}
-  | BOOLTYPE                            {adorn $loc Bool}
-  | CHARTYPE                            {adorn $loc Char}
-  | STRINGTYPE                          {adorn $loc String}
-  | BITTYPE                             {adorn $loc Bit}
-  | GATETYPE                            {adorn $loc Gate}
-  | QBITTYPE                            {adorn $loc Qbit}
-  | QSTATETYPE                          {adorn $loc Qstate}
-  | MATRIXTYPE                          {adorn $loc Matrix}
-  | BRATYPE                             {adorn $loc Bra}
-  | KETTYPE                             {adorn $loc Ket}
+  | NUMTYPE                             {adorn Num}
+  | BOOLTYPE                            {adorn Bool}
+  | CHARTYPE                            {adorn Char}
+  | STRINGTYPE                          {adorn String}
+  | BITTYPE                             {adorn Bit}
+  | GATETYPE                            {adorn Gate}
+  | QBITTYPE                            {adorn Qbit}
+  | QSTATETYPE                          {adorn Qstate}
+  | MATRIXTYPE                          {adorn Matrix}
+  | BRATYPE                             {adorn Bra}
+  | KETTYPE                             {adorn Ket}
   
-  | typevar                             {adorn $loc (Known ($1))}
+  | typevar                             {adorn (Known ($1))}
   
 /*  | INT DOTDOT INT                      {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
-                                         if low<=high then adorn $loc (Range (low,high))
+                                         if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } */
-  | LPAR RPAR                           {adorn $loc Unit}
-  | LPAR typespectuple RPAR             {adorn $loc (Type.delist $2)}
-  | FORALL typevars DOT typespec        {adorn $loc (Poly ($2,$4))}
-  | LSQPAR typespec RSQPAR              {adorn $loc (List ($2))}
+  | LPAR RPAR                           {adorn Unit}
+  | LPAR typespectuple RPAR             {adorn (Type.delist $2)}
+  | FORALL typevars DOT typespec        {adorn (Poly ($2,$4))}
+  | LSQPAR typespec RSQPAR              {adorn (List ($2))}
   
 simple_typespecs:
   | simple_typespec                     {[$1]}
@@ -258,8 +259,8 @@ parsep:
   | PARSEP                              {}
   
 process:
-  | sumprocess                          {adorn $loc (GSum $1)}
-  | parprocess                          {adorn $loc (Par $1)}
+  | sumprocess                          {adorn (GSum $1)}
+  | parprocess                          {adorn (Par $1)}
   | simpleprocess                       {$1}
   
 parprocess:
@@ -279,43 +280,43 @@ sumproc:
                                         {$4,$6}
 
 qstep:
-  | expr MEASURE mpat                   {adorn $loc (Measure ($1,None,$3))}
-  | expr MEASURE LSQPAR RSQPAR mpat     {adorn $loc (Measure ($1,None,$5))}
+  | expr MEASURE mpat                   {adorn (Measure ($1,None,$3))}
+  | expr MEASURE LSQPAR RSQPAR mpat     {adorn (Measure ($1,None,$5))}
   | expr MEASURE LSQPAR expr RSQPAR mpat       
-                                        {adorn $loc (Measure ($1,Some $4,$6))}
-  | exprtuple THROUGH expr              {adorn $loc (Ugatestep ($1,$3))}
+                                        {adorn (Measure ($1,Some $4,$6))}
+  | exprtuple THROUGH expr              {adorn (Ugatestep ($1,$3))}
 
 mpat:
-  | UNDERSCORE                          {tadorn $loc (PatAny)}
-  | LPAR UNDERSCORE RPAR                {tadorn $loc (PatAny)}
-  | LPAR name RPAR                      {tadorn $loc (PatName $2)}
-  | LPAR name COLON typespec RPAR       {adorn $loc (twrap (Some $4) (PatName $2))}
+  | UNDERSCORE                          {tadorn (PatAny)}
+  | LPAR UNDERSCORE RPAR                {tadorn (PatAny)}
+  | LPAR name RPAR                      {tadorn (PatName $2)}
+  | LPAR name COLON typespec RPAR       {adorn (twrap (Some $4) (PatName $2))}
 
 iostep:
-  | expr QUERY LPAR bpattern RPAR       {adorn $loc (Read ($1,$4))}
-  | expr QUERY UNDERSCORE               {adorn $loc (Read ($1, tadorn $loc PatAny))}
-  | expr BANG expr                      {adorn $loc (Write ($1,$3))}
-  | expr BANG exprtuple                 {adorn $loc (Write ($1, tadorn $loc (Expr.delist $3)))}
+  | expr QUERY LPAR bpattern RPAR       {adorn (Read ($1,$4))}
+  | expr QUERY UNDERSCORE               {adorn (Read ($1, tadorn PatAny))}
+  | expr BANG expr                      {adorn (Write ($1,$3))}
+  | expr BANG exprtuple                 {adorn (Write ($1, tadorn (Expr.delist $3)))}
 
 simpleprocess:
-  | TERMINATE                           {adorn $loc Terminate}
-  | typedname procargs                  {adorn $loc (GoOnAs ($1,$2))}
+  | TERMINATE                           {adorn Terminate}
+  | typedname procargs                  {adorn (GoOnAs ($1,$2))}
   | LPAR NEWDEC paramseq RPAR process   
-                                        {adorn $loc (WithNew ((true,$3),$5))}
+                                        {adorn (WithNew ((true,$3),$5))}
   | LPAR NEWDEC UNTRACED paramseq RPAR process   
-                                        {adorn $loc (WithNew ((false,$4),$6))}
+                                        {adorn (WithNew ((false,$4),$6))}
   | LPAR QBITDEC qspecs RPAR process    
-                                        {adorn $loc (WithQbit ($3,$5))}
+                                        {adorn (WithQbit ($3,$5))}
   | LPAR LETDEC letspec RPAR process    
-                                        {adorn $loc (WithLet ($3,$5))}
+                                        {adorn (WithLet ($3,$5))}
   | qstep DOT process                   
-                                        {adorn $loc (WithQstep ($1,$3))}
-  | iostep DOT process                  {adorn $loc (GSum [$1,$3])}
-  | TESTPOINT tpnum process             {adorn $loc (TestPoint (adorn $loc $2,$3))}
+                                        {adorn (WithQstep ($1,$3))}
+  | iostep DOT process                  {adorn (GSum [$1,$3])}
+  | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
   | PROCITER LPAR bpattern RPAR LPAR process RPAR expr DOT process
-                                        {adorn $loc (Iter ($3,$8,$6,$10))}
+                                        {adorn (Iter ($3,$8,$6,$10))}
   | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR DOT process /* alternative syntax for Iter ... */
-                                        {adorn $loc (Iter ($2,$4,$6,$9))}
+                                        {adorn (Iter ($2,$4,$6,$9))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */
@@ -324,7 +325,7 @@ simpleprocess:
       indentNext expr outdent
       DOT 
       indentNext procmatches outdent
-    outdent                             {adorn $loc (PMatch ($4,$8))}
+    outdent                             {adorn (PMatch ($4,$8))}
   | LPAR process RPAR                   {$2}
   | IF indentPrev ubif outdent fiq      {$3}
   | DOT process                         {$2} /* I hope this works ... */
@@ -350,10 +351,10 @@ ubif:
   | indentNext expr outdent 
     THEN indentNext process outdent     /* can go back beyond THEN, but not beyond IF */ 
     ELSE indentPrev indentNext process outdent outdent     
-                                        {adorn $loc (Cond ($2, $6, $11))}
+                                        {adorn (Cond ($2, $6, $11))}
   | indentNext expr outdent 
     THEN indentNext process outdent     /* can go back beyond THEN, but not beyond IF */ 
-    ELIF indentPrev ubif outdent        {adorn $loc (Cond ($2, $6, $10))}
+    ELIF indentPrev ubif outdent        {adorn (Cond ($2, $6, $10))}
   
 
 qspecs:
@@ -376,29 +377,29 @@ letspec:
   
 pattern:
   | simplepattern                       {$1}
-  | simplepattern CONS pattern          {tadorn $loc (PatCons ($1,$3))}
+  | simplepattern CONS pattern          {tadorn (PatCons ($1,$3))}
   
 simplepattern:
-  | UNDERSCORE                          {tadorn $loc PatAny}
-  | name                                {tadorn $loc (PatName $1)}
-  | BIT0                                {tadorn $loc (PatBit false)}
-  | BIT1                                {tadorn $loc (PatBit true)}
-  | NUM                                 {tadorn $loc (PatInt (int_of_string $1))}
-  | TRUE                                {tadorn $loc (PatBool (true))}
-  | FALSE                               {tadorn $loc (PatBool (false))}
-  | CHAR                                {tadorn $loc (PatChar $1)}
-  | STRING                              {tadorn $loc (PatString $1)}
-  | BRA                                 {tadorn $loc (PatBra (bkelements_of_string $1)) }
-  | KET                                 {tadorn $loc (PatKet (bkelements_of_string $1)) }
+  | UNDERSCORE                          {tadorn PatAny}
+  | name                                {tadorn (PatName $1)}
+  | BIT0                                {tadorn (PatBit false)}
+  | BIT1                                {tadorn (PatBit true)}
+  | NUM                                 {tadorn (PatInt (int_of_string $1))}
+  | TRUE                                {tadorn (PatBool (true))}
+  | FALSE                               {tadorn (PatBool (false))}
+  | CHAR                                {tadorn (PatChar $1)}
+  | STRING                              {tadorn (PatString $1)}
+  | BRA                                 {tadorn (PatBra (bkelements_of_string $1)) }
+  | KET                                 {tadorn (PatKet (bkelements_of_string $1)) }
   | LSQPAR patternlist RSQPAR           {$2}
-  | LPAR RPAR                           {tadorn $loc PatUnit}
-  | LPAR patterns RPAR                  {tadorn $loc (Pattern.delist $2)}
-  | simplepattern COLON typespec        {adorn $loc (twrap (Some $3) (tinst $1))}
+  | LPAR RPAR                           {tadorn PatUnit}
+  | LPAR patterns RPAR                  {tadorn (Pattern.delist $2)}
+  | simplepattern COLON typespec        {adorn (twrap (Some $3) (tinst $1))}
   
 patternlist:
-  |                                     {tadorn $loc PatNil}
-  | pattern                             {tadorn $loc (PatCons ($1, tadorn $loc PatNil))}
-  | pattern SEMICOLON patternlist       {tadorn $loc (PatCons ($1,$3))}
+  |                                     {tadorn PatNil}
+  | pattern                             {tadorn (PatCons ($1, tadorn PatNil))}
+  | pattern SEMICOLON patternlist       {tadorn (PatCons ($1,$3))}
   
 patterns:   /* no 'empty' alternative */
   | pattern                             {[$1]}
@@ -407,54 +408,54 @@ patterns:   /* no 'empty' alternative */
 /* simpler form of pattern for lets, reads, and (for now) function defs. Can't fail to match */
 bpattern:
   | simplebpattern                      {$1}                
-  | simplebpattern COMMA bpatterns      {tadorn $loc (Pattern.delist ($1::$3))}
+  | simplebpattern COMMA bpatterns      {tadorn (Pattern.delist ($1::$3))}
   
 bpatterns:
   | simplebpattern                      {[$1]}                
   | simplebpattern COMMA bpatterns      {$1::$3}
   
 simplebpattern:
-  | UNDERSCORE                          {tadorn $loc PatAny}
-  | LPAR RPAR                           {tadorn $loc PatUnit}
-  | name                                {tadorn $loc (PatName $1)}
+  | UNDERSCORE                          {tadorn PatAny}
+  | LPAR RPAR                           {tadorn PatUnit}
+  | name                                {tadorn (PatName $1)}
   | LPAR bpattern RPAR                  {$2}
-  | simplebpattern COLON typespec       {adorn $loc (twrap (Some $3) (tinst $1))}
+  | simplebpattern COLON typespec       {adorn (twrap (Some $3) (tinst $1))}
 
 tpnum:
   | NUM                                 {$1}
   | TPNUM                               {$1}
   
 primary:
-  | LPAR RPAR                           {tadorn $loc EUnit}
-  | name                                {tadorn $loc (EVar $1)}
-  | BIT0                                {tadorn $loc (EBit false)}
-  | BIT1                                {tadorn $loc (EBit true)}
-  | NUM                                 {tadorn $loc (ENum (Number.num_of_string $1))}
-  | TRUE                                {tadorn $loc (EBool (true))}
-  | FALSE                               {tadorn $loc (EBool (false))}
-  | CHAR                                {tadorn $loc (EChar $1)}
-  | STRING                              {tadorn $loc (EString $1)}
-  | BRA                                 {tadorn $loc (EBra (bkelements_of_string $1)) }
-  | KET                                 {tadorn $loc (EKet (bkelements_of_string $1)) }
+  | LPAR RPAR                           {tadorn EUnit}
+  | name                                {tadorn (EVar $1)}
+  | BIT0                                {tadorn (EBit false)}
+  | BIT1                                {tadorn (EBit true)}
+  | NUM                                 {tadorn (ENum (Number.num_of_string $1))}
+  | TRUE                                {tadorn (EBool (true))}
+  | FALSE                               {tadorn (EBool (false))}
+  | CHAR                                {tadorn (EChar $1)}
+  | STRING                              {tadorn (EString $1)}
+  | BRA                                 {tadorn (EBra (bkelements_of_string $1)) }
+  | KET                                 {tadorn (EKet (bkelements_of_string $1)) }
   | LSQPAR exprlist RSQPAR              {$2}
-  | LPAR exprtuple RPAR                 {tadorn $loc (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
-  | IF indentPrev eif outdent fiq       {tadorn $loc(tinst $3)}
+  | LPAR exprtuple RPAR                 {tadorn (Expr.delist $2)} /* tuples must be bracketed, a la Miranda */
+  | IF indentPrev eif outdent fiq       {tadorn(tinst $3)}
   /* this MATCH rule has to have exactly the same indent/outdent pattern as the process MATCH rule */
   | MATCH 
     indentPrev 
       indentNext expr outdent
       DOT 
       indentNext ematches outdent
-    outdent                             {tadorn $loc (EMatch ($4,$8))}
+    outdent                             {tadorn (EMatch ($4,$8))}
   
 eif:
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
     ELSE indentPrev indentNext expr outdent outdent
-                                        {tadorn $loc (ECond ($2, $6, $11))}
+                                        {tadorn (ECond ($2, $6, $11))}
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
-    ELIF indentPrev eif outdent         {tadorn $loc (ECond ($2, $6, $10))}
+    ELIF indentPrev eif outdent         {tadorn (ECond ($2, $6, $10))}
   
 fiq:    /* optional FI */
   | FI                                  {}              
@@ -471,32 +472,32 @@ ematch:
 expr:
   | nwexpr                              {$1}
   | expr WHERE indentPrev edecl outdent    
-                                        {tadorn $loc (EWhere ($1,$4))}
+                                        {tadorn (EWhere ($1,$4))}
   
 edecl:
   | bpattern restypeopt EQUALS indentNext expr outdent
-                                        {adorn $loc (EDPat($1,$2,$5))}
+                                        {adorn (EDPat($1,$2,$5))}
   | typedname fparams restypeopt EQUALS indentNext expr outdent   
-                                        {let rt = ref $3 in adorn $loc (EDFun($1,$2,rt,$6))}
+                                        {let rt = ref $3 in adorn (EDFun($1,$2,rt,$6))}
 
 nwexpr:  /* non-while expr: can be a cons */
   | nwlexpr                             {$1}
-  | nwlexpr CONS nwexpr                 {tadorn $loc (ECons ($1,$3))}
+  | nwlexpr CONS nwexpr                 {tadorn (ECons ($1,$3))}
   
 nwlexpr: /* neither while nor cons */
   | primary                             {$1} 
   | app                                 {$1}
-  | MINUS primary                       {tadorn $loc (EMinus $2)}
-  | NOT primary                         {tadorn $loc (ENot $2)}
-  | nwexpr APPEND nwexpr                {tadorn $loc (EAppend ($1,$3))}
-  | arith                               {let e1,op,e2 = $1 in tadorn $loc (EArith (e1,op,e2))}
-  | compare                             {let e1,op,e2 = $1 in tadorn $loc (ECompare (e1,op,e2))}
-  | bool                                {let e1,op,e2 = $1 in tadorn $loc (EBoolArith (e1,op,e2))}
-  | LAMBDA fparams DOT expr             {tadorn $loc (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
+  | MINUS primary                       {tadorn (EMinus $2)}
+  | NOT primary                         {tadorn (ENot $2)}
+  | nwexpr APPEND nwexpr                {tadorn (EAppend ($1,$3))}
+  | arith                               {let e1,op,e2 = $1 in tadorn (EArith (e1,op,e2))}
+  | compare                             {let e1,op,e2 = $1 in tadorn (ECompare (e1,op,e2))}
+  | bool                                {let e1,op,e2 = $1 in tadorn (EBoolArith (e1,op,e2))}
+  | LAMBDA fparams DOT expr             {tadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
 
 app:
-  | primary primary                     {tadorn $loc (EApp ($1,$2))}
-  | app primary                         {tadorn $loc (EApp ($1,$2))}
+  | primary primary                     {tadorn (EApp ($1,$2))}
+  | app primary                         {tadorn (EApp ($1,$2))}
   
 arith:
   | nwexpr TENSORPROD nwexpr            {$1,TensorProd,$3}
@@ -525,9 +526,9 @@ bool:
   | nwexpr OR nwexpr                    {$1,Or,$3}
   
 exprlist:
-  |                                     {tadorn $loc ENil}
-  | expr                                {tadorn $loc (ECons ($1, tadorn $loc ENil))}
-  | expr SEMICOLON exprlist             {tadorn $loc (ECons ($1, $3))}
+  |                                     {tadorn ENil}
+  | expr                                {tadorn (ECons ($1, tadorn ENil))}
+  | expr SEMICOLON exprlist             {tadorn (ECons ($1, $3))}
 
 exprtuple:                              /* no 'empty' alternative */
   | expr                                {[$1]}

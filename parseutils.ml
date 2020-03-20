@@ -48,7 +48,8 @@ let parse_string entry string =
   try
     parser entry lexbuf
   with 
-  | Parsing.Parse_error ->
+  | Parsing.Parse_error 
+  (* for menhir | Parser.Error *) ->
          (let curr, _ = Sedlexing.lexing_positions lexbuf in
           raise (Error (Printf.sprintf "**Parse error at character %d (just before \"%s\") \
                                         when parsing string \"%s\""
@@ -91,7 +92,8 @@ let parse_program filename =
     close_in in_channel; 
     result
   with
-  | Parsing.Parse_error ->
+  | Parsing.Parse_error 
+  (* for menhir | Parser.Error *) ->
       (close_in in_channel;
        let curr, _ = Sedlexing.lexing_positions lexbuf in
        raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"

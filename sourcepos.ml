@@ -21,38 +21,50 @@
     (or look at http://www.gnu.org).
 *)
  
-type sourcepos = string * Lexing.position * Lexing.position (* filename, line num, char num *)
+type sourcepos = Lexing.position * Lexing.position 
+   (* type position = { pos_fname : string ;
+                        pos_lnum : int ; pos_bol : int ; pos_cnum : int ;
+                      } 
+*)
 
-let dummy_spos = ("", Lexing.dummy_pos, Lexing.dummy_pos)
+let dummy_spos = Lexing.dummy_pos, Lexing.dummy_pos
 
 let linenum lpos = lpos.Lexing.pos_lnum
 let charnum lpos = lpos.Lexing.pos_cnum-lpos.Lexing.pos_bol
+let filename lpos = lpos.Lexing.pos_fname
 
 let string_of_sourcepos spos = 
   if spos = dummy_spos then "_" else
-  let filename, startpos,endpos = spos in
-  if linenum startpos=linenum endpos then
+  let startpos,endpos = spos in
+  if filename startpos=filename endpos && linenum startpos=linenum endpos then
     Printf.sprintf "%s line %d chars %d-%d" 
-      filename (linenum startpos) (charnum startpos) (charnum endpos)
+      (filename startpos) (linenum startpos) (charnum startpos) (charnum endpos)
   else
+  if filename startpos=filename endpos then
     Printf.sprintf "%s line %d char %d - line %d char %d"
-      filename
+      (filename startpos)
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
-
+  else
+    Printf.sprintf "%s line %d char %d - %s line %d char %d"
+      (filename startpos)
+      (linenum startpos) (charnum startpos)
+      (filename endpos)
+      (linenum endpos) (charnum endpos)
+    
 let string_of_stringpos spos = 
   if spos = dummy_spos then "_" else
-  let _, startpos, endpos = spos in
+  let startpos, endpos = spos in
     Printf.sprintf "chars %d-%d" 
       (charnum startpos) (charnum endpos)
 
-let startline (_,startpos,endpos) = linenum startpos
-let endline   (_,startpos,endpos) = linenum endpos
+let startline (startpos,endpos) = linenum startpos
+let endline   (startpos,endpos) = linenum endpos
 
-let startchar (_,startpos,endpos) = charnum startpos
-let endchar   (_,startpos,endpos) = charnum endpos
+let startchar (startpos,endpos) = charnum startpos
+let endchar   (startpos,endpos) = charnum endpos
 
-let short_string_of_sourcepos (_,startpos,endpos) = 
+let short_string_of_sourcepos (startpos,endpos) = 
   if linenum startpos=linenum endpos then
     Printf.sprintf "%d.%d-%d"
                    (linenum startpos) (charnum startpos) (charnum endpos)    
@@ -73,8 +85,7 @@ let spos_of_spos2 pos1 pos2 =
     let fst = if startsbefore pos1 pos2 then pos1 else pos2 in
     let snd = if endsbefore pos1 pos2 then pos2 else pos1 in
     match fst, snd with
-    | (fn,startpos,_), (_,_,endpos) -> (fn,startpos, endpos)
-
+    | (startpos,_), (_,endpos) -> (startpos, endpos)
 
 let sp_of_sps sps = 
   let rec enclosing spos = function
@@ -85,7 +96,7 @@ let sp_of_sps sps =
 
 let spdiff pos1 pos2 =
   match pos1, pos2 with
-  | (fn,startpos,_), (_,endpos,_) -> (fn,startpos, endpos)
+  | (startpos,_), (endpos,_) -> (startpos, endpos)
   
 (*
   

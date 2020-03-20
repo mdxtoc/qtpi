@@ -26,10 +26,95 @@ open Parser
 open Functionutils
 
 exception LexError of Sourcepos.sourcepos * string
-  
-let inc_linenum lexbuf =
-  Sedlexing.new_line lexbuf 
 
+let string_of_token = function
+    | WITH -> "WITH"
+    | WHERE -> "WHERE"
+    | UNTRACED -> "UNTRACED"
+    | UNIT -> "UNIT"
+    | UNDERSCORE -> "UNDERSCORE"
+    | TYPEARROW -> "TYPEARROW"
+    | TVNAME (s) -> "TVNAME(" ^ s ^ ")" 
+    | TRUE -> "TRUE"
+    | TPNUM (s) -> "TPNUM(" ^ s ^ ")"
+    | THROUGH -> "THROUGH"
+    | THEN -> "THEN"
+    | TESTPOINT -> "TESTPOINT"
+    | TERMINATE -> "TERMINATE"
+    | TENSORPROD -> "TENSORPROD"
+    | TENSORPOWER -> "TENSORPOWER"
+    | STRINGTYPE -> "STRINGTYPE"
+    | STRING (s) -> "STRING(" ^ s ^ ")"
+    | STAR -> "STAR"
+    | SEMICOLON -> "SEMICOLON"
+    | RSQPAR -> "RSQPAR"
+    | RPAR -> "RPAR"
+    | RBRACE -> "RBRACE"
+    | QUERY -> "QUERY"
+    | QSTATETYPE -> "QSTATETYPE"
+    | QBITTYPE -> "QBITTYPE"
+    | QBITDEC -> "QBITDEC"
+    | PROCITER -> "PROCITER"
+    | PROCESS -> "PROCESS"
+    | PROC -> "PROC"
+    | POW -> "POW"
+    | PLUS -> "PLUS"
+    | PARSEP -> "PARSEP"
+    | OR -> "OR"
+    | OFFSIDE -> "OFFSIDE"
+    | NUMTYPE -> "NUMTYPE"
+    | NUM (s) -> "NUM(" ^ s ^ ")"
+    | NOTEQUAL -> "NOTEQUAL"
+    | NOT -> "NOT"
+    | NEWDEC -> "NEWDEC"
+    | NAME (s) -> "NAME(" ^ s ^ ")"
+    | MOD -> "MOD"
+    | MINUS -> "MINUS"
+    | MEASURE -> "MEASURE"
+    | MATRIXTYPE -> "MATRIXTYPE"
+    | MATCH -> "MATCH"
+    | LSQPAR -> "LSQPAR"
+    | LPAR -> "LPAR"
+    | LETDEC -> "LETDEC"
+    | LESSEQUAL -> "LESSEQUAL"
+    | LESS -> "LESS"
+    | LEFTARROW -> "LEFTARROW"
+    | LBRACE -> "LBRACE"
+    | LAMBDA -> "LAMBDA"
+    | KETTYPE -> "KETTYPE"
+    | KET (s) -> "KET(" ^ s ^ ")"
+    | IF -> "IF"
+    | GREATEREQUAL -> "GREATEREQUAL"
+    | GREATER -> "GREATER"
+    | GATETYPE -> "GATETYPE"
+    | FUN -> "FUN"
+    | FORALL -> "FORALL"
+    | FI -> "FI"
+    | FALSE -> "FALSE"
+    | EQUALS -> "EQUALS"
+    | EOP -> "EOP"
+    | ELSE -> "ELSE"
+    | ELIF -> "ELIF"
+    | DOTDOT -> "DOTDOT"
+    | DOT -> "DOT"
+    | DIV -> "DIV"
+    | CONS -> "CONS"
+    | COMMA -> "COMMA"
+    | COLON -> "COLON"
+    | CHARTYPE -> "CHARTYPE"
+    | CHAR (uc) -> "CHAR(" ^ Utf8.string_of_uchar uc ^ ")"
+    | CHANTYPE -> "CHANTYPE"
+    | BRATYPE -> "BRATYPE"
+    | BRA (s) -> "BRA(" ^ s ^ ")"
+    | BOOLTYPE -> "BOOLTYPE"
+    | BITTYPE -> "BITTYPE"
+    | BIT1
+    | BIT0
+    | BANG -> "BANG"
+    | APPEND -> "APPEND"
+    | AND -> "AND"
+
+  
 let get_linenum lexbuf = 
   let (_,start_p) = Sedlexing.lexing_positions lexbuf in
   start_p.Lexing.pos_lnum
@@ -67,7 +152,7 @@ let ket = [%sedlex.regexp? '|', Plus bke, '>' ]
 let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   match%sedlex lexbuf with
   | _BLANK      -> make_token lexbuf (* Skip blanks and tabs *)
-  | _NEWLINE    -> inc_linenum lexbuf; make_token lexbuf
+  | _NEWLINE    -> make_token lexbuf (* it counts ... *)
   | "(*"        -> bracomment (get_loc lexbuf) lexbuf; make_token lexbuf 
 
   | eof         -> EOP   (* Give up on end of file *)
@@ -193,7 +278,7 @@ and bracomment spos lexbuf =
     |   "(*"        ->  bracomment (get_loc lexbuf) lexbuf; 
                         bracomment spos lexbuf
     |   "*)"        ->  () 
-    |   _NEWLINE    ->  inc_linenum lexbuf; bracomment spos lexbuf 
+    |   _NEWLINE    ->  bracomment spos lexbuf 
     |   eof         ->  raise (LexError (spos, "unmatched comment-bracket '(*'")) 
     |   any         ->  bracomment spos lexbuf 
     | _             -> raise (Settings.Can'tHappen "bottom of Lexer.bracomment")

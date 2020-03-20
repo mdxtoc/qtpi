@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
+
 let offsideline = ref 0
 let offsidelines = (ref [] : int list ref)
 
@@ -42,16 +44,26 @@ type lr = Prev | Here | Next
 let push_pending = ref 0
 
 let do_push_offsideline offset = 
+  if !verbose_offside then
+    Printf.eprintf "do_push_offsideline %d\n" offset;
   offsidelines := !offsideline :: !offsidelines;
   offsideline := offset
   
 let push_offsideline = function
-  | Prev    -> do_push_offsideline !curr_start
-  | Here    -> do_push_offsideline !curr_end (* oh I wish it could be !curr_end + 1 *)
-  | Next    -> push_pending := !push_pending+1
+  | Prev    -> if !verbose_offside then
+                 Printf.eprintf "push_offsideline Prev %d\n" !curr_start;
+               do_push_offsideline !curr_start
+  | Here    -> if !verbose_offside then
+                 Printf.eprintf "push_offsideline Here %d\n" !curr_end;
+               do_push_offsideline !curr_end (* oh I wish it could be !curr_end + 1 *)
+  | Next    -> if !verbose_offside then
+                 Printf.eprintf "push_offsideline Next %d\n" !push_pending;
+               push_pending := !push_pending+1
   
 let pop_offsideline () =
   match !offsidelines with
-  | osl::osls -> offsideline := osl; offsidelines := osls
+  | osl::osls -> if !verbose_offside then
+                   Printf.eprintf "pop_offsideline %d\n" osl;
+                 offsideline := osl; offsidelines := osls
   | []        -> raise (Failure ("offside"))
   

@@ -74,6 +74,7 @@ let verbose_compile     = ref false
 let verbose_interpret   = ref false
 let verbose_matchcheck  = ref false
 let verbose_measure     = ref false
+let verbose_offside     = ref false 
 let verbose_qsim        = ref false
 let verbose_qcalc       = ref false
 let verbose_queues      = ref false
@@ -86,6 +87,7 @@ let verboseopts = [("all"              , verbose                  );
                    ("interpret"        , verbose_interpret        );
                    ("matchcheck"       , verbose_matchcheck       );
                    ("measure"          , verbose_measure          );
+                   ("offside"          , verbose_offside          );
                    ("qcalc"            , verbose_qcalc            );
                    ("qsim"             , verbose_qsim             );
                    ("queues"           , verbose_queues           );

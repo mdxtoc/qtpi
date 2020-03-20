@@ -1,6 +1,4 @@
-# true: use_menhir, explain
-true: package(zarith),safe_string
-# true: package(unix), package(ulex), package(menhirlib)
-
-
-
+true: use_menhir, explain
+true: package(zarith), package(sedlex), package(sedlex.ppx), package(menhirlib)
+true: safe_string
+# true: package(unix), package(ulex)

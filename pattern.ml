@@ -42,7 +42,7 @@ and pnode =
   | PatInt of int
   | PatBit of bool (* as EBit *)
   | PatBool of bool
-  | PatChar of char
+  | PatChar of Uchar.t
   | PatString of string
   | PatBra of bkconst
   | PatKet of bkconst
@@ -91,7 +91,7 @@ let rec string_of_pattern p =
     | PatTuple  ps      -> string_of_list (spb (mbn tupleprio)) "," ps
     | PatInt    i       -> string_of_int i
     | PatBool   b       -> string_of_bool b
-    | PatChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
+    | PatChar   c       -> Printf.sprintf "'%s'" (Utf8.escaped c)
     | PatString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
     | PatBra    b       -> string_of_braconst b
     | PatKet    k       -> string_of_ketconst k

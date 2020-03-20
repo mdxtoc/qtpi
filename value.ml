@@ -50,7 +50,7 @@ type value =
   | VBit of bool
   | VNum of num
   | VBool of bool
-  | VChar of char
+  | VChar of Uchar.t
   | VBra of probvec
   | VKet of probvec
   | VMatrix of matrix
@@ -850,7 +850,7 @@ let rec so_value optf v =
                | VKet k          -> string_of_ket k
                | VMatrix m       -> string_of_matrix m
                | VGate g         -> string_of_gate g
-               | VChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
+               | VChar c         -> Printf.sprintf "'%s'" (Utf8.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
                | VQbit q         -> "Qbit " ^ string_of_qbit q
                | VQstate s       -> s

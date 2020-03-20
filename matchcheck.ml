@@ -50,7 +50,7 @@ type constructor =
   | CTuple  
   | CInt    of int
   | CBool   of bool
-  | CChar   of char
+  | CChar   of Uchar.t
   | CString of string
   | CBit    of bool          
   | CUnit          
@@ -76,7 +76,7 @@ let string_of_constructor = function
   | CTuple      -> "CTuple"
   | CInt    i   -> Printf.sprintf "CInt %d" i 
   | CBool   b   -> Printf.sprintf "CBool %B" b
-  | CChar   c   -> Printf.sprintf "CChar'%s'" (Char.escaped c)
+  | CChar   c   -> Printf.sprintf "CChar'%s'" (Utf8.escaped c)
   | CString s   -> Printf.sprintf "CString\"%s\"" (String.escaped s)
   | CBit    b   -> Printf.sprintf "CBit 0b%d" (if b then 1 else 0)           
   | CUnit       -> "CUnit"          
@@ -90,7 +90,7 @@ let short_string_of_constructor = function
   | CTuple          -> "CTuple"
   | CInt    i       -> Printf.sprintf "%d" i 
   | CBool   b       -> Printf.sprintf "%B" b
-  | CChar   c       -> Printf.sprintf "'%s'" (Char.escaped c)
+  | CChar   c       -> Printf.sprintf "'%s'" (Utf8.escaped c)
   | CString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | CBit    b       -> Printf.sprintf "0b%d" (if b then 1 else 0)           
   | CUnit           -> "CUnit"          

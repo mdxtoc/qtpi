@@ -44,7 +44,7 @@ and enode =
   | EVar of name
   | ENum of Number.num
   | EBool of bool
-  | EChar of char
+  | EChar of Uchar.t
   | EString of string
   | EBit of bool        (* 1=true *)
   | EBra of bkconst
@@ -178,7 +178,7 @@ let rec string_of_primary e =
   | EKet k          -> string_of_ketconst k
   | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
-  | EChar c         -> Printf.sprintf "'%s'" (Char.escaped c)
+  | EChar c         -> Printf.sprintf "'%s'" (Utf8.escaped c)
   | EString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
   | ECons (hd,tl)   -> (* if it ends in nil, print as constant. Otherwise error *)
                        (match list_of_expr e with

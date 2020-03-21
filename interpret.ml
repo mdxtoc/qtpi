@@ -283,7 +283,7 @@ let rec evale env e =
                                    | VKet    k1, VKet  k2   -> VBra (tensor_pv2 k1 k2)
                                    | VMatrix m1, VMatrix m2 -> VMatrix (tensor_mm m1 m2)
                                    | _                      -> 
-                                      raise (Disaster (e.pos, Printf.sprintf "tensor product %s >< %s" 
+                                      raise (Disaster (e.pos, Printf.sprintf "tensor product %s ⊗ %s" 
                                                                  (string_of_value v1) 
                                                                  (string_of_value v2)
                                                       )
@@ -307,7 +307,7 @@ let rec evale env e =
                                    | VKet    k   -> VKet (tensorpow_pv k n)
                                    | VMatrix m   -> VMatrix (tensorpow_m m n)
                                    | _           -> 
-                                      raise (Disaster (e.pos, Printf.sprintf "tensor power %s ><>< %s" 
+                                      raise (Disaster (e.pos, Printf.sprintf "tensor power %s ⊗⊗ %s" 
                                                                  (string_of_value v) 
                                                                  (string_of_num num)
                                                       )

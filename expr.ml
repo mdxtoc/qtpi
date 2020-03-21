@@ -261,11 +261,11 @@ and string_of_arithop = function
   | Plus        -> "+"
   | Minus       -> "-"
   | Times       -> "*"
-  | TensorProd  -> "><"
+  | TensorProd  -> "⊗"
   | Div         -> "/"
   | Mod         -> "%"
   | Power       -> "**"
-  | TensorPower -> "><><"
+  | TensorPower -> "⊗⊗"
   
 and string_of_compareop = function
   | Lt  -> "<"

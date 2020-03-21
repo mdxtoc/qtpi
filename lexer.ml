@@ -166,7 +166,10 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | '='         -> EQUALS
   | '*'         -> STAR
   | "><"        -> TENSORPROD
+  | 0x2297      -> TENSORPROD (* ⊗ *)
   | "><><"      -> TENSORPOWER
+  | 0x2297, 0x2297      
+                -> TENSORPOWER (* ⊗⊗ *)
   | "<-"        -> LEFTARROW
   
   | "true"      -> TRUE

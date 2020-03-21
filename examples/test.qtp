@@ -1,9 +1,9 @@
 proc System () =
   out!["|+++++> * <+++++|="; show (|+++++> * <+++++|); "\n"] .
-  out!["(|+> ><>< 5) * (<+| ><>< 5)="; show ((|+> ><>< 5) * (<+| ><>< 5)); "\n"] .
-  out!["I ><>< 5="; show (I ><>< 5); "\n"] .
+  out!["(|+> ⊗⊗ 5) * (<+| ⊗⊗ 5)="; show ((|+> ⊗⊗ 5) * (<+| ⊗⊗ 5)); "\n"] .
+  out!["I ⊗⊗ 5="; show (I ⊗⊗ 5); "\n"] .
   out!["degate I="; show (degate I); "\n"] .
-  (let M:matrix = (|+> ><>< 5) * (<+| ><>< 5)) .
-  (let G = M+M - (degate I ><>< 5)) .
+  (let M:matrix = (|+> ⊗⊗ 5) * (<+| ⊗⊗ 5)) .
+  (let G = M+M - (degate I ⊗⊗ 5)) .
   out!["G="; show G; "; groverG 5="; show (groverG 5); "\n"] .
   _0

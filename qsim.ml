@@ -592,7 +592,7 @@ let rec qmeasure disposes pn gate q =
                                     (string_of_qbit q)
                     )
              );
-     let gate' = dagger gate in  (* cjtransposed gate *)
+     let gate' = dagger_g gate in  (* cjtransposed gate *)
      let qv = qval q in
      (* first of all rotate with gate' *)
      ugstep_padded pn [q] gate' gate'; 

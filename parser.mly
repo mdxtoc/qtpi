@@ -69,7 +69,7 @@
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC UNTRACED QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
-%token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER
+%token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -490,6 +490,7 @@ nwlexpr: /* neither while nor cons */
   | MINUS primary                       {tadorn (EMinus $2)}
   | NOT primary                         {tadorn (ENot $2)}
   | nwexpr APPEND nwexpr                {tadorn (EAppend ($1,$3))}
+  | primary DAGGER                      {tadorn (EDagger $1)}
   | arith                               {let e1,op,e2 = $1 in tadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in tadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in tadorn (EBoolArith (e1,op,e2))}

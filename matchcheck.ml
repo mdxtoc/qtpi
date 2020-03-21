@@ -411,7 +411,8 @@ let rec matchcheck_expr e =
   | EKet        _
   | ENil                    -> ()
   | EMinus      e           
-  | ENot        e           -> matchcheck_expr e
+  | ENot        e           
+  | EDagger     e           -> matchcheck_expr e
   | ETuple      es          -> List.iter matchcheck_expr es
   | ECond       (ce,e1,e2)  -> matchcheck_expr ce; matchcheck_expr e1; matchcheck_expr e2
   | EMatch      (e,ems)     -> matchcheck_expr e; 

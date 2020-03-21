@@ -113,6 +113,7 @@ let string_of_token = function
     | BANG      -> "BANG"
     | APPEND    -> "APPEND"
     | AND       -> "AND"
+    | DAGGER    -> "DAGGER"
 
   
 let get_linenum lexbuf = 
@@ -171,7 +172,8 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x2297, 0x2297      
                 -> TENSORPOWER (* ⊗⊗ *)
   | "<-"        -> LEFTARROW
-  
+  | "^^"        -> DAGGER
+  | 0x2020      -> DAGGER       (* † *)
   | "true"      -> TRUE
   | "false"     -> FALSE
   

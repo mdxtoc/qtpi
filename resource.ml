@@ -410,7 +410,8 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       | EBra        _
       | EKet        _         -> RNull, ResourceSet.empty
       | EMinus      e         
-      | ENot        e         -> re use e
+      | ENot        e         
+      | EDagger     e         -> re use e
       | EArith      (e1,_,e2) 
       | ECompare    (e1,_,e2) 
       | EBoolArith  (e1,_,e2) -> let rs, used = do_list URead [e1;e2] in 
@@ -705,7 +706,8 @@ let rec ffv_expr expr =
   | EKet       _
   | ENil                    -> ()
   | EMinus     e
-  | ENot       e            -> ffv_expr e
+  | ENot       e            
+  | EDagger    e            -> ffv_expr e
   | ETuple     es           -> List.iter ffv_expr es  
   | ECons      (e1,e2)
   | EAppend    (e1,e2)

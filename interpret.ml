@@ -209,6 +209,12 @@ let rec evale env e =
     | EKet k              -> VKet (pv_of_braket k)
     | EMinus e            -> VNum (~-/ (numev env e))
     | ENot   e            -> VBool (not (boolev env e))
+    | EDagger e           -> (let v = evale env e in
+                              match v with
+                              | VGate   g   -> VGate (dagger_g g)
+                              | VMatrix m   -> VMatrix (dagger_m m)
+                              | _           -> raise (Disaster (e.pos, Printf.sprintf "(%s)†" (string_of_value v)))
+                             )
     | ETuple es           -> VTuple (List.map (evale env) es)
     | ECons (hd,tl)       -> VList (evale env hd :: listev env tl)
     | ECond (c,e1,e2)     -> evale env (if boolev env c then e1 else e2)

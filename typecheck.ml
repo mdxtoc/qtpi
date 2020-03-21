@@ -119,7 +119,8 @@ let rec rewrite_expr e =
        | EBra        _          
        | EKet        _          -> ()
        | EMinus      e          
-       | ENot        e          -> rewrite_expr e
+       | ENot        e          
+       | EDagger     e          -> rewrite_expr e
        | ETuple      es         -> List.iter rewrite_expr es
        | ECond       (e1,e2,e3) -> List.iter rewrite_expr [e1;e2;e3]
        | EMatch      (e,ems)    -> rewrite_expr e; 
@@ -524,6 +525,29 @@ and assigntype_expr cxt t e =
                                assigntype_expr cxt atype e2
      | EMinus  e            -> unary cxt (adorn_x e Num) (adorn_x e Num) e
      | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
+     | EDagger e            -> (* a little overloaded *)
+                               (let te, tout = neweqtv e.pos, neweqtv e.pos in
+                                unary cxt te tout e;
+                                let te, tout = evaltype te, evaltype tout in
+                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded † can be gate->gate or matrix->matrix: \
+                                                                                  here we have %s->%s"
+                                                                                        (string_of_type te)
+                                                                                        (string_of_type tout)
+                                                                            )
+                                                                     )
+                                in    
+                                match te.inst, tout.inst with
+                                | Gate     , _
+                                | _        , Gate
+                                | Matrix   , _
+                                | _        , Matrix     -> (try unifytypes te tout with _ -> bad ())
+                                | Unknown _, Unknown _  -> 
+                                      raise (Error (e.pos, Printf.sprintf "overloaded † can be gate->gate or matrix->matrix: \
+                                                                           cannot deduce type (use some type constraints)"
+                                                   )
+                                            )
+                                | _                     -> bad()
+                               )
      | ETuple  es           -> let ts = List.map (fun e -> ntv e.pos) es in
                                let tes = List.combine ts es in
                                let _ = List.iter (utaf cxt) tes in
@@ -557,7 +581,7 @@ and assigntype_expr cxt t e =
                                 let bad () =
                                   match t1.inst, t2.inst with
                                   | Unknown _, Unknown _-> 
-                                      raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s or %s"
+                                      raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s or %s (use some type constraints)"
                                                                             (string_of_arithop op)
                                                                             (string_of_expr e1)
                                                                             (string_of_expr e2)

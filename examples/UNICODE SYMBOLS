@@ -1,0 +1,6 @@
+Symbol  means                   ASCII
+
+  ⊗     tensor product          ><          infix
+  ⊗⊗    tensor power            ><><        infix
+  †     conjugate transpose     ^^          postfix; also dagger_g: gate->gate and dagger_m:matrix->matrix
+  

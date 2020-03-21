@@ -165,12 +165,17 @@ let mult_kb (km, kv as k) (bm, bv as b) =
   init_m n n (fun i j -> cprod kv.(i) bv.(j))
   
 (* conjugate transpose: transpose and piecewise complex conjugate *)
-let dagger g = 
+let dagger_m mA = 
+  let m = rsize mA in
+  let n = csize mA in
+  init_m m n (fun i j -> cconj mA.(j).(i))
+  
+let dagger_g g = 
   if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_gate g);
   let n = gsize g in
   let g' = match g with
            | DGate d -> DGate (Array.init n (fun i -> cconj d.(i)))
-           | MGate m -> MGate (init_m n n (fun i j -> cconj m.(j).(i)))
+           | MGate m -> MGate (dagger_m m)
   in
   if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g');
   g'

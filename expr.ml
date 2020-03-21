@@ -51,6 +51,7 @@ and enode =
   | EKet of bkconst
   | EMinus of expr
   | ENot of expr
+  | EDagger of expr
   | ETuple of expr list
   | ENil
   | ECons of expr * expr
@@ -152,7 +153,8 @@ let rec exprprio e =
   | ECond       _           
   | EMatch      _           -> primaryprio
   | EMinus      _           
-  | ENot        _           -> unaryprio
+  | ENot        _           
+  | EDagger     _           -> unaryprio
   | EApp        _           -> appprio
   | ECons       _           -> if is_nilterminated e then primaryprio else consprio
   | EArith      (_,op,_)    -> arithprio op
@@ -231,6 +233,7 @@ and string_of_expr e =
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
   | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
   | ENot   e                        -> Printf.sprintf "not %s" (bracket_nonassoc unaryprio e)
+  | EDagger     e                   -> Printf.sprintf "%s†" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
                                        else string_of_binary_expr hd tl "::" consprio
   | ETuple es                       -> "(" ^ commasep (List.map (bracket_nonassoc tupleprio) es) ^ ")"
@@ -315,7 +318,8 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       | EKet        _ 
       | ENil                   -> s
       | EMinus      e 
-      | ENot        e          -> _frees s e
+      | ENot        e          
+      | EDagger     e          -> _frees s e
       | ETuple      es         -> List.fold_left _frees s es
       | ECons       (e1,e2)
       | EAppend     (e1,e2) 

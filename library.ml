@@ -82,7 +82,8 @@ let v_groverU vs = groverU (List.map bitv vs)
 let _ = Interpret.know ("groverG", "num ->gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
 let _ = Interpret.know ("groverU", "[bit] -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
 
-let _ = Interpret.know ("dagger", "gate -> gate", vfun (vgate <.> Vmgarith.dagger <.> gatev))
+let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmgarith.dagger_g <.> gatev))
+let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmgarith.dagger_m <.> matrixv))
 
 let v_makeC g =
   if gsize g<>2 then

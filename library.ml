@@ -343,6 +343,7 @@ let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (Float.pi)))
 (* ********************* gates, matrices ************************ *)
  
 let _ = Interpret.know ("degate"  , "gate -> matrix", vfun (vmatrix <.> matrix_of_gate <.> gatev))
+let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmgarith.engate <.> matrixv))
 
 (* ********************* I/O ************************ *)
 

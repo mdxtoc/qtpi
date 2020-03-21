@@ -709,9 +709,10 @@ let matrix_of_gate = function
                  m.(i).(i) <- v.(i)
                done;
                m
-               
+
+(* this should only be used if it's really a unitary matrix *)               
 let gate_of_matrix m =
-  let n = vsize m in
+  let n = rsize m in
   let isdiag = _for_all 0 1 n (fun i ->
                                let row = m.(i) in
                                _for_all 0 1 n (fun j -> i=j || row.(j)=c_0)

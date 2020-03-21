@@ -70,7 +70,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
        But in this simulation she sends an empty message, to allow Bob to log what he's 
        done and terminate.
      *)
-    . if not (q_check && c_check && enough) then
+    . if ¬(q_check && c_check && enough) then
         . bsc!tagged hks 4 w []
         . _0
       else

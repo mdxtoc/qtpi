@@ -15,8 +15,8 @@ proc
           (let okA = bit2bool (hd okA))
           (let okB = bit2bool (hd okB))
           (let nOK = if okA && okB && mA=mB then nOK+1 else nOK)
-          out!if not (okA && okB && mA=mB) then 
-                      ["** Interference: Alice said "; show (not okA); "; Bob said "; show (not okB);
+          out!if ¬(okA && okB && mA=mB) then 
+                      ["** Interference: Alice said "; show (¬okA); "; Bob said "; show (¬okB);
                        "; Alice sent "; show mA; "; Bob saw "; show mB; "\n"]
               elif verbose then ["message "; show mA; " successfully transmitted\n"]
               else [] . 

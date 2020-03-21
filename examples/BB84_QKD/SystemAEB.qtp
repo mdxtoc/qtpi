@@ -44,24 +44,24 @@ proc
           . doneB?(ncB, messageB, c_intfseenB, hkbsB)
           . doneE?(hkbsAE', (decodeE, messageE, _, hkbsEB'))
           . (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-          . if not intfseen && hkbsA<>hkbsAE' && hkbsAE'<>[]
+          . if ¬intfseen && hkbsA<>hkbsAE' && hkbsAE'<>[]
              then . out!["whoops! different new hash keys A<->E ";
                                          show (packets [] w hkbsA); " ";
                                          show (packets [] w hkbsAE')
                                         ] 
                   . _0
-             elif not intfseen && hkbsB<>hkbsEB' && hkbsEB'<>[]
+             elif ¬intfseen && hkbsB<>hkbsEB' && hkbsEB'<>[]
                then . out!["whoops! different new hash keys E<->B ";
                                          show (packets [] w hkbsEB'); " ";
                                          show (packets [] w hkbsB)
                                         ] 
                     . _0
-             elif not enough then
+             elif ¬enough then
                   Logger (k, i, verbose, nAlice, nEve, nShort+1, nEvades, ncAs, ncBs, evasions, 
                           n, w, hkbsAE, hkbsEB, cMin, nSigma
                          )
-             else . (let evewins = decodeE && not intfseen && messageE=messageA)
-                  . (let evades = not intfseen)
+             else . (let evewins = decodeE && ¬intfseen && messageE=messageA)
+                  . (let evades = ¬intfseen)
                   . (let nEvades = if evades then nEvades+1 else nEvades)
                   . out!if evewins then ["Eve wins -- "; show ncA; " check bits E->A; "; show ncB; " check bits B->E\n"]
                                    else []

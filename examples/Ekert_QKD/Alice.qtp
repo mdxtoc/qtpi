@@ -18,7 +18,7 @@ proc
         bc![bool2bit ok]   . logc![bool2bit ok]   .
         bc?(Bobok)         .
         (let Bobok = bit2bool (hd Bobok))
-        if not (ok && Bobok) then
+        if ¬(ok && Bobok) then
           (* Interference: log an empty message, but don't send anything to Bob *)
           logc![] .
           _0

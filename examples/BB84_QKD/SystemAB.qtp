@@ -29,15 +29,15 @@ Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
        | . doneA?(nbA, ncA, c_intfseenA, q_intfseen, enough, hkbsA, messageA)
          . doneB?(ncB, messageB, c_intfseenB, hkbsB)       .
          . (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-         . out!if not intfseen && hkbsA<>hkbsB
+         . out!if ¬intfseen && hkbsA<>hkbsB
                  then ["whoops! different new hash keys ";
                                 show (packets [] w hkbsA); " ";
                                 show (packets [] w hkbsB)
                                ]
                  else []
          . (let nIntf = if intfseen then nIntf+1 else nIntf)
-         . (let nShort = if not enough then nShort+1 else nShort)
-         . if not enough 
+         . (let nShort = if ¬enough then nShort+1 else nShort)
+         . if ¬enough 
            then . Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, randbits (5*w), cMin, nSigma)
            else . (let nOk = if messageB=messageA then nOk+1 else nOk)
                 . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n"]

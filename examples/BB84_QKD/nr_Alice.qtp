@@ -67,7 +67,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
     (* test to see if Bob and I agree on the bits selected by his mask *)
     (let checkbitsA = mask_filter 0b1 mask rvs)
     (let check = forall (lam (cb,vb) . cb=vb) (zip checkbitsB checkbitsA))
-    log![bool2bit (not check)]   .
+    log![bool2bit (¬check)]   .
     
     (* If the number of checkbits Bob chose is enough, then it is very 
        very (...) likely that we agree on the rest of the values. So the 
@@ -81,7 +81,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
        We also do the same thing if we don't have enough code bits.
        But then we have to simulate all the logging.
      *)
-    if not check || length M + 5*w > length codebits then
+    if ¬check || length M + 5*w > length codebits then
       bsc!tagged hks 4 w []                . (* empty message *) 
       log![bool2bit true]                  . (* not going round again *)
       log![]                               . (* code *)
@@ -106,7 +106,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
       bsc!h4,encryptedM                    . (* send the encrypted message *)
       log!h4 . log!encryptedM              . 
       (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
-      log![bool2bit (not c_ok)]            .
+      log![bool2bit (¬c_ok)]            .
       log!hkbs'                            .
       _0
 

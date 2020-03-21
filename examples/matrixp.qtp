@@ -2,14 +2,14 @@ fun mp (a:gate) (b:gate) =
   [show a; "*"; show b; "="; show (a*b); "\n"]
   
 proc System () =
-  out!mp Rz (dagger Rz) .
+  out!mp Rz (Rz†) .
   out!mp Rz Rz .
   out!mp (Rz*Rz) Rz .
   out!mp (Rz*Rz) (Rz*Rz) .
   out!mp Rz H .
-  out!mp (Rz*H) (dagger (Rz*H)) .
+  out!mp (Rz*H) ((Rz*H)†) .
   out!mp H Rz .
-  out!mp Rx (dagger Rx) .
+  out!mp Rx (Rx†) .
   out!mp Rx Rx .
   out!mp (Rx*Rx) Rx .
   out!mp (Rx*Rx) (Rx*Rx) .

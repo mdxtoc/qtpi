@@ -50,7 +50,7 @@ let _for_all i inc n f =
   in
   ff i 
   
-let _for_exists i inc n f v = 
+let _for_exists i inc n f = 
   let rec ff i =
     i<n && (f i || ff (i+inc))
   in

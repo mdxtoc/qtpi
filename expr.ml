@@ -231,8 +231,8 @@ and string_of_expr e =
   | ECond       _                   
   | EMatch      _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
-  | EMinus e                        -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
-  | ENot   e                        -> Printf.sprintf "not %s" (bracket_nonassoc unaryprio e)
+  | EMinus      e                   -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
+  | ENot        e                   -> Printf.sprintf "¬%s" (bracket_nonassoc unaryprio e)
   | EDagger     e                   -> Printf.sprintf "%s†" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
                                        else string_of_binary_expr hd tl "::" consprio

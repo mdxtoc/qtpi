@@ -239,6 +239,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "&&"        -> AND
   | "||"        -> OR
   | "not"       -> NOT
+  | 0x00ac      -> NOT          (* ¬ *)
   
   | '@'         -> APPEND
   | "::"        -> CONS

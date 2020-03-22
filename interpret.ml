@@ -44,7 +44,7 @@ open Compile
 
 open Value
 open Snum
-open Vmgarith
+open Vmg
 
 open Event
 

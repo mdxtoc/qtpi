@@ -28,6 +28,7 @@ open Tupleutils
 open Interpret
 open Number
 open Value
+open Vmg
 
 (* should this give an error if n is fractional? The purist in me says yes. 
    The pragmatist says just take the floor and forget it.
@@ -82,8 +83,8 @@ let v_groverU vs = groverU (List.map bitv vs)
 let _ = Interpret.know ("groverG", "num ->gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
 let _ = Interpret.know ("groverU", "[bit] -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
 
-let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmgarith.dagger_g <.> gatev))
-let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmgarith.dagger_m <.> matrixv))
+let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmg.dagger_g <.> gatev))
+let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmg.dagger_m <.> matrixv))
 
 let v_makeC g =
   if gsize g<>2 then
@@ -343,7 +344,7 @@ let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (Float.pi)))
 (* ********************* gates, matrices ************************ *)
  
 let _ = Interpret.know ("degate"  , "gate -> matrix", vfun (vmatrix <.> matrix_of_gate <.> gatev))
-let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmgarith.engate <.> matrixv))
+let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmg.engate <.> matrixv))
 
 (* ********************* I/O ************************ *)
 

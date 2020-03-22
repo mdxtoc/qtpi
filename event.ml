@@ -24,6 +24,7 @@
 open Name
 open Listutils
 open Value
+open Vmg
 
 type event =
   | EVMessage of chan * name * name * value

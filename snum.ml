@@ -147,7 +147,7 @@ and sum_separate = function
 (* let compare s1 s2 =
      match s1, s2 with
      | S_symb (b1,q1,_), S_symb (b2,q2,_) -> Stdlib.compare (q1,b1) (q2,b2)
-     | _                                -> Stdlib.compare s1      s2
+     | _                                  -> Stdlib.compare s1      s2
 *)
 (* we deal with long lists. Avoid sorting if poss *)
 let sort compare ss =
@@ -267,13 +267,13 @@ and sflatten ss = (* flatten a list of sums *)
 and ihs i ss = if i=0 then ss else S_h i::ss
 
 and simplify_sum ss = 
-  let r = let rec scompare s1 s2 = (* ignore negation *)
+  let r = let rec sumcompare s1 s2 = (* ignore negation, but put -s after s *)
             match s1, s2 with
-            | S_neg s1  , S_neg s2   -> scompare s1 s2
-            | S_neg s1  , _         -> scompare s1 s2
-            | _        , S_neg s2   -> scompare s1 s2
+            | S_neg s1  , S_neg s2   -> sumcompare s1 s2
+            | S_neg s1  , _          -> let r = sumcompare s1 s2 in if r=0 then 1 else r (* put -s after s *)
+            | _         , S_neg s2   -> sumcompare s1 s2
          (* | S_prod s1s, S_prod s2s -> Stdlib.compare s1s s2s *)
-            | _                    -> Stdlib.compare s1 s2
+            | _                      -> Stdlib.compare s1 s2
           in
           let rec double s1 rest = (* looking for h^2k*X+h^2k*X+.... *)
             (* find the h entry, if any, in s1 *)
@@ -423,7 +423,7 @@ and simplify_sum ss =
             | s                  :: ss            -> sp again (s::r) ss
             | []                                  -> let r = List.rev r in
                                                     if again then doit (sflatten r) else r
-          and doit ss = sp false [] (sort scompare ss)
+          and doit ss = sp false [] (sort sumcompare ss)
           in
           if List.exists (function S_sum _ -> true | S_neg (S_sum _) -> true | _ -> false) ss then
             raise (Error (Printf.sprintf "simplify_sum (%s)" (string_of_snum (S_sum ss))))
@@ -431,7 +431,7 @@ and simplify_sum ss =
           match doit ss with
           | []  -> S_0
           | [s] -> s
-          | ss  -> S_sum (sort scompare ss)
+          | ss  -> S_sum (sort sumcompare ss)
   in
   if !verbose_simplify then
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_snum (S_sum ss)) (string_of_snum r);

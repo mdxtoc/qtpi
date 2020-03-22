@@ -149,7 +149,9 @@ let newqbit, disposeqbit, string_of_qfrees, string_of_qlimbo = (* hide the refer
                               ((* this could be a bug if we used qfrees *)
                                let pa_sq = Random.float 1.0 in
                                let pb_sq = 1.0 -. pa_sq in
-                               make_snv (List.map c_of_p [S_symb (q, false, sqrt(pa_sq)); S_symb (q, true, sqrt(pb_sq))]) 
+                               make_snv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=sqrt(pa_sq)}); 
+                                         csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=sqrt(pb_sq)})
+                                        ] 
                               )
                             else (* random basis, random fixed value *)
                              qcopy (match Random.bool (), Random.bool ()  with
@@ -464,7 +466,7 @@ let rec compute = function
                     | _ when i<0    -> 1.0 /. compute (S_h (~-i))
                     | _             -> fp_h2 *. compute (S_h (i-2))
                    )             
-  | S_symb (_,_,r)     -> r
+  | S_symb symb  -> symb.secret
   | S_neg  p     -> ~-. (compute p)
   | S_prod ss    -> List.fold_left ( *. ) 1.0 (List.map compute ss)
   | S_sum  ss    -> List.fold_left ( +. ) 0.0 (List.map compute ss)

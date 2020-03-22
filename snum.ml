@@ -28,6 +28,8 @@ open Optionutils
 open Functionutils
 open Tupleutils
 
+exception Disaster of string
+
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
@@ -45,13 +47,13 @@ type snum =
   | S_1
   | S_f              
   | S_g 
-  | S_h of int              
-  | S_symb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
-  | S_neg of snum
+  | S_h    of int              
+  | S_symb of s_symb                 (* k, false=a_k, true=b_k, conjugated, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
+  | S_neg  of snum
   | S_prod of snum list              (* associative *)
-  | S_sum of snum list               (* associative *)
+  | S_sum  of snum list              (* associative *)
 
-and s_symb = { id: int; alpha: bool; conj: bool; secret: float ref}
+and s_symb = { id: int; alpha: bool; conj: bool; secret: float}
 
 (* S_symb is an unknown (with furtively a secret value -- see below). 
    0, 1, f and g are reals, but S_symb is a complex number. So it has a conjugate. 
@@ -61,7 +63,7 @@ and s_symb = { id: int; alpha: bool; conj: bool; secret: float ref}
     -- a1 comes before a2 (and b2, and etc.) so the id field is first; 
     -- ai comes before bi so the alpha field is second (and false means a);
     -- ai comes before ai! so the conj field is third;
-    -- occurrences of ai with the same i have the same secret value.
+    -- a secret amplitude value.
     
     The secret value is used when measuring, to compute the value of a formula
     involving the symbol. It is _never_ used when calculating/simplifying, even if
@@ -100,8 +102,11 @@ let rec string_of_snum s =
   | S_g             -> "g"
   | S_h 1           -> "h"
   | S_h n           -> Printf.sprintf "h(%d)" n
-  | S_symb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_int q) 
-                                                (if !showabvalues then Printf.sprintf "[%f]" f else "")
+  | S_symb symb     -> Printf.sprintf "%s%s%s%s" 
+                                        (if symb.alpha then "b" else "a") 
+                                        (string_of_int symb.id) 
+                                        (if symb.conj then "!" else "")
+                                        (if !showabvalues then Printf.sprintf "[%f]" symb.secret else "")
   | S_neg s'         -> "-" ^ possbra s'
   | S_prod ss        -> String.concat "*" (List.map possbra ss)
   | S_sum  ss        -> sum_separate (List.map possbra ss)    
@@ -157,13 +162,28 @@ let sort compare ss =
     | _                   -> ss
   in
   check ss
+
+(* an snum is usually a real. But not always ... *)
+let rconj s = 
+  let rec rc = function
+    | S_0
+    | S_1
+    | S_f              
+    | S_g 
+    | S_h    _      -> None
+    | S_symb symb   -> Some (S_symb {symb with conj=not symb.conj})
+    | S_neg  s      -> rc s &~~ (fun s' -> Some (S_neg s'))
+    | S_prod ss     -> optmap_any rc ss &~~ (fun ss' -> Some (S_prod ss'))
+    | S_sum  ss     -> optmap_any rc ss &~~ (fun ss' -> Some (S_sum ss'))
+  in
+  (rc ||~ id) s
   
 let rec rneg s =
   let r = match s with
-          | S_neg s        -> s
-          | S_0           -> s
-          | S_sum ss       -> simplify_sum (List.map rneg ss)
-          | _             -> S_neg s
+          | S_neg s     -> s
+          | S_0         -> s
+          | S_sum ss    -> simplify_sum (List.map rneg ss)
+          | _           -> S_neg s
   in
   if !verbose_simplify then
     Printf.printf "rneg (%s) -> %s\n" (string_of_snum s) (string_of_snum r);
@@ -237,12 +257,12 @@ and simplify_prod ss = (* We deal with constants, f^2, g^2, gh, fg *)
 
 and rsum s1 s2 = 
   let r = match s1, s2 with
-          | S_0     , _         -> s2
-          | _       , S_0       -> s1
+          | S_0     , _           -> s2
+          | _       , S_0         -> s1
           | S_sum s1s, S_sum s2s  -> simplify_sum (s1s @ s2s)
-          | _       , S_sum s2s  -> simplify_sum (s1 :: s2s)
-          | S_sum s1s, _         -> simplify_sum (s2 :: s1s)
-          | _                   -> simplify_sum [s1;s2]
+          | _       , S_sum s2s   -> simplify_sum (s1 :: s2s)
+          | S_sum s1s, _          -> simplify_sum (s2 :: s1s)
+          | _                    -> simplify_sum [s1;s2]
   in
   if !verbose_simplify then
     Printf.printf "rsum (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
@@ -343,15 +363,16 @@ and simplify_sum ss =
             let _, post = partition_1 pps in
             Listutils.null post
           in
-          let rec a2b2 s1 s2 = (* looking for X*a^2+X*b^2 *)
+          let rec a2b2 s1 s2 = (* looking for X*aa!+X*bb!, and let's hope the conj stuff works with the sorting *)
             let r = match s1, s2 with
                     | S_neg s1         , S_neg s2             -> a2b2 s1 s2 &~~ (_Some <.> rneg)
                     | S_prod s1s       , S_prod s2s           ->
                         (try let pps = zip s1s s2s in
                              let pre, rest = partition_1 pps in
                              match rest with
-                             | (S_symb (q1, false, _), S_symb (q2, true, _)) ::
-                               (S_symb (q3, false, _), S_symb (q4, true, _)) :: post  
+                             | (S_symb {id=q1; alpha=false; conj=false}, S_symb {id=q2; alpha=true; conj=false}) :: 
+                               (S_symb {id=q3; alpha=false; conj=true }, S_symb {id=q4; alpha=true; conj=true }) :: 
+                               post  
                                when q1=q2 && q1=q3 && q1=q4 && all_same post
                                      -> takeit pre post
                              | _     -> None
@@ -590,13 +611,13 @@ let rec rsum s1 s2 =
   
 (* *********************** complex arith in terms of reals ************************************ *)
 
-let c_of_p s = C (s, S_0)
+let csnum_of_snum s = C (s, S_0)
 
-let c_0 = c_of_p S_0
-let c_1 = c_of_p S_1
-let c_h = c_of_p (S_h 1)
-let c_f = c_of_p S_f
-let c_g = c_of_p S_g
+let c_0 = csnum_of_snum S_0
+let c_1 = csnum_of_snum S_1
+let c_h = csnum_of_snum (S_h 1)
+let c_f = csnum_of_snum S_f
+let c_g = csnum_of_snum S_g
 
 let c_i = C (S_0, S_1)
 
@@ -623,9 +644,29 @@ let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) =
 
 let cdiff c1 c2 = csum c1 (cneg c2)
 
-let cconj (C (x,y))               = C (x, rneg y)
+let cconj (C(x,y)) = C (rconj x, rneg (rconj y))
 
-let absq  (C (x,y))               = rsum (rprod x x) (rprod y y)
+let absq  (C(x,y) as c) = (* this is going to cost me ... *)
+  let x',y' = rconj x, rconj y in
+  if x=x' && y=y' || y=S_0 then rsum (rprod x x') (rprod y y')
+  else (let c' = cconj c in 
+        if !verbose || !verbose_simplify then
+          Printf.printf "**Here we go: |%s|^2 is (%s)*(%s)\n"
+                              (string_of_csnum c)
+                              (string_of_csnum c)
+                              (string_of_csnum c');
+        let C(rx,ry) as r = cprod c c' in
+        if ry=S_0 then (if !verbose || !verbose_simplify then Printf.printf "phew! that worked -- %s\n" (string_of_snum rx); 
+                        rx
+                       )
+        else raise (Disaster (Printf.sprintf "|%s|^2 is (%s)*(%s) = %s"
+                                              (string_of_csnum c)
+                                              (string_of_csnum c)
+                                              (string_of_csnum c')
+                                              (string_of_csnum r)
+                             )
+                   )
+       )
 
 (* we can't really divide 
     let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)

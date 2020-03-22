@@ -622,8 +622,8 @@ and assigntype_expr cxt t e =
                                           Matrix -> Matrix -> Matrix
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
-                                          ( -- Bra    -> Ket    -> Prob   -- not until Prob is a type)
-                                          ( -- Prob   -> Matrix -> Matrix -- ditto)
+                                          ( -- Bra    -> Ket    -> Snum   -- not until Snum is a type)
+                                          ( -- Snum   -> Matrix -> Matrix -- ditto)
                                           ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with

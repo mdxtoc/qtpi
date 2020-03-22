@@ -32,7 +32,7 @@ open Name
 open Process
 open Pattern
 open Monenv
-open Prob
+open Snum
 open Forutils
 
 exception Disaster of string
@@ -51,8 +51,8 @@ type value =
   | VNum of num
   | VBool of bool
   | VChar of Uchar.t
-  | VBra of probvec
-  | VKet of probvec
+  | VBra of snv
+  | VKet of snv
   | VMatrix of matrix
   | VGate of gate
   | VString of string
@@ -65,10 +65,10 @@ type value =
   | VProcess of name * env ref * name list * process
 
 and gate = 
-    | MGate of cprob array array   (* square matrix *)
-    | DGate of cprob array         (* diagonal matrix *)
+    | MGate of csnum array array   (* square matrix *)
+    | DGate of csnum array         (* diagonal matrix *)
 
-and matrix = cprob array array     (* not necessarily square *)
+and matrix = csnum array array     (* not necessarily square *)
 
 and qbit = int
 
@@ -103,183 +103,183 @@ let short_string_of_qbit = string_of_qbit
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted according to the type definition: i.e.
- * P_0, P_1, P_f, P_g, P_h, Psymb. But ... this isn't good enough. 
+ * S_0, S_1, S_f, S_g, S_h, S_symb. But ... this isn't good enough. 
  
  * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  
- * Stdlib.compare works if we change the definition of Psymb, so I did
+ * Stdlib.compare works if we change the definition of S_symb, so I did
  
  *)
 
-(* let compare p1 p2 =
-     match p1, p2 with
-     | Psymb (b1,q1,_), Psymb (b2,q2,_) -> Stdlib.compare (q1,b1) (q2,b2)
-     | _                                -> Stdlib.compare p1      p2
+(* let compare s1 s2 =
+     match s1, s2 with
+     | S_symb (b1,q1,_), S_symb (b2,q2,_) -> Stdlib.compare (q1,b1) (q2,b2)
+     | _                                -> Stdlib.compare s1      s2
 *)
 (* we deal with long lists. Avoid sorting if poss *)
-let sort compare ps =
-  let rec check ps' =
-    match ps' with
-    | p'::(p''::_ as ps') -> if p'<p'' then check ps' else List.sort compare ps
-    | _                   -> ps
+let sort compare ss =
+  let rec check ss' =
+    match ss' with
+    | s'::(s''::_ as ss') -> if s'<s'' then check ss' else List.sort compare ss
+    | _                   -> ss
   in
-  check ps
+  check ss
   
-let rec rneg p =
-  let r = match p with
-          | Pneg p        -> p
-          | P_0           -> p
-          | Psum ps       -> simplify_sum (List.map rneg ps)
-          | _             -> Pneg p
+let rec rneg s =
+  let r = match s with
+          | S_neg s        -> s
+          | S_0           -> s
+          | S_sum ss       -> simplify_sum (List.map rneg ss)
+          | _             -> S_neg s
   in
   if !verbose_simplify then
-    Printf.printf "rneg (%s) -> %s\n" (string_of_prob p) (string_of_prob r);
+    Printf.printf "rneg (%s) -> %s\n" (string_of_snum s) (string_of_snum r);
   r
     
-and rprod p1 p2 =
-  let r = match p1, p2 with
-          | P_0             , _
-          | _               , P_0               -> P_0
-          | P_1             , _                 -> p2
-          | _               , P_1               -> p1
-          | Pneg p1         , _                 -> rneg (rprod p1 p2)
-          | _               , Pneg p2           -> rneg (rprod p1 p2)
-          | _               , Psum p2s          -> let ps = List.map (rprod p1) p2s in
-                                                   simplify_sum (sflatten ps)
-          | Psum p1s        , _                 -> let ps = List.map (rprod p2) p1s in
-                                                   simplify_sum (sflatten ps)
-          | Pprod p1s       , Pprod p2s         -> simplify_prod (p1s @ p2s)
-          | _               , Pprod p2s         -> simplify_prod (p1 :: p2s)
-          | Pprod p1s       , _                 -> simplify_prod (p2::p1s)
-          | _                                   -> simplify_prod [p1;p2]
+and rprod s1 s2 =
+  let r = match s1, s2 with
+          | S_0             , _
+          | _               , S_0               -> S_0
+          | S_1             , _                 -> s2
+          | _               , S_1               -> s1
+          | S_neg s1         , _                 -> rneg (rprod s1 s2)
+          | _               , S_neg s2           -> rneg (rprod s1 s2)
+          | _               , S_sum s2s          -> let ss = List.map (rprod s1) s2s in
+                                                   simplify_sum (sflatten ss)
+          | S_sum s1s        , _                 -> let ss = List.map (rprod s2) s1s in
+                                                   simplify_sum (sflatten ss)
+          | S_prod s1s       , S_prod s2s         -> simplify_prod (s1s @ s2s)
+          | _               , S_prod s2s         -> simplify_prod (s1 :: s2s)
+          | S_prod s1s       , _                 -> simplify_prod (s2::s1s)
+          | _                                   -> simplify_prod [s1;s2]
   in
   if !verbose_simplify then
-    Printf.printf "rprod (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+    Printf.printf "rprod (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
   r
 
 and make_prod = function
-  | [p] -> p
-  | []  -> P_1
-  | ps  -> Pprod ps
+  | [s] -> s
+  | []  -> S_1
+  | ss  -> S_prod ss
   
 (* warning: this can deliver a sum, which mucks up the normal form *)
-and simplify_prod ps = (* We deal with constants, f^2, g^2, gh, fg *)
-  let r = let rec sp r ps = 
-            let premult p ps = 
-              let popt, ps = sp r ps in
+and simplify_prod ss = (* We deal with constants, f^2, g^2, gh, fg *)
+  let r = let rec sp r ss = 
+            let premult s ss = 
+              let popt, ss = sp r ss in
               (match popt with 
-               | Some pre_p -> Some (rprod pre_p p)
-               | None       -> Some p
-              ), ps
+               | Some pre_p -> Some (rprod pre_p s)
+               | None       -> Some s
+              ), ss
             in
-            match ps with
-            | P_0            :: ps -> None, [P_0]
-            | P_1            :: ps 
-            | P_h 0          :: ps -> sp r ps
-            | P_f   :: P_f   :: ps -> premult (Psum [P_h 2; P_h 3]) ps
-            | P_f   :: P_g   :: ps -> premult (P_h 3) ps
-            | P_g   :: P_g   :: ps -> premult (Psum [P_h 2; Pneg (P_h 3)]) ps
-(*          | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 *)
-              when i>=3            -> sp (P_f :: r) (P_g :: P_g :: (ihs (i-3) ps)) 
+            match ss with
+            | S_0            :: ss -> None, [S_0]
+            | S_1            :: ss 
+            | S_h 0          :: ss -> sp r ss
+            | S_f   :: S_f   :: ss -> premult (S_sum [S_h 2; S_h 3]) ss
+            | S_f   :: S_g   :: ss -> premult (S_h 3) ss
+            | S_g   :: S_g   :: ss -> premult (S_sum [S_h 2; S_neg (S_h 3)]) ss
+(*          | S_g   :: S_h i :: ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
+              when i>=3            -> sp (S_f :: r) (S_g :: S_g :: (ihs (i-3) ss)) 
  *)
-            | P_g   :: P_h i :: ps    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
-              when i>=1            -> premult (Psum [P_1; Pneg (P_h 1)]) (P_f :: (ihs (i-1) ps))
-            | P_h i :: P_h j :: ps -> sp (ihs (i+j) r) ps
-            | p              :: ps -> sp (p::r) ps
+            | S_g   :: S_h i :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
+              when i>=1            -> premult (S_sum [S_1; S_neg (S_h 1)]) (S_f :: (ihs (i-1) ss))
+            | S_h i :: S_h j :: ss -> sp (ihs (i+j) r) ss
+            | s              :: ss -> sp (s::r) ss
             | []                   -> None, List.rev r
           in
-          let popt, ps = sp [] (sort Stdlib.compare ps) in
-          let p = match ps with 
-                  | []  -> P_1
-                  | [p] -> p 
-                  | _   -> Pprod ps 
+          let popt, ss = sp [] (sort Stdlib.compare ss) in
+          let s = match ss with 
+                  | []  -> S_1
+                  | [s] -> s 
+                  | _   -> S_prod ss 
           in
           match popt with 
-          | Some pre_p -> rprod pre_p p
-          | None       -> p
+          | Some pre_p -> rprod pre_p s
+          | None       -> s
   in
   if !verbose_simplify then
-    Printf.printf "simplify_prod %s -> %s\n" (bracketed_string_of_list string_of_prob ps) (string_of_prob r);
+    Printf.printf "simplify_prod %s -> %s\n" (bracketed_string_of_list string_of_snum ss) (string_of_snum r);
   r
 
-and rsum p1 p2 = 
-  let r = match p1, p2 with
-          | P_0     , _         -> p2
-          | _       , P_0       -> p1
-          | Psum p1s, Psum p2s  -> simplify_sum (p1s @ p2s)
-          | _       , Psum p2s  -> simplify_sum (p1 :: p2s)
-          | Psum p1s, _         -> simplify_sum (p2 :: p1s)
-          | _                   -> simplify_sum [p1;p2]
+and rsum s1 s2 = 
+  let r = match s1, s2 with
+          | S_0     , _         -> s2
+          | _       , S_0       -> s1
+          | S_sum s1s, S_sum s2s  -> simplify_sum (s1s @ s2s)
+          | _       , S_sum s2s  -> simplify_sum (s1 :: s2s)
+          | S_sum s1s, _         -> simplify_sum (s2 :: s1s)
+          | _                   -> simplify_sum [s1;s2]
   in
   if !verbose_simplify then
-    Printf.printf "rsum (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+    Printf.printf "rsum (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
   r
 
-and sflatten ps = (* flatten a list of sums *)
-  let rec sf ps p = 
-    match p with
-    | Psum ps' -> ps' @ ps
-    | _        -> p :: ps
+and sflatten ss = (* flatten a list of sums *)
+  let rec sf ss s = 
+    match s with
+    | S_sum ss' -> ss' @ ss
+    | _        -> s :: ss
   in
-  let r = if List.exists (function Psum _ -> true | _ -> false) ps 
-          then List.fold_left sf [] ps   
-          else ps
+  let r = if List.exists (function S_sum _ -> true | _ -> false) ss 
+          then List.fold_left sf [] ss   
+          else ss
   in
   if !verbose_simplify then
     Printf.printf "sflatten %s -> %s\n" 
-                  (bracketed_string_of_list string_of_prob ps) 
-                  (bracketed_string_of_list string_of_prob r);
+                  (bracketed_string_of_list string_of_snum ss) 
+                  (bracketed_string_of_list string_of_snum r);
   r
 
-and ihs i ps = if i=0 then ps else P_h i::ps
+and ihs i ss = if i=0 then ss else S_h i::ss
 
-and simplify_sum ps = 
-  let r = let rec scompare p1 p2 = (* ignore negation *)
-            match p1, p2 with
-            | Pneg p1  , Pneg p2   -> scompare p1 p2
-            | Pneg p1  , _         -> scompare p1 p2
-            | _        , Pneg p2   -> scompare p1 p2
-         (* | Pprod p1s, Pprod p2s -> Stdlib.compare p1s p2s *)
-            | _                    -> Stdlib.compare p1 p2
+and simplify_sum ss = 
+  let r = let rec scompare s1 s2 = (* ignore negation *)
+            match s1, s2 with
+            | S_neg s1  , S_neg s2   -> scompare s1 s2
+            | S_neg s1  , _         -> scompare s1 s2
+            | _        , S_neg s2   -> scompare s1 s2
+         (* | S_prod s1s, S_prod s2s -> Stdlib.compare s1s s2s *)
+            | _                    -> Stdlib.compare s1 s2
           in
-          let rec double p1 rest = (* looking for h^2k*X+h^2k*X+.... *)
-            (* find the h entry, if any, in p1 *)
-            let rec split3 isneg pres ps =
-              match ps with 
-              | P_h i :: ps -> if i>=2 then Some (isneg, pres, i, ps) else None
-              | p     :: ps -> split3 isneg (p::pres) ps
+          let rec double s1 rest = (* looking for h^2k*X+h^2k*X+.... *)
+            (* find the h entry, if any, in s1 *)
+            let rec split3 isneg pres ss =
+              match ss with 
+              | S_h i :: ss -> if i>=2 then Some (isneg, pres, i, ss) else None
+              | s     :: ss -> split3 isneg (s::pres) ss
               | []          -> None
             in
             let rec nsplit3 isneg = function
-                                    | Pneg p          -> nsplit3 (not isneg) p
-                                    | P_h i when i>=2 -> Some (isneg,[],i,[])
-                                    | Pprod ps        -> split3 isneg [] ps
+                                    | S_neg s          -> nsplit3 (not isneg) s
+                                    | S_h i when i>=2 -> Some (isneg,[],i,[])
+                                    | S_prod ss        -> split3 isneg [] ss
                                     | _               -> None
             in
-            let r = match nsplit3 false p1 with
+            let r = match nsplit3 false s1 with
                     | Some (isneg,pres,maxi,posts) ->
                         (* i is how many hs we use up, k is 2^(i/2) *)
                         let rec gofor i k rest =
                           let rec takeeqs k rest =
                             match k, rest with
                             | 0, _       -> Some rest
-                            | _, p::rest -> if p1=p then takeeqs (k-1) rest else None
+                            | _, s::rest -> if s1=s then takeeqs (k-1) rest else None
                             | _, []      -> None
                           in
                           if i>maxi then None else
                           takeeqs k rest &~~ (fun rest -> gofor (i+2) (k*2) rest
                                                           |~~ (fun _ -> let r = Some ((if isneg then rneg else id)
-                                                                                        (simplify_prod (prepend pres (P_h (maxi-i)::posts))),
+                                                                                        (simplify_prod (prepend pres (S_h (maxi-i)::posts))),
                                                                                       rest
                                                                                      )
                                                                           in
                                                                           if !verbose_simplify then
-                                                                            Printf.printf "gofor %d %d %s (p1=%s)-> %s\n"
+                                                                            Printf.printf "gofor %d %d %s (s1=%s)-> %s\n"
                                                                                             i
                                                                                             k
-                                                                                            (bracketed_string_of_list string_of_prob rest)
-                                                                                            (string_of_prob p1)
-                                                                                            (string_of_option (string_of_pair string_of_prob (bracketed_string_of_list string_of_prob) ",") r);
+                                                                                            (bracketed_string_of_list string_of_snum rest)
+                                                                                            (string_of_snum s1)
+                                                                                            (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
                                                                           r
                                                               )
                                              )
@@ -288,9 +288,9 @@ and simplify_sum ps =
                     | _                            -> None
             in
             if !verbose_simplify then
-              Printf.printf "double (%s) %s -> %s\n" (string_of_prob p1)  
-                                                     (bracketed_string_of_list string_of_prob rest)
-                                                     (string_of_option (string_of_pair string_of_prob (bracketed_string_of_list string_of_prob) ",") r);
+              Printf.printf "double (%s) %s -> %s\n" (string_of_snum s1)  
+                                                     (bracketed_string_of_list string_of_snum rest)
+                                                     (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
             r
           in
           let takeit pre post =
@@ -310,15 +310,15 @@ and simplify_sum ps =
             let _, post = partition_1 pps in
             Listutils.null post
           in
-          let rec a2b2 p1 p2 = (* looking for X*a^2+X*b^2 *)
-            let r = match p1, p2 with
-                    | Pneg p1         , Pneg p2             -> a2b2 p1 p2 &~~ (_Some <.> rneg)
-                    | Pprod p1s       , Pprod p2s           ->
-                        (try let pps = zip p1s p2s in
+          let rec a2b2 s1 s2 = (* looking for X*a^2+X*b^2 *)
+            let r = match s1, s2 with
+                    | S_neg s1         , S_neg s2             -> a2b2 s1 s2 &~~ (_Some <.> rneg)
+                    | S_prod s1s       , S_prod s2s           ->
+                        (try let pps = zip s1s s2s in
                              let pre, rest = partition_1 pps in
                              match rest with
-                             | (Psymb (q1, false, _), Psymb (q2, true, _)) ::
-                               (Psymb (q3, false, _), Psymb (q4, true, _)) :: post  
+                             | (S_symb (q1, false, _), S_symb (q2, true, _)) ::
+                               (S_symb (q3, false, _), S_symb (q4, true, _)) :: post  
                                when q1=q2 && q1=q3 && q1=q4 && all_same post
                                      -> takeit pre post
                              | _     -> None
@@ -327,195 +327,195 @@ and simplify_sum ps =
                     | _                                     -> None
             in
             if !verbose_simplify then
-              Printf.printf "a2b2 (%s) (%s) -> %s\n" (string_of_prob p1)  
-                                                     (string_of_prob p2)
-                                                     (string_of_option string_of_prob r);
+              Printf.printf "a2b2 (%s) (%s) -> %s\n" (string_of_snum s1)  
+                                                     (string_of_snum s2)
+                                                     (string_of_option string_of_snum r);
             r
           in
-          let rec sp again r ps =
-            match ps with
-            | P_0                :: ps            -> sp again r ps
-            | Pneg p1 :: p2      :: ps when p1=p2 -> sp again r ps
-            | p1      :: Pneg p2 :: ps when p1=p2 -> sp again r ps
+          let rec sp again r ss =
+            match ss with
+            | S_0                :: ss            -> sp again r ss
+            | S_neg s1 :: s2      :: ss when s1=s2 -> sp again r ss
+            | s1      :: S_neg s2 :: ss when s1=s2 -> sp again r ss
             (* the next lot are because h^j-h^(j+2) = h^j(1-h^2) = h^(j+2) 
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
              *)
-            | P_1        ::  ps  
-                    when List.exists ((=) (Pneg (P_h 2))) ps
-                                                  -> sp true (P_h 2::r) (Listutils.remove (Pneg (P_h 2)) ps)
-            | Pneg (P_1) :: ps  
-                    when List.exists ((=) (P_h 2)) ps  
-                                                  -> sp true (Pneg (P_h 2)::r) (Listutils.remove (P_h 2) ps)
-            | P_h j      ::  ps  
-                    when List.exists ((=) (Pneg (P_h (j+2)))) ps
-                                                  -> sp true (P_h (j+2)::r) (Listutils.remove (Pneg (P_h (j+2))) ps)
-            | Pneg (P_h j) :: ps  
-                    when List.exists ((=) (P_h (j+2))) ps  
-                                                  -> sp true (Pneg (P_h (j+2))::r) (Listutils.remove (P_h (j+2)) ps)
-            | Pprod (P_h j :: p1s) :: ps
-                    when List.exists ((=) (Pneg (Pprod (P_h (j+2) :: p1s)))) ps                 
-                                                  -> sp true (Pprod (P_h (j+2) :: p1s)::r) 
-                                                             (Listutils.remove (Pneg (Pprod (P_h (j+2) :: p1s))) ps)
-            | Pneg (Pprod (P_h j :: p1s)) :: ps
-                    when List.exists ((=) (Pprod (P_h (j+2) :: p1s))) ps                 
-                                                  -> sp true (Pneg (Pprod (P_h (j+2) :: p1s)) :: r) 
-                                                             (Listutils.remove (Pprod (P_h (j+2) :: p1s)) ps)
-            | (Pprod (P_h 2 :: p1s) as p1) :: ps  
-                   when List.exists ((=) (Pneg (make_prod p1s))) ps 
-                                                  -> sp true (Pneg p1::r) (Listutils.remove (Pneg (make_prod p1s)) ps)
-            | (Pneg (Pprod (P_h 2 :: p1s) as p1)) :: ps  
-                   when List.exists ((=) (make_prod p1s)) ps  
-                                                  -> sp true (p1::r) (Listutils.remove (make_prod p1s) ps)
-            | Pprod (P_f :: P_h 1 :: p1s) ::
-              Pprod (P_f :: P_h 1 :: p2s) :: ps
-                   when p1s=p2s && 
-                        List.exists ((=) (Pneg (make_prod (P_f :: p1s)))) ps
-                                                  -> sp true (make_prod (P_g :: p1s) :: r) 
-                                                             (Listutils.remove (Pneg (make_prod (P_f :: p1s))) ps)
-            | Pneg (Pprod (P_f :: P_h 1 :: p1s)) ::
-              Pneg (Pprod (P_f :: P_h 1 :: p2s)) :: ps
-                   when p1s=p2s && 
-                        List.exists ((=) (make_prod (P_f :: p1s))) ps
-                                                  -> sp true (Pneg (make_prod (P_g :: p1s)) :: r) 
-                                                             (Listutils.remove (make_prod (P_f :: p1s)) ps)
-            | p1      :: p2      :: ps when p1=p2 -> (match double p1 (p2::ps) with
-                                                      | Some (p,ps) -> sp true (p::r) ps
-                                                      | None        -> sp again (p1::r) (p2::ps)
+            | S_1        ::  ss  
+                    when List.exists ((=) (S_neg (S_h 2))) ss
+                                                  -> sp true (S_h 2::r) (Listutils.remove (S_neg (S_h 2)) ss)
+            | S_neg (S_1) :: ss  
+                    when List.exists ((=) (S_h 2)) ss  
+                                                  -> sp true (S_neg (S_h 2)::r) (Listutils.remove (S_h 2) ss)
+            | S_h j      ::  ss  
+                    when List.exists ((=) (S_neg (S_h (j+2)))) ss
+                                                  -> sp true (S_h (j+2)::r) (Listutils.remove (S_neg (S_h (j+2))) ss)
+            | S_neg (S_h j) :: ss  
+                    when List.exists ((=) (S_h (j+2))) ss  
+                                                  -> sp true (S_neg (S_h (j+2))::r) (Listutils.remove (S_h (j+2)) ss)
+            | S_prod (S_h j :: s1s) :: ss
+                    when List.exists ((=) (S_neg (S_prod (S_h (j+2) :: s1s)))) ss                 
+                                                  -> sp true (S_prod (S_h (j+2) :: s1s)::r) 
+                                                             (Listutils.remove (S_neg (S_prod (S_h (j+2) :: s1s))) ss)
+            | S_neg (S_prod (S_h j :: s1s)) :: ss
+                    when List.exists ((=) (S_prod (S_h (j+2) :: s1s))) ss                 
+                                                  -> sp true (S_neg (S_prod (S_h (j+2) :: s1s)) :: r) 
+                                                             (Listutils.remove (S_prod (S_h (j+2) :: s1s)) ss)
+            | (S_prod (S_h 2 :: s1s) as s1) :: ss  
+                   when List.exists ((=) (S_neg (make_prod s1s))) ss 
+                                                  -> sp true (S_neg s1::r) (Listutils.remove (S_neg (make_prod s1s)) ss)
+            | (S_neg (S_prod (S_h 2 :: s1s) as s1)) :: ss  
+                   when List.exists ((=) (make_prod s1s)) ss  
+                                                  -> sp true (s1::r) (Listutils.remove (make_prod s1s) ss)
+            | S_prod (S_f :: S_h 1 :: s1s) ::
+              S_prod (S_f :: S_h 1 :: s2s) :: ss
+                   when s1s=s2s && 
+                        List.exists ((=) (S_neg (make_prod (S_f :: s1s)))) ss
+                                                  -> sp true (make_prod (S_g :: s1s) :: r) 
+                                                             (Listutils.remove (S_neg (make_prod (S_f :: s1s))) ss)
+            | S_neg (S_prod (S_f :: S_h 1 :: s1s)) ::
+              S_neg (S_prod (S_f :: S_h 1 :: s2s)) :: ss
+                   when s1s=s2s && 
+                        List.exists ((=) (make_prod (S_f :: s1s))) ss
+                                                  -> sp true (S_neg (make_prod (S_g :: s1s)) :: r) 
+                                                             (Listutils.remove (make_prod (S_f :: s1s)) ss)
+            | s1      :: s2      :: ss when s1=s2 -> (match double s1 (s2::ss) with
+                                                      | Some (s,ss) -> sp true (s::r) ss
+                                                      | None        -> sp again (s1::r) (s2::ss)
                                                      )
-            | p1      :: p2      :: ps            -> (match a2b2 p1 p2 with
-                                                      | Some p -> sp true (p::r) ps
-                                                      | None   -> sp again (p1::r) (p2::ps)
+            | s1      :: s2      :: ss            -> (match a2b2 s1 s2 with
+                                                      | Some s -> sp true (s::r) ss
+                                                      | None   -> sp again (s1::r) (s2::ss)
                                                      )
-            | p                  :: ps            -> sp again (p::r) ps
+            | s                  :: ss            -> sp again (s::r) ss
             | []                                  -> let r = List.rev r in
                                                     if again then doit (sflatten r) else r
-          and doit ps = sp false [] (sort scompare ps)
+          and doit ss = sp false [] (sort scompare ss)
           in
-          if List.exists (function Psum _ -> true | Pneg (Psum _) -> true | _ -> false) ps then
-            raise (Error (Printf.sprintf "simplify_sum (%s)" (string_of_prob (Psum ps))))
+          if List.exists (function S_sum _ -> true | S_neg (S_sum _) -> true | _ -> false) ss then
+            raise (Error (Printf.sprintf "simplify_sum (%s)" (string_of_snum (S_sum ss))))
           else
-          match doit ps with
-          | []  -> P_0
-          | [p] -> p
-          | ps  -> Psum (sort scompare ps)
+          match doit ss with
+          | []  -> S_0
+          | [s] -> s
+          | ss  -> S_sum (sort scompare ss)
   in
   if !verbose_simplify then
-    Printf.printf "simplify_sum (%s) -> %s\n" (string_of_prob (Psum ps)) (string_of_prob r);
+    Printf.printf "simplify_sum (%s) -> %s\n" (string_of_snum (S_sum ss)) (string_of_snum r);
   r
 
 and sqrt_half i =   (* (1/sqrt 2)**i *)
-  let r = if i=0 then P_1 else P_h i in
+  let r = if i=0 then S_1 else S_h i in
   if !verbose_simplify then
-    Printf.printf "sqrt_half %d -> %s\n" i (string_of_prob r);
+    Printf.printf "sqrt_half %d -> %s\n" i (string_of_snum r);
   r
 
 (* warning: this can deliver a sum *)
-and rdiv_h p = (* multiply by sqrt 2 (= divide by h). Happens: see normalise *)
-  let r = match p with
-          | P_0                              -> p
-          | Pneg p                           -> rneg (rdiv_h p)
-          | P_h i                  when i>=1 -> sqrt_half (i-1)
-          | Pprod (     P_h i::ps) when i>=1 -> simplify_prod (     sqrt_half (i-1) :: ps)
-          | Pprod (P_f::P_h i::ps) when i>=1 -> simplify_prod (P_f::sqrt_half (i-1) :: ps)
-          | Pprod (P_g::P_h i::ps) when i>=1 -> simplify_prod (P_g::sqrt_half (i-1) :: ps)
-          | Psum  ps                         -> simplify_sum  (sflatten (List.map rdiv_h ps)) (* sflatten because we can get a sum ... *)
-          | _                                -> (* p/h = (ph^2+ph^2)/h = ph+ph *)
-                                                let ph = rprod p (P_h 1) in
+and rdiv_h s = (* multiply by sqrt 2 (= divide by h). Happens: see normalise *)
+  let r = match s with
+          | S_0                              -> s
+          | S_neg s                           -> rneg (rdiv_h s)
+          | S_h i                  when i>=1 -> sqrt_half (i-1)
+          | S_prod (     S_h i::ss) when i>=1 -> simplify_prod (     sqrt_half (i-1) :: ss)
+          | S_prod (S_f::S_h i::ss) when i>=1 -> simplify_prod (S_f::sqrt_half (i-1) :: ss)
+          | S_prod (S_g::S_h i::ss) when i>=1 -> simplify_prod (S_g::sqrt_half (i-1) :: ss)
+          | S_sum  ss                         -> simplify_sum  (sflatten (List.map rdiv_h ss)) (* sflatten because we can get a sum ... *)
+          | _                                -> (* s/h = (sh^2+sh^2)/h = sh+sh *)
+                                                let ph = rprod s (S_h 1) in
                                                 rsum ph ph
   in
   if !verbose_simplify then
-    Printf.printf "rdiv_h (%s) -> %s\n" (string_of_prob p) (string_of_prob r);
+    Printf.printf "rdiv_h (%s) -> %s\n" (string_of_snum s) (string_of_snum r);
   r
 (* in the case of dividing sums, look for factors fP-fhP, which is gh *)
 and rdiv_sum_h orig_ps =
   let default () = sflatten (List.map rdiv_h orig_ps) (* sflatten because we can get a sum ... *) in
   let rec has_hfactor = function 
-                         | Pneg p                               -> has_hfactor p
-                         | P_h i                      
-                         | Pprod (P_h i :: _)         
-                         | Pprod (P_f :: P_h i :: _)  when i>=1 -> true
+                         | S_neg s                               -> has_hfactor s
+                         | S_h i                      
+                         | S_prod (S_h i :: _)         
+                         | S_prod (S_f :: S_h i :: _)  when i>=1 -> true
                          | _                                    -> false
   in
-  let rec findit ps =
-    match ps with
+  let rec findit ss =
+    match ss with
     | []                                     -> None
-    | Pprod (P_f :: P_h _ :: _)        :: ps -> findit ps
-    | Pprod (P_f :: ps')               :: ps -> if List.exists ((=) (Pneg (Pprod (P_f :: P_h 1 :: ps')))) orig_ps
-                                                then Some (true, ps')
-                                                else findit ps
-    | Pneg (Pprod (P_f :: P_h _ :: _)) :: ps -> findit ps
-    | Pneg (Pprod (P_f :: ps') )       :: ps -> if List.exists ((=) (Pprod (P_f :: P_h 1 :: ps'))) orig_ps
-                                                then Some (false, ps')
-                                                else findit ps
-    | _                                :: ps -> findit ps
+    | S_prod (S_f :: S_h _ :: _)        :: ss -> findit ss
+    | S_prod (S_f :: ss')               :: ss -> if List.exists ((=) (S_neg (S_prod (S_f :: S_h 1 :: ss')))) orig_ps
+                                                then Some (true, ss')
+                                                else findit ss
+    | S_neg (S_prod (S_f :: S_h _ :: _)) :: ss -> findit ss
+    | S_neg (S_prod (S_f :: ss') )       :: ss -> if List.exists ((=) (S_prod (S_f :: S_h 1 :: ss'))) orig_ps
+                                                then Some (false, ss')
+                                                else findit ss
+    | _                                :: ss -> findit ss
   in
   if List.for_all has_hfactor orig_ps then default ()
   else
   match findit orig_ps with
-  | Some (true, ps)  -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
-                                      (string_of_prob (Pprod (P_f :: ps)))
-                                      (string_of_prob (Pneg (Pprod (P_f :: P_h 1 :: ps))))
-                                      (string_of_prob (Psum orig_ps));
+  | Some (true, ss)  -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
+                                      (string_of_snum (S_prod (S_f :: ss)))
+                                      (string_of_snum (S_neg (S_prod (S_f :: S_h 1 :: ss))))
+                                      (string_of_snum (S_sum orig_ps));
                         default()
-  | Some (false, ps) -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
-                                      (string_of_prob (Pneg (Pprod (P_f :: ps))))
-                                      (string_of_prob (Pprod (P_f :: P_h 1 :: ps)))
-                                      (string_of_prob (Psum orig_ps));
+  | Some (false, ss) -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
+                                      (string_of_snum (S_neg (S_prod (S_f :: ss))))
+                                      (string_of_snum (S_prod (S_f :: S_h 1 :: ss)))
+                                      (string_of_snum (S_sum orig_ps));
                         default()
   | None             -> default()
   
 (* we can't really divide
-    and rdiv p1 p2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
+    and rdiv s1 s2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
       let bad () = 
-        raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_prob p1) (string_of_prob p2)))
+        raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_snum s1) (string_of_snum s2)))
       in
-      let r = match p1 with
-              | P_0               -> P_0
-              | _ when p1=p2      -> P_1
-              | Pneg p1           -> rneg (rdiv p1 p2)
-              | Pprod ps          -> let rec del ps =
-                                       match ps with
+      let r = match s1 with
+              | S_0               -> S_0
+              | _ when s1=s2      -> S_1
+              | S_neg s1           -> rneg (rdiv s1 s2)
+              | S_prod ss          -> let rec del ss =
+                                       match ss with
                                        | [] -> bad()
-                                       | p::ps -> if p=p2 then ps else p::del ps
+                                       | s::ss -> if s=s2 then ss else s::del ss
                                      in
-                                     Pprod (del ps)
-              | Psum ps           -> simplify_sum (List.map (fun p -> rdiv p p2) ps)
+                                     S_prod (del ss)
+              | S_sum ss           -> simplify_sum (List.map (fun s -> rdiv s s2) ss)
               | _                 -> bad ()
       in
       if !verbose_simplify then
-        Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_prob p1) (string_of_prob p2) (string_of_prob r);
+        Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
       r
  *)
 
-(******** prob arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
+(******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
 
-module ProbH = struct type t = prob 
+module ProbH = struct type t = snum 
                       let equal = (=)
                       let hash = Hashtbl.hash
-                      let to_string = string_of_prob
+                      let to_string = string_of_snum
                end
 module ProbHash = MyHash.Make (ProbH)
 
-let memofunProb f s = 
+let memofunProb f str = 
   let table = ProbHash.create 100 in
-  ProbHash.memofun table (fun p -> if !verbose || !verbose_qcalc 
-                                                     then Printf.printf "%s (%s)\n" s (string_of_prob p); 
-                                                   f p
+  ProbHash.memofun table (fun s -> if !verbose || !verbose_qcalc 
+                                                     then Printf.printf "%s (%s)\n" str (string_of_snum s); 
+                                                   f s
                                          )
 
-let memofun2Prob f s = 
+let memofun2Prob f str = 
   let t1 = ProbHash.create 100 in
   ProbHash.memofun t1 
-    (fun p1 -> let t2 = ProbHash.create 100 in
+    (fun s1 -> let t2 = ProbHash.create 100 in
                ProbHash.memofun t2 
-                 (fun p2 -> let r = f p1 p2 in
+                 (fun s2 -> let r = f s1 s2 in
                             if !verbose || !verbose_qcalc 
                             then Printf.printf "%s (%s) (%s) -> %s\n" 
-                                               s 
-                                               (string_of_prob p1) 
-                                               (string_of_prob p2)
-                                               (string_of_prob r); 
+                                               str 
+                                               (string_of_snum s1) 
+                                               (string_of_snum s2)
+                                               (string_of_snum r); 
                             r
                  )
     )
@@ -523,69 +523,69 @@ let memofun2Prob f s =
 let raw_rprod = rprod
 let memo_rprod = memofun2Prob rprod "rprod"
 
-let rec rprod p1 p2 =
+let rec rprod s1 s2 =
   if !Settings.memoise then
-    match p1, p2 with
+    match s1, s2 with
     (* we do 0, 1 and neg ourselves *)
-    | P_0     , _
-    | _       , P_0     -> P_0
-    | P_1     , _       -> p2
-    | _       , P_1     -> p1
-    | Pneg  p1, _       -> rneg (rprod p1 p2)
-    | _       , Pneg p2 -> rneg (rprod p1 p2)
+    | S_0     , _
+    | _       , S_0     -> S_0
+    | S_1     , _       -> s2
+    | _       , S_1     -> s1
+    | S_neg  s1, _       -> rneg (rprod s1 s2)
+    | _       , S_neg s2 -> rneg (rprod s1 s2)
     (* we memoise everything else *)
-    | _                 -> memo_rprod p1 p2
+    | _                 -> memo_rprod s1 s2
   else
-    raw_rprod p1 p2
+    raw_rprod s1 s2
 
 let raw_rsum = rsum
 let memo_rsum = memofun2Prob rsum "rsum"
 
-let rec rsum p1 p2 =
+let rec rsum s1 s2 =
   if !Settings.memoise then
-    match p1, p2 with
+    match s1, s2 with
     (* we do 0 ourselves *)
-    | P_0     , _       -> p2
-    | _       , P_0     -> p1
+    | S_0     , _       -> s2
+    | _       , S_0     -> s1
     (* we memoise sum *)
-    | Psum  _ , _
-    | _       , Psum  _ -> memo_rsum p1 p2
+    | S_sum  _ , _
+    | _       , S_sum  _ -> memo_rsum s1 s2
     (* everything else is raw *)
-    | _                 -> raw_rsum p1 p2
+    | _                 -> raw_rsum s1 s2
   else
-    raw_rsum p1 p2
+    raw_rsum s1 s2
   
 (* *********************** complex arith in terms of reals ************************************ *)
 
-let c_of_p p = C (p, P_0)
+let c_of_p s = C (s, S_0)
 
-let c_0 = c_of_p P_0
-let c_1 = c_of_p P_1
-let c_h = c_of_p (P_h 1)
-let c_f = c_of_p P_f
-let c_g = c_of_p P_g
+let c_0 = c_of_p S_0
+let c_1 = c_of_p S_1
+let c_h = c_of_p (S_h 1)
+let c_f = c_of_p S_f
+let c_g = c_of_p S_g
 
-let c_i = C (P_0, P_1)
+let c_i = C (S_0, S_1)
 
 let cneg  (C (x,y)) = C (rneg x, rneg y)
 
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
-  | P_0     , P_0, _       , _    
-  | _       , _  , P_0     , P_0       -> c_0
-  | P_1     , P_0, _       , _         -> c2  
-  | _       , _  , P_1     , P_0       -> c1
-  | Pneg P_1, P_0, _       , _         -> cneg c2  
-  | _       , _  , Pneg P_1, P_0       -> cneg c1
-  | _       , P_0, _       , P_0       -> C (rprod x1 x2, P_0)            (* real    * real    *)
-  | _       , P_0, _       , _         -> C (rprod x1 x2, rprod x1 y2)    (* real    * complex *)
-  | _       , _  , _       , P_0       -> C (rprod x1 x2, rprod y1 x2)    (* complex * real    *)
+  | S_0     , S_0, _       , _    
+  | _       , _  , S_0     , S_0       -> c_0
+  | S_1     , S_0, _       , _         -> c2  
+  | _       , _  , S_1     , S_0       -> c1
+  | S_neg S_1, S_0, _       , _         -> cneg c2  
+  | _       , _  , S_neg S_1, S_0       -> cneg c1
+  | _       , S_0, _       , S_0       -> C (rprod x1 x2, S_0)            (* real    * real    *)
+  | _       , S_0, _       , _         -> C (rprod x1 x2, rprod x1 y2)    (* real    * complex *)
+  | _       , _  , _       , S_0       -> C (rprod x1 x2, rprod y1 x2)    (* complex * real    *)
   | _                                  -> C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
 
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
-  | P_0, P_0, _  , _    -> c2 
-  | _  , _  , P_0, P_0  -> c1
+  | S_0, S_0, _  , _    -> c2 
+  | _  , _  , S_0, S_0  -> c1
   | _                   -> C (rsum x1 x2, rsum y1 y2)
 
 let cdiff c1 c2 = csum c1 (cneg c2)
@@ -601,36 +601,36 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
 
 (* we no longer memoise any of these things ...
 
-    module OrderedC = struct type t = cprob 
+    module OrderedC = struct type t = csnum 
                              let compare = Stdlib.compare
-                             let to_string = string_of_cprob
+                             let to_string = string_of_csnum
                       end
     module CMap = MyMap.Make (OrderedC)
-    let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_cprob c); f c)
+    let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_csnum c); f c)
 
-    module OrderedC2 = struct type t = cprob*cprob 
+    module OrderedC2 = struct type t = csnum*csnum 
                              let compare = Stdlib.compare
-                             let to_string = bracketed_string_of_pair string_of_cprob string_of_cprob
+                             let to_string = bracketed_string_of_pair string_of_csnum string_of_csnum
                       end
     module C2Map = MyMap.Make (OrderedC2)
     let memofunC2 f s = 
       curry2 (C2Map.memofun id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
                                                          Printf.printf "%s (%s) (%s)\n" 
-                                                                       s (string_of_cprob c1) (string_of_cprob c2);
+                                                                       s (string_of_csnum c1) (string_of_csnum c2);
                                                        f c1 c2
                                           )
                                )
              )
-    module OrderedCP = struct type t = cprob*prob 
+    module OrderedCP = struct type t = csnum*snum 
                              let compare = Stdlib.compare
-                             let to_string = bracketed_string_of_pair string_of_cprob string_of_prob
+                             let to_string = bracketed_string_of_pair string_of_csnum string_of_snum
                       end
     module CPMap = MyMap.Make (OrderedCP)
     let memofunCP f s = 
-      curry2 (CPMap.memofun id (uncurry2 (fun c p -> if !verbose || !verbose_qcalc then 
+      curry2 (CPMap.memofun id (uncurry2 (fun c s -> if !verbose || !verbose_qcalc then 
                                                        Printf.printf "%s (%s) (%s)\n" 
-                                                                     s (string_of_cprob c) (string_of_prob p);
-                                                     f c p
+                                                                     s (string_of_csnum c) (string_of_snum s);
+                                                     f c s
                                         )
                                )
              )
@@ -638,19 +638,19 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
     let mcprod = memofunC2 cprod "cprod"
     let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
       match x1,y1, x2,y2 with
-      | P_0     , P_0, _       , _    
-      | _       , _  , P_0     , P_0       -> c_0
-      | P_1     , P_0, _       , _         -> c2  
-      | _       , _  , P_1     , P_0       -> c1
-      | Pneg P_1, P_0, _       , _         -> cneg c2  
-      | _       , _  , Pneg P_1, P_0       -> cneg c1
+      | S_0     , S_0, _       , _    
+      | _       , _  , S_0     , S_0       -> c_0
+      | S_1     , S_0, _       , _         -> c2  
+      | _       , _  , S_1     , S_0       -> c1
+      | S_neg S_1, S_0, _       , _         -> cneg c2  
+      | _       , _  , S_neg S_1, S_0       -> cneg c1
       | _                                  -> mcprod c1 c2
   
     let mcsum = memofunC2 csum "csum"
     let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
       match x1,y1, x2,y2 with
-      | P_0, P_0, _  , _    -> c2 
-      | _  , _  , P_0, P_0  -> c1
+      | S_0, S_0, _  , _    -> c2 
+      | _  , _  , S_0, S_0  -> c1
       | _                   -> mcsum c1 c2
   
     (* let cneg = memofunC cneg "cneg" -- possibly not worth it *)
@@ -668,25 +668,25 @@ let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
  *)
 (* *********************** defining vectors, matrices ************************************ *)
 
-let make_pv ps = P_1, Array.of_list ps
+let make_snv ss = S_1, Array.of_list ss
 
 let pcneg  (C (x,y)) = (* only for local use, please *)
   let negate = function
-    | P_0 -> P_0
-    | p   -> Pneg p
+    | S_0 -> S_0
+    | s   -> S_neg s
   in
   C (negate x, negate y) 
 
-let pv_zero  = make_pv [c_1   ; c_0         ]
-let pv_one   = make_pv [c_0   ; c_1         ]
-let pv_plus  = make_pv [c_h   ; c_h         ]
-let pv_minus = make_pv [c_h   ; pcneg c_h   ]
+let pv_zero  = make_snv [c_1   ; c_0         ]
+let pv_one   = make_snv [c_0   ; c_1         ]
+let pv_plus  = make_snv [c_h   ; c_h         ]
+let pv_minus = make_snv [c_h   ; pcneg c_h   ]
 
-let pv_1 = make_pv [c_1] (* a unit for folding *)
-let pv_0 = make_pv [c_0] (* another unit for folding *)
+let pv_1 = make_snv [c_1] (* a unit for folding *)
+let pv_0 = make_snv [c_0] (* another unit for folding *)
 
 let string_of_matrix m = 
-  let strings_of_row r = Array.fold_right (fun p ss -> string_of_cprob p::ss) r [] in
+  let strings_of_row r = Array.fold_right (fun s ss -> string_of_csnum s::ss) r [] in
   let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
   let rwidth r = List.fold_left max 0 (List.map String.length r) in
   let width = List.fold_left max 0 (List.map rwidth block) in
@@ -695,7 +695,7 @@ let string_of_matrix m =
   Printf.sprintf "\n{%s}\n" block
   
 let string_of_cpad v =
-  Printf.sprintf "diag{" ^ string_of_list string_of_cprob " " (Array.to_list v) ^ "}"
+  Printf.sprintf "diag{" ^ string_of_list string_of_csnum " " (Array.to_list v) ^ "}"
   
 let make_m rows = rows |> (List.map Array.of_list) |> (Array.of_list)
 
@@ -746,7 +746,7 @@ let g_G  = make_g   [[c_g       ; pcneg c_f  ];
 (* experimental Rx(pi/8) gate *)
 
 let g_Rx = make_g   [[c_1       ; c_0        ];
-                     [c_0       ; C(P_f,P_g) ]]
+                     [c_0       ; C(S_f,S_g) ]]
                      
 let g_Phi = function (* as Pauli *)
   | 0 -> g_I
@@ -802,14 +802,14 @@ let m_0 = make_m [[c_0]]
 (* the special Grover gate. Oh this is a filthy hack. *)
 let groverG n =
   if n<1 || n>=20 then raise (Error (Printf.sprintf "grovergate %d" n)) else
-  (let p = P_h (2*(n-1)) in
-   let cp = c_of_p p in
+  (let s = S_h (2*(n-1)) in
+   let cp = c_of_p s in
    let size = 1 lsl n in
    let row _ = Array.init size (fun _ -> cp) in
    let m = Array.init size row in
-   let p' = cdiff cp c_1 in
+   let s' = cdiff cp c_1 in
    for i=0 to size-1 do
-     m.(i).(i) <- p'
+     m.(i).(i) <- s'
    done;
    gate_of_matrix m
   )

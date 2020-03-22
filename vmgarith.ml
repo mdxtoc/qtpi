@@ -24,7 +24,7 @@
 open Settings
 open Listutils
 open Functionutils
-open Prob
+open Snum
 open Value
 open Forutils
 
@@ -96,7 +96,7 @@ let fpow f one v n =
   List.fold_left f one (Listutils.tabulate n (const v))
 
 let tensorpow_g = fpow tensor_gg g_1 
-let tensorpow_pv = fpow tensor_pv2 pv_1
+let tensorpow_snv = fpow tensor_pv2 pv_1
 let tensorpow_m = fpow tensor_mm m_1
   
 let rowcolprod n row col =
@@ -161,7 +161,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                         (string_of_ket k) (string_of_bra b)
                  )
           );
-  if bm<>P_1 || km<>P_1 then 
+  if bm<>S_1 || km<>S_1 then 
     raise (Error (Printf.sprintf "bra*ket multiplication with non-unit modulus\n%s\n%s"
                                         (string_of_ket k) (string_of_bra b)
                  )

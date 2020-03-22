@@ -35,80 +35,99 @@ open Forutils
         
    Also f^2+g^2 = 1 (which will fall out of the above)
  *)
-type prob = 
-  | P_0
-  | P_1
-  | P_f              
-  | P_g 
-  | P_h of int              
-  | Psymb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
-  | Pneg of prob
-  | Pprod of prob list              (* associative *)
-  | Psum of prob list               (* associative *)
 
-and cprob = C of prob*prob (* complex prob A + iB *)
+type snum = 
+  | S_0
+  | S_1
+  | S_f              
+  | S_g 
+  | S_h of int              
+  | S_symb of int * bool * float     (* k, false=a_k, true=b_k, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
+  | S_neg of snum
+  | S_prod of snum list              (* associative *)
+  | S_sum of snum list               (* associative *)
 
-and modulus = prob
+and s_symb = { id: int; alpha: bool; conj: bool; secret: float ref}
 
-and probvec = modulus * cprob array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
+(* S_symb is an unknown (with furtively a secret value -- see below). 
+   0, 1, f and g are reals, but S_symb is a complex number. So it has a conjugate. 
+   Hence the normal field.
+   
+   The order of the fields matters for sorting: 
+    -- a1 comes before a2 (and b2, and etc.) so the id field is first; 
+    -- ai comes before bi so the alpha field is second (and false means a);
+    -- ai comes before ai! so the conj field is third;
+    -- occurrences of ai with the same i have the same secret value.
+    
+    The secret value is used when measuring, to compute the value of a formula
+    involving the symbol. It is _never_ used when calculating/simplifying, even if
+    it is 0.0 or 1.0 (which it very very rarely might be).
+ *)
+
+and csnum = C of snum*snum (* complex snum A + iB *)
+
+and modulus = snum
+
+(* snv: symbolic normalised vector *)
+and snv = modulus * csnum array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
 
 let vsize = Array.length
-let pvsize (p,v) = vsize v
+let snvsize (_,v) = vsize v
 let rsize = Array.length
 let csize m = vsize m.(0)
 
-let rec string_of_prob p = 
+let rec string_of_snum p = 
   (* Everything is associative, but the normal form is sum of negated products.
    * So possbra below puts in _very_ visible brackets, for diagnostic purposes.
    *)
   let prio = function
-    | P_0
-    | P_1
-    | P_f  
-    | P_g 
-    | P_h  _ 
-    | Psymb _         -> 10
-    | Pprod _         -> 8
-    | Pneg  _         -> 6
-    | Psum  _         -> 4
+    | S_0
+    | S_1
+    | S_f  
+    | S_g 
+    | S_h  _ 
+    | S_symb _         -> 10
+    | S_prod _         -> 8
+    | S_neg  _         -> 6
+    | S_sum  _         -> 4
   in
   let possbra p' = 
     let supprio = prio p in
     let subprio = prio p' in
-    let s = string_of_prob p' in
+    let s = string_of_snum p' in
     if subprio<=supprio then "!!(" ^ s ^ ")!!" else s
   in
   match p with
-  | P_0             -> "0"
-  | P_1             -> "1"
-  | P_f             -> "f"
-  | P_g             -> "g"
-  | P_h 1           -> "h"
-  | P_h n           -> Printf.sprintf "h(%d)" n
-  | Psymb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_int q) 
+  | S_0             -> "0"
+  | S_1             -> "1"
+  | S_f             -> "f"
+  | S_g             -> "g"
+  | S_h 1           -> "h"
+  | S_h n           -> Printf.sprintf "h(%d)" n
+  | S_symb (q,b,f)   -> Printf.sprintf "%s%s%s" (if b then "b" else "a") (string_of_int q) 
                                                 (if !showabvalues then Printf.sprintf "[%f]" f else "")
-  | Pneg p'         -> "-" ^ possbra p'
-  | Pprod ps        -> String.concat "*" (List.map possbra ps)
-  | Psum  ps        -> sum_separate (List.map possbra ps)    
+  | S_neg p'         -> "-" ^ possbra p'
+  | S_prod ps        -> String.concat "*" (List.map possbra ps)
+  | S_sum  ps        -> sum_separate (List.map possbra ps)    
 
-and string_of_cprob (C (x,y)) =
+and string_of_csnum (C (x,y)) =
   let im y = 
     match y with
-    | P_1     -> "i"
-    | P_f  
-    | P_g 
-    | P_h   _ 
-    | Psymb _ 
-    | Pprod _ -> "i*" ^ string_of_prob y
-    | _       -> "i*(" ^ string_of_prob y ^ ")"
+    | S_1     -> "i"
+    | S_f  
+    | S_g 
+    | S_h   _ 
+    | S_symb _ 
+    | S_prod _ -> "i*" ^ string_of_snum y
+    | _       -> "i*(" ^ string_of_snum y ^ ")"
   in
   match x,y with
-  | P_0, P_0    -> "0"
-  | _  , P_0    -> string_of_prob x
-  | P_0, Pneg p -> "-" ^ im p
-  | P_0, _      -> im y
-  | _  , Pneg p -> "(" ^ string_of_prob x ^ "-" ^ im p ^ ")"
-  | _  , _      -> "(" ^ string_of_prob x ^ "+" ^ im y ^ ")"
+  | S_0, S_0    -> "0"
+  | _  , S_0    -> string_of_snum x
+  | S_0, S_neg p -> "-" ^ im p
+  | S_0, _      -> im y
+  | _  , S_neg p -> "(" ^ string_of_snum x ^ "-" ^ im p ^ ")"
+  | _  , _      -> "(" ^ string_of_snum x ^ "+" ^ im y ^ ")"
 
 and sum_separate = function
   | p1::p2::ps -> if Stringutils.starts_with p2 "-" then p1 ^ sum_separate (p2::ps) 
@@ -118,8 +137,8 @@ and sum_separate = function
 
 type bksign = PVBra | PVKet
 
-let string_of_probvec bksign = 
-  let so_pv v =
+let string_of_snv bksign = 
+  let so_snv v =
     if !Settings.fancyvec then 
       (let n = vsize v in
        let rec ln2 n r = if n=1 then r
@@ -137,13 +156,13 @@ let string_of_probvec bksign =
          Printf.sprintf (match bksign with PVBra -> "<%s|" | PVKet -> "|%s>") (string_of_bin i)
        in
        let mustbracket (C(real,im)) = 
-         (* all but simple real sums are bracketed in string_of_cprob *)
+         (* all but simple real sums are bracketed in string_of_csnum *)
          match real, im with
-         | Psum _, P_0 -> true
+         | S_sum _, S_0 -> true
          | _           -> false
        in
        let estrings = _for_leftfold 0 1 n
-                        (fun i ss -> match string_of_cprob v.(i) with
+                        (fun i ss -> match string_of_csnum v.(i) with
                                      | "0"  -> ss
                                      | "1"  -> (string_of_basis_idx i) :: ss
                                      | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
@@ -155,18 +174,18 @@ let string_of_probvec bksign =
                         []
        in
        match estrings with
-       | []  -> "??empty probvec??"
+       | []  -> "??empty snv??"
        | [e] -> e
        | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
       )
     else
-      (let estrings = Array.fold_right (fun p ss -> string_of_cprob p::ss) v [] in
+      (let estrings = Array.fold_right (fun p ss -> string_of_csnum p::ss) v [] in
        Printf.sprintf "(%s)" (String.concat " <,> " estrings)
       )
   in
   function
-  | P_1, vv -> so_pv vv
-  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_prob vm) (so_pv vv)
+  | S_1, vv -> so_snv vv
+  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_snv vv)
   
-let string_of_bra = string_of_probvec PVBra
-let string_of_ket = string_of_probvec PVKet
+let string_of_bra = string_of_snv PVBra
+let string_of_ket = string_of_snv PVKet

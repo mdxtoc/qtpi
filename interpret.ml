@@ -43,7 +43,7 @@ open Monenv
 open Compile
 
 open Value
-open Prob
+open Snum
 open Vmgarith
 
 open Event
@@ -309,8 +309,8 @@ let rec evale env e =
                                    in
                                    match v with
                                    | VGate   g   -> VGate (tensorpow_g g n)
-                                   | VBra    b   -> VBra (tensorpow_pv b n)
-                                   | VKet    k   -> VKet (tensorpow_pv k n)
+                                   | VBra    b   -> VBra (tensorpow_snv b n)
+                                   | VKet    k   -> VKet (tensorpow_snv k n)
                                    | VMatrix m   -> VMatrix (tensorpow_m m n)
                                    | _           -> 
                                       raise (Disaster (e.pos, Printf.sprintf "tensor power %s ⊗⊗ %s" 
@@ -615,7 +615,7 @@ let rec interp env proc =
                  let ket_eval = function
                  | None      -> None
                  | Some kv   -> let k = ketv (evale env kv) in
-                                (match pvsize k with
+                                (match snvsize k with
                                  | 2 -> Some k
                                  | _ -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
                                                                                   (string_of_ket k)

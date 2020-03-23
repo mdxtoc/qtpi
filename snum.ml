@@ -407,7 +407,7 @@ and simplify_sum ss =
           in
           let rec sp again r ss =
             if !verbose_simplify then 
-              Printf.printf "sp %B %s %s\n" again (string_of_snum_structs r) (string_of_snum_structs ss);
+              Printf.printf "sp %B %s %s\n" again (string_of_snums r) (string_of_snums ss);
             match ss with
             | S_0                 :: ss            -> sp true r ss
             | S_neg s1 :: s2      :: ss when s1=s2 -> sp true r ss

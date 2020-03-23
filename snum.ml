@@ -53,7 +53,7 @@ type snum =
   | S_prod of snum list              (* associative *)
   | S_sum  of snum list              (* associative *)
 
-and s_symb = { id: int; alpha: bool; conj: bool; secret: float}
+and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
 
 (* S_symb is an unknown (with furtively a secret value -- see below). 
    0, 1, f and g are reals, but S_symb is a complex number. So it has a conjugate. 
@@ -65,9 +65,11 @@ and s_symb = { id: int; alpha: bool; conj: bool; secret: float}
     -- ai comes before ai! so the conj field is third;
     -- a secret amplitude value.
     
-    The secret value is used when measuring, to compute the value of a formula
-    involving the symbol. It is _never_ used when calculating/simplifying, even if
+    The secret values are used when measuring, to compute the value of a formula
+    involving the symbol. They are _never_ used when calculating/simplifying, even if
     it is 0.0 or 1.0 (which it very very rarely might be).
+    
+    We need both floats -- one for a, one for b -- because of a2b2.
  *)
 
 and csnum = C of snum*snum (* complex snum A + iB *)
@@ -102,14 +104,36 @@ let rec string_of_snum s =
   | S_g             -> "g"
   | S_h 1           -> "h"
   | S_h n           -> Printf.sprintf "h(%d)" n
-  | S_symb symb     -> Printf.sprintf "%s%s%s%s" 
-                                        (if symb.alpha then "b" else "a") 
-                                        (string_of_int symb.id) 
-                                        (if symb.conj then "!" else "")
-                                        (if !showabvalues then Printf.sprintf "[%f]" symb.secret else "")
+  | S_symb symb     -> string_of_s_symb symb 
   | S_neg s'         -> "-" ^ possbra s'
   | S_prod ss        -> String.concat "*" (List.map possbra ss)
   | S_sum  ss        -> sum_separate (List.map possbra ss)    
+
+and string_of_s_symb symb =
+    Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
+                              (string_of_int symb.id) 
+                              (if symb.conj then "!" else "")
+                              (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
+
+and string_of_snums ss = bracketed_string_of_list string_of_snum ss
+
+and string_of_snum_struct = function
+              | S_0         -> "S_0"
+              | S_1         -> "S_1"
+              | S_f         -> "S_f"
+              | S_g         -> "S_g"
+              | S_h i       -> Printf.sprintf "S_h %d" i             
+              | S_symb symb -> Printf.sprintf "S_symb %s" (string_of_s_symb_struct symb)
+              | S_neg  s    -> Printf.sprintf "S_neg (%s)" (string_of_snum_struct s)
+              | S_prod ss   ->  Printf.sprintf "S_prod (%s)" (string_of_snum_structs ss)
+              | S_sum  ss   ->  Printf.sprintf "S_sum (%s)" (string_of_snum_structs ss)
+
+and string_of_snum_structs ss = bracketed_string_of_list (string_of_snum_struct) ss
+
+and string_of_s_symb_struct symb =
+    let a,b = symb.secret in
+    Printf.sprintf "{id=%d; alpha=%B; conj=%B; secret=(%f,%f)}" 
+                              symb.id symb.alpha symb.conj a b
 
 and string_of_csnum (C (x,y)) =
   let im y = 
@@ -195,15 +219,15 @@ and rprod s1 s2 =
           | _               , S_0               -> S_0
           | S_1             , _                 -> s2
           | _               , S_1               -> s1
-          | S_neg s1         , _                 -> rneg (rprod s1 s2)
-          | _               , S_neg s2           -> rneg (rprod s1 s2)
-          | _               , S_sum s2s          -> let ss = List.map (rprod s1) s2s in
+          | S_neg s1         , _                -> rneg (rprod s1 s2)
+          | _               , S_neg s2          -> rneg (rprod s1 s2)
+          | _               , S_sum s2s         -> let ss = List.map (rprod s1) s2s in
                                                    simplify_sum (sflatten ss)
-          | S_sum s1s        , _                 -> let ss = List.map (rprod s2) s1s in
+          | S_sum s1s       , _                 -> let ss = List.map (rprod s2) s1s in
                                                    simplify_sum (sflatten ss)
-          | S_prod s1s       , S_prod s2s         -> simplify_prod (s1s @ s2s)
-          | _               , S_prod s2s         -> simplify_prod (s1 :: s2s)
-          | S_prod s1s       , _                 -> simplify_prod (s2::s1s)
+          | S_prod s1s      , S_prod s2s        -> simplify_prod (s1s @ s2s)
+          | _               , S_prod s2s        -> simplify_prod (s1 :: s2s)
+          | S_prod s1s      , _                 -> simplify_prod (s2::s1s)
           | _                                   -> simplify_prod [s1;s2]
   in
   if !verbose_simplify then
@@ -346,51 +370,48 @@ and simplify_sum ss =
                                                      (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
             r
           in
-          let takeit pre post =
-            let pre , _ = unzip pre in
-            let post, _ = unzip post in
-            Some (simplify_prod (pre @ post))
-          in
-          let partition_1 pps =
-            let rec pp_1 r pps =
-              match pps with
-              | (a,b) as hd :: pps when a=b -> pp_1 (hd::r) pps
-              | _                           -> List.rev r, pps
+          let rec a2b2 s ss = (* looking for X*aa!Y+X*bb!Y to replace with XY. Sorting doesn't put pairs next to each other always *)
+            let search neg sps =
+              let rec find pres sps =
+                match sps with 
+                | S_symb ({id=q1; alpha=false; conj=false} as symb1) :: 
+                  S_symb ({id=q2; alpha=false; conj=true } as symb2) :: sps when q1=q2   
+                            -> 
+                    let remake post =
+                      let r = match prepend pres post with 
+                              | []  -> S_1
+                              | [s] -> s
+                              | ss  -> S_prod ss
+                      in
+                      if neg then S_neg r else r
+                    in
+                    let s' = remake (S_symb {symb1 with alpha=true} :: S_symb {symb2 with alpha=true} :: sps) in
+                    if !verbose_simplify then 
+                      Printf.printf "a2b2.find looking for %s in %s\n" (string_of_snum s') (string_of_snums ss);
+                    if List.exists ((=) s') ss then Some (remake sps, Listutils.remove s' ss)
+                                               else find (S_symb symb2::S_symb symb1::pres) sps
+                | s :: sps  -> find (s::pres) sps
+                | _         -> None
+              in
+              find [] sps
             in
-            pp_1 [] pps
-          in
-          let all_same pps =
-            let _, post = partition_1 pps in
-            Listutils.null post
-          in
-          let rec a2b2 s1 s2 = (* looking for X*aa!+X*bb!, and let's hope the conj stuff works with the sorting *)
-            let r = match s1, s2 with
-                    | S_neg s1         , S_neg s2             -> a2b2 s1 s2 &~~ (_Some <.> rneg)
-                    | S_prod s1s       , S_prod s2s           ->
-                        (try let pps = zip s1s s2s in
-                             let pre, rest = partition_1 pps in
-                             match rest with
-                             | (S_symb {id=q1; alpha=false; conj=false}, S_symb {id=q2; alpha=true; conj=false}) :: 
-                               (S_symb {id=q3; alpha=false; conj=true }, S_symb {id=q4; alpha=true; conj=true }) :: 
-                               post  
-                               when q1=q2 && q1=q3 && q1=q4 && all_same post
-                                     -> takeit pre post
-                             | _     -> None
-                         with Zip -> None
-                        )
-                    | _                                     -> None
+            let r = match s with
+                    | S_neg (S_prod sps) -> search true  sps 
+                    | S_prod sps         -> search false sps
+                    | _                  -> None
             in
             if !verbose_simplify then
-              Printf.printf "a2b2 (%s) (%s) -> %s\n" (string_of_snum s1)  
-                                                     (string_of_snum s2)
-                                                     (string_of_option string_of_snum r);
+              Printf.printf "a2b2 (%s) %s -> %s\n" (string_of_snum s) (string_of_snums ss)  
+                                                   (string_of_option (bracketed_string_of_pair string_of_snum string_of_snums) r);
             r
           in
           let rec sp again r ss =
+            if !verbose_simplify then 
+              Printf.printf "sp %B %s %s\n" again (string_of_snum_structs r) (string_of_snum_structs ss);
             match ss with
-            | S_0                :: ss            -> sp again r ss
-            | S_neg s1 :: s2      :: ss when s1=s2 -> sp again r ss
-            | s1      :: S_neg s2 :: ss when s1=s2 -> sp again r ss
+            | S_0                 :: ss            -> sp true r ss
+            | S_neg s1 :: s2      :: ss when s1=s2 -> sp true r ss
+            | s1      :: S_neg s2 :: ss when s1=s2 -> sp true r ss
             (* the next lot are because h^j-h^(j+2) = h^j(1-h^2) = h^(j+2) 
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
@@ -437,13 +458,12 @@ and simplify_sum ss =
                                                       | Some (s,ss) -> sp true (s::r) ss
                                                       | None        -> sp again (s1::r) (s2::ss)
                                                      )
-            | s1      :: s2      :: ss            -> (match a2b2 s1 s2 with
-                                                      | Some s -> sp true (s::r) ss
-                                                      | None   -> sp again (s1::r) (s2::ss)
+            | s                  :: ss            -> (match a2b2 s ss with
+                                                      | Some (s, ss) -> sp true (s::r) ss
+                                                      | None         -> sp again (s::r) ss
                                                      )
-            | s                  :: ss            -> sp again (s::r) ss
             | []                                  -> let r = List.rev r in
-                                                    if again then doit (sflatten r) else r
+                                                     if again then doit (sflatten r) else r
           and doit ss = sp false [] (sort sumcompare ss)
           in
           if List.exists (function S_sum _ -> true | S_neg (S_sum _) -> true | _ -> false) ss then

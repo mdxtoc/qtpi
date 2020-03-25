@@ -643,22 +643,27 @@ and assigntype_expr cxt t e =
                                  | Times       -> 
                                      (* we currently have the following
                                           Num    -> Num    -> Num   
+                                          Sxnum  -> Sxnum  -> Sxnum   
                                           Gate   -> Gate   -> Gate
                                           Matrix -> Matrix -> Matrix
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
                                           Bra    -> Ket    -> Sxnum
                                           Sxnum  -> Matrix -> Matrix
+                                          Matrix -> Sxnum  -> Matrix
                                           ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with
                                       | Num      , Num      , _ 
+                                      | Sxnum    , Sxnum    , _ 
                                       | Gate     , Gate     , _    
                                       | Matrix   , Matrix   , _    
                                       | Num      , _        , Num
+                                      | Sxnum    , _        , Sxnum    
                                       | Gate     , _        , Gate
                                       | Matrix   , _        , Matrix   
                                       | _        , Num      , Num 
+                                      | _        , Sxnum    , Sxnum 
                                       | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
                                                                             with _ -> bad ()
                                                                            )

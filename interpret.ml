@@ -258,9 +258,10 @@ let rec evale env e =
                                   (let v1 = evale env e1 in
                                    let v2 = evale env e2 in
                                    match v1, v2 with
-                                   | VNum    n1, VNum  n2   -> VNum (n1 */ n2)
-                                   | VGate   g1, VGate g2   -> VGate (mult_gg g1 g2)
-                                   | VKet     k, VBra  b    -> VMatrix (mult_kb k b)
+                                   | VNum    n1, VNum    n2 -> VNum (n1 */ n2)
+                                   | VSxnum  n1, VSxnum  n2 -> VSxnum (cprod n1 n2)
+                                   | VGate   g1, VGate   g2 -> VGate (mult_gg g1 g2)
+                                   | VKet     k, VBra    b  -> VMatrix (mult_kb k b)
                                    | VMatrix m1, VMatrix m2 -> VMatrix (mult_mm m1 m2)
                                    | VSxnum  n1, VMatrix m2 -> VMatrix (mult_nm n1 m2)
                                    | VMatrix m1, VSxnum  n2 -> VMatrix (mult_nm n2 m1)

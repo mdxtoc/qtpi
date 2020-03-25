@@ -4,7 +4,7 @@ proc System () =
   out!["I ⊗⊗ 5="; show (I ⊗⊗ 5); "\n"] .
   out!["degate I="; show (degate I); "\n"] .
   (let M:matrix = (|+> ⊗⊗ 5) * (<+| ⊗⊗ 5)) .
-  (let G = M+M - (degate I ⊗⊗ 5)) .
+  (let G = (sx_1+sx_1)*M - (degate I ⊗⊗ 5)) .
   out!["G="; show G; "; groverG 5="; show (groverG 5); "\n"] .
   out!["G*G†="; show (G*G†); "\n"] .
   out!["G=degate (groverG 5) is "; show (G=degate (groverG 5)); "\n"] .

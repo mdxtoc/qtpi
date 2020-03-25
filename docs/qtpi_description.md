@@ -8,7 +8,7 @@ But if you are reading it you know that already ...)
 
 Qtpi is based on CQP (Gay & Nagarajan, POPL 2005) and therefore on the pi calculus. Some changes are cosmetic (e.g. fewer square brackets, fewer capital letters); some for convenience (no mandatory types, because there's a typechecker); some because I felt that quantum-state-changing operations (applying gates, measurement) should be protocol steps; and some are just cosmetic.
 
-The expression language was once moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. I'm not actively pursuing that avenue at present.
+The expression language was once moving closer to Miranda: '`where`' clauses, offside parsing and, perhaps eventually, laziness. The process language is beginning to exploit the offside parser. I'm not actively pursuing either of those avenues at present.
 
 ## The offside parsing rule
 
@@ -42,7 +42,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `fun` *x* *pat* ... *pat* `:` *T* = *E*  
   | `let` *pat* `=` *E*  
   
-  * Types are optional in process parameters, as everywhere.
+  * Types are optional in process parameters, as everywhere. _But notice_: now that arithmetic operators are heavily overloaded, explicit typing may sometimes be required.
   * Parameters following `with` are in scope only within *logging*.
   * As with reads `E?(pat)`, *let* patterns and function parameter-patterns are bullet-proof: underscore `_`, names and unit, but otherwise no constants and definitely no lists.
   * Function parameters may include a type, and the result type of the function may be given. This allows you to define functions with types like `[bit] &rarr; ['a] &rarr; ['a]`. (One way this will be done more elegantly, as in Miranda.)
@@ -70,7 +70,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * A guarded sum starts with a `+`, and a parallel composition starts with a `|`. Neither needs to be bracketed, because the offside parser ensures that everything is to the right of the `+` or `|`, as appropriate.  
   * matches also use the `+` separator, and use the offside parser.  
   * `new` creates channels, like the pi calculus &nu;.    
-  * `newq` creates qbits. Initialisation to a ket is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for unknown *a<sub>k</sub>* and *b<sub>k</sub>*, where *a<sub>k</sub>*<sup>2</sup>+*b<sub>k</sub>*<sup>2</sup>=1).  
+  * `newq` creates qbits. Initialisation to a ket is optional (without it you get (*a<sub>k</sub>*`|0>`+*b<sub>k</sub>*`|1>`), for complex-valued unknowns *a<sub>k</sub>* and *b<sub>k</sub>*, where |*a<sub>k</sub>*|<sup>2</sup>+|*b<sub>k</sub>*|<sup>2</sup>=1).  
   * `let` expressions use a restricted form of pattern -- no constants, no lists -- so they can't fail to match.  
   * `_0` is the null process (i.e. termination). I would have used `()` (null parallel or null guarded sum: same difference) but it would have caused parsing problems.  
   * `{` *E* `}` `.` *P*, part of CQP, is no longer included. It had become used exclusively for printing, and the output channels `out` and `outq` now do the job.  
@@ -106,7 +106,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *x*  
   | *x* `:` *T* 
   
-  * Parameter type specs are optional, always.
+  * Parameter type specs are optional, always. _But notice_: now that arithmetic operators are heavily overloaded, explicit typing may sometimes be required.
   
   
 * Type *T* 
@@ -118,9 +118,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | `bit`  
   | `string`  
   | `char`  
+  | `sxnum`  
   | `gate`  
   | `bra`  
-  | `ket`
+  | `ket`  
+  | `matrix`  
   | `qstate`  
   | `'`*x*  
   | `''`*x*  
@@ -136,10 +138,13 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   *  '*num*' is the type of numbers: unbounded integers and unbounded-precision rationals (fractions). So that we can do proper arithmetic. Using *num* rather than *int* can cause some problems: some library functions, such as *take* and *drop*, really don't work with fractional arguments (or, at least, I can't decide what they should do), and you may have to make use of *floor*.
   * Range types are in CQP, but are not in qtpi. They are hard to deal with in the typechecker and are currently pretty useless, but if I can make a subtyping typechecker they might come back.  
   * `bit` ought to be a subtype of `int`, but I can't force the typechecker to agree.
+  * `sxnum` is the type of symbolic complex numbers, the values that qtpi's symbolic quantum calculator manipulates.
+  * `bra` is the type of unitary row vectors; `ket` of unitary column vectors.
+  * `matrix` is the type of matrices of `sxnum`s. `gate` is the type of unitary square matrices.
   * `qstate` is the type of the result of the *qval* function (see below). It's a peek at the simulator state. But qstates can't be compared or manipulated in any way. The only useful thing you can do with a *qstate* is to send it down the outq output channel, which prints it out.
   * Process types are necessary in typechecking, but I think they are more or less useless. Process names do have a type, however ...  
   * The syntactic precedence of types is more or less as listed, or so I hope and intend. 
-  * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It may be pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations.
+  * Explicit types are optional syntactically, as in ML and OCaml and Miranda and Haskell and all good strongly-typed languages. The typechecker infers them. It may be pragmatic to include them in the parameter list of a process definition, and in '`new`' channel declarations. Since arithmetic operators have been overloaded to allow for matrix arithmetic, such pragmatism may be more often required.
   * Type variables / unknown types `'`*x* and `''`*x* are for function definitions. `'`*x* is a classical type: no qbits. As in ML, `''`*x* is an equality type: no qbits, qstates, functions, processes, channels. `'*`*x* is an everything type (includes qbits). 
   * Classical types are everything except *qbit* or those involving *qbit* (but function, process and channel types are classical whatever their internal types).  
   * Equality types are everything except *qbit*, *qstate*, function, process and channel (or anything involving those).  
@@ -176,6 +181,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* *E*  
   | `-` *E*  
   | `not` *E*  
+  | *E* &dagger;  
   | *E* `::` *E*  
   | *E* `@` *E*  
   | *E* *aop* *E*  
@@ -183,25 +189,65 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   | *E* *bop* *E*  
   | `lam` *pat* ... *pat* `.` *E*  
   
-  * Constants are integers; chars `'c'`; strings `"chars"`; bit constants `0b1` and `1b1`; ket constants `|0>`, `|1>`, `|+>` and `|->`; bra constants `<0|`, `<1|`, `<+|` and `<-|`; (and longer bras and kets like `<-++|` or `|0100>`).
+  * Constants are 
+    + integers
+    + chars `'` char `'` with the escapes `\n`, `\r`, `\t` and even `\b` (why?)
+    + strings `"` chars `"` with escapes as above
+    + bit constants `0b1` and `0b1`
+    + ket constants `|0>`, `|1>`, `|+>` and `|->`
+    + bra constants `<0|`, `<1|`, `<+|` and `<-|`
+    + (and longer bras and kets like `<-++|` or `|0100>`)
+    + sxnum constants `sx_0`, `sx_1`, `sx_i`, `sx_h`, `sx_f` and `sx_g`.
   * The zero-tuple `()` and the empty list `[]` are special cases of the bracketed rules.
   * There is no one-tuple.   
   * Tuples are always bracketed, as in Miranda.  
   * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
   * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and perhaps one day there will be downloadable bundles of functions.  
   * Absolutely no process stuff, no manipulation of qbits. But see *print_string*, *print_strings* and *print_qbit* below.  
-  
-* Built-in operators  
+
+ * Operators  
     
     * `@` (append) was an operator in one of Gay & Nagarajan's examples; it's still included.  
     * `::` (cons) is now included.  
-    * `+`, `-`, `*`, `/` `**` are arithmetic operators *aop*.  
-    * `*` deals both with numbers and gates. In the absence of helpful type declarations, it is biased towards multiplying numbers. (In the immediate future it will handle many more forms of multiplication.)
-    * `**`'s second argument must be a whole number.
+    * arithmetic operators *aop* -- see below.  
+    * exponentiation's second argument must be a whole number.
     * `<`, `<=`, `=`, `<>`, `>=`, `>` comparison operators *cop*. `=` handles anything which is an equality type (no qbits, qstates, functions, processes, channels). Operands of the inequality operators must be numbers.
     * `&&`, `||`, boolean operators *bop*.
-    * `><` tensor multiplication (currently only gates; soon to be lots more).
     
+* Arithmetic operators
+  
+  We have the normal operators for unary negation (`-`), addition (`+`), subtraction (`-`), multiplication (`*`) and exponentiation (`**`), as well as tensor product (`&otimes;` or `><`) and tensor exponentiation (`&otimes&otimes` or `><><`). Arithmetic operators are heavily overloaded, and to make typechecking work it is sometimes necessary to explicitly type some variables. These are the types currently understood:
+  
+  * unary negation: 
+    + `num` &rarr; `num`
+    + `sxnum` &rarr; `sxnum`
+  * addition and subtraction: 
+    + `num` &rarr; `num` &rarr; `num` 
+    + `sxnum` &rarr; `sxnum` &rarr; `sxnum` 
+    + `matrix` &rarr; `matrix` &rarr; `matrix`
+  * multiplication:
+    + `num` &rarr; `num` &rarr; `num` 
+    + `sxnum` &rarr; `sxnum` &rarr; `sxnum` 
+    + `matrix` &rarr; `matrix` &rarr; `matrix` 
+    + `gate` &rarr; `gate` &rarr; `gate` 
+    + `gate` &rarr; `ket` &rarr; `ket` 
+    + `ket` &rarr; `bra` &rarr; `matrix` 
+    + `bra` &rarr; `ket` &rarr; `sxnum` 
+    + `sxnum` &rarr; `matrix` &rarr; `matrix` 
+    + `matrix` &rarr; `sxnum` &rarr; `matrix` 
+  * exponentiation:
+    + `num` &rarr; `num` &rarr; `num` 
+  * tensor product:
+    + `matrix` &rarr; `matrix` &rarr; `matrix` 
+    + `bra` &rarr; `bra` &rarr; `bra` 
+    + `ket` &rarr; `ket` &rarr; `ket` 
+    + `gate` &rarr; `gate` &rarr; `gate` 
+  * tensor exponentiation
+    + `matrix` &rarr; `num` &rarr; `matrix`  
+    + `bra` &rarr; `num` &rarr; `bra`  
+    + `ket` &rarr; `num` &rarr; `ket`  
+    + `gate` &rarr; `num` &rarr; `gate`  
+ 
 * Process name *N*
 
   Starts with an upper-case letter, continues with alphanumeric, prime and underscore.
@@ -250,7 +296,7 @@ For qbits there is *qval*
 
   * *qval*: *qbit* &rarr; *qstate*
 
-The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string `#`*q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a probability vector in the computational basis -- including, if there is entanglement, a list of the indices of the qbits it's entangled with.
+The use of *qval* is connected to the *outq* channel: *outq*!(*qval* *q*) prints a string `#`*q*`:`*V*, the qbit's index *q* and a representation *V* of its state as a symbolic-number vector in the computational basis -- including, if there is entanglement, a list of the indices of the qbits it's entangled with.
 
 ## Logging and testpoints
 
@@ -262,29 +308,27 @@ If the logging subprocesses use parameters which aren't required in the body of 
 
 If a process wants to use the logging parameters in the arguments of a process call (e.g. in a recursive call) then it may do so by adding `/^` `(` *E* `,` ... `,` *E* `)` to the arguments of the call; those extra arguments can refer to the logging parameters.
 
-## Probability vectors and symbolic calculation
+## Symbolic calculation
 
-Qtpi uses a symbolic quantum calculator: only during quantum measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose vector is unknown. It also means that it can do exact calculations in most cases.
+Qtpi uses a symbolic quantum calculator: only during quantum measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose value is unknown. It also means that it can do exact calculations in most cases.
 
-Qbits are represented as integer indices into a quantum state of probability vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of probability-amplitude expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`); either *A* or *B* may be zero. A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[`#`*i*; `#`*j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (again, some of *A*, *B*, *C* and *D* may be zero). And so on for larger entanglements: famously, *n* qbits need 2<sup>*n*</sup> amplitudes.
+Qbits are represented as integer indices into a quantum state of unitary amplitude vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of complex-number-valued probability-amplitude expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`); either *A* or *B* may be zero, and always |*A*|<sup>2</sup>+|*B*|<sup>2</sup>=1. A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[`#`*i*; `#`*j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (again, some of *A*, *B*, *C* and *D* may be zero). And so on for larger entanglements: famously, *n* qbits need 2<sup>*n*</sup> amplitudes.
 
 The constant `h` is *sqrt*(1/2), and `h(`*k*`)` means `h`<sup>*k*</sup>.  *h* is also *cos*(&pi;/4) and *sin*(&pi;/4). The constant `f` is *sqrt*((1+`h`)/2), which is *cos*(&pi;/8), and `g` is *sqrt*((1-`h`)/2), which is *sin*(&pi;/8).
 
-An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that |`a`<sub>k</sub><sup>2</sup>|+|`b`<sub>k</sub><sup>2</sup>|=1. To enhance the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured.
+An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that |`a`<sub>k</sub>|<sup>2</sup>+|`b`<sub>k</sub>|<sup>2</sup>=1. To enhance the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured. In computing |`a`<sub>k</sub>|<sup>2</sup> or |`b`<sub>k</sub>|<sup>2</sup> qtpi uses the fact that |*x*|<sup>2</sup> = *x* * <span style="text-decoration:overline;">*x*</span> -- *x* times its complex conjucate. Due to deficiencies in the calculator, unfortunately this can mean that <span style="text-decoration:overline;">`a`<sub>k</sub></span> or <span style="text-decoration:overline;">`b`<sub>k</sub></span> can appear in the result of calculations, written as `a`*k*`!` or `b`*k*`!`
 
 ### Modulus
 
-In principle a probability vector's amplitudes should be such that |*A*|<sup>2</sup>+|*B*|<sup>2</sup> = 1 for an unentangled qbit, or |*A*|<sup>2</sup>+|*B*|<sup>2</sup>+|*C*|<sup>2</sup>+|*D*|<sup>2</sup> = 1 for a pair of entangled qbits, and so on. But when the amplitude formulae are very complicated it can sometimes be difficult for qtpi's calculator to normalise the result of a calculation (typically this happens with a large entanglement when one of the qbits is measured). So probability vectors also carry a probability-amplitude modulus, the sum of the squares of its amplitudes. Normally this is 1, and not mentioned, but when it is not 1, the vector is printed prefixed by `<<`*M*`>>`, where *M* is the modulus formula. The interpretation is that every amplitude in the vector is divided by &radic;<span style="text-decoration:overline;">*M*</span>. An example might be a modulus *h*<sup>2</sup>+*h*<sup>4</sup>: its value is simply 3/4, but its square root involves &radic;<span style="text-decoration:overline;">3</span>, whch qtpi can't deal with. 
+In principle a vector's amplitudes should be such that |*A*|<sup>2</sup>+|*B*|<sup>2</sup> = 1 for an unentangled qbit, or |*A*|<sup>2</sup>+|*B*|<sup>2</sup>+|*C*|<sup>2</sup>+|*D*|<sup>2</sup> = 1 for a pair of entangled qbits, and so on. But when the amplitude formulae are very complicated it can sometimes be difficult for qtpi's calculator to normalise the result of a calculation (typically this happens with a large entanglement when one of the qbits is measured). So probability vectors also carry a probability-amplitude modulus, the sum of the squares of its amplitudes. Normally this is 1, and not mentioned, but when it is not 1, the vector is printed prefixed by `<<`*M*`>>`, where *M* is the modulus formula. The interpretation is that every amplitude in the vector is divided by &radic;<span style="text-decoration:overline;">*M*</span>. An example might be a modulus *h*<sup>2</sup>+*h*<sup>4</sup>: its value is simply 3/4, but its square root involves &radic;<span style="text-decoration:overline;">3</span>, whch qtpi can't deal with. 
 
 The modulus is taken into account numerically during measurement.
 
 ### Complex probabilities
 
-Probability amplitudes represent complex numbers *x*+*iy*. At present, for laziness sake, the `a`<sub>k</sub> and `b`<sub>k</sub> amplitudes in an unknown probability vector are reals (i.e. *y* is always zero).
+Probability amplitudes always represent complex numbers *x*+*iy*, but often *y* is zero. 
 
 ## Gates *gate*
-
-Gates are now a proper kind of value: square matrices. We have both matrix and tensor product: matrix product uses the operator `*`; tensor product uses `><`. (I don't know how to make qtpi use juxtaposition for matrix product, because it's in use for function application. Sorry.)
 
 The built-in library defines various named gates (for meaning of `f`, `g` and `h`, see above). Mostly arity 1, except `Cnot` which is arity 2, `F` and `T`, which are arity 3.
 
@@ -305,11 +349,7 @@ There's a built-in function *phi: num &rarr; gate*:
 
   * `phi 0` is `I`; `phi 1` is `X`; `phi 2` is `Z`; `phi 3` is `Y`.
   
-There's a built-in function *dagger: gate &rarr; gate* which does conjugate transpose. (At some point I'll allow programs to be input in UTF-8 encoding and then I'll have proper &#x2020; and &#x2297;.)
-
 There are lots more gates -- e.g. 'square root of NOT' -- which aren't included. 
-
-Because I don't yet know how to calculate gates, there are *groverG* and *groverU* functions to calculate the gates for Grover's algorithm. Advice and suggestions welcomed: one of the problems is that gates must be unitary.
 
 ## The *dispose* channel
 
@@ -385,9 +425,10 @@ Following the introduction of the *num* type in place of the old *int*, we can h
 	* 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *concat*: *[['a]]* &rarr; *['a]*
   * *const*: *'a* &rarr; *'b* &rarr; *'a*
-  * *dagger*: *gate* &rarr; *gate*
+  * *degate*: *gate* &rarr; *matrix*
   * *drop*: *num* &rarr; *['a]* &rarr; *['a]*
   * *dropwhile*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
+  * *engate*: *matrix* &rarr; *gate* (checks matrix is square and unitary)
   * *exists*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *bool*
   * *filter*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
   * *floor*: *num* &rarr; *num*
@@ -415,6 +456,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
 	  * sorts according to order defined by first argument -- 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *snd*: (*'a*, *'b*) &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *['a]*
+  * *tabulate_matrix*: *num* &rarr; *num* &rarr; (*num* &rarr; *num* &rarr; *sxnum*) &rarr; *matrix*
   * *take*: *num* &rarr; *['a]* &rarr; *['a]*
   * *takewhile*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
   * *tl*: *['a]* &rarr; *['a]*  
@@ -426,11 +468,6 @@ Following the introduction of the *num* type in place of the old *int*, we can h
   * *bitand*: *num* &rarr; *num* &rarr; *num*
   * *bits2num*: *[bit]* &rarr; *num*
   * *num2bits*: *num* &rarr; *[bit]*
-  * 
-  * *groverG*: *num* &rarr; *gate*
-    * calculates the G gate for Grover's algorithm; argument gives the number of qubits
-  * *groverU*: *[bit]* &rarr; *gate*
-    * calculates the U gate for Grover's algorithm; argument gives the sought-for argument values
   * 
   * *read_alternative*: *string* &rarr; *string* &rarr; [(*string*,*'a*)] &rarr; *'a*
 	  * *read_alternative* *prompt* "/" [(*s0*,*v0*);(*s1*,*v1*);...] prints *prompt*(*s0*/*s1*/...) and returns *v0* or *v1* or ... according to what the user inputs

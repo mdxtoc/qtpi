@@ -86,12 +86,12 @@ let _ = Interpret.know ("groverU", "[bit] -> gate"    , vfun (vgate <.> groverU 
 let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmg.dagger_g <.> gatev))
 let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmg.dagger_m <.> matrixv))
 
-let _ = Interpret.know ("sx_0"    , "csnum", vsxnum Snum.c_0)
-let _ = Interpret.know ("sx_1"    , "csnum", vsxnum Snum.c_1)
-let _ = Interpret.know ("sx_i"    , "csnum", vsxnum Snum.c_i)
-let _ = Interpret.know ("sx_h"    , "csnum", vsxnum Snum.c_h)
-let _ = Interpret.know ("sx_f"    , "csnum", vsxnum Snum.c_f)
-let _ = Interpret.know ("sx_g"    , "csnum", vsxnum Snum.c_g)
+let _ = Interpret.know ("sx_0"    , "sxnum", vsxnum Snum.c_0)
+let _ = Interpret.know ("sx_1"    , "sxnum", vsxnum Snum.c_1)
+let _ = Interpret.know ("sx_i"    , "sxnum", vsxnum Snum.c_i)
+let _ = Interpret.know ("sx_h"    , "sxnum", vsxnum Snum.c_h)
+let _ = Interpret.know ("sx_f"    , "sxnum", vsxnum Snum.c_f)
+let _ = Interpret.know ("sx_g"    , "sxnum", vsxnum Snum.c_g)
 
 let v_makeC g =
   if gsize g<>2 then

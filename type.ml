@@ -39,7 +39,8 @@ and tnode =
   | Bool
   | Char
   | String
-  | Bit 
+  | Bit
+  | Sxnum
   | Qbit
   | Qstate
   | Bra
@@ -93,7 +94,8 @@ let typeprio t =
   | Char
   | String
   | Bit           
-  | Unit          
+  | Unit
+  | Sxnum
   | Qbit
   | Qstate
   | Bra
@@ -130,6 +132,7 @@ and string_of_tnode = function
   | String           -> "string"
   | Bool             -> "bool"
   | Unit             -> "()"
+  | Sxnum            -> "sxnum"
   | Qbit             -> "qbit"
   | Qstate           -> "qstate"
   | Bra              -> "bra"
@@ -170,6 +173,7 @@ let rec freetvs t =
     | String
     | Bit 
     | Unit
+    | Sxnum
     | Qbit 
     | Qstate
     | Bra
@@ -202,6 +206,7 @@ let freeunknowns t =
     | String
     | Bit 
     | Unit
+    | Sxnum
     | Qbit 
     | Qstate
     | Bra
@@ -310,6 +315,7 @@ let generalise t0 =
     | String
     | Bit 
     | Unit
+    | Sxnum
     | Qbit 
     | Qstate
     | Bra
@@ -344,6 +350,7 @@ let instantiate t =
     | String
     | Bit 
     | Unit
+    | Sxnum
     | Qbit 
     | Qstate
     | Bra
@@ -377,6 +384,7 @@ let rec is_classical t =
   | Char
   | String
   | Bit 
+  | Sxnum
   | Bra
   | Ket
   | Gate            

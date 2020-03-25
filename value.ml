@@ -50,6 +50,7 @@ type value =
   | VBit of bool
   | VNum of num
   | VBool of bool
+  | VSxnum of csnum
   | VChar of Uchar.t
   | VBra of snv
   | VKet of snv
@@ -104,6 +105,7 @@ let rec so_value optf v =
                | VBit b          -> if b then "1" else "0"
                | VNum n          -> string_of_num n
                | VBool b         -> string_of_bool b
+               | VSxnum n        -> string_of_csnum n
                | VBra b          -> string_of_bra b
                | VKet k          -> string_of_ket k
                | VMatrix m       -> string_of_matrix m

@@ -80,11 +80,18 @@ let _ = Interpret.know ("CSWAP" , "gate", vgate g_Fredkin)
 
 let v_groverU vs = groverU (List.map bitv vs)
 
-let _ = Interpret.know ("groverG", "num ->gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
-let _ = Interpret.know ("groverU", "[bit] -> gate", vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
+let _ = Interpret.know ("groverG", "num -> gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
+let _ = Interpret.know ("groverU", "[bit] -> gate"    , vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
 
 let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmg.dagger_g <.> gatev))
 let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmg.dagger_m <.> matrixv))
+
+let _ = Interpret.know ("sx_0"    , "csnum", vsxnum Snum.c_0)
+let _ = Interpret.know ("sx_1"    , "csnum", vsxnum Snum.c_1)
+let _ = Interpret.know ("sx_i"    , "csnum", vsxnum Snum.c_i)
+let _ = Interpret.know ("sx_h"    , "csnum", vsxnum Snum.c_h)
+let _ = Interpret.know ("sx_f"    , "csnum", vsxnum Snum.c_f)
+let _ = Interpret.know ("sx_g"    , "csnum", vsxnum Snum.c_g)
 
 let v_makeC g =
   if gsize g<>2 then

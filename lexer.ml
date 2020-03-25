@@ -114,6 +114,7 @@ let string_of_token = function
     | APPEND    -> "APPEND"
     | AND       -> "AND"
     | DAGGER    -> "DAGGER"
+    | SXNUMTYPE -> "SXNUMTYPE"
 
   
 let get_linenum lexbuf = 
@@ -192,6 +193,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "qstate"    -> QSTATETYPE
   | "^"         -> CHANTYPE
   | "char"      -> CHARTYPE
+  | "sxnum"     -> SXNUMTYPE
   | "string"    -> STRINGTYPE
   | "matrix"    -> MATRIXTYPE
   | "bra"       -> BRATYPE

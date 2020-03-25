@@ -72,6 +72,7 @@ let bitv    = function VBit    b       -> b      | v -> miseval "bitv"     v
 let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
+let sxnumv  = function VSxnum  n       -> n      | v -> miseval "sxnumv"   v
 let stringv = function VString s       -> s      | v -> miseval "stringv"  v
 let brav    = function VBra    b       -> b      | v -> miseval "brav"     v
 let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
@@ -90,6 +91,7 @@ let vint    i       = VNum    (num_of_int i)              (* int -> value *)
 let vnum    n       = VNum    n
 let vbool   b       = VBool   b
 let vchar   c       = VChar   c
+let vsxnum  n       = VSxnum  n
 let vstring s       = VString s
 let vbra    b       = VBra    b
 let vket    k       = VKet    k
@@ -207,7 +209,12 @@ let rec evale env e =
     | EBit b              -> VBit b
     | EBra b              -> VBra (pv_of_braket b)
     | EKet k              -> VKet (pv_of_braket k)
-    | EMinus e            -> VNum (~-/ (numev env e))
+    | EMinus e            -> (let v = evale env e in
+                              match v with
+                              | VNum   n   -> VNum (~-/ n)
+                              | VSxnum n   -> VSxnum (Snum.cneg n)
+                              | _          -> raise (Disaster (e.pos, Printf.sprintf "-(%s)" (string_of_value v)))
+                             )
     | ENot   e            -> VBool (not (boolev env e))
     | EDagger e           -> (let v = evale env e in
                               match v with
@@ -237,6 +244,7 @@ let rec evale env e =
                                    match v1, v2 with
                                    | VNum    n1, VNum    n2 -> VNum ((if op=Plus then (+/) else (-/)) n1 n2)
                                    | VMatrix m1, VMatrix m2 -> VMatrix ((if op=Plus then add_mm else sub_mm) m1 m2)
+                                   | VSxnum  n1, VSxnum  n2 -> VSxnum ((if op=Plus then Snum.csum else Snum.cdiff) n1 n2)
                                    | _                      -> 
                                       raise (Disaster (e.pos, Printf.sprintf "(%s) %s (%s)" 
                                                                  (string_of_value v1) 
@@ -254,6 +262,8 @@ let rec evale env e =
                                    | VGate   g1, VGate g2   -> VGate (mult_gg g1 g2)
                                    | VKet     k, VBra  b    -> VMatrix (mult_kb k b)
                                    | VMatrix m1, VMatrix m2 -> VMatrix (mult_mm m1 m2)
+                                   | VSxnum  n1, VMatrix m2 -> VMatrix (mult_nm n1 m2)
+                                   | VMatrix m1, VSxnum  n2 -> VMatrix (mult_nm n2 m1)
                                    | _                      -> 
                                       raise (Disaster (e.pos, Printf.sprintf "multiply %s * %s" 
                                                                  (string_of_value v1) 

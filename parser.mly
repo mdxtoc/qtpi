@@ -65,7 +65,8 @@
 %token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON
 %token IF THEN ELSE ELIF FI
-%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE QBITTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE TYPEARROW
+%token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
+%token QBITTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC UNTRACED QBITDEC LETDEC MATCH 
 %token QUERY BANG MEASURE THROUGH 
@@ -222,6 +223,7 @@ simple_typespec:
   | STRINGTYPE                          {adorn String}
   | BITTYPE                             {adorn Bit}
   | GATETYPE                            {adorn Gate}
+  | SXNUMTYPE                           {adorn Sxnum}
   | QBITTYPE                            {adorn Qbit}
   | QSTATETYPE                          {adorn Qstate}
   | MATRIXTYPE                          {adorn Matrix}

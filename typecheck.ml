@@ -73,6 +73,7 @@ and evaltype t =
   | Num
   | Bool
   | Char
+  | Sxnum 
   | String
   | Bit 
   | Bra
@@ -309,6 +310,7 @@ and canunifytype n t =
       | _       , Num
       | _       , Bool
       | _       , Char
+      | _       , Sxnum
       | _       , String
       | _       , Bit 
       | _       , Bra
@@ -364,6 +366,7 @@ and force_kind kind t =
     | Num
     | Bool
     | Char
+    | Sxnum
     | String
     | Bit 
     | Unit
@@ -523,7 +526,29 @@ and assigntype_expr cxt t e =
                                let _ = unifytypes rtype t in
                                let _ = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
-     | EMinus  e            -> unary cxt (adorn_x e Num) (adorn_x e Num) e
+     | EMinus  e            -> (* even this is overloaded now, beacause of sxnum *)
+                               (let te, tout = neweqtv e.pos, neweqtv e.pos in
+                                unary cxt te tout e;
+                                let te, tout = evaltype te, evaltype tout in
+                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded unary minus can be num->num or sxnum->sxnum: \
+                                                                                  here we have %s->%s"
+                                                                                        (string_of_type te)
+                                                                                        (string_of_type tout)
+                                                                            )
+                                                                     )
+                                in    
+                                match te.inst, tout.inst with
+                                | Num      , _
+                                | _        , Num
+                                | Sxnum    , _
+                                | _        , Sxnum      -> (try unifytypes te tout with _ -> bad ())
+                                | Unknown _, Unknown _  -> 
+                                      raise (Error (e.pos, Printf.sprintf "overloaded unary minus can be can be num->num or sxnum->sxnum:  \
+                                                                           cannot deduce type (use some type constraints)"
+                                                   )
+                                            )
+                                | _                     -> bad()
+                               )
      | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
      | EDagger e            -> (* a little overloaded *)
                                (let te, tout = neweqtv e.pos, neweqtv e.pos in
@@ -622,8 +647,8 @@ and assigntype_expr cxt t e =
                                           Matrix -> Matrix -> Matrix
                                           Gate   -> Ket    -> Ket
                                           Ket    -> Bra    -> Matrix
-                                          ( -- Bra    -> Ket    -> Snum   -- not until Snum is a type)
-                                          ( -- Snum   -> Matrix -> Matrix -- ditto)
+                                          Bra    -> Ket    -> Sxnum
+                                          Sxnum  -> Matrix -> Matrix
                                           ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with
@@ -634,13 +659,25 @@ and assigntype_expr cxt t e =
                                       | Gate     , _        , Gate
                                       | Matrix   , _        , Matrix   
                                       | _        , Num      , Num 
-                                      | _        , Gate     , Gate     
-                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
+                                      | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
+                                                                            with _ -> bad ()
+                                                                           )
+
+                                      | Matrix   , Sxnum   , _         
+                                      | Sxnum    , Matrix  , _         -> (try unifytypes tout (adorn_x e Matrix)
                                                                             with _ -> bad ()
                                                                            )
                                       | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
                                                                             with _ -> bad ()
                                                                            )
+                                      | Bra      , Ket      , _         -> (try unifytypes tout (adorn_x e Sxnum)
+                                                                            with _ -> bad ()
+                                                                           )
+
+                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                                twarn e1 t2
+                                                                            with _ -> bad ()
+                                                                           )                                       
                                       | _        , _        , Num       -> (try unifytypes t1 tout; unifytypes t2 tout;
                                                                                 twarn2 e1 e2 tout
                                                                             with _ -> bad ()
@@ -722,15 +759,19 @@ and assigntype_expr cxt t e =
                                  | Minus       ->
                                      (* we currently have the following 
                                           Num    -> Num    -> Num   
+                                          Sxnum  -> Sxnum  -> Sxnum   
                                           Matrix -> Matrix -> Matrix
                                         -- nothing with Bra or Ket, because we want to keep them normalised. Hmm.
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with
                                       | Num      , Num      , _ 
+                                      | Sxnum    , Sxnum    , _ 
                                       | Matrix   , Matrix   , _    
                                       | Num      , _        , Num
+                                      | Sxnum    , _        , Sxnum
                                       | Matrix   , _        , Matrix   
                                       | _        , Num      , Num 
+                                      | _        , Sxnum    , Sxnum 
                                       | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
                                                                             with _ -> bad ()
                                                                            )

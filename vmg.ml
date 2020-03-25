@@ -374,6 +374,11 @@ let mult_mm mA mB =
   let p = csize mB in
   init_m m p (fun i j -> let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j)))
   
+let mult_nm cn mA = 
+  let m = rsize mA in
+  let n = csize mA in
+  init_m m n (fun i j -> cprod cn mA.(i).(j))
+  
 let mult_gg gA gB = 
   if !verbose_qcalc then Printf.printf "mult_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
   let n = gsize gA in

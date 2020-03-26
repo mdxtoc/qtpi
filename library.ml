@@ -78,14 +78,6 @@ let _ = Interpret.know ("Cswap" , "gate", vgate g_Fredkin)
 let _ = Interpret.know ("CSwap" , "gate", vgate g_Fredkin)
 let _ = Interpret.know ("CSWAP" , "gate", vgate g_Fredkin)
 
-let v_groverU vs = groverU (List.map bitv vs)
-
-let _ = Interpret.know ("groverG", "num -> gate"      , vfun (vgate <.> groverG <.> mustbe_intv))
-let _ = Interpret.know ("groverU", "[bit] -> gate"    , vfun (vgate <.> groverU <.> (List.map bitv) <.> listv))
-
-let _ = Interpret.know ("dagger_g", "gate -> gate"    , vfun (vgate <.> Vmg.dagger_g <.> gatev))
-let _ = Interpret.know ("dagger_m", "matrix -> matrix", vfun (vmatrix <.> Vmg.dagger_m <.> matrixv))
-
 let _ = Interpret.know ("sx_0"    , "sxnum", vsxnum Snum.c_0)
 let _ = Interpret.know ("sx_1"    , "sxnum", vsxnum Snum.c_1)
 let _ = Interpret.know ("sx_i"    , "sxnum", vsxnum Snum.c_i)
@@ -350,6 +342,15 @@ let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (Float.pi)))
 
 (* ********************* gates, matrices ************************ *)
  
+let v_tabulate_m m n f =
+  let m = mustbe_intv m in
+  let n = mustbe_intv n in
+  let f = funv2 f in
+  let ff i j = sxnumv (f ((vnum <.> num_of_int) i) ((vnum <.> num_of_int) j)) in
+  vmatrix( init_m m n ff)
+ 
+let _ = Interpret.know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
+
 let _ = Interpret.know ("degate"  , "gate -> matrix", vfun (vmatrix <.> matrix_of_gate <.> gatev))
 let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmg.engate <.> matrixv))
 

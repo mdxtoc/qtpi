@@ -631,7 +631,7 @@ and rck_proc mon state env stoppers proc =
                                      (* if it's a channel of qbit, then it sends away a qbit *)
                                      let state = 
                                        match (type_of_expr ce).inst with
-                                       | Channel {inst=Qbit} ->
+                                       | Channel {inst=Qbit  } ->
                                            (match r with
                                             | RQbit q   -> State.add q false state
                                             | _         ->

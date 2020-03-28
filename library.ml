@@ -400,14 +400,14 @@ let _ = Interpret.know ("abandon", "[string] -> '*a", vfun abandon) (* note clas
 
 
 let print_string s = vunit (Stdlib.print_string (stringv s); flush stdout)
-let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
+let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval_of_qs (qbitv q))))  
                                         
 let _ = Interpret.know ("print_string" , "string -> ()"       , vfun (print_string))
 let _ = Interpret.know ("print_strings", "[string] -> ()"  , vfun (v_iter (vfun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , vfun print_qbit)
 
 let _show v = 
-  let optf = function VQbit   _  -> Some "<qbit>"
+  let optf = function VQbits   _  -> Some "<qbit>"
              |        VQstate _  -> Some "<qstate>"
              |        VFun    _  -> Some "<function>"
              |        VChan    _ -> Some "<channel>"
@@ -466,7 +466,7 @@ let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c ->
 
 let _qval q =
   let q = qbitv q in
-  let qv = Qsim.qval q in
-  Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv))
+  let qv = Qsim.qval_of_qs q in
+  Printf.sprintf "%s:%s" (string_of_qbits q) (Qsim.string_of_qval (Qsim.qsort qv))
   
 let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (* yup, that's a qbit argument *)

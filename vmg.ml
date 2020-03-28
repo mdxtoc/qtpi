@@ -30,6 +30,14 @@ open Forutils
 exception Error of string
 exception Disaster of string
 
+let check_twopower n f =
+  let rec find_twopower r i =
+    if i=1               then r                    else
+    if i=0 || i land 1=1 then raise (Error (f n)) else
+                              find_twopower (r+1) (i lsr 1)
+  in
+  find_twopower 0 n
+    
 (* *********************** vectors, matrices,gates ************************************ *)
 
 (* snv: symbolic normalised vector *)
@@ -415,11 +423,7 @@ let engate mA =
   let m = rsize mA in
   let n = csize mA in
   if m<>n then raise (Error (Printf.sprintf "non-square engate %s" (string_of_matrix mA)));
-  let rec is_twopower i =
-    i=1 || i<>0 && i land 1=0 && is_twopower (i lsr 1)
-  in
-  if not (is_twopower m) then
-    raise (Error (Printf.sprintf "matrix size %d is not power of 2 in engate %s" m (string_of_matrix mA)));
+  let _ = check_twopower m (fun _ -> Printf.sprintf "matrix size %d is not power of 2 in engate %s" m (string_of_matrix mA)) in
   let mB = mult_mm mA (dagger_m mA) in
   if exists_m (fun i j x -> j=i && x<>c_1 || j<>i && x<>c_0) mB then
     raise (Error (Printf.sprintf "non-unitary engate %s\n(m*m† = %s)" (string_of_matrix mA) (string_of_matrix mB)));

@@ -79,7 +79,7 @@ let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
 let matrixv = function VMatrix m       -> m      | v -> miseval "matrixv"  v
 let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
-let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
+let qbitv   = function VQbits   q       -> q      | v -> miseval "qbitv"    v
 let qstatev = function VQstate s       -> s      | v -> miseval "qstatev"  v
 let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
 let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
@@ -98,7 +98,7 @@ let vket    k       = VKet    k
 let vmatrix m       = VMatrix m
 let vgate   g       = VGate   g
 let vchan   c       = VChan   c
-let vqbit   q       = VQbit   q
+let vqbit   q       = VQbits   q
 let vqstate s       = VQstate s
 let vpair   (a,b)   = VTuple  [a;b]
 let vtriple (a,b,c) = VTuple  [a;b;c]
@@ -398,7 +398,7 @@ and deepcompare = function (* list everything to be sure I don't make a mistake 
   | VProcess _  , VProcess _
   | VChan    _  , VChan    _
   | VQstate  _  , VQstate  _
-  | VQbit    _  , VQbit    _   -> raise (Can'tHappen "equality type failure")
+  | VQbits    _  , VQbits    _   -> raise (Can'tHappen "equality type failure")
   | VUnit       , VUnit        -> 0
   | VBit     v1 , VBit     v2  
   | VBool    v1 , VBool    v2  -> Stdlib.compare v1 v2 
@@ -453,7 +453,7 @@ and chanev env e =
 
 and qbitev env e = 
   match evale env e with
-  | VQbit q -> q
+  | VQbits q -> q
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
 
 and qstateev env e = 
@@ -499,7 +499,7 @@ let stepcount = ref 0
 
 let rec interp env proc =
   Qsim.init ();
-  let newqbit pn n vopt = VQbit (Qsim.newqbit pn n vopt) in
+  let newqbits pn n vopt = VQbits (Qsim.newqbits pn n vopt) in
   let chancount = ref 0 in
   let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
   let string_of_stuck_chans () = ChanSet.to_string !stuck_chans in
@@ -578,7 +578,7 @@ let rec interp env proc =
                  ()
             in
             let pstep_state env =
-              let is_qbit = function (VQbit _) -> true
+              let is_qbit = function (VQbits _) -> true
                             |        _         -> false
               in
               let env' = Monenv.filter (fun (_,v) -> is_qbit v) env in
@@ -625,16 +625,9 @@ let rec interp env proc =
              | WithQbit (qs, proc) ->
                  let ket_eval = function
                  | None      -> None
-                 | Some kv   -> let k = ketv (evale env kv) in
-                                (match snvsize k with
-                                 | 2 -> Some k
-                                 | _ -> raise (Error (rproc.pos, Printf.sprintf "qbit cannot be initialised to %s"
-                                                                                  (string_of_ket k)
-                                                         )
-                                                  )
-                                )
+                 | Some kv   -> Some (ketv (evale env kv))
                  in
-                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbit pn n (ket_eval vopt))) qs in
+                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbits pn n (ket_eval vopt))) qs in
                  let env' = List.fold_left (<@+>) env qs' in
                  addrunner (pn, proc, env');
                  if !pstep then 
@@ -652,39 +645,38 @@ let rec interp env proc =
                  addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->
                  (match qstep.inst with
-                  | Measure (e, gopt, pat) -> let q = qbitev env e in
-                                              (* measurement without detection is absurd, wrong. So disposed is always true *)
-                                              let disposed = !measuredestroys in
-                                              let qv, aqs = 
-                                                if !traceevents then 
-                                                  let qs = fst (qval q) in
-                                                  List.hd (tev [q]), (if disposed then remove q qs else qs) 
-                                                else 
-                                                  "", [] 
-                                              in
-                                              let gv = (gateev env ||~~ g_I) gopt in
-                                              let v = vbit (qmeasure disposed pn gv q = 1) in
-                                              if !traceevents then trace (EVMeasure (pn, qv, gv, v, tev aqs));
-                                              let env' = (match tinst pat with
-                                                          | PatAny    -> env
-                                                          | PatName n -> env <@+> (n,v)
-                                                          | _         -> raise (Disaster (qstep.pos, string_of_qstep qstep))
-                                                         )
-                                              in
-                                              addrunner (pn, proc, env');
-                                              if !pstep then 
-                                                show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
-                                                                                      (pstep_state env')
-                                                                                      (pstep_env env' env)
-                                                      )
-                  | Ugatestep (es, g)      -> let qs = List.map (qbitev env) es in
-                                              let g = gateev env g in
-                                              let qvs = if !traceevents then tev qs else [] in
-                                              ugstep pn qs g;
-                                              addrunner (pn, proc, env);
-                                              if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
-                                              if !pstep then 
-                                                show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
+                  | Measure (e, gopt, pat) -> 
+                      let qs = qbitev env e in
+                      (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
+                      let disposed = !measuredestroys in
+                      let aqs = 
+                        if !traceevents then 
+                          let allqs = fst (qval_of_qs qs) in
+                          List.fold_left (fun qs q -> if disposed then Listutils.remove q qs else qs)
+                                         allqs
+                                         qs
+                        else 
+                          qs
+                      in
+                      let gv = (gateev env ||~~ g_I) gopt in
+                      let vs = List.map (fun q -> vbit (qmeasure disposed pn gv q = 1)) qs in
+                      if !traceevents then trace (EVMeasure (pn, qs, gv, vs, tev aqs));
+                      let env' = bmatch env pat (VList vs) in
+                      addrunner (pn, proc, env');
+                      if !pstep then 
+                        show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
+                                                              (pstep_state env')
+                                                              (pstep_env env' env)
+                                   )
+                  | Ugatestep (es, g)      -> 
+                      let qs = List.concat (List.map (qbitev env) es) in
+                      let g = gateev env g in
+                      let qvs = if !traceevents then tev qs else [] in
+                      ugstep pn qs g;
+                      addrunner (pn, proc, env);
+                      if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
+                      if !pstep then 
+                        show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
@@ -720,7 +712,7 @@ let rec interp env proc =
                    if c.cname = in_c then can'twrite "input"
                    else
                    if c.cname = dispose_c then 
-                      (disposeqbit pn (qbitv v); 
+                      (disposeqbits pn (qbitv v); 
                        if !traceevents then trace (EVDispose (pn,v));
                        true
                       )

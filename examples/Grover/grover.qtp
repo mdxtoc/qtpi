@@ -1,0 +1,48 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
+fun read_min_int m s
+  = k where k = if j>=m then j 
+                else semicolon (lam _ . print_strings ["pardon? at least "; show m; "\n"])
+                               (lam _ . read_min_int m s)
+                               ()
+      where j = read_num s
+
+fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n))
+
+   groverU bs = engate (tabulate_m (2**n) (2**n) tf)
+                 where n = length bs
+                 where tf i j = if i<>j      then  sx_0 else
+                                if i=address then -sx_1 else 
+                                                   sx_1
+                 where address = bits2num (rev bs) (* big-endian *)  
+                 
+proc 
+  System () =
+    . (let n = read_min_int 1 "number of bits")
+    . (newq qs = |+>⊗⊗n)  
+    .
+    . (let G = groverG n)
+    . (let bs = randbits n)
+    . (let U = groverU bs)
+    . (let GU = G*U)
+    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
+    . /^1
+    . Grover (iters, GU, qs, bs)
+  
+                  with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+
+  Grover (iters, GU, qs, secretbs) =
+    if iters=0 then
+      . qs-/-(bs) 
+      . /^1
+      . _0
+    else
+      . qs>>GU
+      . Grover (iters-1, GU, qs, secretbs)
+  
+                  with
+                    1: . out!["measurement says "; show bs; 
+                              if bs=secretbs then " ok" else " ** WRONG **"; "\n"] 
+                       . _0

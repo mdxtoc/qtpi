@@ -53,7 +53,9 @@ let string_of_token = function
     | QUERY     -> "QUERY"
     | QSTATETYPE -> "QSTATETYPE"
     | QBITTYPE  -> "QBITTYPE"
+    | QBITSTYPE -> "QBITSTYPE"
     | QBITDEC   -> "QBITDEC"
+    | QBITSDEC  -> "QBITSDEC"
     | PROCITER  -> "PROCITER"
     | PROCESS   -> "PROCESS"
     | PROC      -> "PROC"
@@ -190,6 +192,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "bit"       -> BITTYPE
   | "gate"      -> GATETYPE
   | "qbit"      -> QBITTYPE
+  | "qbits"     -> QBITSTYPE
   | "qstate"    -> QSTATETYPE
   | "^"         -> CHANTYPE
   | "char"      -> CHARTYPE
@@ -205,6 +208,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "new"       -> NEWDEC
   | "untraced"  -> UNTRACED
   | "newq"      -> QBITDEC
+  | "newqs"     -> QBITSDEC
   | "let"       -> LETDEC
   | "match"     -> MATCH
   

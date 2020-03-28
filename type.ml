@@ -41,7 +41,7 @@ and tnode =
   | String
   | Bit
   | Sxnum
-  | Qbit
+  | Qbit    
   | Qstate
   | Bra
   | Ket
@@ -96,7 +96,7 @@ let typeprio t =
   | Bit           
   | Unit
   | Sxnum
-  | Qbit
+  | Qbit   
   | Qstate
   | Bra
   | Ket
@@ -133,7 +133,7 @@ and string_of_tnode = function
   | Bool             -> "bool"
   | Unit             -> "()"
   | Sxnum            -> "sxnum"
-  | Qbit             -> "qbit"
+  | Qbit             -> "qbit" 
   | Qstate           -> "qstate"
   | Bra              -> "bra"
   | Ket              -> "ket"
@@ -174,7 +174,7 @@ let rec freetvs t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit 
+    | Qbit               
     | Qstate
     | Bra
     | Ket
@@ -207,7 +207,7 @@ let freeunknowns t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit 
+    | Qbit     
     | Qstate
     | Bra
     | Ket
@@ -316,7 +316,7 @@ let generalise t0 =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit 
+    | Qbit     
     | Qstate
     | Bra
     | Ket
@@ -351,7 +351,7 @@ let instantiate t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit 
+    | Qbit     
     | Qstate
     | Bra
     | Ket

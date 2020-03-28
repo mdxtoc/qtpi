@@ -14,7 +14,7 @@ The expression language was once moving closer to Miranda: '`where`' clauses, of
 
 Most languages use lots of brackets in their syntax. You often have to use brackets in OCaml, for example, around the stuff after `then`, because the `else` part can be missing (i.e. no closing bracket for `then`) and likewise after the `else` because there's no closing `fi`.
 
-When I began to implement Qtpi I thought that I'd do the Algol 68 thing and include `fi`. When I realised I needed pattern matching, I introduced a construct which started `match` and ended `hctam`. It looked horrible.
+When I began to implement Qtpi I thought that I'd do the Algol 68 thing and include `fi`. When I realised I needed pattern matching, I introduced a construct which started `match` and ended `hctam`. It looked horrible, and I could never remember how to spell hcatm.
 
 Landin's *offside rule* often makes closing brackets unnecessary. In the Miranda expression *E* `where` *E'*, *E'* mustn't be left of `where`, and can't be left of its own first token. This disambiguates things like 
 
@@ -456,7 +456,7 @@ Following the introduction of the *num* type in place of the old *int*, we can h
 	  * sorts according to order defined by first argument -- 0 for equal, -1 for *a*\<*b*, 1 for *a*>*b* (as C/OCaml)
   * *snd*: (*'a*, *'b*) &rarr; *'b*  
   * *tabulate*: *num* &rarr; (*num* &rarr; *'a*) &rarr; *['a]*
-  * *tabulate_matrix*: *num* &rarr; *num* &rarr; (*num* &rarr; *num* &rarr; *sxnum*) &rarr; *matrix*
+  * *tabulate_m*: *num* &rarr; *num* &rarr; (*num* &rarr; *num* &rarr; *sxnum*) &rarr; *matrix*
   * *take*: *num* &rarr; *['a]* &rarr; *['a]*
   * *takewhile*: (*'a* &rarr; *bool*) &rarr; *['a]* &rarr; *['a]*
   * *tl*: *['a]* &rarr; *['a]*  

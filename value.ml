@@ -57,7 +57,7 @@ type value =
   | VMatrix of matrix
   | VGate of gate
   | VString of string
-  | VQbit of qbit
+  | VQbits of qbit list
   | VQstate of string
   | VChan of chan
   | VTuple of value list
@@ -89,6 +89,10 @@ let string_of_qbit i = "#" ^ string_of_int i
 
 let short_string_of_qbit = string_of_qbit
 
+let string_of_qbits = Listutils. string_of_multi string_of_qbit
+
+let short_string_of_qbits = string_of_qbits
+
 (* ********************* string_of_ functions ***************************** *)
 
 let string_of_pqueue stringof sep pq = 
@@ -112,7 +116,7 @@ let rec so_value optf v =
                | VGate g         -> string_of_gate g
                | VChar c         -> Printf.sprintf "'%s'" (Utf8.escaped c)
                | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
-               | VQbit q         -> "Qbit " ^ string_of_qbit q
+               | VQbits qs       -> "Qbit(s) " ^ string_of_qbits qs
                | VQstate s       -> s
                | VChan c         -> "Chan " ^ so_chan optf c
                | VTuple vs       -> "(" ^ string_of_list (so_value optf) "," vs ^ ")"
@@ -129,7 +133,7 @@ and short_so_value optf v =
   match optf v with
   | Some s -> s
   | None   -> (match v with
-               | VQbit q         -> "Qbit " ^ short_string_of_qbit q
+               | VQbits qs       -> "Qbit(s) " ^ short_string_of_qbits qs
                | VChan c         -> "Chan " ^ short_so_chan optf c ^ if c.traced then "" else "(untraced)"
                | VTuple vs       -> "(" ^ string_of_list (short_so_value optf) "," vs ^ ")"
                | VList vs        -> bracketed_string_of_list (short_so_value optf) vs

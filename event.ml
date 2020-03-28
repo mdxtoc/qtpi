@@ -32,7 +32,7 @@ type event =
   | EVOutput of name * value
   | EVDispose of name * value
   | EVGate of name * string list * gate * string list
-  | EVMeasure of name * string * gate * value * string list
+  | EVMeasure of name * qbit list * gate * value list * string list
   | EVChangeId of name * name list
   
 let soqs = function
@@ -51,24 +51,26 @@ let string_of_event = function
                                                                            (soqs ss)
                                                                            (string_of_gate g)
                                                                            (soqs ss')
-  | EVMeasure (pn, qv, g, v, aqs)  
-                                -> Printf.sprintf "%s: %s -/- %s; result %s%s" (string_of_name pn)
-                                     qv
+  | EVMeasure (pn, qs, g, vs, aqs)  
+                                -> Printf.sprintf "%s: %s -/- %s; result %s%s" 
+                                     (string_of_name pn)
+                                     (string_of_qbits qs)
                                      (if g=g_I then "" else ("[" ^ string_of_gate g ^ "]"))
-                                     (string_of_value v)
+                                     (string_of_multi string_of_value vs)
                                      (if null aqs then "" else " and " ^ soqs aqs)
                                                                            
   | EVChangeId (pn, npns)       -> Printf.sprintf "%s morphs into %s" (string_of_name pn)
                                                                       (string_of_list string_of_name ", " npns)
-                                                                 
+
+(* tev is trace eval. Tries not to repeat values in the list qs *)                                                                 
 let tev qs = 
   let rec tqs prevqs qs =
     match qs with 
-    | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qval q=Qsim.qval q') prevqs in
+    | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qvalsingle q=Qsim.qvalsingle q') prevqs in
                     Printf.sprintf "%s=%s" (string_of_qbit q) (string_of_qbit prevq)
                 with Not_found -> 
-                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
-               ) :: tqs (prevqs@[q]) qs
+                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qvalsingle q))
+               ) :: tqs (prevqs@[q]) qs (* why append??? *)
     | _     -> []
   in
   tqs [] qs

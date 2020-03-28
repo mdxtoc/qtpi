@@ -62,6 +62,10 @@ let string_of_list fx sep xs = String.concat sep (List.map fx xs)
 
 let bracketed_string_of_list fx xs = "[" ^ string_of_list fx ";" xs ^ "]"
 
+let string_of_multi fx = function
+  | [x] -> fx x
+  | xs  -> bracketed_string_of_list fx xs
+  
 let string_of_assoc fx fy colon semicolon xys = 
   String.concat semicolon (List.map (fun (x,y) -> fx x ^ colon ^ fy y) xys)
 

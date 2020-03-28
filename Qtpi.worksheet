@@ -108,6 +108,8 @@ time ./Qtpi examples/Grover/grover7.qtp
 time ./Qtpi examples/Grover/grover8.qtp
 time ./Qtpi examples/Grover/grover9.qtp
 
+time ./Qtpi examples/Grover/grover.qtp
+
 time ./Qtpi examples/W2.qtp
 time ./Qtpi examples/W2q.qtp
 time ./Qtpi examples/W3.qtp

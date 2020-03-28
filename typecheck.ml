@@ -80,7 +80,7 @@ and evaltype t =
   | Ket
   | Gate
   | Matrix
-  | Qbit            
+  | Qbit                    
   | Qstate          -> t
   | Unknown u       -> evu u 
   | Known n         -> t
@@ -534,8 +534,8 @@ and assigntype_expr cxt t e =
                                                                                   here we have %s->%s"
                                                                                         (string_of_type te)
                                                                                         (string_of_type tout)
-                                                                            )
-                                                                     )
+                                                          )
+                                                   )
                                 in    
                                 match te.inst, tout.inst with
                                 | Num      , _
@@ -1043,7 +1043,7 @@ and typecheck_process mon cxt p  =
        | Measure (e, gopt, pat) ->
            let _ = assigntype_expr cxt (adorn e.pos Qbit) e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
-           assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt (adorn pat.pos Bit) pat
+           assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt (adorn pat.pos (List (adorn pat.pos Bit))) pat
        | Ugatestep (es, uge) ->
            let _ = List.iter (fun e -> assigntype_expr cxt (adorn e.pos Qbit) e) es in
            let _ = assigntype_expr cxt (adorn uge.pos Gate) uge in

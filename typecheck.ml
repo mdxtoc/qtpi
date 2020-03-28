@@ -1028,9 +1028,10 @@ and typecheck_process mon cxt p  =
       in
       check_distinct_params params;
       do_procparams "WithNew" newcommtv cxt params proc [] mon
-  | WithQbit (_,qss,proc) -> (* currently assume plural: will soon be overloaded *)
+  | WithQbit (plural,qss,proc) -> 
+      let tqnode = if plural then Qbits else Qbit in
       let typecheck_qspec cxt (par, kopt) =
-        let _ = unify_paramtype (toptr par) (adorn par.pos Qbit) in
+        let _ = unify_paramtype (toptr par) (adorn par.pos tqnode) in
         match kopt with
         | Some k   -> assigntype_expr cxt (adorn k.pos Ket) k
         | None     -> ()
@@ -1044,12 +1045,51 @@ and typecheck_process mon cxt p  =
   | WithProc (pdecl, proc) -> typecheck_pdecl (fun cxt -> typecheck_process mon cxt proc) mon cxt pdecl
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, gopt, pat) ->
-           let _ = assigntype_expr cxt (adorn e.pos Qbit) e in
+       | Measure (e, gopt, pat) -> (* now overloaded: qbit -> bit or qbits -> [bit] *)
+           let te, tpat = ntv e.pos, newclasstv pat.pos in
+           let _ = assigntype_expr cxt te e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
-           assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt (adorn pat.pos (List (adorn pat.pos Bit))) pat
-       | Ugatestep (es, uge) ->
-           let _ = List.iter (fun e -> assigntype_expr cxt (adorn e.pos Qbit) e) es in
+           let contn cxt =
+             let te, tpat = evaltype te, evaltype tpat in
+             let bad () = raise (Error (p.pos, Printf.sprintf "overloaded -/- can be qbit->bit or qbits->[bit]: \
+                                                               here we have %s->%s"
+                                                                     (string_of_type te)
+                                                                     (string_of_type tpat)
+                                       )
+                                )
+             in
+             (match te.inst, tpat.inst with
+              | Qbit     , _          -> (try unifytypes tpat (adorn pat.pos Bit)                        with _ -> bad ())
+              | Qbits    , _          -> (try unifytypes tpat (adorn pat.pos (List (adorn pat.pos Bit))) with _ -> bad ())
+              | _        , Bit        -> (try unifytypes te   (adorn pat.pos Qbit)                       with _ -> bad ())
+              | _        , List t  when (evaltype t).inst = Bit
+                                      -> (try unifytypes te   (adorn pat.pos Qbits)                      with _ -> bad ())
+              | Unknown _, Unknown _  -> 
+                   raise (Error (e.pos, Printf.sprintf "overloaded -/- can be qbit->bit or qbits->[bit]: \
+                                                        cannot deduce type (use some type constraints)"
+                                )
+                         )
+              | _                     -> bad()
+             );
+             typecheck_process mon cxt proc
+           in
+           assigntype_pat contn cxt tpat pat
+       | Ugatestep (es, uge) -> (* also overloaded: elements of es can be qbit or qbits *)
+           let do_e e = 
+             let te = ntv e.pos in
+             assigntype_expr cxt te e;
+             match (evaltype te).inst with 
+             | Qbit 
+             | Qbits -> ()
+             | _     -> let te' = adorn e.pos Qbit in
+                        unifytypes te te';
+                        warning e.pos (Printf.sprintf "overloaded >>: in the absence of explicit type information, \
+                                                           %s is assumed to be type %s"
+                                                              (string_of_expr e)
+                                                              (string_of_type te')
+                                      )
+           in
+           let _ = List.iter do_e es in
            let _ = assigntype_expr cxt (adorn uge.pos Gate) uge in
            typecheck_process mon cxt proc
       )

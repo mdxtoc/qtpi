@@ -132,7 +132,7 @@ let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the ref
   let qbitcount = ref 0 in
   let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
   let qlimbo = ref [] in (* for disposed entangled bits *)
-  let newqbits pn n vopt =
+  let newqbits pn n vopt : qbit list =
     let single () =
       let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
                let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in

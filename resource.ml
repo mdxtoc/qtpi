@@ -70,7 +70,8 @@ exception Disaster of sourcepos * string
 
 let rec is_resource_type t =
   match t.inst with
-  | Qbit            -> true            
+  | Qbit                       
+  | Qbits           -> true            
   | Unit          
   | Num 
   | Bool
@@ -252,7 +253,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Gate      
   | Matrix
   | Qstate          -> state, RNull
-  | Qbit            -> let state, q = newqid rid state in state, RQbit q
+  | Qbit               (* treat singleton qbit and qbit collection each as a single resource *)
+  | Qbits           -> let state, q = newqid rid state in state, RQbit q
   | Unknown _       
   | Known   _       -> state, RNull  
   | Poly _          -> state, RNull  
@@ -546,7 +548,7 @@ and rck_proc mon state env stoppers proc =
                                 -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
                                    rp state env stoppers proc
-      | WithQbit (qspecs, proc) -> (* all new qbits *)
+      | WithQbit (_,qspecs, proc) -> (* all new qbits *)
                                    let do_qspec (qs, used, state, env) (param, eopt) =
                                      let _, usede = match eopt with
                                                     | Some e -> resources_of_expr URead state env stoppers e
@@ -631,7 +633,7 @@ and rck_proc mon state env stoppers proc =
                                      (* if it's a channel of qbit, then it sends away a qbit *)
                                      let state = 
                                        match (type_of_expr ce).inst with
-                                       | Channel {inst=Qbit  } ->
+                                       | Channel {inst=Qbit} ->
                                            (match r with
                                             | RQbit q   -> State.add q false state
                                             | _         ->
@@ -756,7 +758,7 @@ and ffv_proc mon proc =
   | Terminate                      -> ()
   | GoOnAs    (pn,es)              -> List.iter ffv_expr es
   | WithNew   ((_,params), proc)   -> ffv_proc mon proc
-  | WithQbit  (qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
+  | WithQbit  (_,qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
   | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in
                                       ffv_proc mon p; ffv_proc mon proc

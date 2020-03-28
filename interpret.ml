@@ -622,7 +622,7 @@ let rec interp env proc =
                  addrunner (pn, proc, env');
                  if !pstep then 
                    show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
-             | WithQbit (qs, proc) ->
+             | WithQbit (_, qs, proc) -> (* currently assume plural: soon to be generalised *)
                  let ket_eval = function
                  | None      -> None
                  | Some kv   -> Some (ketv (evale env kv))

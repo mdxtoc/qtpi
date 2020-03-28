@@ -439,7 +439,7 @@ let rec matchcheck_proc mon proc =
   | Terminate               -> ()
   | GoOnAs          (pn,es) -> List.iter matchcheck_expr es
   | WithNew        (_,proc) -> matchcheck_proc mon proc    
-  | WithQbit  (qspecs,proc) -> let matchcheck_qspec = function
+  | WithQbit  (_,qspecs,proc) -> let matchcheck_qspec = function
                                  | param, Some e -> matchcheck_expr e
                                  | param, None   -> ()
                                in

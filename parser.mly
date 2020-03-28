@@ -309,7 +309,9 @@ simpleprocess:
   | LPAR NEWDEC UNTRACED paramseq RPAR process   
                                         {adorn (WithNew ((false,$4),$6))}
   | LPAR QBITDEC qspecs RPAR process    
-                                        {adorn (WithQbit ($3,$5))}
+                                        {adorn (WithQbit (false,$3,$5))}
+  | LPAR QBITSDEC qspecs RPAR process    
+                                        {adorn (WithQbit (true,$3,$5))}
   | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
   | qstep DOT process                   

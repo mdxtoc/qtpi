@@ -81,6 +81,7 @@ and evaltype t =
   | Gate
   | Matrix
   | Qbit                    
+  | Qbits                    
   | Qstate          -> t
   | Unknown u       -> evu u 
   | Known n         -> t
@@ -201,7 +202,7 @@ let rec rewrite_process mon proc =
   | GoOnAs    (n,es)        -> List.iter rewrite_expr es
   | WithNew   ((_,params), p)   
                             -> rewrite_params params; rewrite_process mon p
-  | WithQbit  (qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
+  | WithQbit  (_,qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
   | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
   | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
@@ -325,11 +326,13 @@ and canunifytype n t =
       (* there remain Comm, Class, Eq *)
       (* Comm takes Qbit or otherwise behaves as Class *)
       | UnkComm , Qbit          -> true
+      | UnkComm , Qbits         -> true
       | UnkComm , _             -> check (if !Settings.resourcecheck then UnkClass else UnkAll) t
       
       (* there remain Class and Eq *)
-      (* neither allows Qbit *)
+      (* neither allows Qbit or Qbits *)
       |_        , Qbit          -> bad ""
+      |_        , Qbits         -> bad ""
       (* Eq doesn't allow several things *)
       | UnkEq   , Qstate      
       | UnkEq   , Channel _   
@@ -377,6 +380,7 @@ and force_kind kind t =
     | Gate   
     | Matrix
     | Qbit            
+    | Qbits           
     | Qstate          
     | Fun _           
     | Process _       
@@ -1024,7 +1028,7 @@ and typecheck_process mon cxt p  =
       in
       check_distinct_params params;
       do_procparams "WithNew" newcommtv cxt params proc [] mon
-  | WithQbit (qss,proc) ->
+  | WithQbit (_,qss,proc) -> (* currently assume plural: will soon be overloaded *)
       let typecheck_qspec cxt (par, kopt) =
         let _ = unify_paramtype (toptr par) (adorn par.pos Qbit) in
         match kopt with

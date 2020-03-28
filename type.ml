@@ -33,6 +33,7 @@ exception Error of sourcepos * string
 
 type _type = tnode instance
 
+(* at present I can't find any simpler way to distinguish singleton Qbit and multiple Qbits than to have two types. *)
 and tnode =
   | Unit
   | Num
@@ -42,6 +43,7 @@ and tnode =
   | Bit
   | Sxnum
   | Qbit    
+  | Qbits    
   | Qstate
   | Bra
   | Ket
@@ -97,6 +99,7 @@ let typeprio t =
   | Unit
   | Sxnum
   | Qbit   
+  | Qbits   
   | Qstate
   | Bra
   | Ket
@@ -134,6 +137,7 @@ and string_of_tnode = function
   | Unit             -> "()"
   | Sxnum            -> "sxnum"
   | Qbit             -> "qbit" 
+  | Qbits            -> "qbits" 
   | Qstate           -> "qstate"
   | Bra              -> "bra"
   | Ket              -> "ket"
@@ -175,6 +179,7 @@ let rec freetvs t =
     | Unit
     | Sxnum
     | Qbit               
+    | Qbits               
     | Qstate
     | Bra
     | Ket
@@ -208,6 +213,7 @@ let freeunknowns t =
     | Unit
     | Sxnum
     | Qbit     
+    | Qbits     
     | Qstate
     | Bra
     | Ket
@@ -317,6 +323,7 @@ let generalise t0 =
     | Unit
     | Sxnum
     | Qbit     
+    | Qbits     
     | Qstate
     | Bra
     | Ket
@@ -352,6 +359,7 @@ let instantiate t =
     | Unit
     | Sxnum
     | Qbit     
+    | Qbits     
     | Qstate
     | Bra
     | Ket
@@ -377,7 +385,8 @@ let instantiate t =
 (* a service to compilation of monitor processes *)
 let rec is_classical t =
   match t.inst with
-  | Qbit            -> false            
+  | Qbit                  
+  | Qbits           -> false            
   | Unit          
   | Num 
   | Bool

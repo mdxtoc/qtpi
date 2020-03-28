@@ -499,7 +499,6 @@ let stepcount = ref 0
 
 let rec interp env proc =
   Qsim.init ();
-  let newqbits pn n vopt = VQbits (Qsim.newqbits pn n vopt) in
   let chancount = ref 0 in
   let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
   let string_of_stuck_chans () = ChanSet.to_string !stuck_chans in
@@ -622,16 +621,28 @@ let rec interp env proc =
                  addrunner (pn, proc, env');
                  if !pstep then 
                    show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
-             | WithQbit (_, qs, proc) -> (* currently assume plural: soon to be generalised *)
-                 let ket_eval = function
-                 | None      -> None
-                 | Some kv   -> Some (ketv (evale env kv))
+             | WithQbit (plural, qss, proc) -> (* currently assume plural: soon to be generalised *)
+                 let ket_eval vopt = vopt &~~ (_Some <.> ketv <.> evale env) in
+                 let qss' = List.map (fun (par,vopt) -> let n = name_of_param par in 
+                                                        let kopt = ket_eval vopt in
+                                                        (n, kopt, newqbits pn n kopt)
+                                     ) 
+                                     qss 
                  in
-                 let qs' = List.map (fun (par,vopt) -> let n = name_of_param par in (n, newqbits pn n (ket_eval vopt))) qs in
-                 let env' = List.fold_left (<@+>) env qs' in
+                 let do_q env (n, kopt, qs) =
+                   match plural, qs with
+                   | true , qs  -> env <@+> (n, VQbits qs)
+                   | false, [q] -> env <@+> (n, VQbit q)
+                   | false, qs  -> raise (Error (rproc.pos, Printf.sprintf "single qbit %s cannot be initialised to %s"
+                                                                                  (string_of_name n)
+                                                                                  (string_of_ket (_The kopt))
+                                                )
+                                         )
+                 in
+                 let env' = List.fold_left do_q env qss' in
                  addrunner (pn, proc, env');
                  if !pstep then 
-                   show_pstep (Printf.sprintf "(newq %s)\n%s" (commasep (List.map string_of_qspec qs)) (pstep_state env'))
+                   show_pstep (Printf.sprintf "(newq %s)\n%s" (commasep (List.map string_of_qspec qss)) (pstep_state env'))
              | WithLet ((pat,e), proc) ->
                  let v = evale env e in
                  addrunner (pn, proc, bmatch env pat v);

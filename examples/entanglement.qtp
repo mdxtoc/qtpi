@@ -7,12 +7,12 @@ proc System() =
   out![" gives "] . outq!(qval a) . out!["\n"] .
   | Alice (a) | Bob (b)
   
-Alice (a) =
+Alice (a:qbit) =
   a -/- (x) . 
   out!["Alice sees "; show x; "\n"] .
   _0
 
-Bob (b) =
+Bob (b:qbit) =
   b -/- (y) . 
   out!["Bob sees "; show y; "\n"] .
   _0

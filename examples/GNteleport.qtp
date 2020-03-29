@@ -33,7 +33,7 @@ proc
          | log?(_) .
            Run (k, standard, i+1)
   
-  Experiment (x, y, log) =
+  Experiment (x:qbit, y:qbit, log) =
     x>>H . x,y>>CNot . 
     (new c:^(bit,bit))
     (newq z)

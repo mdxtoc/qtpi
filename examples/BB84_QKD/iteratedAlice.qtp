@@ -1,6 +1,6 @@
-fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
+fun pos_root (a:num) (b:num) (c:num) = (-b+sqrt(b*b-4*a*c))/(2*a)
 
-fun min_qbits k s cmin
+fun min_qbits (k:num) (s:num) (cmin:num)
   = ceiling (max (rootn*rootn) (rootnmin*rootnmin))
     where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
     where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)

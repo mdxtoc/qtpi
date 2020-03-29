@@ -16,7 +16,7 @@ proc SendQbits (bvs,qc,sent) =
    when you see a tagged message on channel bsc
  *)
 proc ReceiveQBits (bvs, qc, bsc, result) =
-  + qc?(q)                   . 
+  + qc?(q:qbit)                   . 
         (let b = randbit ())
         q-/-[if b=0b1 then H else I](v) .
         ReceiveQBits((b,v)::bvs,qc,bsc,result)
@@ -28,7 +28,7 @@ proc ReceiveQBits (bvs, qc, bsc, result) =
    Stop when you see a message on bsA, and return measurements, tag and message.
  *)
 proc CopyQBits (bvs, qA, qB, bsA, results) =
-    + qA?(q)            . (let b = randbit ())
+    + qA?(q:qbit)       . (let b = randbit ())
                           q-/-[if b=0b1 then H else I](v) . 
                           (newq q = basisv_of_bits b v) 
                           qB!q                              . 
@@ -100,7 +100,7 @@ fun h2comp (n,e) (n',e') = compare n n'
 
 fun histogram2 nes = histo2 [] (sort h2comp nes)
 
-fun listsum ns = foldl (lam sum n . sum+n) 0 ns
+fun listsum ns = foldl (lam (sum:num) n . sum+n) 0 ns
 
 fun listmin ns = foldl (lam sofar n . min sofar n) (hd ns) (tl ns)
 

@@ -65,7 +65,7 @@ let (<@>)  env n     = try Monenv.(<@>) env n
                                                          )
                                                )       
 
-let miseval s v = raise (Error (dummy_spos, s ^ string_of_value v))
+let miseval s v = raise (Error (dummy_spos, Printf.sprintf "%s (%s)" s (string_of_value v)))
 
 let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
 let bitv    = function VBit    b       -> b      | v -> miseval "bitv"     v
@@ -79,7 +79,8 @@ let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
 let matrixv = function VMatrix m       -> m      | v -> miseval "matrixv"  v
 let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
 let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
-let qbitv   = function VQbits   q       -> q      | v -> miseval "qbitv"    v
+let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
+let qbitsv  = function VQbits  qs      -> qs     | v -> miseval "qbitsv"    v
 let qstatev = function VQstate s       -> s      | v -> miseval "qstatev"  v
 let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
 let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
@@ -734,7 +735,7 @@ let rec interp env proc =
                    if c.cname = in_c then can'twrite "input"
                    else
                    if c.cname = dispose_c then 
-                      (disposeqbits pn (qbitv v); 
+                      (disposeqbits pn [qbitv v]; 
                        if !traceevents then trace (EVDispose (pn,v));
                        true
                       )

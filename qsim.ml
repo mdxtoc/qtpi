@@ -56,15 +56,15 @@ let string_of_qstate () =
   in
   Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort Stdlib.compare qqvs))
 
-let qvalsingle q =  try Hashtbl.find qstate q
-                    with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"
-                                                                   (string_of_qbit q)
-                                                                   (string_of_qstate ())
-                                                   )
-                                            )
+let qval q =  try Hashtbl.find qstate q
+              with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"
+                                                             (string_of_qbit q)
+                                                             (string_of_qstate ())
+                                             )
+                                      )
 
 let qval_of_qs qs = (* qs had better be distinct *)
-  let qvals = Listutils.mkset (List.map qvalsingle qs) in (* find a faster mkset? *)
+  let qvals = Listutils.mkset (List.map qval qs) in (* find a faster mkset? *)
   let qss, vs = List.split qvals in
   List.concat qss, List.fold_left tensor_qq snv_1 vs
 
@@ -503,7 +503,7 @@ let _ones = ref zero
 
 let rec qmeasure disposes pn gate q = 
   if gate = g_I then (* computational measure *)
-    (let qs, (vm,vv as v) = qvalsingle q in
+    (let qs, (vm,vv as v) = qval q in
      let nv = vsize vv in
      (* make q first in qs: it simplifies life no end *)
      let qs, (_, vv) = make_first qs v (idx q qs) in
@@ -529,7 +529,7 @@ let rec qmeasure disposes pn gate q =
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)
-                     (string_of_qval (qvalsingle q))
+                     (string_of_qval (qval q))
                      (string_of_snum snum);
      (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
@@ -595,7 +595,7 @@ let rec qmeasure disposes pn gate q =
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
                 Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
-                                          q r (string_of_qval (qvalsingle q)) (string_of_snum snum)
+                                          q r (string_of_qval (qval q)) (string_of_snum snum)
                                           (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
               modulus
              ) 
@@ -604,7 +604,7 @@ let rec qmeasure disposes pn gate q =
      if !verbose || !verbose_qsim || !verbose_measure then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
                                                                                      (string_of_qbit q)
-                                                                                     (string_of_qval (qvalsingle q))
+                                                                                     (string_of_qval (qval q))
                                                                        ) 
                                                                        qs
                                              );
@@ -621,7 +621,7 @@ let rec qmeasure disposes pn gate q =
                     )
              );
      let gate' = dagger_g gate in  (* cjtransposed gate *)
-     let qv = qvalsingle q in
+     let qv = qval q in
      (* first of all rotate with gate' *)
      ugstep_padded pn [q] gate' gate'; 
      let bit = qmeasure disposes pn g_I q in
@@ -629,7 +629,7 @@ let rec qmeasure disposes pn gate q =
      let rec rotate qs =
        match qs with
        | []    -> () (* done it *)
-       | q::qs -> let qqs, qqv = qvalsingle q in
+       | q::qs -> let qqs, qqv = qval q in
                   ugstep_padded pn [q] gate gate;
                   rotate (List.filter (fun q -> not (List.mem q qqs)) qs)
      in

@@ -66,10 +66,10 @@ let string_of_event = function
 let tev qs = 
   let rec tqs prevqs qs =
     match qs with 
-    | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qvalsingle q=Qsim.qvalsingle q') prevqs in
+    | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qval q=Qsim.qval q') prevqs in
                     Printf.sprintf "%s=%s" (string_of_qbit q) (string_of_qbit prevq)
                 with Not_found -> 
-                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qvalsingle q))
+                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
                ) :: tqs (prevqs@[q]) qs (* why append??? *)
     | _     -> []
   in

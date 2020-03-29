@@ -21,7 +21,7 @@ fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n
 proc 
   System () =
     . (let n = read_min_int 1 "number of bits")
-    . (newq qs = |+>⊗⊗n)  
+    . (newqs qs = |+>⊗⊗n)  
     .
     . (let G = groverG n)
     . (let bs = randbits n)
@@ -33,9 +33,9 @@ proc
   
                   with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, qs, secretbs) =
+  Grover (iters, GU, qs:qbits, secretbs:[bit]) =
     if iters=0 then
-      . qs-/-(bs) 
+      . qs-/-(bs:[bit]) 
       . /^1
       . _0
     else

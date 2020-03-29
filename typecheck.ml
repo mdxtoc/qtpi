@@ -780,28 +780,19 @@ and assigntype_expr cxt t e =
                                         -- nothing with Bra or Ket, because we want to keep them normalised. Hmm.
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with
-                                      | Num      , Num      , _ 
-                                      | Sxnum    , Sxnum    , _ 
-                                      | Matrix   , Matrix   , _    
-                                      | Num      , _        , Num
-                                      | Sxnum    , _        , Sxnum
-                                      | Matrix   , _        , Matrix   
-                                      | _        , Num      , Num 
-                                      | _        , Sxnum    , Sxnum 
-                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
+                                      | Num      , _        , _ 
+                                      | Sxnum    , _        , _ 
+                                      | Matrix   , _        , _    
+                                      | _        , Num      , _ 
+                                      | _        , Sxnum    , _
+                                      | _        , Matrix   , _    
+                                      | _        , _        , Num      
+                                      | _        , _        , Sxnum    
+                                      | _        , _        , Matrix   -> (try unifytypes t1 tout; unifytypes t2 tout
                                                                             with _ -> bad ()
                                                                            )
                                       
-                                      | _        , _        , Num       -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn2 e1 e2 tout
-                                                                            with _ -> bad ()
-                                                                           )
-                                      | Num      , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn e2 t1
-                                                                            with _ -> bad ()
-                                                                           )
-                                      
-                                      | _                               -> bad ()
+                                      | _                              -> bad ()
                                      )
                                  | _           -> ()
                                )

@@ -1,3 +1,12 @@
+fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n))
+
+   groverU bs = engate (tabulate_m (2**n) (2**n) tf)
+                 where n = length bs
+                 where tf i j = if i<>j      then  sx_0 else
+                                if i=address then -sx_1 else 
+                                                   sx_1
+                 where address = bits2num (rev bs) (* big-endian *)  
+
 proc 
   System () =
     . (newq q0 = |+>)  
@@ -18,7 +27,7 @@ proc
   
                   with 1: out!["grover 6  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, q0, q1, q2, q3, q4, q5, bs) =
+  Grover (iters, GU, q0:qbit, q1:qbit, q2:qbit, q3:qbit, q4:qbit, q5:qbit, bs) =
     if iters=0 then
       . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) 
       . /^1

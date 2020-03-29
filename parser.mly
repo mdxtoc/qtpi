@@ -225,7 +225,7 @@ simple_typespec:
   | GATETYPE                            {adorn Gate}
   | SXNUMTYPE                           {adorn Sxnum}
   | QBITTYPE                            {adorn Qbit}
-  | QBITSTYPE                           {adorn Qbit} /* for now */
+  | QBITSTYPE                           {adorn Qbits} 
   | QSTATETYPE                          {adorn Qstate}
   | MATRIXTYPE                          {adorn Matrix}
   | BRATYPE                             {adorn Bra}

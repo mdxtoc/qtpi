@@ -665,22 +665,22 @@ and assigntype_expr cxt t e =
                                           ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                       *)
                                      (match t1.inst, t2.inst, tout.inst with
-                                      | Num      , Num      , _ 
+                                      | Num      , _        , _ 
+                                      | _        , Num      , _ 
+                                      | _        , _        , Num
                                       | Sxnum    , Sxnum    , _ 
                                       | Gate     , Gate     , _    
                                       | Matrix   , Matrix   , _    
-                                      | Num      , _        , Num
                                       | Sxnum    , _        , Sxnum    
                                       | Gate     , _        , Gate
                                       | Matrix   , _        , Matrix   
-                                      | _        , Num      , Num 
                                       | _        , Sxnum    , Sxnum 
                                       | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
                                                                             with _ -> bad ()
                                                                            )
 
-                                      | Matrix   , Sxnum   , _         
-                                      | Sxnum    , Matrix  , _         -> (try unifytypes tout (adorn_x e Matrix)
+                                      | Matrix   , Sxnum    , _         
+                                      | Sxnum    , Matrix   , _        -> (try unifytypes tout (adorn_x e Matrix)
                                                                             with _ -> bad ()
                                                                            )
                                       | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
@@ -694,14 +694,6 @@ and assigntype_expr cxt t e =
                                                                                 twarn e1 t2
                                                                             with _ -> bad ()
                                                                            )                                       
-                                      | _        , _        , Num       -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn2 e1 e2 tout
-                                                                            with _ -> bad ()
-                                                                           )
-                                      | Num      , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn e2 t1
-                                                                            with _ -> bad ()
-                                                                           )
                                       
                                       | _                               -> bad ()
                                      )

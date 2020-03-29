@@ -241,7 +241,7 @@ and string_of_expr e =
   | ECompare    (left, op, right)   -> string_of_binary_expr left right (string_of_compareop op) (compprio op)
   | EBoolArith  (left, op, right)   -> string_of_binary_expr left right (string_of_boolop    op) (boolprio op)
   | EAppend     (left, right)       -> string_of_binary_expr left right "@"                      (exprprio e)
-  | ELambda     (pats, expr)        -> Printf.sprintf "lam %s.%s" (string_of_list string_of_fparam " " pats) (string_of_expr expr)
+  | ELambda     (pats, expr)        -> Printf.sprintf "λ %s.%s" (string_of_list string_of_fparam " " pats) (string_of_expr expr)
   | EWhere      (e, ed)             -> Printf.sprintf "(%s where %s)" (string_of_expr e) (string_of_edecl ed)
   
 and string_of_edecl edecl = 

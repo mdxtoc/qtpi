@@ -6,7 +6,7 @@ proc W2q (c2) =
   | . c1?(q0)
     . (newq q1=|0>, anc=|+>)
     . anc,q0,q1>>F . 
-    . q0,anc>>CNot . /^2
+    . q0,anc>>CNot . ⁁2
     . c2!q0 . c2!q1 . dispose!anc
     . _0
                 with 2: . out!["W2q q0 = "] . outq!qval q0 
@@ -24,7 +24,7 @@ proc W4q (c4) =
    . anc,q0,q2>>F . 
    . anc,q1,q3>>F . 
    . q2,anc>>CNot . 
-   . q3,anc>>CNot . /^4
+   . q3,anc>>CNot . ⁁4
    . c4!q0 . c4!q1 . c4!q2 . c4!q3 . dispose!anc
    . _0
                 with 4: . out!["W4q q0 = "] . outq!qval q0 . 

@@ -6,7 +6,7 @@ EPR(cA:^qbit,cB:^qbit) =
   (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
 
 Alice (cA:^qbit, cAB:^qbit) =
-  (let pair:(bit,bit) = (randbit(), randbit())) /^1
+  (let pair:(bit,bit) = (randbit(), randbit())) ⁁1
   cA?(x) . x >> match pair .
                + (0b0,0b0) . I
                + (0b0,0b1) . X
@@ -17,6 +17,6 @@ Alice (cA:^qbit, cAB:^qbit) =
 
 Bob(cB:^qbit, cAB:^qbit) =
   cB?(y) . cAB?(x) . 
-  x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . /^2
+  x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . ⁁2
   _0
                                 with 2: out!["Bob receives "; show (i,j); "\n" ] . _0

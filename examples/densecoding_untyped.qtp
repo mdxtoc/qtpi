@@ -8,7 +8,7 @@ proc
     (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
 
   Alice (cA, cAB) =
-    (let t = (randbit(), randbit())) /^1
+    (let t = (randbit(), randbit())) ⁁1
     cA?(x:qbit) . x >> match t .
                        + (0b0,0b0) . I
                        + (0b0,0b1) . X
@@ -20,6 +20,6 @@ proc
                                         
   Bob(cB, cAB) =
     cB?(y:qbit) . cAB?(x:qbit) . 
-    x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . /^2
+    x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . ⁁2
     _0
                             with 2: out!["Bob receives "; show (i,j); "\n" ] . _0

@@ -5,7 +5,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
     | . CopyQBits([],qcA,qcB,bcA,measured)
     | . measured?(bs)                       (* bs, vs are what I saw and then sent *)
       . measured?(vs)                      
-      . /^1
+      . ⁁1
      
       .measured?_                           (* ignore Bob's hashes: I'm the villain here *)
       .measured?(bsA)                       (* Alice's bases *)
@@ -14,7 +14,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
       . bcB?(_,basesB)                      (* receive his in return *)
       . (let rvsB = reconcile basesB bs vs)
       . bcB?(_,maskB) . bcB?(_,checkbitsB)  (* receive Bob's mask and check bits *)
-      . /^2
+      . ⁁2
 
       (* like Bob, make a checkbit mask for Alice *)
       . (let rvsA = reconcile bs bsA vs)
@@ -40,7 +40,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
       . (let codeB = take (length encrypted) codebitsB)
       . (let messageB = xor_mask codeB (take (length codeB) messageA))
       . bcB!tagged hksEB 4 w messageB      
-      . /^3
+      . ⁁3
        . _0
 
   with

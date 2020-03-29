@@ -3,22 +3,22 @@ proc Bob (w, hks, qc, bsc, log) =
     | . ReceiveQBits([],qc,bsc,result)
     | . result?(bvs,message)
       . (let (bs,vs) = unzip bvs)       (* bs, vs is what I saw *)
-      . /^1
+      . ⁁1
       . (let (h0,bAs) = message)        (* Alice's first classical message: bAs are her bases *)
-      . /^2 
+      . ⁁2 
       . (let h1 = hwc bs hks 1 w)
       . bsc!(h1,bs)                     (* send my bases *)
-      . /^3
+      . ⁁3
       . (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
-      . /^4
+      . ⁁4
       . (let mask = tabulate (length rvs) cb_choose)
       . (let checkbits = mask_filter 0b1 mask rvs)
       . (let h2 = hwc mask hks 2 w)
       . bsc!(h2,mask)                   (* send her the mask *)
-      . /^5
+      . ⁁5
       . (let h3 = hwc checkbits hks 3 w)
       . bsc!(h3,checkbits)              (* send her the checkbits *)
-      . /^6
+      . ⁁6
       . (let codebits = mask_filter 0b0 mask rvs)
 
       . bsc?(h4,encryptedM)   
@@ -26,7 +26,7 @@ proc Bob (w, hks, qc, bsc, log) =
       . (let code = take (length encryptedM) codebits)
       . (let M = xor_mask encryptedM code)
       . (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
-      . /^8
+      . ⁁8
       . _0
 
     with

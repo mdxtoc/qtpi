@@ -4,14 +4,14 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, logAE,logEB) =
     | . CopyQBits([],qA,qB,bsA,measured)
     | . measured?(bs)                       (* bs, vs are what I think I saw *)
       . measured?(vs)
-      . /^1
+      . ⁁1
      
       . measured?(h)
       . measured?(basesA) . bsB!h,basesA    (* bases A->B       *)
       . bsB?(h,basesB)    . bsA!h,basesB    (* bases B->A       *)
       . bsB?(h,mask)      . bsA!h,mask      (* mask B->A        *)
       . bsB?(h,cs)        . bsA!h,cs        (* checkbits B->A   *)
-      . /^2
+      . ⁁2
       
       . bsA?(h,encrypted)                   (* encrypted message A->B *)
       . bsB!h,encrypted               (* send it on *)
@@ -23,7 +23,7 @@ proc Eve (w, hksAE, hksEB, qA, qB, bsA, bsB, logAE,logEB) =
                                       (* my idea of the code *)
       . (let M = xor_mask code encrypted) 
                                       (* decrypt Alice's message (maybe) *)
-      . /^3
+      . ⁁3
       . _0
 
                 with

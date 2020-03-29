@@ -9,7 +9,7 @@ proc
   
   Alice (cA:^qbit, cAB:^(bit,bit)) = 
     cA?(x) .
-    (newq z) /^1
+    (newq z) ⁁1
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
     cAB!vz,vx . 
     _0 
@@ -23,7 +23,7 @@ proc
                       + (0b0,0b1) . X
                       + (0b1,0b0) . Z
                       + (0b1,0b1) . Z*X    .
-    /^2
+    ⁁2
     _0 
                                         with 2: out!["finally Bob's y is "] . 
                                                 outq!(qval y) . out!["\n"] . _0

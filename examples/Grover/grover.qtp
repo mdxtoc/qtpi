@@ -28,7 +28,7 @@ proc
     . (let U = groverU bs)
     . (let GU = G*U)
     . (let iters = floor (pi*sqrt(2**n)/4+0.5))
-    . /^1
+    . ⁁1
     . Grover (iters, GU, qs, bs)
   
                   with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
@@ -36,7 +36,7 @@ proc
   Grover (iters, GU, qs:qbits, secretbs) =
     if iters=0 then
       . qs-/-(bs) 
-      . /^1
+      . ⁁1
       . _0
     else
       . qs>>GU

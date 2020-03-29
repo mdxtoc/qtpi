@@ -25,7 +25,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
   (* choose the basis and value for each qbit at random *)
   . (let bs = randbits n) 
   . (let vs = randbits n)
-  . /^1
+  . ⁁1
   
   (* send Bob the qbits I chose, tell me when it's done *)
   . (new sent)
@@ -36,11 +36,11 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
     . (let h0 = hwc bs hks 0 w)
     . bsc!h0,bs                              (* send Bob my bases *)
     . bsc?(h1,bBs)                           (* receive his bases *)
-    . /^2
+    . ⁁2
     
     (* pick out the values for which our bases agree *)
     . (let rvs = reconcile bBs bs vs)      
-    . /^3
+    . ⁁3
     
     (* Now we both know the same _number_ of values. Bob sends me a mask of
        that number of bits, and a list of the values it picks out from his
@@ -48,7 +48,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
      *)
     . bsc?(h2,mask)
     . bsc?(h3,checkbitsB)
-    . /^4
+    . ⁁4
     
     (* test to see if Bob and I agree on the bits selected by his mask *)
     . (let checkbitsA = mask_filter 0b1 mask rvs)
@@ -64,7 +64,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
      *)
     . (let enough = length rvs >= length checkbitsA + 5*w + length M)
     
-    . /^5
+    . ⁁5
     
     (* If Alice detects interference or doesn't have enough codebits she should go silent. 
        But in this simulation she sends an empty message, to allow Bob to log what he's 
@@ -83,7 +83,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
         . (let encryptedM = xor_mask code M)
         . (let h4 = hwc encryptedM hks 4 w)
         . bsc!h4,encryptedM                  (* send the encrypted message *)
-        . /^7
+        . ⁁7
         . _0
 
                     with

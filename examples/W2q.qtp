@@ -6,7 +6,7 @@ proc W2q (c2) =
   | . c1?(q0)
     . (newq q1=|0>, anc=|+>)
     . anc,q0,q1>>F . 
-    . q0,anc>>CNot . /^1
+    . q0,anc>>CNot . ⁁1
     . c2!q0 . c2!q1 . dispose!anc
     . _0
                 with 1: . out!["W2q q0 = "] . outq!qval q0 

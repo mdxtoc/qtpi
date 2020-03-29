@@ -103,7 +103,7 @@ let rec string_of_process proc =
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
                                             (trailing_sop p)
-  | TestPoint (n,p)       -> Printf.sprintf "/^%s %s"
+  | TestPoint (n,p)       -> Printf.sprintf "⁁%s %s"
                                             (string_of_name n.inst)
                                             (trailing_sop p)
   | Iter (pat, e, proc, p)
@@ -150,7 +150,7 @@ and short_string_of_process proc =
                                             (string_of_pdecl pdecl)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
-  | TestPoint (n,p)       -> Printf.sprintf "/^%s ..."
+  | TestPoint (n,p)       -> Printf.sprintf "⁁%s ..."
                                             (string_of_name n.inst)
   | Iter (pat, e, proc, p)
                           -> Printf.sprintf "[%s<-%s:..] . .."

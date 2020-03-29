@@ -217,7 +217,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "with"      -> WITH
   | "where"     -> WHERE
   | "lam"       -> LAMBDA
-  | 0x03bb      -> LAMBDA   (* λ *)
+  | 0x03bb      -> LAMBDA       (* λ *)
   | "/^"        -> TESTPOINT
   | 0x2041      -> TESTPOINT    (* ⁁ *)
   | ".*"        -> PROCITER

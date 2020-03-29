@@ -453,8 +453,13 @@ and chanev env e =
 
 and qbitev env e = 
   match evale env e with
-  | VQbits q -> q
+  | VQbit q -> q
   | v       -> mistyped e.pos (string_of_expr e) v "a qbit"
+
+and qbitsev env e = 
+  match evale env e with
+  | VQbits qs -> qs
+  | v         -> mistyped e.pos (string_of_expr e) v "a qbit collection"
 
 and qstateev env e = 
   match evale env e with
@@ -655,9 +660,15 @@ let rec interp env proc =
                  if brec then er := env;
                  addrunner (pn, p, env)
              | WithQstep (qstep, proc) ->
-                 (match qstep.inst with
+                 (let qeval e =
+                    match evale env e with
+                    | VQbit  q  -> [q], false
+                    | VQbits qs -> qs , true
+                    | _         -> raise (Disaster (e.pos, Printf.sprintf "%s is not qbit/qbits" (string_of_expr e)))
+                 in
+                  match qstep.inst with
                   | Measure (e, gopt, pat) -> 
-                      let qs = qbitev env e in
+                      let qs, plural = qeval e in
                       (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
                       let disposed = !measuredestroys in
                       let aqs = 
@@ -672,7 +683,7 @@ let rec interp env proc =
                       let gv = (gateev env ||~~ g_I) gopt in
                       let vs = List.map (fun q -> vbit (qmeasure disposed pn gv q = 1)) qs in
                       if !traceevents then trace (EVMeasure (pn, qs, gv, vs, tev aqs));
-                      let env' = bmatch env pat (VList vs) in
+                      let env' = bmatch env pat (if plural then VList vs else List.hd vs) in
                       addrunner (pn, proc, env');
                       if !pstep then 
                         show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
@@ -680,7 +691,7 @@ let rec interp env proc =
                                                               (pstep_env env' env)
                                    )
                   | Ugatestep (es, g)      -> 
-                      let qs = List.concat (List.map (qbitev env) es) in
+                      let qs = List.concat (List.map (fst <.> qeval) es) in
                       let g = gateev env g in
                       let qvs = if !traceevents then tev qs else [] in
                       ugstep pn qs g;

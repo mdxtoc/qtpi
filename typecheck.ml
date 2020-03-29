@@ -791,8 +791,12 @@ and assigntype_expr cxt t e =
                                       | _        , _        , Matrix   -> (try unifytypes t1 tout; unifytypes t2 tout
                                                                             with _ -> bad ()
                                                                            )
-                                      
-                                      | _                              -> bad ()
+                                      (* default is Num -> Num -> Num *)
+                                      | _        , _        , _         -> (try unifytypes tout (adorn e.pos Num); 
+                                                                                unifytypes t1 tout; unifytypes t2 tout;
+                                                                                twarn2 e1 e2 tout
+                                                                            with _ -> bad ()
+                                                                           )                                      
                                      )
                                  | _           -> ()
                                )

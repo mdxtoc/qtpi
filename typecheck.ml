@@ -290,14 +290,14 @@ and unifylists exn t1s t2s =
    and now also that channel types are qbit or classical and that classicals are classical. ISWIM
  *)  
 and canunifytype n t =
-  let bad prefix = 
+  let bad () = 
     let s = match kind_of_unknown n with
             | UnkClass -> "a classical type"
             | UnkEq    -> "an equality type"
-            | UnkComm  -> "qbit or classical"
+            | UnkComm  -> "channel of (qbit or qbits or classical)"
             | UnkAll   -> " (whoops: can't happen)"
     in
-    raise (Error (t.pos, string_of_type t ^ " is not " ^ prefix ^ s))
+    raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
   in
   let rec check kind t = 
     let rec cu t = 
@@ -324,21 +324,21 @@ and canunifytype n t =
       | UnkAll  , _             -> true
       
       (* there remain Comm, Class, Eq *)
-      (* Comm takes Qbit or otherwise behaves as Class *)
+      (* Comm takes Qbit or Qbits or otherwise behaves as Class *)
       | UnkComm , Qbit          -> true
       | UnkComm , Qbits         -> true
       | UnkComm , _             -> check (if !Settings.resourcecheck then UnkClass else UnkAll) t
       
       (* there remain Class and Eq *)
       (* neither allows Qbit or Qbits *)
-      |_        , Qbit          -> bad ""
-      |_        , Qbits         -> bad ""
+      |_        , Qbit          -> bad ()
+      |_        , Qbits         -> bad ()
       (* Eq doesn't allow several things *)
       | UnkEq   , Qstate      
       | UnkEq   , Channel _   
       | UnkEq   , Fun     _   
       | UnkEq   , Poly    _        (* Poly types are function types *)
-      | UnkEq   , Process _     -> bad ""
+      | UnkEq   , Process _     -> bad ()
 
       (* but Class does *)
       | UnkClass, Qstate      
@@ -349,7 +349,14 @@ and canunifytype n t =
       | _       , Tuple ts      -> List.for_all cu ts
       | _       , Process ts    -> List.for_all (check commU) ts
       | _       , List t        -> cu t
-      | _       , Channel t     -> (try check commU t with Error _ -> bad "channel of ")                    
+      | _       , Channel t     -> (try check commU t 
+                                    with Error (pos, _) as error -> 
+                                           (* if it's complaining about t and t is not itself a channel, complain.
+                                              Otherwise pass on the error
+                                            *)
+                                           if pos=t.pos && (match t.inst with Channel _ -> false | _ -> true)
+                                           then bad () else raise error
+                                   )                 
     in
     cu t
   in

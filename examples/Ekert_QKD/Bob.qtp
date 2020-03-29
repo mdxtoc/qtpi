@@ -20,7 +20,7 @@ proc
           logc![] .
           _0
         else 
-          (let key = map (compose inverse snd) (filter (lam ((b,b'),v') . b=b') bAbvs))
+          (let key = map (compose inverse snd) (filter (λ ((b,b'),v') . b=b') bAbvs))
           bc?(encrypted) .
           (let message = xor_mask (take (length encrypted) key) encrypted)
           (* out!["Bob receives "; show message; "\n"] . *)

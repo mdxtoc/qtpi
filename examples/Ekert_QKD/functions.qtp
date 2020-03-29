@@ -12,7 +12,7 @@ fun rand4() = i1*2+i2 where i1=bit2int b1
 fun combine bs bvs = zip (zip bs (map fst bvs)) (map snd bvs)
 
 fun sanitise bbvs
-  = map (lam ((b, b'), v') . if b=b' then 0b0 else v') bbvs
+  = map (λ ((b, b'), v') . if b=b' then 0b0 else v') bbvs
   
 fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
 
@@ -39,18 +39,18 @@ fun check verbose bs bs' vs vs' ij
                where fsquared = (1+h)/2
                where h = sqrt (1/2)
                where sigma = sqrt (size/8)
-               where ndiff = length (filter (lam (v,v') . v<>v') vv_ijs)
+               where ndiff = length (filter (λ (v,v') . v<>v') vv_ijs)
                where size = length vv_ijs
-               where vv_ijs = map snd (filter (lam (ij',_) . ij=ij') bbvvs)
+               where vv_ijs = map snd (filter (λ (ij',_) . ij=ij') bbvvs)
                where bbvvs = zip (zip bs bs') (zip vs vs')
             
 fun xor_mask code message
-   = map (lam (b1,b2) . if b1=b2 then 0b0 else 0b1) (zip code message)
+   = map (λ (b1,b2) . if b1=b2 then 0b0 else 0b1) (zip code message)
 
 fun frow xs (i,j)
-   = (i, j, zs, length (filter (lam (vi,vj) . vi=vj) zs))
-       where zs = map (lam ((_,vi),(_,vj)) . (vi,vj)) ys
-       where ys = filter (lam ((i',_),(j',_)) . i=i' && j=j') xs
+   = (i, j, zs, length (filter (λ (vi,vj) . vi=vj) zs))
+       where zs = map (λ ((_,vi),(_,vj)) . (vi,vj)) ys
+       where ys = filter (λ ((i',_),(j',_)) . i=i' && j=j') xs
       
 fun crossprod xs ys
    = match xs . + []    . []

@@ -23,7 +23,7 @@ proc
           logc![] .
           _0
         else 
-          (let key = map snd (filter (lam ((b,b'),v') . b=b') bBbvs))
+          (let key = map snd (filter (λ ((b,b'),v') . b=b') bBbvs))
           (let message = randbits m)
           (* out!["Alice sends  "; show message; "\n"] . *)
           bc!xor_mask (take m key) message   .

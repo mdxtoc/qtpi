@@ -4,8 +4,8 @@ fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
 
 fun read_min_int m s
   = k where k = if j>=m then j 
-                else semicolon (lam _ . print_strings ["pardon? at least "; show m; "\n"])
-                               (lam _ . read_min_int m s)
+                else semicolon (λ _ . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ _ . read_min_int m s)
                                ()
       where j = read_num s
 

@@ -574,7 +574,7 @@ and rck_proc mon state env stoppers proc =
                                    let _ = rp state env ((env,StopUse)::stoppers) p in
                                    rp state env stoppers proc
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (qe, gopt, pattern) -> 
+                                    | Measure (_, qe, gopt, pattern) -> 
                                         let destroys = !measuredestroys in
                                         (* if destroys is false then qe can be ambiguously conditional *)
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
@@ -785,8 +785,8 @@ and ffv_letspec (pattern, expr) = ffv_expr expr
 
 and ffv_qstep qstep =
   match qstep.inst with
-  | Measure (expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
-  | Ugatestep (exprs, ge)    -> List.iter ffv_expr exprs; ffv_expr ge
+  | Measure (_, expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
+  | Ugatestep (exprs, ge)       -> List.iter ffv_expr exprs; ffv_expr ge
   
 and ffv_ioproc mon (iostep, proc) =
   (match iostep.inst with

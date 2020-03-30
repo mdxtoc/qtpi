@@ -272,13 +272,13 @@ let rec frees proc =
                                else
                                  NameSet.union pdfrees (NameSet.remove (tinst pn) (ff set p))
     | WithQstep (qstep,p)   -> (match qstep.inst with
-                                | Measure (qe,optbe,pat) -> let qset = Expr.frees qe in
-                                                            let bset = match optbe with
-                                                                       | Some be -> NameSet.union qset (Expr.frees be)
-                                                                       | None    -> qset
-                                                            in
-                                                            NameSet.diff (ff bset p) (Pattern.frees pat)
-                                | Ugatestep (qes, ge)    -> ff (ff_es set (ge::qes)) p
+                                | Measure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
+                                                              let bset = match optbe with
+                                                                         | Some be -> NameSet.union qset (Expr.frees be)
+                                                                         | None    -> qset
+                                                              in
+                                                              NameSet.diff (ff bset p) (Pattern.frees pat)
+                                | Ugatestep (qes, ge)      -> ff (ff_es set (ge::qes)) p
                                )
     | TestPoint (tpn,p)     -> (* tpn not included *) ff set p
     | Iter (pat,e,proc,p)   -> let set = NameSet.diff (ff set proc) (Pattern.frees pat) in

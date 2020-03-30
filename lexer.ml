@@ -73,6 +73,7 @@ let string_of_token = function
     | MOD       -> "MOD"
     | MINUS     -> "MINUS"
     | MEASURE   -> "MEASURE"
+    | MEASURES  -> "MEASURES"
     | MATRIXTYPE -> "MATRIXTYPE"
     | MATCH     -> "MATCH"
     | LSQPAR    -> "LSQPAR"
@@ -225,6 +226,11 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | '?'         -> QUERY
   | '!'         -> BANG
   | "-/-"       -> MEASURE
+  | 0x2322, 0x0338
+                -> MEASURE      (* ⌢̸ *)
+  | "-//-"      -> MEASURES
+  | 0x2322, 0x20EB
+                -> MEASURES      (* ⌢⃫ *)
   | ">>"        -> THROUGH
   
   | ','         -> COMMA

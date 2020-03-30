@@ -186,7 +186,7 @@ and rewrite_params params = List.iter (rewrite_param) params
 
 let rewrite_qstep qstep = 
   match qstep.inst with
-  | Measure   (e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
+  | Measure   (_,e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
   | Ugatestep (es, ug)          -> List.iter rewrite_expr es; rewrite_expr ug
 
 let rewrite_iostep iostep = 
@@ -1039,36 +1039,13 @@ and typecheck_process mon cxt p  =
   | WithProc (pdecl, proc) -> typecheck_pdecl (fun cxt -> typecheck_process mon cxt proc) mon cxt pdecl
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (e, gopt, pat) -> (* now overloaded: qbit -> bit or qbits -> [bit] *)
-           let te, tpat = ntv e.pos, newclasstv pat.pos in
+       | Measure (plural, e, gopt, pat) -> (* no longer overloaded: plural distinguishes qbits -> [bit] from qbit -> bit *)
+           let te = adorn e.pos (if plural then Qbits else Qbit) in
+           let tpat = adorn pat.pos (if plural then List (adorn pat.pos Bit) else Bit) in
            let _ = assigntype_expr cxt te e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
-           let contn cxt =
-             let te, tpat = evaltype te, evaltype tpat in
-             let bad () = raise (Error (p.pos, Printf.sprintf "overloaded -/- can be qbit->bit or qbits->[bit]: \
-                                                               here we have %s->%s"
-                                                                     (string_of_type te)
-                                                                     (string_of_type tpat)
-                                       )
-                                )
-             in
-             (match te.inst, tpat.inst with
-              | Qbit     , _          -> (try unifytypes tpat (adorn pat.pos Bit)                        with _ -> bad ())
-              | Qbits    , _          -> (try unifytypes tpat (adorn pat.pos (List (adorn pat.pos Bit))) with _ -> bad ())
-              | _        , Bit        -> (try unifytypes te   (adorn pat.pos Qbit)                       with _ -> bad ())
-              | _        , List t  when (evaltype t).inst = Bit
-                                      -> (try unifytypes te   (adorn pat.pos Qbits)                      with _ -> bad ())
-              | Unknown _, Unknown _  -> 
-                   raise (Error (e.pos, Printf.sprintf "overloaded -/- can be qbit->bit or qbits->[bit]: \
-                                                        cannot deduce type (use some type constraints)"
-                                )
-                         )
-              | _                     -> bad()
-             );
-             typecheck_process mon cxt proc
-           in
-           assigntype_pat contn cxt tpat pat
-       | Ugatestep (es, uge) -> (* also overloaded: elements of es can be qbit or qbits *)
+           assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt tpat pat
+       | Ugatestep (es, uge) -> (* overloaded: elements of es can be qbit or qbits *)
            let do_e e = 
              let te = ntv e.pos in
              assigntype_expr cxt te e;

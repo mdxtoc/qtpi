@@ -663,13 +663,13 @@ let rec interp env proc =
              | WithQstep (qstep, proc) ->
                  (let qeval e =
                     match evale env e with
-                    | VQbit  q  -> [q], false
-                    | VQbits qs -> qs , true
+                    | VQbit  q  -> [q]
+                    | VQbits qs -> qs 
                     | _         -> raise (Disaster (e.pos, Printf.sprintf "%s is not qbit/qbits" (string_of_expr e)))
                  in
                   match qstep.inst with
-                  | Measure (e, gopt, pat) -> 
-                      let qs, plural = qeval e in
+                  | Measure (plural, e, gopt, pat) -> 
+                      let qs = qeval e in
                       (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
                       let disposed = !measuredestroys in
                       let aqs = 
@@ -692,7 +692,7 @@ let rec interp env proc =
                                                               (pstep_env env' env)
                                    )
                   | Ugatestep (es, g)      -> 
-                      let qs = List.concat (List.map (fst <.> qeval) es) in
+                      let qs = List.concat (List.map qeval es) in
                       let g = gateev env g in
                       let qvs = if !traceevents then tev qs else [] in
                       ugstep pn qs g;

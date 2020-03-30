@@ -34,6 +34,8 @@ let opts = Arg.align
                     Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
               ("-checkrandombias"  , Arg.Set checkrandombias, 
                     " print out simple stats on random choices");
+              ("-complexunknowns" , Arg.Bool (set_arg complexunknowns), 
+                    Printf.sprintf " unnown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
                     Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 

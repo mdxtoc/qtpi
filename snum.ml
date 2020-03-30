@@ -132,8 +132,8 @@ and string_of_snum_structs ss = bracketed_string_of_list (string_of_snum_struct)
 
 and string_of_s_symb_struct symb =
     let a,b = symb.secret in
-    Printf.sprintf "{id=%d; alpha=%B; conj=%B; secret=(%f,%f)}" 
-                              symb.id symb.alpha symb.conj a b
+    Printf.sprintf "{id=%d; alpha=%B;%s secret=(%f,%f)}" 
+                              symb.id symb.alpha (if !complexunknowns then Printf.sprintf " conj=%B;" symb.conj else "") a b
 
 and string_of_csnum (C (x,y)) =
   let im y = 
@@ -200,7 +200,7 @@ let rconj s =
     | S_prod ss     -> optmap_any rc ss &~~ (fun ss' -> Some (S_prod ss'))
     | S_sum  ss     -> optmap_any rc ss &~~ (fun ss' -> Some (S_sum ss'))
   in
-  (rc ||~ id) s
+  if !complexunknowns then (rc ||~ id) s else s
   
 let rec rneg s =
   let r = match s with
@@ -375,7 +375,8 @@ and simplify_sum ss =
               let rec find pres sps =
                 match sps with 
                 | S_symb ({id=q1; alpha=false; conj=false} as symb1) :: 
-                  S_symb ({id=q2; alpha=false; conj=true } as symb2) :: sps when q1=q2   
+                  S_symb ({id=q2; alpha=false; conj=c    } as symb2) :: sps 
+                            when q1=q2 && c = !complexunknowns 
                             -> 
                     let remake post =
                       let r = match prepend pres post with 

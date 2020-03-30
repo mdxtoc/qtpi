@@ -26,7 +26,7 @@ proc
   
                   with 1: out!["grover 5  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, q0:qbit, q1:qbit, q2:qbit, q3:qbit, q4:qbit, bs) =
+  Grover (iters, GU, q0, q1, q2, q3, q4, bs) =
     if iters=0 then
       . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) 
       . ⁁1

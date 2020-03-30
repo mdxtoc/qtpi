@@ -1,14 +1,14 @@
-fun basisv_of_bits b v = match (b,v) .
-                         + (0b0,0b0) . |0> 
-                         + (0b0,0b1) . |1> 
-                         + (0b1,0b0) . |+> 
-                         + (0b1,0b1) . |-> 
+fun ket_of_bits b v = match (b,v) .
+                      + (0b0,0b0) . |0> 
+                      + (0b0,0b1) . |1> 
+                      + (0b1,0b0) . |+> 
+                      + (0b1,0b1) . |-> 
 
 (* send encoded (bit, value) pairs down channel qc *)
 proc SendQbits (bvs,qc,sent) =   
     match bvs .
     + []         . sent!() . _0
-    + (b,v)::bvs . (newq q = basisv_of_bits b v)
+    + (b,v)::bvs . (newq q = ket_of_bits b v)
                      qc!q    .
                      SendQbits (bvs,qc,sent)
 
@@ -16,7 +16,7 @@ proc SendQbits (bvs,qc,sent) =
    when you see a tagged message on channel bsc
  *)
 proc ReceiveQBits (bvs, qc, bsc, result) =
-  + qc?(q:qbit)                   . 
+  + qc?(q)                   . 
         (let b = randbit ())
         q-/-[if b=0b1 then H else I](v) .
         ReceiveQBits((b,v)::bvs,qc,bsc,result)
@@ -28,9 +28,9 @@ proc ReceiveQBits (bvs, qc, bsc, result) =
    Stop when you see a message on bsA, and return measurements, tag and message.
  *)
 proc CopyQBits (bvs, qA, qB, bsA, results) =
-    + qA?(q:qbit)       . (let b = randbit ())
+    + qA?(q)            . (let b = randbit ())
                           q-/-[if b=0b1 then H else I](v) . 
-                          (newq q = basisv_of_bits b v) 
+                          (newq q = ket_of_bits b v) 
                           qB!q                              . 
                           CopyQBits ((b,v)::bvs, qA, qB, bsA, results)
     + bsA?(tag,bits)    . (let bs, vs = unzip (rev bvs))

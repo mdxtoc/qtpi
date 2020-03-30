@@ -32,7 +32,7 @@ proc
     else
       qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
 
-  BobMeasure (q:qbit,r) =
+  BobMeasure (q,r) =
     match rand4() .
       + 1 . q-/-[Rz]     (b) . r!1,b . _0
       + 2 . q-/-[Rz*Rz]   (b) . r!2,b . _0

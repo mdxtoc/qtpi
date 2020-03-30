@@ -33,9 +33,9 @@ proc
   
                   with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, qs:qbits, secretbs) =
+  Grover (iters, GU, qs, secretbs) =
     if iters=0 then
-      . qs-/-(bs) 
+      . qs⌢⃫(bs) 
       . ⁁1
       . _0
     else

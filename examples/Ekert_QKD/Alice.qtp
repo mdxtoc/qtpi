@@ -35,7 +35,7 @@ proc
     else
       qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (nq-1,qc,rc,bv::bvs)
 
-  AliceMeasure (q:qbit,r) =
+  AliceMeasure (q,r) =
     match rand4() . 
       + 0 . q-/-[]    (b) . r!0,b . _0
       + 1 . q-/-[Rz]   (b) . r!1,b . _0

@@ -103,7 +103,7 @@ Bob(k, verbose, n:num, r:^bit, qA, bsA) =
 (* receive qbits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
-    else qA?(q:qbit).
+    else qA?(q).
          r?(basis).
          q -/-[if basis=0b1 then H else I] (value) .
          BobReceive(n-1,(basis,value)::bvs,qA,r,done)
@@ -120,7 +120,7 @@ Eve (k, verbose, n, r:^bit, qA, qB) =
   
 EvesDrop (n, bvs, r:^bit, qA, qB, done) =
     if n=0 then done!rev bvs . _0
-    else qA?(q:qbit) .
+    else qA?(q) .
          r?(b) .
          q-/-[if b=0b0 then I else H](v) . 
          (newq q = match (b,v) .

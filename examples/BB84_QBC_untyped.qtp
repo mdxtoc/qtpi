@@ -1,44 +1,112 @@
-proc Alice(n, r, qB, bB, vB) = AliceChoose(n,r,[],qB,bB,vB)
+(* send values encoded in [basis] as qbits down channel [qB] *)
+proc AliceSendBits (vs,basis,qB,done) =   
+    match vs .
+    + []    . done!() . _0
+    + v::vs . (newq q = match (basis,v) .
+                        + (0b0,0b0) . |0> 
+                        + (0b0,0b1) . |1> 
+                        + (0b1,0b0) . |+> 
+                        + (0b1,0b1) . |->
+              )
+              qB!q.
+              AliceSendBits(vs,basis,qB,done)
 
-proc AliceChoose(n, r, vs, qB, bB, vB) =
-    if n=0 then r?(basis).AliceSend(vs,vs,basis,qB,bB,vB)
-    else r?(v).AliceChoose(n-1,r,vs@[v],qB,bB,vB)
+proc Alice(n, r, qB, vB, log) = 
+    r?(basis) .
+    (let vs = randbits n)
+    log![basis] .
+    log!vs .
+    (new done) 
+    | AliceSendBits (vs,basis,qB,done)
+    | done?(_) . vB!basis,vs . _0
 
-proc AliceSend(vs, ovs, basis, qB, bB, vB) =
-    if vs=[] then AliceReport(basis,ovs,bB,vB)
-    else (newq q)
-         q >> if hd(vs)=0b1 then X else I.
-         q >> if basis=0b1 then H else I.
-         qB!q.
-         AliceSend(tl(vs),ovs,basis,qB,bB,vB)
+(* receive qbits down qA, measure them, record the results *)
+proc BobReceive(n,bvs,qA,r,done) =
+  if n=0 then done!rev bvs . _0
+  else qA?(q).
+       r?(basis).
+       q -/-[if basis=0b1 then H else I] (value) .
+       BobReceive(n-1,(basis,value)::bvs,qA,r,done)
 
-proc AliceReport(basis,vs, bB, vB) = 
-    bB?(guess).vB!basis,vs.if guess=basis then BobWin() else BobLose() 
+(* check Alice's story *)
+proc Liar   (done) = done!false . _0
+proc Honest (done) = done!true  . _0
 
-proc Bob(n, r, qA, bA, vA) = BobReceive(n,[],r,qA,bA,vA)
+proc BobVerify (basis,vs,bvs,done) =
+  match (vs, bvs) .
+  + ([]   , []         )  . Honest (done)
+  + ([]   , _          )  . Liar (done)
+  + (_    , []         )  . Liar (done)
+  + (v::vs, (b,v')::bvs)  . if b=basis && v<>v' 
+                            then Liar (done)
+                            else BobVerify(basis,vs,bvs,done)
+  
+(* now that we have operator overloading, untyped is more of a challenge. Here goes *)
+proc Bob(n, r, qA, vA, log) = 
+  (new done,verified) 
+  | BobReceive(n,[],qA,r,done)
+  | done?(bvs) . 
+    log!(map fst bvs) .
+    log!(map snd bvs) .
+    r?(guess) .
+    log![guess] .
+    vA?(basis, vs) .
+    BobVerify (basis,vs,bvs,verified)
+  | verified?(honest) .
+    log![if honest then 0b1 else 0b0] .
+    _0
 
-proc BobReceive(n, vs, r, qA, bA, vA) =
-    if n = 0 then r?(guess). 
-                  bA!guess. 
-                  vA?(basis, as). 
-                  BobVerify (vs,basis,as) 
-    else 
-                  qA?(q:qbit).
-                  r?(basis).
-                  q >> if basis=0b1 then H else I.
-                  q -/- (value).
-                  BobReceive(n-1,vs@[basis,value],r,qA,bA,vA)
+(* a source of random bits. A bit of a joke, but relatively harmless *)
+proc Random(r) = (newq q=|+>) q-/-(v) . r!v . Random(r)
 
-proc BobVerify (vs, basis, as) = 
-  if vs=[] && as=[] then Honest()
-  else if vs=[] || as=[] then Liar()
-       else if basis=fst(hd(vs)) && hd(as)<>snd(hd(vs)) then Liar()
-            else BobVerify(tl(vs),basis,tl(as))
-       
-proc Random(q:qbit, r) = q>>H . q-/-(v) . r!v . Random(q,r)
+proc Control (k, i, verbose, nA, nB, nH, n, r) =
+  if k=i then 
+    out!["\n\nAll over: "; show nA; " Alice; ";
+                                      show nB; " Bob; ";
+                                      show nH; " honest\n"
+                   ] . 
+    _0
+  else
+    out!["trial number "; show (i+1);
+                    if verbose then ": " else "\n"
+                   ] .
+    (new qc, vc, logA, logB)
+    | Alice(n,r,qc,vc,logA) 
+    | Bob(n,r,qc,vc,logB)
+    | logA?(bases) .
+      (let basis = hd bases)
+      logA?(vs) .
+      out!if verbose then ["Alice chose basis "; show basis;
+                           " and values "; show vs; "\n"]
+          else [] .
+      logB?(bs) .
+      logB?(vs) .
+      (let bvs = zip bs vs)
+      logB?(guesses) .
+      (let guess = hd guesses)
+      out!if verbose then ["Bob received "; show bvs;
+                           " and guessed "; show guess; "\n"]
+          else [] .
+      logB?(honests) .
+      (let honest = hd honests = 0b1)
+      out!["Bob says Alice ";
+                      if honest then "was honest" else "lied";
+                      "\n"
+                     ] .
+      (let nH = if honest then nH+1 else nH)
+      (let (nA,nB) = if guess=basis then (nA,nB+1) else (nA+1,nB))
+      out![if guess=basis then "Bob wins\n"
+                          else "Alice wins\n"
+          ] . 
+      Control (k, i+1, verbose, nA, nB, nH, n, r)
 
-proc System() = (let n = read_num "number of qbits")
-				(new r,qc,bc,vc)
-				| Alice(n,r,qc,bc,vc) 
-				| Bob(n,r,qc,bc,vc) 
-				| (newq q = |0>) Random(q,r)
+proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
+
+proc System() = (let k = read_num "number of trials")
+                (let n = read_num "number of qbits")
+                (let verbose = read_bool "with commentary" "y" "n")
+                (new r)
+                | Run (k, verbose, n, r)
+                | Random(r)
+           
+

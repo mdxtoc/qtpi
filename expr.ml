@@ -167,6 +167,8 @@ let rec exprprio e =
 
 let is_primary e = exprprio e = primaryprio
 
+let string_of_uminus = "-"
+
 let rec string_of_primary e =
   let bad () =
     raise (Error (e.pos, "string_of_primary (" ^ string_of_expr e ^ ")"))
@@ -231,7 +233,7 @@ and string_of_expr e =
   | ECond       _                   
   | EMatch      _                   -> string_of_primary e
   | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
-  | EMinus      e                   -> Printf.sprintf "-%s" (bracket_nonassoc unaryprio e)
+  | EMinus      e                   -> Printf.sprintf "%s%s" string_of_uminus (bracket_nonassoc unaryprio e)
   | ENot        e                   -> Printf.sprintf "¬%s" (bracket_nonassoc unaryprio e)
   | EDagger     e                   -> Printf.sprintf "%s†" (bracket_nonassoc unaryprio e)
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
@@ -283,7 +285,7 @@ and string_of_boolop = function
   | Or      -> "||"
   | Implies -> "=>"
   | Iff     -> "<=>"
-
+  
 and string_of_ematch (pat,e) =
   Printf.sprintf "%s.%s" (string_of_pattern pat) (string_of_expr e)
 

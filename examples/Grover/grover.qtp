@@ -39,7 +39,7 @@ proc
       . ⁁1
       . _0
     else
-      . qs>>GU
+      . qs>>>GU
       . Grover (iters-1, GU, qs, secretbs)
   
                   with

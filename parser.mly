@@ -69,7 +69,7 @@
 %token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE TYPEARROW
 %token DOT DOTDOT UNDERSCORE
 %token NEWDEC UNTRACED QBITDEC QBITSDEC LETDEC MATCH 
-%token QUERY BANG MEASURE MEASURES THROUGH 
+%token QUERY BANG MEASURE MEASURES THROUGH THROUGHS 
 %token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
@@ -287,11 +287,15 @@ qstep:
   | expr measure LSQPAR RSQPAR mpat     {adorn (Measure ($2,$1,None,$5))}
   | expr measure LSQPAR expr RSQPAR mpat       
                                         {adorn (Measure ($2,$1,Some $4,$6))}
-  | exprtuple THROUGH expr              {adorn (Ugatestep ($1,$3))}
+  | exprtuple through expr              {adorn (Through ($2,$1,$3))}
 
 measure:
   | MEASURE                             {false}
   | MEASURES                            {true}
+
+through:
+  | THROUGH                             {false}
+  | THROUGHS                            {true}
 
 mpat:
   | UNDERSCORE                          {tadorn (PatAny)}

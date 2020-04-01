@@ -186,8 +186,8 @@ and rewrite_params params = List.iter (rewrite_param) params
 
 let rewrite_qstep qstep = 
   match qstep.inst with
-  | Measure   (_,e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
-  | Ugatestep (es, ug)          -> List.iter rewrite_expr es; rewrite_expr ug
+  | Measure (_,e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
+  | Through (_,es,ge)           -> List.iter rewrite_expr es; rewrite_expr ge
 
 let rewrite_iostep iostep = 
   match iostep.inst with
@@ -1045,23 +1045,13 @@ and typecheck_process mon cxt p  =
            let _ = assigntype_expr cxt te e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
            assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt tpat pat
-       | Ugatestep (es, uge) -> (* overloaded: elements of es can be qbit or qbits *)
+       | Through (plural, es, ge) -> (* no longer overloaded: plural distinguishes qbits from qbit *)
            let do_e e = 
-             let te = ntv e.pos in
-             assigntype_expr cxt te e;
-             match (evaltype te).inst with 
-             | Qbit 
-             | Qbits -> ()
-             | _     -> let te' = adorn e.pos Qbit in
-                        unifytypes te te';
-                        warning e.pos (Printf.sprintf "overloaded >>: in the absence of explicit type information, \
-                                                           %s is assumed to be type %s"
-                                                              (string_of_expr e)
-                                                              (string_of_type te')
-                                      )
+             let te = adorn e.pos (if plural then Qbits else Qbit) in
+             assigntype_expr cxt te e
            in
            let _ = List.iter do_e es in
-           let _ = assigntype_expr cxt (adorn uge.pos Gate) uge in
+           let _ = assigntype_expr cxt (adorn ge.pos Gate) ge in
            typecheck_process mon cxt proc
       )
   | GSum gs ->

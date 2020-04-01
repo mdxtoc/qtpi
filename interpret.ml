@@ -691,7 +691,7 @@ let rec interp env proc =
                                                               (pstep_state env')
                                                               (pstep_env env' env)
                                    )
-                  | Ugatestep (es, g)      -> 
+                  | Through (plural, es, g)      -> 
                       let qs = List.concat (List.map qeval es) in
                       let g = gateev env g in
                       let qvs = if !traceevents then tev qs else [] in

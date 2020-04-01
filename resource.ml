@@ -594,7 +594,7 @@ and rck_proc mon state env stoppers proc =
                                               raise (Error (qe.pos, "ambiguous qbit expression (which qbit is destroyed?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' stoppers proc))
-                                    | Ugatestep (qes, ug)    -> 
+                                    | Through (_, qes, ug)    -> 
                                         let qers = List.map (snd <.> resources_of_expr UGate state env stoppers) qes in
                                         (try let used = disju qers in
                                              ResourceSet.union (rp state env stoppers proc) used
@@ -786,7 +786,7 @@ and ffv_letspec (pattern, expr) = ffv_expr expr
 and ffv_qstep qstep =
   match qstep.inst with
   | Measure (_, expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
-  | Ugatestep (exprs, ge)       -> List.iter ffv_expr exprs; ffv_expr ge
+  | Through (_, exprs, ge)      -> List.iter ffv_expr exprs; ffv_expr ge
   
 and ffv_ioproc mon (iostep, proc) =
   (match iostep.inst with

@@ -278,7 +278,7 @@ let rec frees proc =
                                                                          | None    -> qset
                                                               in
                                                               NameSet.diff (ff bset p) (Pattern.frees pat)
-                                | Ugatestep (qes, ge)      -> ff (ff_es set (ge::qes)) p
+                                | Through (_, qes, ge)     -> ff (ff_es set (ge::qes)) p
                                )
     | TestPoint (tpn,p)     -> (* tpn not included *) ff set p
     | Iter (pat,e,proc,p)   -> let set = NameSet.diff (ff set proc) (Pattern.frees pat) in

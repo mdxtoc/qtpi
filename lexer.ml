@@ -38,6 +38,7 @@ let string_of_token = function
     | TRUE      -> "TRUE"
     | TPNUM (s) -> "TPNUM(" ^ s ^ ")"
     | THROUGH   -> "THROUGH"
+    | THROUGHS  -> "THROUGHS"
     | THEN      -> "THEN"
     | TESTPOINT -> "TESTPOINT"
     | TERMINATE -> "TERMINATE"
@@ -232,6 +233,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x2322, 0x20EB
                 -> MEASURES      (* ⌢⃫ *)
   | ">>"        -> THROUGH
+  | ">>>"       -> THROUGHS
   
   | ','         -> COMMA
   | ';'         -> SEMICOLON

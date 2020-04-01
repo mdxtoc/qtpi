@@ -502,6 +502,24 @@ and assigntype_expr cxt t e =
        binary cxt tout tin1 tin2 f1 f2;
        unary cxt tout tin3 f3
      in
+     let ovld_warn opstring ee t =
+       warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
+                                       %s is assumed to be type %s"
+                                          opstring
+                                          (string_of_expr ee)
+                                          (string_of_type t)
+                    )
+
+     in
+     let ovld_warn2 opstring e1 e2 t =
+       warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
+                                        %s and %s are assumed to be type %s"
+                                           opstring
+                                           (string_of_expr e1)
+                                           (string_of_expr e2)
+                                           (string_of_type t)
+                     )
+     in
      match tinst e with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
@@ -538,27 +556,24 @@ and assigntype_expr cxt t e =
                                let _ = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
      | EMinus  e            -> (* even this is overloaded now, beacause of sxnum *)
-                               (let te, tout = neweqtv e.pos, neweqtv e.pos in
-                                unary cxt te tout e;
-                                let te, tout = evaltype te, evaltype tout in
-                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded unary minus can be num->num or sxnum->sxnum: \
+                               (let te = neweqtv e.pos in (* uniform overloading *)
+                                unary cxt te te e;
+                                let te = evaltype te in
+                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded %s can be num->num or sxnum->sxnum: \
                                                                                   here we have %s->%s"
+                                                                                        ("unary " ^ Expr.string_of_uminus)
                                                                                         (string_of_type te)
-                                                                                        (string_of_type tout)
+                                                                                        (string_of_type te)
                                                           )
                                                    )
                                 in    
-                                match te.inst, tout.inst with
-                                | Num      , _
-                                | _        , Num
-                                | Sxnum    , _
-                                | _        , Sxnum      -> (try unifytypes te tout with _ -> bad ())
-                                | Unknown _, Unknown _  -> 
-                                      raise (Error (e.pos, Printf.sprintf "overloaded unary minus can be can be num->num or sxnum->sxnum:  \
-                                                                           cannot deduce type (use some type constraints)"
-                                                   )
-                                            )
-                                | _                     -> bad()
+                                match te.inst with
+                                | Num      
+                                | Sxnum     -> ()
+                                | Unknown _ -> let t = adorn e.pos Num in
+                                               ovld_warn ("unary " ^ Expr.string_of_uminus) e t;
+                                               unifytypes te t
+                                | _         -> bad()
                                )
      | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
      | EDagger e            -> (* a little overloaded *)
@@ -603,7 +618,7 @@ and assigntype_expr cxt t e =
                                (let tn1, tn2, tnout = 
                                   match op with
                                   | Plus
-                                  | Minus
+                                  | Minus       -> let t = Unknown (new_unknown UnkEq) in t, t, t (* uniform overloading *)
                                   | Times       
                                   | TensorProd  -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
                                   | TensorPower -> Unknown (new_unknown UnkEq), Num, Unknown (new_unknown UnkEq)
@@ -632,165 +647,142 @@ and assigntype_expr cxt t e =
                                                    )
                                             )
                                 in
-                                let twarn ee t =
-                                  warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
-                                                                  %s is assumed to be type %s"
-                                                                     (string_of_arithop op)
-                                                                     (string_of_expr ee)
-                                                                     (string_of_type t)
+                                let ovld_warn = ovld_warn (string_of_arithop op) in
+                                let ovld_warn2 = ovld_warn2 (string_of_arithop op) in
+                                match op with
+                                | Times       -> 
+                                    (* we currently have the following
+                                         Num    -> Num    -> Num   
+                                         Sxnum  -> Sxnum  -> Sxnum   
+                                         Gate   -> Gate   -> Gate
+                                         Matrix -> Matrix -> Matrix
+                                         Gate   -> Ket    -> Ket
+                                         Ket    -> Bra    -> Matrix
+                                         Bra    -> Ket    -> Sxnum
+                                         Sxnum  -> Matrix -> Matrix
+                                         Matrix -> Sxnum  -> Matrix
+                                         ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
+                                     *)
+                                    (match t1.inst, t2.inst, tout.inst with
+                                     | Num      , _        , _ 
+                                     | _        , Num      , _ 
+                                     | _        , _        , Num
+                                     | Sxnum    , Sxnum    , _ 
+                                     | Gate     , Gate     , _    
+                                     | Matrix   , Matrix   , _    
+                                     | Sxnum    , _        , Sxnum    
+                                     | Gate     , _        , Gate
+                                     | Matrix   , _        , Matrix   
+                                     | _        , Sxnum    , Sxnum 
+                                     | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
+                                                                           with _ -> bad ()
+                                                                          )
+
+                                     | Matrix   , Sxnum    , _         
+                                     | Sxnum    , Matrix   , _        -> (try unifytypes tout (adorn_x e Matrix)
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | Bra      , Ket      , _         -> (try unifytypes tout (adorn_x e Sxnum)
+                                                                           with _ -> bad ()
+                                                                          )
+
+                                     | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                               ovld_warn e1 t2
+                                                                           with _ -> bad ()
+                                                                          )                                       
+                                     
+                                     | _                               -> bad ()
+                                    )
+                                | TensorProd  -> 
+                                    (* we currently have the following
+                                         Bra    -> Bra    -> Bra
+                                         Ket    -> Ket    -> Ket
+                                         Gate   -> Gate   -> Gate
+                                         Matrix -> Matrix -> Matrix
+                                     *)
+                                    (match t1.inst, t2.inst, tout.inst with
+                                     | Bra      , Bra      , _ 
+                                     | Ket      , Ket      , _ 
+                                     | Gate     , Gate     , _    
+                                     | Matrix   , Matrix   , _    
+                                     | Bra      , _        , Bra
+                                     | Ket      , _        , Ket
+                                     | Gate     , _        , Gate
+                                     | Matrix   , _        , Matrix   
+                                     | _        , Bra      , Bra 
+                                     | _        , Ket      , Ket 
+                                     | _        , Gate     , Gate     
+                                     | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | Bra      , _        , _          
+                                     | Ket      , _        , _          
+                                     | Gate     , _        , _          
+                                     | Matrix   , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                                                               ovld_warn e2 t1
+                                                                           with _ -> bad ()
+                                                                          )  
+
+                                     | _        , Bra      , _          
+                                     | _        , Ket      , _          
+                                     | _        , Gate     , _          
+                                     | _        , Matrix   , _         -> (try unifytypes t2 tout; unifytypes t1 tout;
+                                                                               ovld_warn e1 t2
+                                                                           with _ -> bad ()
+                                                                          )  
+                                     
+                                     | _                               -> bad ()
+                                    )
+                                | TensorPower ->
+                                    (* we currently have the following
+                                         Bra    -> Num    -> Bra
+                                         Ket    -> Num    -> Ket
+                                         Gate   -> Num    -> Gate
+                                         Matrix -> Num    -> Matrix
+                                     *)
+                                    (match t1.inst, tout.inst with
+                                     | Bra      , _                  
+                                     | Ket      , _                  
+                                     | Gate     , _                  
+                                     | Matrix   , _          
+                                     | _        , Bra      
+                                     | _        , Ket      
+                                     | _        , Gate     
+                                     | _        , Matrix    -> (try unifytypes t1 tout with _ -> bad ())  
+                                     
+                                     | Unknown _, _         -> 
+                                         raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s"
+                                                                               (string_of_arithop op)
+                                                                               (string_of_expr e1)
+                                                      )
                                                )
-                                in
-                                let twarn2 e1 e2 t =
-                                  warning e.pos (Printf.sprintf "overloaded %s: in the absence of type information, \
-                                                                   %s and %s are assumed to be type %s"
-                                                                      (string_of_arithop op)
-                                                                      (string_of_expr e1)
-                                                                      (string_of_expr e2)
-                                                                      (string_of_type t)
-                                                )
-                                 in
-                                 
-                                 match op with
-                                 | Times       -> 
-                                     (* we currently have the following
-                                          Num    -> Num    -> Num   
-                                          Sxnum  -> Sxnum  -> Sxnum   
-                                          Gate   -> Gate   -> Gate
-                                          Matrix -> Matrix -> Matrix
-                                          Gate   -> Ket    -> Ket
-                                          Ket    -> Bra    -> Matrix
-                                          Bra    -> Ket    -> Sxnum
-                                          Sxnum  -> Matrix -> Matrix
-                                          Matrix -> Sxnum  -> Matrix
-                                          ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
-                                      *)
-                                     (match t1.inst, t2.inst, tout.inst with
-                                      | Num      , _        , _ 
-                                      | _        , Num      , _ 
-                                      | _        , _        , Num
-                                      | Sxnum    , Sxnum    , _ 
-                                      | Gate     , Gate     , _    
-                                      | Matrix   , Matrix   , _    
-                                      | Sxnum    , _        , Sxnum    
-                                      | Gate     , _        , Gate
-                                      | Matrix   , _        , Matrix   
-                                      | _        , Sxnum    , Sxnum 
-                                      | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
-                                                                            with _ -> bad ()
-                                                                           )
-
-                                      | Matrix   , Sxnum    , _         
-                                      | Sxnum    , Matrix   , _        -> (try unifytypes tout (adorn_x e Matrix)
-                                                                            with _ -> bad ()
-                                                                           )
-                                      | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
-                                                                            with _ -> bad ()
-                                                                           )
-                                      | Bra      , Ket      , _         -> (try unifytypes tout (adorn_x e Sxnum)
-                                                                            with _ -> bad ()
-                                                                           )
-
-                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn e1 t2
-                                                                            with _ -> bad ()
-                                                                           )                                       
-                                      
-                                      | _                               -> bad ()
-                                     )
-                                 | TensorProd  -> 
-                                     (* we currently have the following
-                                          Bra    -> Bra    -> Bra
-                                          Ket    -> Ket    -> Ket
-                                          Gate   -> Gate   -> Gate
-                                          Matrix -> Matrix -> Matrix
-                                      *)
-                                     (match t1.inst, t2.inst, tout.inst with
-                                      | Bra      , Bra      , _ 
-                                      | Ket      , Ket      , _ 
-                                      | Gate     , Gate     , _    
-                                      | Matrix   , Matrix   , _    
-                                      | Bra      , _        , Bra
-                                      | Ket      , _        , Ket
-                                      | Gate     , _        , Gate
-                                      | Matrix   , _        , Matrix   
-                                      | _        , Bra      , Bra 
-                                      | _        , Ket      , Ket 
-                                      | _        , Gate     , Gate     
-                                      | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
-                                                                            with _ -> bad ()
-                                                                           )
-                                      | Bra      , _        , _          
-                                      | Ket      , _        , _          
-                                      | Gate     , _        , _          
-                                      | Matrix   , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn e2 t1
-                                                                            with _ -> bad ()
-                                                                           )  
-
-                                      | _        , Bra      , _          
-                                      | _        , Ket      , _          
-                                      | _        , Gate     , _          
-                                      | _        , Matrix   , _         -> (try unifytypes t2 tout; unifytypes t1 tout;
-                                                                                twarn e1 t2
-                                                                            with _ -> bad ()
-                                                                           )  
-                                      
-                                      | _                               -> bad ()
-                                     )
-                                 | TensorPower ->
-                                     (* we currently have the following
-                                          Bra    -> Num    -> Bra
-                                          Ket    -> Num    -> Ket
-                                          Gate   -> Num    -> Gate
-                                          Matrix -> Num    -> Matrix
-                                      *)
-                                     (match t1.inst, tout.inst with
-                                      | Bra      , _                  
-                                      | Ket      , _                  
-                                      | Gate     , _                  
-                                      | Matrix   , _          
-                                      | _        , Bra      
-                                      | _        , Ket      
-                                      | _        , Gate     
-                                      | _        , Matrix    -> (try unifytypes t1 tout with _ -> bad ())  
-                                      
-                                      | Unknown _, _         -> 
-                                          raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s"
-                                                                                (string_of_arithop op)
-                                                                                (string_of_expr e1)
-                                                       )
-                                                )
-                                      
-                                      | _                    -> bad ()
-                                     )
-                                 | Plus
-                                 | Minus       ->
-                                     (* we currently have the following 
-                                          Num    -> Num    -> Num   
-                                          Sxnum  -> Sxnum  -> Sxnum   
-                                          Matrix -> Matrix -> Matrix
-                                        -- nothing with Bra or Ket, because we want to keep them normalised. Hmm.
-                                      *)
-                                     (match t1.inst, t2.inst, tout.inst with
-                                      | Num      , _        , _ 
-                                      | Sxnum    , _        , _ 
-                                      | Matrix   , _        , _    
-                                      | _        , Num      , _ 
-                                      | _        , Sxnum    , _
-                                      | _        , Matrix   , _    
-                                      | _        , _        , Num      
-                                      | _        , _        , Sxnum    
-                                      | _        , _        , Matrix   -> (try unifytypes t1 tout; unifytypes t2 tout
-                                                                            with _ -> bad ()
-                                                                           )
-                                      (* default is Num -> Num -> Num *)
-                                      | _        , _        , _         -> (try unifytypes tout (adorn e.pos Num); 
-                                                                                unifytypes t1 tout; unifytypes t2 tout;
-                                                                                twarn2 e1 e2 tout
-                                                                            with _ -> bad ()
-                                                                           )                                      
-                                     )
-                                 | _           -> ()
+                                     
+                                     | _                    -> bad ()
+                                    )
+                                | Plus
+                                | Minus       ->
+                                    (* we currently have the following 
+                                         Num    -> Num    -> Num   
+                                         Sxnum  -> Sxnum  -> Sxnum   
+                                         Matrix -> Matrix -> Matrix
+                                       -- nothing with Bra or Ket, because we want to keep them normalised. Hmm.
+                                       
+                                       Note this is uniform overloading (all the same shape), so t1, t2, tout are the same.
+                                       See above.
+                                     *)
+                                    (match t1.inst with
+                                     | Num      
+                                     | Sxnum     
+                                     | Matrix    -> ()
+                                     | Unknown _ -> let t = adorn e.pos Num in
+                                                    ovld_warn2 e1 e2 t; 
+                                                    unifytypes t1 t
+                                     | _         -> bad ()
+                                    )
+                                | _           -> ()
                                )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->

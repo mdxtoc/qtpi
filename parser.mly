@@ -510,8 +510,8 @@ nwlexpr: /* neither while nor cons */
   | LAMBDA fparams DOT expr             {tadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
 
 app:
-  | primary primary                     {tadorn (EApp ($1,$2))}
-  | app primary                         {tadorn (EApp ($1,$2))}
+  | primary primary                     {tadorn (EJux ($1,$2))}
+  | app primary                         {tadorn (EJux ($1,$2))}
   
 arith:
   | nwexpr TENSORPROD nwexpr            {$1,TensorProd,$3}

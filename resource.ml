@@ -478,10 +478,10 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                   | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
                                  ),
                                  ResourceSet.union used0 (ResourceSet.union used1 used2)
-      | EApp        (e1,e2)   
+      | EJux        (e1,e2)   
       | EAppend     (e1,e2)   -> let _, used1 = re URead e1 in
                                  let _, used2 = re URead e2 in
-                                 (* EAppend and EApp don't return resources: we checked *)
+                                 (* EAppend and EJux don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
       | ELambda     (pats,e)  -> rck_fun state env pats e
       | EWhere      (e,ed)    -> rck_edecl use state env stoppers e ed
@@ -715,7 +715,7 @@ let rec ffv_expr expr =
   | ETuple     es           -> List.iter ffv_expr es  
   | ECons      (e1,e2)
   | EAppend    (e1,e2)
-  | EApp       (e1,e2)      -> List.iter ffv_expr [e1;e2]
+  | EJux       (e1,e2)      -> List.iter ffv_expr [e1;e2]
   | ECond      (e1,e2,e3)   -> List.iter ffv_expr [e1;e2;e3]
   | EMatch     (e,ems)      -> ffv_expr e; List.iter (fun (pat,e) -> ffv_expr e) ems
   | EArith     (e1, _, e2)

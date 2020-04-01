@@ -128,7 +128,7 @@ let rec rewrite_expr e =
        | EMatch      (e,ems)    -> rewrite_expr e; 
                                    List.iter (fun (pat,e) -> rewrite_pattern pat; rewrite_expr e) ems
        | ECons       (e1,e2)
-       | EApp        (e1,e2)     
+       | EJux        (e1,e2)     
        | EAppend     (e1,e2)    -> List.iter rewrite_expr [e1;e2]
        | EArith      (e1,_,e2)   
        | ECompare    (e1,_,e2)   
@@ -549,7 +549,7 @@ and assigntype_expr cxt t e =
      | EBra    _            -> unifytypes t (adorn_x e Bra)
      | EKet    _            -> unifytypes t (adorn_x e Ket)
      | EVar    n            -> assigntype_name e.pos cxt t n
-     | EApp    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
+     | EJux    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
                                let rtype = newclasstv e.pos in (* result always classical *)
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
                                let _ = unifytypes rtype t in

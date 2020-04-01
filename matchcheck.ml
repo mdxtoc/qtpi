@@ -422,7 +422,7 @@ let rec matchcheck_expr e =
   | ECompare    (e1,_,e2)
   | EBoolArith  (e1,_,e2)   -> matchcheck_expr e1; matchcheck_expr e2
   | ECons       (e1,e2)
-  | EApp        (e1,e2)
+  | EJux        (e1,e2)
   | EAppend     (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
   | ELambda     (pats,e)    -> matchcheck_expr e
   | EWhere      (e,ed)      -> matchcheck_expr e; matchcheck_edecl ed

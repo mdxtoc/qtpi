@@ -234,7 +234,7 @@ let rec evale env e =
                                                                    )
                                                             )
                              )  
-    | EApp (f,a)          -> let fv = funev env f in
+    | EJux (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
 
     | EArith (e1,op,e2)   -> (match op with

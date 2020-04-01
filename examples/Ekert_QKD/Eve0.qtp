@@ -1,6 +1,6 @@
 proc Eve (nq,qcin,qcout) =
   if nq<>0 then
-    qcin?(q:qbit) .
+    qcin?(q) .
     (newq q'=|1>) q,q' >> Cnot .
     qcout!q  .
     dispose!q' .  (* plug a space leak: without this we generate an orphan qbit each time round the loop *)

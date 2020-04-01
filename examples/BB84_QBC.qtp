@@ -23,7 +23,7 @@ proc Alice(n:num, r:^bit, qB, vB, log) =
 (* receive qbits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
   if n=0 then done!rev bvs . _0
-  else qA?(q:qbit).
+  else qA?(q).
        r?(basis).
        q -/-[if basis=0b1 then H else I] (value) .
        BobReceive(n-1,(basis,value)::bvs,qA,r,done)

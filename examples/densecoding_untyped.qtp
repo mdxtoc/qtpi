@@ -9,17 +9,17 @@ proc
 
   Alice (cA, cAB) =
     (let t = (randbit(), randbit())) ⁁1
-    cA?(x:qbit) . x >> match t .
-                       + (0b0,0b0) . I
-                       + (0b0,0b1) . X
-                       + (0b1,0b0) . Z
-                       + (0b1,0b1) . Z*X     .
+    cA?(x) . x >> match t .
+                  + (0b0,0b0) . I
+                  + (0b0,0b1) . X
+                  + (0b1,0b0) . Z
+                  + (0b1,0b1) . Z*X     .
     cAB!x . _0
                            
                            with 1: out!["Alice decides to send "; show t; "\n"] . _0
                                         
   Bob(cB, cAB) =
-    cB?(y:qbit) . cAB?(x:qbit) . 
+    cB?(y) . cAB?(x) . 
     x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . ⁁2
     _0
                             with 2: out!["Bob receives "; show (i,j); "\n" ] . _0

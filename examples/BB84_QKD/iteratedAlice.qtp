@@ -1,6 +1,6 @@
-fun pos_root (a:num) (b:num) (c:num) = (-b+sqrt(b*b-4*a*c))/(2*a)
+fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
 
-fun min_qbits (k:num) (s:num) (cmin:num)
+fun min_qbits k (s:num) cmin
   = ceiling (max (rootn*rootn) (rootnmin*rootnmin))
     where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
     where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
@@ -28,7 +28,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, log) =
   . ⁁1
   
   (* send Bob the qbits I chose *)
-  . [(b,v) <- zip bs vs : (newq q = basisv_of_bits b v) qc!q . _0]
+  . [(b,v) <- zip bs vs : (newq q = ket_of_bits b v) qc!q . _0]
     
   (* tell each other the qbit bases we used - me first *)
   . (let h0 = hwc bs hks 0 w)

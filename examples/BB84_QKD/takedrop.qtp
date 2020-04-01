@@ -1,5 +1,5 @@
 
-proc Alice(n:num, r:^bit, qB, bsB) = 
+proc Alice(n, r:^bit, qB, bsB) = 
   (new chosen) 
   | AliceChoose (n,[],r,chosen)
   | chosen?(bvs) . 

@@ -11,7 +11,7 @@ proc AliceSendBits (vs,basis,qB,done) =
               qB!q.
               AliceSendBits(vs,basis,qB,done)
 
-proc Alice(n:num, r:^bit, qB, vB, log) = 
+proc Alice(n, r:^bit, qB, vB, log) = 
     r?(basis) .
     (let vs = randbits n)
     log![basis] .
@@ -41,7 +41,7 @@ proc BobVerify (basis,vs,bvs,done) =
                             then Liar (done)
                             else BobVerify(basis,vs,bvs,done)
   
-proc Bob(n:num, r:^bit, qA, vA, log) = 
+proc Bob(n, r:^bit, qA, vA, log) = 
   (new done,verified) 
   | BobReceive(n,[],qA,r,done)
   | done?(bvs) . 

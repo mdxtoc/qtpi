@@ -22,7 +22,7 @@ fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
    sigma = sqrt (k*(1+h)/2*(1-h)/2) = sqrt (k/8). 
  *)
 
-fun int_sqrt n = i_s 0 n where i_s (k:num) n = if k*k>=n then k else i_s (k+1) n
+fun int_sqrt n = i_s 0 n where i_s k n = if k*k>=n then k else i_s (k+1) n
 
 fun abs i = if i<0 then -i else i
 
@@ -75,7 +75,7 @@ fun crossprod xs ys
      sqrt n = (s*sqrt q + sqrt(s^2*q+4*k*p))/2*p
  *)
  
-fun min_qbits (k:num) (p:num) (s:num) : num = 
+fun min_qbits k p s = 
       rootn*rootn
         where rootn = (s* sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
         where q = p*(1-p)

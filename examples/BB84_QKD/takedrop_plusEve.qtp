@@ -1,7 +1,7 @@
 
 proc Alice (k,verbose,n,r,qB,bsB) = Alice1 (k, k, 0, 0, 0, -1, verbose, n, r, qB, bsB)
 
-Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n:num, r:^bit, qB, bsB) = 
+Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n, r:^bit, qB, bsB) = 
   if i=0 then out!["all done: "; 
                               show nGood; " Eve's; ";
                               show nBad; " Alice's; ";
@@ -80,7 +80,7 @@ Reconcile (bBs,bvs,vs,done) =
   + _                     . out!["Reconcile failure"] . _0
   
 
-Bob(k, verbose, n:num, r:^bit, qA, bsA) = 
+Bob(k, verbose, n, r:^bit, qA, bsA) = 
   if k=0 then _0
   else
     (new done) 

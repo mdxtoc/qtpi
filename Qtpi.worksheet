@@ -128,16 +128,6 @@ time ./Qtpi examples/Grover/grover8.qtp
 time ./Qtpi examples/Grover/grover9.qtp
 
 time ./Qtpi examples/Grover/grover.qtp
-number of bits? 5
-grover 5 bs = [0;0;1;0;0]; 4 iterations
-measurement says [0;0;1;0;0] ok
-
-
-
-real	0m5.016s
-user	0m0.064s
-sys	0m0.007s
-
 
 time ./Qtpi examples/W2.qtp
 time ./Qtpi examples/W2q.qtp

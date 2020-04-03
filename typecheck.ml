@@ -129,7 +129,8 @@ let rec rewrite_expr e =
                                    List.iter (fun (pat,e) -> rewrite_pattern pat; rewrite_expr e) ems
        | ECons       (e1,e2)
        | EJux        (e1,e2)     
-       | EAppend     (e1,e2)    -> List.iter rewrite_expr [e1;e2]
+       | EAppend     (e1,e2)    
+       | ESub        (e1,e2)    -> List.iter rewrite_expr [e1;e2]
        | EArith      (e1,_,e2)   
        | ECompare    (e1,_,e2)   
        | EBoolArith  (e1,_,e2)  -> List.iter rewrite_expr [e1;e2]
@@ -792,6 +793,7 @@ and assigntype_expr cxt t e =
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Num) (adorn_x e2 Num) e1 e2
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
+     | ESub (e1,e2)         -> binary cxt (adorn_x e Qbit) (adorn_x e1 Qbits) (adorn_x e2 Num) e1 e2
      | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv e.pos)) in (* append has to deal in classical lists *)
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in

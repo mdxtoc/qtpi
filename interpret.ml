@@ -99,7 +99,8 @@ let vket    k       = VKet    k
 let vmatrix m       = VMatrix m
 let vgate   g       = VGate   g
 let vchan   c       = VChan   c
-let vqbit   q       = VQbits   q
+let vqbit   q       = VQbit   q
+let vqbits  qs      = VQbit   qs
 let vqstate s       = VQstate s
 let vpair   (a,b)   = VTuple  [a;b]
 let vtriple (a,b,c) = VTuple  [a;b;c]
@@ -236,7 +237,6 @@ let rec evale env e =
                              )  
     | EJux (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
-
     | EArith (e1,op,e2)   -> (match op with
                               | Plus        
                               | Minus   ->
@@ -360,6 +360,16 @@ let rec evale env e =
                                         | Implies   -> (not v1) || v2
                                         | Iff       -> v1 = v2
                                      )
+    | ESub    (e1,e2)         -> let v1 = qbitsev env e1 in
+                                 let v2 = numev env e2 in
+                                 if is_int v2 then (try vqbit (List.nth v1 (int_of_num v2))
+                                                    with _ -> raise (Error (e2.pos, Printf.sprintf "%d not in range of qbits collection length %d"
+                                                                                        (int_of_num v2)
+                                                                                        (List.length v1)
+                                                                           )
+                                                                    )
+                                                   )
+                                 else raise (Error (e.pos, Printf.sprintf "fractional subscript %s" (string_of_value (VNum v2))))
     | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
     | ELambda (pats, e)       -> fun_of e env pats
     | EWhere  (e, ed)         -> let env = match ed.inst with

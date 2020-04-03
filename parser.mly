@@ -505,6 +505,7 @@ nwlexpr: /* neither while nor cons */
   | NOT primary                         {tadorn (ENot $2)}
   | nwexpr APPEND nwexpr                {tadorn (EAppend ($1,$3))}
   | primary DAGGER                      {tadorn (EDagger $1)}
+  | primary DOWNARROW nwexpr            {tadorn (ESub ($1,$3))}
   | arith                               {let e1,op,e2 = $1 in tadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in tadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in tadorn (EBoolArith (e1,op,e2))}

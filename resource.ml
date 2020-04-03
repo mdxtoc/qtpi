@@ -478,6 +478,17 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                   | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
                                  ),
                                  ResourceSet.union used0 (ResourceSet.union used1 used2)
+      | ESub        (e1,e2)   -> (* at present this is qbits -> num -> qbit, so e2 had better be RNull *)
+                                 let r1, used1 = re URead e1 in
+                                 let r2, used2 = re URead e2 in
+                                 (match r2 with
+                                  | RNull -> r1, ResourceSet.union used1 used2
+                                  | _     -> raise (Disaster (e2.pos, Printf.sprintf "%s is resource %s" 
+                                                                                     (string_of_expr e2) 
+                                                                                     (string_of_resource r2)
+                                                             )
+                                                   )
+                                 )
       | EJux        (e1,e2)   
       | EAppend     (e1,e2)   -> let _, used1 = re URead e1 in
                                  let _, used2 = re URead e2 in
@@ -715,7 +726,8 @@ let rec ffv_expr expr =
   | ETuple     es           -> List.iter ffv_expr es  
   | ECons      (e1,e2)
   | EAppend    (e1,e2)
-  | EJux       (e1,e2)      -> List.iter ffv_expr [e1;e2]
+  | EJux       (e1,e2)      
+  | ESub       (e1,e2)      -> List.iter ffv_expr [e1;e2]
   | ECond      (e1,e2,e3)   -> List.iter ffv_expr [e1;e2;e3]
   | EMatch     (e,ems)      -> ffv_expr e; List.iter (fun (pat,e) -> ffv_expr e) ems
   | EArith     (e1, _, e2)

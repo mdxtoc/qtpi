@@ -33,7 +33,7 @@ let string_of_token = function
     | UNTRACED  -> "UNTRACED"
     | UNIT      -> "UNIT"
     | UNDERSCORE -> "UNDERSCORE"
-    | TYPEARROW -> "TYPEARROW"
+    | RIGHTARROW -> "RIGHTARROW"
     | TVNAME (s) -> "TVNAME(" ^ s ^ ")" 
     | TRUE      -> "TRUE"
     | TPNUM (s) -> "TPNUM(" ^ s ^ ")"
@@ -119,6 +119,7 @@ let string_of_token = function
     | AND       -> "AND"
     | DAGGER    -> "DAGGER"
     | SXNUMTYPE -> "SXNUMTYPE"
+    | DOWNARROW -> "DOWNARROW"
 
   
 let get_linenum lexbuf = 
@@ -177,6 +178,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x2297, 0x2297      
                 -> TENSORPOWER (* ⊗⊗ *)
   | "<-"        -> LEFTARROW
+  | 0x2190      -> LEFTARROW
   | "^^"        -> DAGGER
   | 0x2020      -> DAGGER       (* † *)
   | "true"      -> TRUE
@@ -270,7 +272,10 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "All"       -> FORALL
   | "process"   -> PROCESS
   
-  | "->"        -> TYPEARROW
+  | "->"        -> RIGHTARROW
+  | 0x2192      -> RIGHTARROW    (* → *)
+  
+  | 0x2193      -> DOWNARROW     (* ↓ *)
     
   | "'", Compl (Chars "'\\\n\r\t"), "'"
                 -> CHAR (Sedlexing.lexeme_char lexbuf 1)

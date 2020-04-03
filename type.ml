@@ -152,7 +152,7 @@ and string_of_tnode = function
   | List    t        -> Printf.sprintf "[%s]" (string_of_type t)
   | Tuple   ts       -> "(" ^ string_of_list string_of_type "," ts ^ ")"
   | Channel t        -> Printf.sprintf "^%s" (possbracket false chanprio t)
-  | Fun     (t1,t2)  -> Printf.sprintf "%s->%s"
+  | Fun     (t1,t2)  -> Printf.sprintf "%s→%s"
                                        (possbracket true funprio t1)
                                        (possbracket false funprio t2)
   | Process ts       -> Printf.sprintf "%s process" (string_of_tnode (delist ts))

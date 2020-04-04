@@ -630,8 +630,9 @@ and rck_proc mon state env stoppers proc =
                                    let state, used = List.fold_left do_q (state, ResourceSet.empty) qns
                                    in
                                    let n = name_of_param qn in
-                                   let state, q = newqid (qn.pos,n) state in                                  
-                                   runbind (RQbit q) (ResourceSet.union used (rp state env stoppers proc))
+                                   let state, q = newqid (qn.pos,n) state in 
+                                   let r = RQbit q in
+                                   runbind r (ResourceSet.union used (rp state (env<@+>(n,r)) stoppers proc))
       | Iter (pat, e, p, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
                                    let pused state env stoppers p = rp state env ((env,StopKill)::stoppers) p in
                                    let used = rck_pat (fun state env stoppers -> pused state env stoppers p) 

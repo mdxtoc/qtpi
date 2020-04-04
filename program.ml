@@ -22,3 +22,4 @@
 *)
  
 exception ParseError of Sourcepos.sourcepos * string (* because I can't put it in Parser, and I have to put it somewhere *)
+exception LexposParseError of string                 (* ditto *)

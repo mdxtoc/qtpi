@@ -313,6 +313,7 @@ iostep:
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
   | typedname procargs                  {adorn (GoOnAs ($1,$2))}
+  | typedname procargs DOT              {raise (LexposParseError "nothing can follow a process invocation")}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ((true,$3),$5))}
   | LPAR NEWDEC UNTRACED paramseq RPAR process   

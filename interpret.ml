@@ -201,7 +201,7 @@ let rec evale env e =
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
-                              with Invalid_argument _ -> 
+                              with Not_found -> 
                                 raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
                              )
     | ENum n              -> VNum n
@@ -713,10 +713,10 @@ let rec interp env proc =
                  )
              | JoinQs (qns, qp, proc) ->
                  let do_qn qn =
-                   (try qbitsv (env<@>tinst qn) 
-                    with Invalid_argument _ -> 
-                      raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
-                   )
+                   qbitsv (try env<@>tinst qn
+                           with Not_found -> 
+                             raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                          )
                  in
                  let v = vqbits (List.concat (List.map do_qn qns)) in
                  let env = env<@+>(name_of_param qp,v) in
@@ -943,7 +943,7 @@ let interpret defs =
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"
-             with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
+             with Not_found -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
   | VProcess (_, er, [], p) -> flush_all(); interp !er p

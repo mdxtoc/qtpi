@@ -45,7 +45,7 @@ let string_of_token = function
     | TENSORPROD -> "TENSORPROD"
     | TENSORPOWER -> "TENSORPOWER"
     | STRINGTYPE -> "STRINGTYPE"
-    | STRING (s) -> "STRING(" ^ s ^ ")"
+    | STRING s  -> "STRING(" ^ s ^ ")"
     | STAR      -> "STAR"
     | SEMICOLON -> "SEMICOLON"
     | RSQPAR    -> "RSQPAR"
@@ -57,6 +57,7 @@ let string_of_token = function
     | QBITSTYPE -> "QBITSTYPE"
     | QBITDEC   -> "QBITDEC"
     | QBITSDEC  -> "QBITSDEC"
+    | QBITSJOIN -> "QBITSJOIN"
     | PROCITER  -> "PROCITER"
     | PROCESS   -> "PROCESS"
     | PROC      -> "PROC"
@@ -213,6 +214,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "untraced"  -> UNTRACED
   | "newq"      -> QBITDEC
   | "newqs"     -> QBITSDEC
+  | "joinqs"    -> QBITSJOIN
   | "let"       -> LETDEC
   | "match"     -> MATCH
   

@@ -68,7 +68,7 @@
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
 %token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
 %token DOT DOTDOT UNDERSCORE
-%token NEWDEC UNTRACED QBITDEC QBITSDEC LETDEC MATCH 
+%token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN LETDEC MATCH 
 %token QUERY BANG MEASURE MEASURES THROUGH THROUGHS 
 %token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
 %token DOWNARROW
@@ -183,6 +183,10 @@ fdef:
   
 typedname:
   name                                  {tadorn $1}
+
+typednames:
+  | typedname                           {[$1]}
+  | typedname COMMA typednames          {$1::$3}
   
 fparam:
   | name                                {tadorn (PatName $1)}
@@ -324,6 +328,8 @@ simpleprocess:
                                         {adorn (WithQbit (true,$3,$5))}
   | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
+  | LPAR QBITSJOIN typednames param RPAR process
+                                        {adorn (JoinQs($3,$4,$6))}
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}

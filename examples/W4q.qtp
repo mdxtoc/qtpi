@@ -1,3 +1,9 @@
+(* W-state algorithm taken from 
+    the Q# Kata on superposition
+    (https://github.com/microsoft/QuantumKatas/blob/master/Superposition/ReferenceImplementation.qs), 
+    task 16, WState_PowerOfTwo_Reference
+ *)
+ 
 proc W1q (c1) = (newq q=|1>) c1!q . _0
 
 proc W2q (c2) =

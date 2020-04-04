@@ -468,5 +468,11 @@ let _qval q =
   let q = qbitv q in
   let qv = Qsim.qval q in
   Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv))
+
+let _qvals qs =
+  let qs = qbitsv qs in
+  let qv = Qsim.qval_of_qs qs in
+  Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qbit qs) (Qsim.string_of_qval qv) (* oh the qsort ... *)
   
-let _ = Interpret.know ("qval", "qbit -> qstate", vfun (vqstate <.> _qval))     (* yup, that's a qbit argument *)
+let _ = Interpret.know ("qval" , "qbit  -> qstate", vfun (vqstate <.> _qval))       (* yup, that's a qbit argument *)
+let _ = Interpret.know ("qvals", "qbits -> qstate", vfun (vqstate <.> _qvals))      (* yup, that's a qbits argument *)

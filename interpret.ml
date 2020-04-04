@@ -99,7 +99,8 @@ let vket    k       = VKet    k
 let vmatrix m       = VMatrix m
 let vgate   g       = VGate   g
 let vchan   c       = VChan   c
-let vqbit   q       = VQbits   q
+let vqbit   q       = VQbit   q
+let vqbits  qs      = VQbits  qs
 let vqstate s       = VQstate s
 let vpair   (a,b)   = VTuple  [a;b]
 let vtriple (a,b,c) = VTuple  [a;b;c]
@@ -200,7 +201,7 @@ let rec evale env e =
     | EUnit               -> VUnit
     | ENil                -> VList []
     | EVar n              -> (try env<@>n 
-                              with Invalid_argument _ -> 
+                              with Not_found -> 
                                 raise (Error (e.pos, "** Disaster: unbound " ^ string_of_name n))
                              )
     | ENum n              -> VNum n
@@ -234,9 +235,8 @@ let rec evale env e =
                                                                    )
                                                             )
                              )  
-    | EApp (f,a)          -> let fv = funev env f in
+    | EJux (f,a)          -> let fv = funev env f in
                              (try fv (evale env a) with LibraryError s -> raise (Error (e.pos, s)))
-
     | EArith (e1,op,e2)   -> (match op with
                               | Plus        
                               | Minus   ->
@@ -360,6 +360,16 @@ let rec evale env e =
                                         | Implies   -> (not v1) || v2
                                         | Iff       -> v1 = v2
                                      )
+    | ESub    (e1,e2)         -> let v1 = qbitsev env e1 in
+                                 let v2 = numev env e2 in
+                                 if is_int v2 then (try vqbit (List.nth v1 (int_of_num v2))
+                                                    with _ -> raise (Error (e2.pos, Printf.sprintf "%d not in range of qbits collection length %d"
+                                                                                        (int_of_num v2)
+                                                                                        (List.length v1)
+                                                                           )
+                                                                    )
+                                                   )
+                                 else raise (Error (e.pos, Printf.sprintf "fractional subscript %s" (string_of_value (VNum v2))))
     | EAppend (es, es')       -> VList (List.append (listev env es) (listev env es'))
     | ELambda (pats, e)       -> fun_of e env pats
     | EWhere  (e, ed)         -> let env = match ed.inst with
@@ -701,6 +711,18 @@ let rec interp env proc =
                       if !pstep then 
                         show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
+             | JoinQs (qns, qp, proc) ->
+                 let do_qn qn =
+                   qbitsv (try env<@>tinst qn
+                           with Not_found -> 
+                             raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                          )
+                 in
+                 let v = vqbits (List.concat (List.map do_qn qns)) in
+                 let env = env<@+>(name_of_param qp,v) in
+                 addrunner (pn, proc, env);
+                 if !pstep then
+                   show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) (string_of_param qp) (pstep_state env))
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                  let canread pos c pat =
@@ -921,7 +943,7 @@ let interpret defs =
   if !verbose || !verbose_interpret then
     Printf.printf "sysenv = %s\n\n" (string_of_env sysenv);
   let sysv = try sysenv <@> "System"
-             with Invalid_argument _ -> raise (Error (dummy_spos, "no System process"))
+             with Not_found -> raise (Error (dummy_spos, "no System process"))
   in 
   match sysv with
   | VProcess (_, er, [], p) -> flush_all(); interp !er p

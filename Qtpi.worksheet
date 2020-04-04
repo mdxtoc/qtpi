@@ -135,6 +135,8 @@ time ./Qtpi examples/W3.qtp
 time ./Qtpi examples/W4q.qtp
 time ./Qtpi examples/W8q.qtp
 
+time ./Qtpi examples/W.qtp
+
 time ./Qtpi examples/election8.qtp
 
 time ./Qtpi examples/fulladder/Coggins_all.qtp

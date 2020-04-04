@@ -66,11 +66,12 @@
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
-%token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE TYPEARROW
+%token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
 %token DOT DOTDOT UNDERSCORE
-%token NEWDEC UNTRACED QBITDEC QBITSDEC LETDEC MATCH 
+%token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN LETDEC MATCH 
 %token QUERY BANG MEASURE MEASURES THROUGH THROUGHS 
 %token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
+%token DOWNARROW
 %token EQUALS NOTEQUAL LESSEQUAL LESS GREATEREQUAL GREATER
 %token APPEND CONS
 %token AND OR NOT
@@ -92,7 +93,7 @@
 %left TENSORPROD TENSORPOWER
 %left APPEND
 
-%right TYPEARROW
+%right RIGHTARROW
 /* %nonassoc STAR */
 
 %start program             /* Entry point */
@@ -182,6 +183,10 @@ fdef:
   
 typedname:
   name                                  {tadorn $1}
+
+typednames:
+  | typedname                           {[$1]}
+  | typedname COMMA typednames          {$1::$3}
   
 fparam:
   | name                                {tadorn (PatName $1)}
@@ -209,7 +214,7 @@ typespec:
 
 func_typespec:
   | chan_typespec                       {$1}
-  | chan_typespec TYPEARROW func_typespec    
+  | chan_typespec RIGHTARROW func_typespec    
                                         {adorn (Fun ($1,$3))}
   
 chan_typespec:
@@ -312,6 +317,7 @@ iostep:
 simpleprocess:
   | TERMINATE                           {adorn Terminate}
   | typedname procargs                  {adorn (GoOnAs ($1,$2))}
+  | typedname procargs DOT              {raise (LexposParseError "nothing can follow a process invocation")}
   | LPAR NEWDEC paramseq RPAR process   
                                         {adorn (WithNew ((true,$3),$5))}
   | LPAR NEWDEC UNTRACED paramseq RPAR process   
@@ -322,6 +328,8 @@ simpleprocess:
                                         {adorn (WithQbit (true,$3,$5))}
   | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
+  | LPAR QBITSJOIN typednames RIGHTARROW param RPAR process
+                                        {adorn (JoinQs($3,$5,$7))}
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
@@ -504,14 +512,15 @@ nwlexpr: /* neither while nor cons */
   | NOT primary                         {tadorn (ENot $2)}
   | nwexpr APPEND nwexpr                {tadorn (EAppend ($1,$3))}
   | primary DAGGER                      {tadorn (EDagger $1)}
+  | primary DOWNARROW nwexpr            {tadorn (ESub ($1,$3))}
   | arith                               {let e1,op,e2 = $1 in tadorn (EArith (e1,op,e2))}
   | compare                             {let e1,op,e2 = $1 in tadorn (ECompare (e1,op,e2))}
   | bool                                {let e1,op,e2 = $1 in tadorn (EBoolArith (e1,op,e2))}
   | LAMBDA fparams DOT expr             {tadorn (ELambda ($2,$4))} /* oh dear expr not nwexpr? */
 
 app:
-  | primary primary                     {tadorn (EApp ($1,$2))}
-  | app primary                         {tadorn (EApp ($1,$2))}
+  | primary primary                     {tadorn (EJux ($1,$2))}
+  | app primary                         {tadorn (EJux ($1,$2))}
   
 arith:
   | nwexpr TENSORPROD nwexpr            {$1,TensorProd,$3}

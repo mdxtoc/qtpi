@@ -422,8 +422,9 @@ let rec matchcheck_expr e =
   | ECompare    (e1,_,e2)
   | EBoolArith  (e1,_,e2)   -> matchcheck_expr e1; matchcheck_expr e2
   | ECons       (e1,e2)
-  | EApp        (e1,e2)
-  | EAppend     (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
+  | EJux        (e1,e2)
+  | EAppend     (e1,e2)     
+  | ESub        (e1,e2)     -> matchcheck_expr e1; matchcheck_expr e2
   | ELambda     (pats,e)    -> matchcheck_expr e
   | EWhere      (e,ed)      -> matchcheck_expr e; matchcheck_edecl ed
   
@@ -452,6 +453,7 @@ let rec matchcheck_proc mon proc =
                                 | Through (_, qes,ge)        -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc mon proc 
+  | JoinQs (_, _, proc)     -> matchcheck_proc mon proc
   | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                 | Some (_,monproc) -> matchcheck_proc mon monproc
                                 | None             -> raise (Can'tHappen (Printf.sprintf "%s: matchcheck_proc sees no monproc"

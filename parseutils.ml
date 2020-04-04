@@ -87,6 +87,12 @@ let parse_program filename =
   let lexbuf = Sedlexing.from_gen (Utf8.from_channel in_channel) in
   Sedlexing.set_filename lexbuf filename;
   Sedlexing.set_position lexbuf {Lexing.pos_fname=filename; Lexing.pos_lnum=1; Lexing.pos_bol=0; Lexing.pos_cnum=0};
+  let lexinfo () = (* line number, character position, lexeme *)
+    let curr, _ = Sedlexing.lexing_positions lexbuf in  
+    curr.Lexing.pos_lnum, 
+    curr.Lexing.pos_cnum-curr.Lexing.pos_bol,
+    Lexer.string_of_lexeme (Sedlexing.lexeme lexbuf)
+  in
   try
     let result = parser Parser.program lexbuf in
     close_in in_channel; 
@@ -95,29 +101,34 @@ let parse_program filename =
   | Parsing.Parse_error 
   (* for menhir | Parser.Error *) ->
       (close_in in_channel;
-       let curr, _ = Sedlexing.lexing_positions lexbuf in
+       let lnum, cpos, lexeme = lexinfo () in
        raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"
-                                    filename
-                                    (curr.Lexing.pos_lnum)
-                                    (curr.Lexing.pos_cnum-curr.Lexing.pos_bol)
-                                    (Lexer.string_of_lexeme (Sedlexing.lexeme lexbuf))
+                                    filename lnum cpos lexeme
+                    )
+             )
+      )
+  | Program.LexposParseError s ->
+      (close_in in_channel;
+       let lnum, cpos, lexeme = lexinfo () in
+       raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (looking at %s): %s\n"
+                                    filename lnum cpos lexeme s
                     )
              )
       )
   | Program.ParseError(spos,s) ->
-        (close_in in_channel;
-         raise (Error (Printf.sprintf "\n** %s: SYNTAX ERROR: %s\n"
-                                      (string_of_sourcepos spos)
-                                      s
-                      )
-               )
-        )
+      (close_in in_channel;
+       raise (Error (Printf.sprintf "\n** %s: SYNTAX ERROR: %s\n"
+                                    (string_of_sourcepos spos)
+                                    s
+                    )
+             )
+      )
   | Lexer.LexError(spos,s) -> 
-        (close_in in_channel;
-         raise (Error (Printf.sprintf "\n**%s: LEXING ERROR: %s\n"
-                                      (string_of_sourcepos spos)
-                                      s
-                      )
-               )
-        )
+      (close_in in_channel;
+       raise (Error (Printf.sprintf "\n**%s: LEXING ERROR: %s\n"
+                                    (string_of_sourcepos spos)
+                                    s
+                    )
+             )
+      )
   | exn -> (close_in in_channel; raise exn)

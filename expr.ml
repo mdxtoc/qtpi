@@ -58,10 +58,11 @@ and enode =
   | EAppend of expr * expr
   | ECond of expr * expr * expr
   | EMatch of expr * ematch list
-  | EApp of expr * expr
+  | EJux of expr * expr
   | EArith of expr * arithop * expr
   | ECompare of expr * compareop * expr
   | EBoolArith of expr * boolop * expr
+  | ESub of expr * expr
   | ELambda of pattern list * expr
   | EWhere of expr * edecl
 
@@ -128,7 +129,8 @@ let arithprio = function
   | Times                   -> Assoc   , 220
   | Div | Mod               -> Left    , 220
 
-let consprio                =  Right,    300
+let subprio                 =  Left    , 250
+let consprio                =  Right   , 300
 let unaryprio               =  NonAssoc, 400
 let lambdaprio              =  NonAssoc, 500
 let appprio                 =  Left    , 600
@@ -155,7 +157,8 @@ let rec exprprio e =
   | EMinus      _           
   | ENot        _           
   | EDagger     _           -> unaryprio
-  | EApp        _           -> appprio
+  | EJux        _           -> appprio
+  | ESub        _           -> subprio
   | ECons       _           -> if is_nilterminated e then primaryprio else consprio
   | EArith      (_,op,_)    -> arithprio op
   | ECompare    (_,op,_)    -> compprio op
@@ -232,10 +235,11 @@ and string_of_expr e =
   | EString     _ 
   | ECond       _                   
   | EMatch      _                   -> string_of_primary e
-  | EApp       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
+  | EJux       (e1,e2)              -> string_of_binary_expr e1 e2 " " appprio
   | EMinus      e                   -> Printf.sprintf "%s%s" string_of_uminus (bracket_nonassoc unaryprio e)
   | ENot        e                   -> Printf.sprintf "¬%s" (bracket_nonassoc unaryprio e)
   | EDagger     e                   -> Printf.sprintf "%s†" (bracket_nonassoc unaryprio e)
+  | ESub       (e1,e2)              -> string_of_binary_expr e1 e2 "↓" subprio
   | ECons      (hd,tl)              -> if is_nilterminated e then string_of_primary e
                                        else string_of_binary_expr hd tl "::" consprio
   | ETuple es                       -> "(" ^ commasep (List.map (bracket_nonassoc tupleprio) es) ^ ")"
@@ -325,7 +329,8 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       | ETuple      es         -> List.fold_left _frees s es
       | ECons       (e1,e2)
       | EAppend     (e1,e2) 
-      | EApp        (e1,e2)    -> List.fold_left _frees s [e1;e2]
+      | EJux        (e1,e2)    
+      | ESub        (e1,e2)    -> List.fold_left _frees s [e1;e2]
       | ECond       (e1,e2,e3) -> List.fold_left _frees s [e1;e2;e3]
       | EMatch      (e,ems)    -> (let ss = List.map (fun (pat,e) -> _frees_pats [pat] e) ems in
                                    let s' = List.fold_left s_union s_empty ss in

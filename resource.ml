@@ -423,28 +423,9 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                    raise (Error (e.pos, "cannot manipulate qbits with arith/compare/bool expressions"));
                                  RNull, used
       | EVar        n         -> let r = env <@> n in
-                                  (match r with
+                                 (match r with
                                   | RNull   -> RNull, ResourceSet.empty
-                                  | RQbit q -> if not (oktouse stoppers n r use) then
-                                                 raise (Error (e.pos, Printf.sprintf "cannot %s free qbit %s"
-                                                                                      (match use with 
-                                                                                       | URead      -> "use"
-                                                                                       | UGate      -> "gate"
-                                                                                       | USend      -> "send"
-                                                                                       | UMeasure   -> "measure"
-                                                                                       | UPass      -> "pass (as process argument)"
-                                                                                      )
-                                                                                      (string_of_name n)
-                                                              )
-                                                        )
-                                               else
-                                               if State.find q state then r, rsingleton r
-                                               else
-                                                 raise (Error (e.pos, Printf.sprintf "use of sent-away%s qbit %s" 
-                                                                                     (if !measuredestroys then "/measured" else "")
-                                                                                     (string_of_name n)
-                                                              )
-                                                       )
+                                  | RQbit q -> resources_of_q e.pos use state stoppers r (type_of_expr e) n q
                                   | _       -> r, resources_of_resource disjoint r
                                  )
       | ETuple      es        -> let rs, used = do_list use es in
@@ -478,10 +459,21 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                   | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
                                  ),
                                  ResourceSet.union used0 (ResourceSet.union used1 used2)
-      | EApp        (e1,e2)   
+      | ESub        (e1,e2)   -> (* at present this is qbits -> num -> qbit, so e2 had better be RNull *)
+                                 let r1, used1 = re URead e1 in
+                                 let r2, used2 = re URead e2 in
+                                 (match r2 with
+                                  | RNull -> r1, ResourceSet.union used1 used2
+                                  | _     -> raise (Disaster (e2.pos, Printf.sprintf "%s is resource %s" 
+                                                                                     (string_of_expr e2) 
+                                                                                     (string_of_resource r2)
+                                                             )
+                                                   )
+                                 )
+      | EJux        (e1,e2)   
       | EAppend     (e1,e2)   -> let _, used1 = re URead e1 in
                                  let _, used2 = re URead e2 in
-                                 (* EAppend and EApp don't return resources: we checked *)
+                                 (* EAppend and EJux don't return resources: we checked *)
                                  RNull, ResourceSet.union used1 used2
       | ELambda     (pats,e)  -> rck_fun state env pats e
       | EWhere      (e,ed)    -> rck_edecl use state env stoppers e ed
@@ -514,6 +506,30 @@ and rck_fun state env pats expr = (* note: no stoppers *)
   
 and resources_of_expr use = r_o_e false use
 and disjoint_resources_of_expr use = r_o_e true use
+
+and resources_of_q pos use state stoppers r t n q =
+  if not (oktouse stoppers n r use) then
+    raise (Error (pos, Printf.sprintf "cannot %s free qbit %s"
+                                         (match use with 
+                                          | URead      -> "use"
+                                          | UGate      -> "gate"
+                                          | USend      -> "send"
+                                          | UMeasure   -> "measure"
+                                          | UPass      -> "pass (as process argument)"
+                                         )
+                                         (string_of_name n)
+                 )
+           )
+  else
+  if State.find q state then r, rsingleton r
+  else
+    raise (Error (pos, Printf.sprintf "use of sent-away%s%s qbit%s %s" 
+                                        (if !measuredestroys then "/measured" else "")
+                                        (if t.inst=Qbits then "/joined" else "")
+                                        (if t.inst=Qbits then "s" else "")
+                                        (string_of_name n)
+                 )
+          )
 
 and resource_of_params state params = 
   List.fold_right (fun param (state, nrs) ->
@@ -601,6 +617,22 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
+      | JoinQs (qns, qn, proc)  -> let do_q (state,used) qn =
+                                     let n = tinst qn in
+                                     let r = env<@>n in
+                                     let q = match r with
+                                             | RQbit q -> q
+                                             | _       -> raise (Disaster (qn.pos, "not qbit/qbits resource"))
+                                     in
+                                     let _, u = resources_of_q qn.pos URead state stoppers r (type_of_typedname qn) n q in
+                                     State.add q false state, ResourceSet.union used u
+                                   in
+                                   let state, used = List.fold_left do_q (state, ResourceSet.empty) qns
+                                   in
+                                   let n = name_of_param qn in
+                                   let state, q = newqid (qn.pos,n) state in 
+                                   let r = RQbit q in
+                                   runbind r (ResourceSet.union used (rp state (env<@+>(n,r)) stoppers proc))
       | Iter (pat, e, p, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
                                    let pused state env stoppers p = rp state env ((env,StopKill)::stoppers) p in
                                    let used = rck_pat (fun state env stoppers -> pused state env stoppers p) 
@@ -715,7 +747,8 @@ let rec ffv_expr expr =
   | ETuple     es           -> List.iter ffv_expr es  
   | ECons      (e1,e2)
   | EAppend    (e1,e2)
-  | EApp       (e1,e2)      -> List.iter ffv_expr [e1;e2]
+  | EJux       (e1,e2)      
+  | ESub       (e1,e2)      -> List.iter ffv_expr [e1;e2]
   | ECond      (e1,e2,e3)   -> List.iter ffv_expr [e1;e2;e3]
   | EMatch     (e,ems)      -> ffv_expr e; List.iter (fun (pat,e) -> ffv_expr e) ems
   | EArith     (e1, _, e2)
@@ -758,11 +791,12 @@ and ffv_proc mon proc =
   | Terminate                      -> ()
   | GoOnAs    (pn,es)              -> List.iter ffv_expr es
   | WithNew   ((_,params), proc)   -> ffv_proc mon proc
-  | WithQbit  (_,qspecs, proc)       -> List.iter ffv_qspec qspecs; ffv_proc mon proc
+  | WithQbit  (_,qspecs, proc)     -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
   | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in
                                       ffv_proc mon p; ffv_proc mon proc
   | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
+  | JoinQs    (_, _, proc)         -> ffv_proc mon proc
   | TestPoint (n, proc)            -> (match find_monel n.inst mon with
                                        | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc
                                        | None -> raise (Can'tHappen (string_of_sourcepos n.pos ^

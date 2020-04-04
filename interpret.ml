@@ -100,7 +100,7 @@ let vmatrix m       = VMatrix m
 let vgate   g       = VGate   g
 let vchan   c       = VChan   c
 let vqbit   q       = VQbit   q
-let vqbits  qs      = VQbit   qs
+let vqbits  qs      = VQbits  qs
 let vqstate s       = VQstate s
 let vpair   (a,b)   = VTuple  [a;b]
 let vtriple (a,b,c) = VTuple  [a;b;c]
@@ -711,6 +711,18 @@ let rec interp env proc =
                       if !pstep then 
                         show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                  )
+             | JoinQs (qns, qp, proc) ->
+                 let do_qn qn =
+                   (try qbitsv (env<@>tinst qn) 
+                    with Invalid_argument _ -> 
+                      raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                   )
+                 in
+                 let v = vqbits (List.concat (List.map do_qn qns)) in
+                 let env = env<@+>(name_of_param qp,v) in
+                 addrunner (pn, proc, env);
+                 if !pstep then
+                   show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) (string_of_param qp) (pstep_state env))
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                  let canread pos c pat =

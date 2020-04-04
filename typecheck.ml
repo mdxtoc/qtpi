@@ -178,12 +178,14 @@ and rewrite_pattern p =
 
 and rewrite_param par = rewrite_typedname par
 
+and rewrite_params params = rewrite_typednames params
+
 and rewrite_typedname n =
   match !(toptr n) with
   | Some t -> toptr n := Some (evaltype t)
   | None   -> raise (Error (n.pos, Printf.sprintf "typechecker didn't assign type to %s" (string_of_name (tinst n))))
   
-and rewrite_params params = List.iter (rewrite_param) params
+and rewrite_typednames ns = List.iter (rewrite_typedname) ns
 
 let rewrite_qstep qstep = 
   match qstep.inst with
@@ -200,16 +202,17 @@ let rec rewrite_process mon proc =
     Printf.printf "rewrite_process ... %s:%s\n" (string_of_sourcepos proc.pos) (short_string_of_process proc);
   match proc.inst with
   | Terminate               -> ()
-  | GoOnAs    (n,es)        -> List.iter rewrite_expr es
+  | GoOnAs    (n,es)        -> rewrite_typedname n; List.iter rewrite_expr es
   | WithNew   ((_,params), p)   
                             -> rewrite_params params; rewrite_process mon p
-  | WithQbit  (_,qss, p)      -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
+  | WithQbit  (_,qss, p)    -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
   | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
   | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
   | TestPoint (n, p)        -> let _, mp = _The (find_monel n.inst mon) in
                                rewrite_process mon mp; (* does it need mon? Let Compile judge *)
                                rewrite_process mon p
+  | JoinQs    (qs, q, p)    -> rewrite_typednames qs; rewrite_param q; rewrite_process mon p
   | Iter      (pat, e, proc, p)
                             -> rewrite_pattern pat; rewrite_process mon proc;
                                rewrite_expr e; rewrite_process mon p
@@ -830,6 +833,8 @@ and assigntype_typedname t n =
   | Some t' -> unifytypes t t'
   | None    -> toptr n := Some t
   
+and assigntype_param t n = assigntype_typedname t n
+  
 and read_funtype pats toptr e = 
   (* with mutually-recursive function definitions, read_funtype gets called more than once.
      So the first on the scene gets to fill in the unknowns.
@@ -989,6 +994,7 @@ and typecheck_process mon cxt p  =
       ok_procname pn;
       let ts = 
         (try let t = Type.instantiate (evaltype (cxt<@>tinst pn)) in
+             assigntype_typedname t pn;
              match t.inst with
              | Process ts -> if arglength <> List.length ts then
                                raise (Error (pn.pos,  Printf.sprintf "%s: should have %d arguments: this invocation provides %d"
@@ -997,7 +1003,6 @@ and typecheck_process mon cxt p  =
                                                            arglength
                                            )
                                     );
-                                    
                              ts
              | _          -> let ts = tabulate arglength (fun _ -> newcommtv p.pos) in
                              unifytypes t (adorn p.pos (Process ts));
@@ -1062,6 +1067,15 @@ and typecheck_process mon cxt p  =
              typecheck_process mon cxt proc
       in
       List.iter check_g gs
+  | JoinQs (qs,q,proc) ->
+      let do_q qn = let t = cxt<@>tinst qn in
+                    unifytypes t (adorn qn.pos Qbits);
+                    assigntype_typedname t qn 
+      in
+      List.iter do_q qs; 
+      let tq = adorn q.pos Qbits in
+      assigntype_param tq q;
+      typecheck_process mon (cxt<@+>(tinst q,tq)) proc
   | TestPoint (n,proc) -> 
       (match find_monel n.inst mon with
        | Some (pos, monproc) -> (* typecheck the monproc in monitor context *)

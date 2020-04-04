@@ -45,6 +45,7 @@ and procnode =
   | WithLet of letspec * process
   | WithProc of pdecl * process
   | WithQstep of qstep * process
+  | JoinQs of typedname list * param * process
   | TestPoint of name instance * process        (* not typedname in this case ... *)
   | Iter of pattern * expr * process * process  (* [ pat<-expr:process].process *)
   | Cond of expr * process * process
@@ -68,14 +69,15 @@ let procadorn pos process =
          | Par        _
          | GSum       _
          | PMatch     _
-         | Cond       _      -> pos
+         | Cond       _         -> pos
          | WithNew    (_, p) 
          | WithQbit   (_, _, p) 
          | WithLet    (_, p) 
          | WithProc   (_, p)
-         | WithQstep  (_, p) 
-         | TestPoint  (_, p) -> spdiff pos p.pos
-         | Iter (_, _, _, p) -> spdiff pos p.pos
+         | WithQstep  (_, p)
+         | TestPoint  (_, p)    -> spdiff pos p.pos
+         | JoinQs     (_, _, p) -> spdiff pos p.pos
+         | Iter (_, _, _, p)    -> spdiff pos p.pos
         )
         process
 
@@ -102,6 +104,10 @@ let rec string_of_process proc =
                                             (trailing_sop p)
   | WithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_qstep q)
+                                            (trailing_sop p)
+  | JoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s)%s"
+                                            (string_of_list string_of_typedname "," qs)
+                                            (string_of_param q)
                                             (trailing_sop p)
   | TestPoint (n,p)       -> Printf.sprintf "⁁%s %s"
                                             (string_of_name n.inst)
@@ -150,6 +156,9 @@ and short_string_of_process proc =
                                             (string_of_pdecl pdecl)
   | WithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_qstep q)
+  | JoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s) ..."
+                                            (string_of_list string_of_param "," qs)
+                                            (string_of_param q)
   | TestPoint (n,p)       -> Printf.sprintf "⁁%s ..."
                                             (string_of_name n.inst)
   | Iter (pat, e, proc, p)
@@ -208,6 +217,7 @@ let _WithQbit b qs p  = WithQbit (b,qs,p)
 let _WithLet l p    = WithLet (l,p)
 let _WithProc pd p  = WithProc (pd,p)
 let _WithQstep q p  = WithQstep (q,p)  
+let _JoinQs qs q p  = JoinQs (qs,q,p)
 let _TestPoint ni p = TestPoint (ni,p)
 let _Iter pat e proc p = Iter (pat,e,proc,p)
 let _Cond e p1 p2   = Cond (e,p1,p2)
@@ -235,6 +245,7 @@ let optmap optf proc =
                      | WithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
                      | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
                      | WithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)
+                     | JoinQs (qs, q, p)    -> trav p &~~ take1 (_JoinQs qs q)
                      | TestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
                      | Iter (pat,e,proc,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pat,e,proc,p))
                      | Cond (e, p1, p2)     -> trav2 p1 p2 &~~ take2 (_Cond e)
@@ -251,52 +262,53 @@ let map optf = optmap optf ||~ id
 
 let rec frees proc =
   let paramset params = NameSet.of_list (names_of_params params) in
-  let rec ff set p =
-    match p.inst with
-    | Terminate -> set
-    | GoOnAs (pn, es)       -> NameSet.add (tinst pn) (ff_es set es)
-    | WithNew ((_,pars), p) -> NameSet.diff (ff set p) (paramset pars)
-    | WithQbit (_,qspecs, p)  -> let qs, optes = List.split qspecs in
+  let nsu = NameSet.union in
+  let nsd = NameSet.diff in
+  let nsus = List.fold_left nsu NameSet.empty in
+  let free_es = nsus <.> List.map Expr.frees in
+  match proc.inst with
+  | Terminate               -> NameSet.empty
+  | GoOnAs (pn, es)         -> NameSet.add (tinst pn) (free_es es)
+  | WithNew ((_,pars), p)   -> NameSet.diff (frees p) (paramset pars)
+  | WithQbit (_,qspecs, p)  -> let qs, optes = List.split qspecs in
                                let qset = paramset qs in
                                let ff_opte set = function
-                                 | Some e -> NameSet.union set (Expr.frees e) 
+                                 | Some e -> nsu set (Expr.frees e) 
                                  | None   -> set
                                in
-                               NameSet.union (List.fold_left ff_opte NameSet.empty optes) 
-                                             (NameSet.diff (ff set p) qset)
-    | WithLet ((pat, e), p) -> NameSet.union (Expr.frees e) (NameSet.diff (ff set p) (Pattern.frees pat))
-    | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
-                               let pdfrees = NameSet.diff (frees proc) (paramset params) in
-                               if brec then
-                                 NameSet.remove (tinst pn) (NameSet.union pdfrees (ff set p))
-                               else
-                                 NameSet.union pdfrees (NameSet.remove (tinst pn) (ff set p))
-    | WithQstep (qstep,p)   -> (match qstep.inst with
-                                | Measure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
-                                                              let bset = match optbe with
-                                                                         | Some be -> NameSet.union qset (Expr.frees be)
-                                                                         | None    -> qset
-                                                              in
-                                                              NameSet.diff (ff bset p) (Pattern.frees pat)
-                                | Through (_, qes, ge)     -> ff (ff_es set (ge::qes)) p
-                               )
-    | TestPoint (tpn,p)     -> (* tpn not included *) ff set p
-    | Iter (pat,e,proc,p)   -> let set = NameSet.diff (ff set proc) (Pattern.frees pat) in
-                               NameSet.union (Expr.frees e) (ff set p)
-    | Cond (e, p1, p2)      -> NameSet.union (Expr.frees e) (ff (ff set p1) p2)
-    | PMatch (e, pps)       -> let ff_pp set (pat, proc) = NameSet.diff (ff set proc) (Pattern.frees pat) in
-                               NameSet.union (Expr.frees e) (List.fold_left ff_pp set pps)
-    | GSum iops             -> let ff_iop set (iostep, proc) =
-                                 let pset = ff set p in
-                                 match iostep.inst with
-                                 | Read (e, pat)  -> NameSet.union (Expr.frees e) (NameSet.diff pset (Pattern.frees pat))
-                                 | Write (ce, ve) -> NameSet.union pset (ff_es NameSet.empty [ce;ve])
-                               in
-                               List.fold_left ff_iop set iops
-    | Par ps                -> List.fold_left ff set ps
-  and ff_es set es = List.fold_left NameSet.union set (List.map Expr.frees es)
-  in
-  ff NameSet.empty proc
+                               nsus [List.fold_left ff_opte NameSet.empty optes; nsd (frees p) qset]
+  | WithLet ((pat, e), p) -> nsu (Expr.frees e) (nsd (frees p) (Pattern.frees pat))
+  | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
+                             let pdfrees = nsd (frees proc) (paramset params) in
+                             if brec then
+                               NameSet.remove (tinst pn) (NameSet.union pdfrees (frees p))
+                             else
+                               nsd pdfrees (NameSet.remove (tinst pn) (frees p))
+  | WithQstep (qstep,p)   -> (match qstep.inst with
+                              | Measure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
+                                                            let bset = match optbe with
+                                                                       | Some be -> nsu qset (Expr.frees be)
+                                                                       | None    -> qset
+                                                            in
+                                                            nsu bset (nsd (frees p) (Pattern.frees pat))
+                              | Through (_, qes, ge)     -> nsu (free_es (ge::qes)) (frees p)
+                             )
+  | JoinQs (qs,q,p)       -> let qset = paramset qs in
+                             nsu qset (NameSet.remove (name_of_param q) (frees p)) 
+  | TestPoint (tpn,p)     -> (* tpn not included *) frees p
+  | Iter (pat,e,proc,p)   -> let pset = nsd (frees proc) (Pattern.frees pat) in
+                             nsus [pset; Expr.frees e; frees p]
+  | Cond (e, p1, p2)      -> nsus [Expr.frees e; frees p1; frees p2]
+  | PMatch (e, pps)       -> let frees_pp (pat, proc) = nsd (frees proc) (Pattern.frees pat) in
+                             nsu (Expr.frees e) (nsus (List.map frees_pp pps))
+  | GSum iops             -> let frees_iop (iostep, p) =
+                               let pset = frees p in
+                               match iostep.inst with
+                               | Read (e, pat)  -> nsu (Expr.frees e) (nsd pset (Pattern.frees pat))
+                               | Write (ce, ve) -> nsu pset (free_es [ce;ve])
+                             in
+                             nsus (List.map frees_iop iops)
+  | Par ps                -> nsus (List.map frees ps)
 
 (* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't. *)
 
@@ -311,7 +323,8 @@ let optfold (optp: 'a -> process -> 'a option) x =
         | WithLet   (_,p)
         | WithProc  (_,p)          (* note we don't go into pdecl *) 
         | WithQstep (_,p)
-        | TestPoint (_,p)        -> ofold x p
+        | TestPoint (_,p)        
+        | JoinQs    (_,_,p)      -> ofold x p
         | Iter      (_,_,proc,p) -> Optionutils.optfold ofold x [proc;p]
         | Cond      (e,p1,p2)    -> Optionutils.optfold ofold x [p1;p2]
         | PMatch    (e,pms)      -> Optionutils.optfold ofold x (List.map snd pms)

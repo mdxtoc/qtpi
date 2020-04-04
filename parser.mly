@@ -328,8 +328,8 @@ simpleprocess:
                                         {adorn (WithQbit (true,$3,$5))}
   | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
-  | LPAR QBITSJOIN typednames param RPAR process
-                                        {adorn (JoinQs($3,$4,$6))}
+  | LPAR QBITSJOIN typednames RIGHTARROW param RPAR process
+                                        {adorn (JoinQs($3,$5,$7))}
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}

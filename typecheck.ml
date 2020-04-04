@@ -1068,7 +1068,8 @@ and typecheck_process mon cxt p  =
       in
       List.iter check_g gs
   | JoinQs (qs,q,proc) ->
-      let do_q qn = let t = cxt<@>tinst qn in
+      let do_q qn = let t = try cxt<@>tinst qn with Not_found -> raise (Error (qn.pos, Printf.sprintf "undeclared %s" (string_of_typedname qn)))
+                    in
                     unifytypes t (adorn qn.pos Qbits);
                     assigntype_typedname t qn 
       in

@@ -16,15 +16,16 @@ proc W (c,n) =
          . (newqs q1s = |0>⊗⊗(n-k))   (* will crash if n not a power of 2 *)
          . (newq anc = |+>)        
          . [i←ixs k: anc,q0s↓i,q1s↓i>>F . _0] 
-         . [i←ixs k: anc,q1s↓i>>CNot . _0] 
+         . [i←ixs k: q1s↓i,anc>>CNot . _0] 
          . dispose!anc
-         . (joinqs q1s, q2s → qs)
-         . out!["W "; show n; " generates "] . outq!qvals qs . out!["\n"]
+         . (joinqs q0s, q1s → qs)
          . c!qs
          . _0
 
 proc System () =
   . (new c)
   . (let n = read_num "how many qbits") 
-  . W (c,n)
-  
+  | W (c,n)
+  | . c?(qs)
+    . out!["W "; show n; " = "] . outq!qvals qs . out!["\n"]
+    . _0

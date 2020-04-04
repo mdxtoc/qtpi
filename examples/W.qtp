@@ -1,0 +1,35 @@
+(* W-state algorithm taken from 
+    the Q# Kata on superposition
+    (https://github.com/microsoft/QuantumKatas/blob/master/Superposition/ReferenceImplementation.qs), 
+    task 16, WState_PowerOfTwo_Reference
+ *)
+
+fun ixs k = tabulate k (λ i. i)
+
+fun powerceiling b n =
+  pwc 1
+  where pwc c = if c>=n then c else pwc (b*c)
+
+proc W (c,n) = 
+  if   n<=0 then (let _ = abandon ["W "; show n; " is impossible"]) . _0
+  elsf n=1  then (newqs qs = |1>) c!qs . _0
+  else . (let k = floor (n/2)) 
+       . (new c1) 
+       | W (c1,k)     
+       | . c1?(q0s)      
+         . (newqs q1s = |0>⊗⊗(n-k))   
+         . (newq anc = |+>)        
+         . [i←ixs k: anc,q0s↓i,q1s↓i>>F . _0] 
+         . [i←ixs k: q1s↓i,anc>>CNot . _0] 
+         . dispose!anc
+         . (joinqs q0s, q1s → qs)
+         . c!qs
+         . _0
+
+proc System () =
+  . (new c)
+  . (let n = read_num "how many qbits") 
+  | W (c,n)
+  | . c?(qs)
+    . out!["W "; show n; " = "] . outq!qvals qs . out!["\n"]
+    . _0

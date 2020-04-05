@@ -78,6 +78,8 @@ let type_of_typedinstance x =
 
 type typedname = name typedinstance
 
+let name_of_typedname = tinst
+
 let string_of_typedname n = string_of_name (tinst n) 
 
 let type_of_typedname n = 

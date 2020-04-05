@@ -46,6 +46,7 @@ and procnode =
   | WithProc of pdecl * process
   | WithQstep of qstep * process
   | JoinQs of typedname list * param * process
+  | SplitQs of typedname * splitspec list * process
   | TestPoint of name instance * process        (* not typedname in this case ... *)
   | Iter of pattern * expr * process * process  (* [ pat<-expr:process].process *)
   | Cond of expr * process * process
@@ -57,10 +58,14 @@ and qspec = param * expr option
 
 and letspec = pattern * expr
 
+and splitspec = param * expr option
+
 and pdecl = bool * typedname * param list * process   (* bool for recursion:
                                                                    false -- proc pn = tau(params).proc 
                                                                    true  -- proc pn(params) = proc
                                                        *)
+
+let name_of_splitspec = name_of_param <.> fst
 
 let procadorn pos process =
   adorn (match process with 
@@ -75,9 +80,10 @@ let procadorn pos process =
          | WithLet    (_, p) 
          | WithProc   (_, p)
          | WithQstep  (_, p)
-         | TestPoint  (_, p)    -> spdiff pos p.pos
-         | JoinQs     (_, _, p) -> spdiff pos p.pos
-         | Iter (_, _, _, p)    -> spdiff pos p.pos
+         | TestPoint  (_, p)    
+         | JoinQs     (_, _, p) 
+         | SplitQs    (_, _, p)
+         | Iter    (_, _, _, p) -> spdiff pos p.pos
         )
         process
 
@@ -108,6 +114,10 @@ let rec string_of_process proc =
   | JoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s)%s"
                                             (string_of_list string_of_typedname "," qs)
                                             (string_of_param q)
+                                            (trailing_sop p)
+  | SplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s)%s"
+                                            (string_of_typedname q)
+                                            (string_of_list string_of_splitspec "," qs)
                                             (trailing_sop p)
   | TestPoint (n,p)       -> Printf.sprintf "⁁%s %s"
                                             (string_of_name n.inst)
@@ -159,6 +169,9 @@ and short_string_of_process proc =
   | JoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s) ..."
                                             (string_of_list string_of_param "," qs)
                                             (string_of_param q)
+  | SplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s) ..."
+                                            (string_of_typedname q)
+                                            (string_of_list string_of_splitspec "," qs)
   | TestPoint (n,p)       -> Printf.sprintf "⁁%s ..."
                                             (string_of_name n.inst)
   | Iter (pat, e, proc, p)
@@ -189,6 +202,14 @@ and string_of_letspec (pat,e) =
   				 (string_of_pattern pat)
   				 (string_of_expr e)
   				 
+and string_of_splitspec (p, eopt) =
+  Printf.sprintf "%s%s" 
+                 (string_of_param p)
+                 (match eopt with
+                  | None    -> ""
+                  | Some e  -> Printf.sprintf "(%s)" (string_of_expr e)
+                 )
+
 and string_of_pdecl (recb, pn, params, proc) =
   if recb then
     Printf.sprintf "%s(%s) = %s"
@@ -218,6 +239,7 @@ let _WithLet l p    = WithLet (l,p)
 let _WithProc pd p  = WithProc (pd,p)
 let _WithQstep q p  = WithQstep (q,p)  
 let _JoinQs qs q p  = JoinQs (qs,q,p)
+let _SplitQs q qs p = SplitQs (q,qs,p)
 let _TestPoint ni p = TestPoint (ni,p)
 let _Iter pat e proc p = Iter (pat,e,proc,p)
 let _Cond e p1 p2   = Cond (e,p1,p2)
@@ -246,6 +268,7 @@ let optmap optf proc =
                      | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
                      | WithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)
                      | JoinQs (qs, q, p)    -> trav p &~~ take1 (_JoinQs qs q)
+                     | SplitQs (q, qs, p)   -> trav p &~~ take1 (_SplitQs q qs)
                      | TestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
                      | Iter (pat,e,proc,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pat,e,proc,p))
                      | Cond (e, p1, p2)     -> trav2 p1 p2 &~~ take2 (_Cond e)
@@ -295,6 +318,8 @@ let rec frees proc =
                              )
   | JoinQs (qs,q,p)       -> let qset = paramset qs in
                              nsu qset (NameSet.remove (name_of_param q) (frees p)) 
+  | SplitQs (q,qs,p)      -> NameSet.add (name_of_typedname q) 
+                                         (List.fold_left (fun set -> (revargs NameSet.remove) set <.> name_of_splitspec) (frees p) qs)
   | TestPoint (tpn,p)     -> (* tpn not included *) frees p
   | Iter (pat,e,proc,p)   -> let pset = nsd (frees proc) (Pattern.frees pat) in
                              nsus [pset; Expr.frees e; frees p]
@@ -324,7 +349,8 @@ let optfold (optp: 'a -> process -> 'a option) x =
         | WithProc  (_,p)          (* note we don't go into pdecl *) 
         | WithQstep (_,p)
         | TestPoint (_,p)        
-        | JoinQs    (_,_,p)      -> ofold x p
+        | JoinQs    (_,_,p)      
+        | SplitQs   (_,_,p)      -> ofold x p
         | Iter      (_,_,proc,p) -> Optionutils.optfold ofold x [proc;p]
         | Cond      (e,p1,p2)    -> Optionutils.optfold ofold x [p1;p2]
         | PMatch    (e,pms)      -> Optionutils.optfold ofold x (List.map snd pms)

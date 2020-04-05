@@ -58,6 +58,7 @@ let string_of_token = function
     | QBITDEC   -> "QBITDEC"
     | QBITSDEC  -> "QBITSDEC"
     | QBITSJOIN -> "QBITSJOIN"
+    | QBITSSPLIT -> "QBITSSPLIT"
     | PROCITER  -> "PROCITER"
     | PROCESS   -> "PROCESS"
     | PROC      -> "PROC"
@@ -215,6 +216,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "newq"      -> QBITDEC
   | "newqs"     -> QBITSDEC
   | "joinqs"    -> QBITSJOIN
+  | "splitqs"   -> QBITSSPLIT
   | "let"       -> LETDEC
   | "match"     -> MATCH
   

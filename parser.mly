@@ -68,7 +68,7 @@
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
 %token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
 %token DOT DOTDOT UNDERSCORE
-%token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN LETDEC MATCH 
+%token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN QBITSSPLIT LETDEC MATCH 
 %token QUERY BANG MEASURE MEASURES THROUGH THROUGHS 
 %token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
 %token DOWNARROW
@@ -330,6 +330,13 @@ simpleprocess:
                                         {adorn (WithLet ($3,$5))}
   | LPAR QBITSJOIN typednames RIGHTARROW param RPAR process
                                         {adorn (JoinQs($3,$5,$7))}
+  | LPAR QBITSSPLIT typedname RIGHTARROW splitspecs RPAR process
+                                        {let specs = $5 in
+                                         let blanks = List.filter (function (_,None) -> true | _ -> false) specs in
+                                         if List.length blanks>1 then
+                                           raise (ParseError (loc(), "more than one unsized collection on right-hand side of →"));
+                                         adorn (SplitQs($3,$5,$7))
+                                        }
   | qstep DOT process                   
                                         {adorn (WithQstep ($1,$3))}
   | iostep DOT process                  {adorn (GSum [$1,$3])}
@@ -383,14 +390,16 @@ qspecs:
   | qspec COMMA qspecs                  {$1::$3}
 
 qspec:
-  | param                               {let q = $1, None in
-                                         if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
-                                         q
-                                        }
-  | param EQUALS nwexpr                 {let q = $1, Some $3 in
-                                         if !(Settings.verbose) then Printf.printf "seen qspec %s\n" (string_of_qspec q);
-                                         q
-                                        }
+  | param                               {$1, None}
+  | param EQUALS nwexpr                 {$1, Some $3}
+
+splitspecs:
+  | splitspec                           {[$1]}
+  | splitspec COMMA splitspecs          {$1::$3}
+
+splitspec:
+  | param                               {$1, None}
+  | param LPAR nwexpr RPAR              {$1, Some $3}
   
 letspec:
   | bpattern EQUALS indentNext expr outdent

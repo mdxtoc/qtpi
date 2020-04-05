@@ -459,7 +459,9 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                   | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
                                  ),
                                  ResourceSet.union used0 (ResourceSet.union used1 used2)
-      | ESub        (e1,e2)   -> (* at present this is qbits -> num -> qbit, so e2 had better be RNull *)
+      | ESub        (e1,e2)   -> if use=UMeasure then
+                                   raise (Error (e.pos, "measuring element of collection"));
+                                 (* at present this is qbits -> num -> qbit, so e2 had better be RNull *)
                                  let r1, used1 = re URead e1 in
                                  let r2, used2 = re URead e2 in
                                  (match r2 with
@@ -590,11 +592,11 @@ and rck_proc mon state env stoppers proc =
                                    let _ = rp state env ((env,StopUse)::stoppers) p in
                                    rp state env stoppers proc
       | WithQstep (qstep,proc)  -> (match qstep.inst with 
-                                    | Measure (_, qe, gopt, pattern) -> 
+                                    | Measure (plural, qe, gopt, pattern) -> 
                                         let destroys = !measuredestroys in
                                         (* if destroys is false then qe can be ambiguously conditional *)
                                         let rq, usedq = (if destroys then disjoint_resources_of_expr else resources_of_expr) 
-                                                            UMeasure state env stoppers qe 
+                                                            (if destroys then UMeasure else URead) state env stoppers qe 
                                         in
                                         let usedg = ((snd <.> resources_of_expr URead state env stoppers) ||~~ ResourceSet.empty) gopt in
                                         let env' = match tinst pattern with

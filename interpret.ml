@@ -723,6 +723,52 @@ let rec interp env proc =
                  addrunner (pn, proc, env);
                  if !pstep then
                    show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) (string_of_param qp) (pstep_state env))
+             | SplitQs (qn, qspecs, proc) -> 
+                 let qvs = qbitsv (try env<@>tinst qn
+                                   with Not_found -> 
+                                     raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                                  )
+                 in
+                 let do_spec qns (qp, eopt) =
+                   let numopt = eopt &~~ (fun e -> Some (numev env e)) in
+                   let n = match numopt with 
+                           | None   -> 0 
+                           | Some n -> if n<=/Number.zero || not (is_int n) then
+                                          let pos = _The (eopt &~~ (fun e -> Some e.pos)) in
+                                          raise (Error (pos, Printf.sprintf "%s is invalid qbits size" (string_of_num n)))
+                                       else int_of_num n
+                   in
+                   (name_of_param qp,n)::qns
+                 in
+                 let qns = List.fold_left do_spec [] qspecs in
+                 let avail = List.length qvs in
+                 let total = List.fold_left (fun total (_,n) -> total+n) 0 qns in
+                 let zeroes = List.length (List.filter (fun (_,n) -> n=0) qns) in
+                 if zeroes > 1 then 
+                   raise (Error (rproc.pos, "** Disaster: more than one un-sized qbits sub-collection"))
+                 else
+                 if zeroes = 0 && total<>avail then
+                    raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d" avail total))
+                 else
+                 if total>=avail then 
+                    raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d and then one more" avail total))
+                 ;
+                 let carve (env,qvs) (qn,n) =
+                   let k = if n=0 then avail else n in
+                   if k>List.length qvs then 
+                     raise (Disaster (rproc.pos, "taken too many in carve"));
+                   let qvs1, qvs = take k qvs, drop k qvs in
+                   env<@+>(qn, vqbits qvs1),qvs
+                 in
+                 let env,qvs = List.fold_left carve (env,qvs) qns in
+                 if qvs<>[] then raise (Disaster (rproc.pos, "not taken enough in carve"));
+                 addrunner (pn, proc, env);
+                 if !pstep then
+                   show_pstep (Printf.sprintf "(splitqs %s→%s)\n%s" 
+                                                (string_of_typedname qn) 
+                                                (string_of_list string_of_splitspec "," qspecs) 
+                                                (pstep_state env)
+                              )
              | GSum ioprocs      -> 
                  let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                  let canread pos c pat =

@@ -205,7 +205,7 @@ let rec rewrite_process mon proc =
   | GoOnAs    (n,es)        -> rewrite_typedname n; List.iter rewrite_expr es
   | WithNew   ((_,params), p)   
                             -> rewrite_params params; rewrite_process mon p
-  | WithQbit  (_,qss, p)    -> List.iter (rewrite_param <.> fst) qss; rewrite_process mon p
+  | WithQbit  (_,qss, p)    -> List.iter rewrite_qspec qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
   | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
   | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
@@ -213,6 +213,7 @@ let rec rewrite_process mon proc =
                                rewrite_process mon mp; (* does it need mon? Let Compile judge *)
                                rewrite_process mon p
   | JoinQs    (qs, q, p)    -> rewrite_typednames qs; rewrite_param q; rewrite_process mon p
+  | SplitQs   (q, qs, p)    -> rewrite_typedname q; List.iter rewrite_splitspec qs; rewrite_process mon p
   | Iter      (pat, e, proc, p)
                             -> rewrite_pattern pat; rewrite_process mon proc;
                                rewrite_expr e; rewrite_process mon p
@@ -224,6 +225,14 @@ let rec rewrite_process mon proc =
                                in
                                List.iter (rewrite_g) gs
   | Par      ps             -> List.iter (rewrite_process mon) ps
+
+and rewrite_qspec (qp,eopt) =
+  rewrite_param qp;
+  match eopt with
+  | Some e -> rewrite_expr e
+  | None   -> ()
+  
+and rewrite_splitspec spec = rewrite_qspec spec
 
 and rewrite_pdecl mon (_, pn, params, proc) =
   rewrite_typedname pn; rewrite_params params; rewrite_process mon proc
@@ -1077,6 +1086,18 @@ and typecheck_process mon cxt p  =
       let tq = adorn q.pos Qbits in
       assigntype_param tq q;
       typecheck_process mon (cxt<@+>(tinst q,tq)) proc
+  | SplitQs (q,sss,proc) ->
+      assigntype_typedname (adorn q.pos Qbits) q;
+      let do_splitspec cxt (qp, eopt) =
+        let tq = adorn qp.pos Qbits in
+        assigntype_param tq q;
+        (match eopt with
+         | Some e -> assigntype_expr cxt (adorn e.pos Num) e
+         | None   -> ()
+        );
+        cxt<@+>(tinst q,tq)
+      in
+      typecheck_process mon (List.fold_left do_splitspec cxt sss) proc
   | TestPoint (n,proc) -> 
       (match find_monel n.inst mon with
        | Some (pos, monproc) -> (* typecheck the monproc in monitor context *)

@@ -440,12 +440,8 @@ let rec matchcheck_proc mon proc =
   | Terminate               -> ()
   | GoOnAs          (pn,es) -> List.iter matchcheck_expr es
   | WithNew        (_,proc) -> matchcheck_proc mon proc    
-  | WithQbit  (_,qspecs,proc) -> let matchcheck_qspec = function
-                                 | param, Some e -> matchcheck_expr e
-                                 | param, None   -> ()
-                               in
-                               List.iter matchcheck_qspec qspecs;
-                               matchcheck_proc mon proc
+  | WithQbit  (_,qspecs,proc) 
+                            -> List.iter matchcheck_qspec qspecs; matchcheck_proc mon proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc mon proc (* binding pattern doesn't need check *)
   | WithProc  ((_,_,_,p),proc) -> matchcheck_proc mon p; matchcheck_proc mon proc
   | WithQstep (qstep,proc)  -> (match qstep.inst with
@@ -454,6 +450,8 @@ let rec matchcheck_proc mon proc =
                                ); 
                                matchcheck_proc mon proc 
   | JoinQs (_, _, proc)     -> matchcheck_proc mon proc
+  | SplitQs (_, qspecs, proc)
+                            -> List.iter matchcheck_qspec qspecs; matchcheck_proc mon proc
   | TestPoint (n, proc)     -> (match find_monel n.inst mon with
                                 | Some (_,monproc) -> matchcheck_proc mon monproc
                                 | None             -> raise (Can'tHappen (Printf.sprintf "%s: matchcheck_proc sees no monproc"
@@ -477,6 +475,11 @@ let rec matchcheck_proc mon proc =
                                in
                                List.iter matchcheck_iop iops
   | Par       ps            -> List.iter (matchcheck_proc mon) ps
+
+and matchcheck_qspec spec =
+  match spec with
+  | param, Some e -> matchcheck_expr e
+  | param, None   -> ()
 
 let matchcheck_def def =
   if !verbose then 

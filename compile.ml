@@ -60,6 +60,7 @@ let insert_returns check rc proc =
     | WithProc _    
     | WithQstep _ 
     | JoinQs _
+    | SplitQs _
     | GSum _
     | Cond    _
     | PMatch  _     
@@ -94,7 +95,8 @@ let compile_monbody tpnum proc =
     | WithQbit _    -> bad proc.pos "qbit creation"
     | WithQstep _   -> bad proc.pos "qbit gating/measuring"
     | WithProc _    -> bad proc.pos "process definition"
-    | JoinQs _      -> bad proc.pos "qbits joining"
+    | JoinQs _      -> bad proc.pos "joining qbit collections"
+    | SplitQs _     -> bad proc.pos "splitting qbit collection"
     | TestPoint _   -> bad proc.pos "test point"
     | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in compile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
@@ -159,6 +161,7 @@ let compile_proc env pn mon proc =
     | WithLet   _
     | WithQstep _
     | JoinQs    _
+    | SplitQs   _
     | Cond      _
     | PMatch    _
     | GSum      _

@@ -566,20 +566,18 @@ and rck_proc mon state env stoppers proc =
                                 -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
                                    rp state env stoppers proc
-      | WithQbit (_,qspecs, proc) -> (* all new qbits *)
-                                   let do_qspec (qs, used, state, env) (param, eopt) =
-                                     let _, usede = match eopt with
-                                                    | Some e -> resources_of_expr URead state env stoppers e
-                                                    | None   -> RNull, ResourceSet.empty
-                                     in
-                                     let n = name_of_param param in
-                                     let state, q = newqid (param.pos,n) state in
-                                     RQbit q::qs, ResourceSet.union used usede, state, env <@+> (n,RQbit q)
+      | WithQbit (_,qspecs, proc) 
+                                -> rqspecs state env stoppers qspecs proc
+      | JoinQs (qns, qp, proc)  -> let do_q (state,used) qn = rqs state env stoppers used qn in
+                                   let state, used = List.fold_left do_q (state, ResourceSet.empty) qns
                                    in
-                                   let qs, used, state, env = 
-                                     List.fold_left do_qspec ([], ResourceSet.empty, state, env) qspecs 
-                                   in
-                                   List.fold_left (revargs runbind) (ResourceSet.union used (rp state env stoppers proc)) qs
+                                   let n = name_of_param qp in
+                                   let state, q = newqid (qp.pos,n) state in 
+                                   let r = RQbit q in
+                                   runbind r (ResourceSet.union used (rp state (env<@+>(n,r)) stoppers proc))
+      | SplitQs (qn, qspecs, proc) 
+                                -> let state, used = rqs state env stoppers ResourceSet.empty qn in
+                                   ResourceSet.union used (rqspecs state env stoppers qspecs proc)
       | WithLet (letspec, proc) -> (* whatever resource the expression gives us *)
                                    let pat, e = letspec in
                                    let re, usede = resources_of_expr URead state env stoppers e in 
@@ -619,22 +617,6 @@ and rck_proc mon state env stoppers proc =
                                          with OverLap s -> badproc s
                                         )
                                    )
-      | JoinQs (qns, qn, proc)  -> let do_q (state,used) qn =
-                                     let n = tinst qn in
-                                     let r = env<@>n in
-                                     let q = match r with
-                                             | RQbit q -> q
-                                             | _       -> raise (Disaster (qn.pos, "not qbit/qbits resource"))
-                                     in
-                                     let _, u = resources_of_q qn.pos URead state stoppers r (type_of_typedname qn) n q in
-                                     State.add q false state, ResourceSet.union used u
-                                   in
-                                   let state, used = List.fold_left do_q (state, ResourceSet.empty) qns
-                                   in
-                                   let n = name_of_param qn in
-                                   let state, q = newqid (qn.pos,n) state in 
-                                   let r = RQbit q in
-                                   runbind r (ResourceSet.union used (rp state (env<@+>(n,r)) stoppers proc))
       | Iter (pat, e, p, proc)  -> let re, eused = resources_of_expr URead state env stoppers e in
                                    let pused state env stoppers p = rp state env ((env,StopKill)::stoppers) p in
                                    let used = rck_pat (fun state env stoppers -> pused state env stoppers p) 
@@ -688,6 +670,30 @@ and rck_proc mon state env stoppers proc =
     if !verbose then 
       Printf.printf "rp ... ... %s\n  => %s\n" (string_of_process proc) (ResourceSet.to_string r);
     r
+  
+  and rqs state env stoppers used qn = 
+    let n = tinst qn in
+    let r = env<@>n in
+    let q = match r with
+            | RQbit q -> q
+            | _       -> raise (Disaster (qn.pos, "not qbit/qbits resource"))
+    in
+    let _, u = resources_of_q qn.pos URead state stoppers r (type_of_typedname qn) n q in
+    State.add q false state, ResourceSet.union used u
+
+  and rqspecs state env stoppers specs proc =
+    let do_spec (rs, used, state, env) (param, eopt) =
+      let _, usede = match eopt with
+                     | Some e -> resources_of_expr URead state env stoppers e
+                     | None   -> RNull, ResourceSet.empty
+      in
+      let n = name_of_param param in
+      let state, q = newqid (param.pos,n) state in
+      let r = RQbit q in
+      r::rs, ResourceSet.union used usede, state, env <@+> (n,r)
+    in
+    let rs, used, state, env = List.fold_left do_spec ([], ResourceSet.empty, state, env) specs in
+    List.fold_left (revargs runbind) (ResourceSet.union used (rp state env stoppers proc)) rs
   in
   rp state env stoppers proc
   
@@ -799,6 +805,7 @@ and ffv_proc mon proc =
                                       ffv_proc mon p; ffv_proc mon proc
   | WithQstep (qstep, proc)        -> ffv_qstep qstep; ffv_proc mon proc
   | JoinQs    (_, _, proc)         -> ffv_proc mon proc
+  | SplitQs   (_, qspecs, proc)    -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | TestPoint (n, proc)            -> (match find_monel n.inst mon with
                                        | Some (_,monproc) -> ffv_proc [] monproc; ffv_proc mon proc
                                        | None -> raise (Can'tHappen (string_of_sourcepos n.pos ^

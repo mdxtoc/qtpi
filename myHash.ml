@@ -30,8 +30,8 @@ end
 
 module type S = sig
   include Hashtbl.S
-  (* val to_assoc  : 'a t -> (key * 'a) list
-     val of_assoc  : (key * 'a) list ->'a  t *)
+  val to_assoc  : 'a t -> (key * 'a) list
+  (* val of_assoc  : (key * 'a) list ->'a  t *)
   val to_string : ('a -> string) -> 'a t -> string
   (* val mymap     : ((key * 'a) -> 'b) -> ('b list -> 'c) -> 'a t -> 'c
      val mymerge   : ('a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t *)
@@ -45,9 +45,11 @@ end
 
 module Make (H : HashedType) = struct
   include Hashtbl.Make (struct type t = H.t let equal = H.equal let hash = H.hash end)
-      
+  
+  let to_assoc table = fold (fun key value pairs -> (key,value)::pairs) table []
+  
   let to_string string_of_target table =
-    let pairs = fold (fun key value pairs -> (key,value)::pairs) table [] in
+    let pairs = to_assoc table in
     Printf.sprintf "{%s}" (Listutils.string_of_assoc H.to_string string_of_target "->" ";" pairs)
     
   let memofun table newf =

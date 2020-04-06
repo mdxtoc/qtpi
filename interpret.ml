@@ -753,8 +753,9 @@ let rec interp env proc =
                  if total>=avail then 
                     raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d and then one more" avail total))
                  ;
+                 let spare = avail-total in
                  let carve (env,qvs) (qn,n) =
-                   let k = if n=0 then avail else n in
+                   let k = if n=0 then spare else n in
                    if k>List.length qvs then 
                      raise (Disaster (rproc.pos, "taken too many in carve"));
                    let qvs1, qvs = take k qvs, drop k qvs in

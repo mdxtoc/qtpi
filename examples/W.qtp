@@ -17,19 +17,34 @@ proc W (c,n) =
        . (new c1) 
        | W (c1,k)     
        | . c1?(q0s)      
+         . out!["W "; show n; " working\n"]
          . (newqs q1s = |0>⊗⊗(n-k))   
+         . out!["W "; show n; " has partner\n"]
          . (newq anc = |+>)        
-         . [i←ixs k: anc,q0s↓i,q1s↓i>>F . _0] 
-         . [i←ixs k: q1s↓i,anc>>CNot . _0] 
+         . [i←ixs k: anc,q0s↓i,q1s↓i>>F . out!["."] . _0] 
+         . out!["W "; show n; " has done F\n"]
+         . [i←ixs k: q1s↓i,anc>>CNot . out!["."] . _0] 
+         . out!["W "; show n; " has done CNot\n"]
          . dispose!anc
          . (joinqs q0s, q1s → qs)
          . c!qs
          . _0
 
+proc Wmake (c,n) =
+  (let k = powerceiling 2 n)
+  | W (c,k)
+  | . c?(qs)
+    . out!["W "; show k; " = "] . outq!qvals qs . out!["\n"]
+    . if k=n then _0
+      else 
+        . out!["discarding "; show (k-n); " qbits\n"]
+        . (splitqs qs → q0s(k-n),qs)
+        . q0s⌢⃫(bs)
+        . out!["extras measured "; show bs; ", and now we have "] . outq!qvals qs . out!["\n"]
+        . if forall (λ b . b=0b0) bs then _0 else Wmake (c,n)  
+               
+
 proc System () =
   . (new c)
   . (let n = read_num "how many qbits") 
-  | W (c,n)
-  | . c?(qs)
-    . out!["W "; show n; " = "] . outq!qvals qs . out!["\n"]
-    . _0
+  . Wmake (c,n)

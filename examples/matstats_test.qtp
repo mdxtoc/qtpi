@@ -1,0 +1,41 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
+fun read_min_int m s
+  = k where k = if j>=m then j 
+                else semicolon (λ _ . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ _ . read_min_int m s)
+                               ()
+      where j = read_num s
+
+fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n))
+
+   groverU bs = engate (tabulate_m (2**n) (2**n) tf)
+                 where n = length bs
+                 where tf i j = if i<>j      then  sx_0 else
+                                if i=address then -sx_1 else 
+                                                   sx_1
+                 where address = bits2num (rev bs) (* big-endian *)  
+
+fun showM name M =
+    print_strings [show name; " "; " -> "; show (statistics_m M); "\n"]
+
+  showG name G = showM name (degate G)
+proc 
+  System () =
+    . (let _ = showG "I" I)
+    . (let _ = showG "CNot" CNot)
+    . (let _ = showG "F" F)
+    . (let _ = showG "F⊗I" (F⊗I))
+    . (let _ = showG "I⊗F" (I⊗F))
+
+    (* . (let n = read_min_int 1 "number of Grover bits")
+       . (let G = groverG n)
+       . (let bs = randbits n)
+       . (let U = groverU bs)
+       . out!["groverG "; show n; " -> "; show (statistics_m (degate G)); "\n"]
+       . out!["groverU "; show bs; " -> "; show (statistics_m (degate U)); "\n"]
+     *)
+    . _0
+

@@ -54,6 +54,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp  # works, but sticks because 
 ./Qtpi examples/test.qtp
 ./Qtpi examples/tensorp.qtp
 ./Qtpi examples/matrixp.qtp
+./Qtpi examples/matstats_test.qtp
 
 # collection of more recognisable examples
 

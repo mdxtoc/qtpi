@@ -1086,16 +1086,16 @@ and typecheck_process mon cxt p  =
       let tq = adorn q.pos Qbits in
       assigntype_param tq q;
       typecheck_process mon (cxt<@+>(tinst q,tq)) proc
-  | SplitQs (q,sss,proc) ->
-      assigntype_typedname (adorn q.pos Qbits) q;
+  | SplitQs (qn,sss,proc) ->
+      assigntype_typedname (adorn qn.pos Qbits) qn;
       let do_splitspec cxt (qp, eopt) =
         let tq = adorn qp.pos Qbits in
-        assigntype_param tq q;
+        assigntype_param tq qp;
         (match eopt with
          | Some e -> assigntype_expr cxt (adorn e.pos Num) e
          | None   -> ()
         );
-        cxt<@+>(tinst q,tq)
+        cxt<@+>(tinst qp,tq)
       in
       typecheck_process mon (List.fold_left do_splitspec cxt sss) proc
   | TestPoint (n,proc) -> 

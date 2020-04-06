@@ -565,25 +565,25 @@ and rdiv_sum_h orig_ps =
 
 (******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
 
-module ProbH = struct type t = snum 
+module SnumH = struct type t = snum 
                       let equal = (=)
                       let hash = Hashtbl.hash
                       let to_string = string_of_snum
                end
-module ProbHash = MyHash.Make (ProbH)
+module SnumHash = MyHash.Make (SnumH)
 
 let memofunProb f str = 
-  let table = ProbHash.create 100 in
-  ProbHash.memofun table (fun s -> if !verbose || !verbose_qcalc 
+  let table = SnumHash.create 100 in
+  SnumHash.memofun table (fun s -> if !verbose || !verbose_qcalc 
                                                      then Printf.printf "%s (%s)\n" str (string_of_snum s); 
                                                    f s
                                          )
 
 let memofun2Prob f str = 
-  let t1 = ProbHash.create 100 in
-  ProbHash.memofun t1 
-    (fun s1 -> let t2 = ProbHash.create 100 in
-               ProbHash.memofun t2 
+  let t1 = SnumHash.create 100 in
+  SnumHash.memofun t1 
+    (fun s1 -> let t2 = SnumHash.create 100 in
+               SnumHash.memofun t2 
                  (fun s2 -> let r = f s1 s2 in
                             if !verbose || !verbose_qcalc 
                             then Printf.printf "%s (%s) (%s) -> %s\n" 
@@ -693,6 +693,13 @@ let absq  (C(x,y) as c) = (* this is going to cost me ... *)
     let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
  *)
 let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
+
+module CsnumH = struct type t = csnum
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string = string_of_csnum
+               end
+module CsnumHash = MyHash.Make (CsnumH)
 
 (* we no longer memoise any of these things ...
 

@@ -34,12 +34,13 @@ exception Error of sourcepos * string
 type _type = tnode instance
 
 (* at present I can't find any simpler way to distinguish singleton Qbit and multiple Qbits than to have two types. *)
+(* string is now [char], as in Miranda, but the parser still recognises the string word *)
+
 and tnode =
   | Unit
   | Num
   | Bool
   | Char
-  | String
   | Bit
   | Sxnum
   | Qbit    
@@ -96,7 +97,6 @@ let typeprio t =
   | Num 
   | Bool
   | Char
-  | String
   | Bit           
   | Unit
   | Sxnum
@@ -134,7 +134,6 @@ and string_of_tnode = function
   | Num              -> "num"
   | Bit              -> "bit"
   | Char             -> "char"
-  | String           -> "string"
   | Bool             -> "bool"
   | Unit             -> "()"
   | Sxnum            -> "sxnum"
@@ -151,7 +150,7 @@ and string_of_tnode = function
   | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
-  | List    t        -> Printf.sprintf "[%s]" (string_of_type t)
+  | List    t        -> if t.inst=Char then "string" else Printf.sprintf "[%s]" (string_of_type t)
   | Tuple   ts       -> "(" ^ string_of_list string_of_type "," ts ^ ")"
   | Channel t        -> Printf.sprintf "^%s" (possbracket false chanprio t)
   | Fun     (t1,t2)  -> Printf.sprintf "%s→%s"
@@ -176,7 +175,6 @@ let rec freetvs t =
     | Num
     | Bool
     | Char
-    | String
     | Bit 
     | Unit
     | Sxnum
@@ -210,7 +208,6 @@ let freeunknowns t =
     | Num
     | Bool
     | Char
-    | String
     | Bit 
     | Unit
     | Sxnum
@@ -320,7 +317,6 @@ let generalise t0 =
     | Num
     | Bool
     | Char
-    | String
     | Bit 
     | Unit
     | Sxnum
@@ -356,7 +352,6 @@ let instantiate t =
     | Num
     | Bool
     | Char
-    | String
     | Bit 
     | Unit
     | Sxnum
@@ -393,7 +388,6 @@ let rec is_classical t =
   | Num 
   | Bool
   | Char
-  | String
   | Bit 
   | Sxnum
   | Bra

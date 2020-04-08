@@ -74,7 +74,6 @@ and evaltype t =
   | Bool
   | Char
   | Sxnum 
-  | String
   | Bit 
   | Bra
   | Ket
@@ -325,7 +324,6 @@ and canunifytype n t =
       | _       , Bool
       | _       , Char
       | _       , Sxnum
-      | _       , String
       | _       , Bit 
       | _       , Bra
       | _       , Ket
@@ -390,7 +388,6 @@ and force_kind kind t =
     | Bool
     | Char
     | Sxnum
-    | String
     | Bit 
     | Unit
     | Bra
@@ -440,7 +437,7 @@ and assigntype_pat contn cxt t p : unit =
       | PatBit _        -> unifytypes t (adorn p.pos Bit); contn cxt
       | PatBool _       -> unifytypes t (adorn p.pos Bool); contn cxt
       | PatChar _       -> unifytypes t (adorn p.pos Char); contn cxt
-      | PatString _     -> unifytypes t (adorn p.pos String); contn cxt
+      | PatString _     -> unifytypes t (adorn p.pos (List (adorn p.pos Char))); contn cxt
       | PatBra _        -> unifytypes t (adorn p.pos Bra); contn cxt
       | PatKet _        -> unifytypes t (adorn p.pos Ket); contn cxt
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
@@ -548,7 +545,7 @@ and assigntype_expr cxt t e =
                                unifytypes t (adorn_x e Num) 
      | EBool _              -> unifytypes t (adorn_x e Bool)
      | EChar _              -> unifytypes t (adorn_x e Char)
-     | EString _            -> unifytypes t (adorn_x e String)
+     | EString _            -> unifytypes t (adorn_x e (List (adorn_x e Char)))
      | EBit b               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Num              -> ()
@@ -1139,10 +1136,11 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
 let make_library_assoc () =
   let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
   let typ = adorn dummy_spos in
+  let typstring = typ (List (typ Char)) in
   let assoc = if assoc <%@?> "dispose" then assoc else assoc <%@+> ("dispose", typ (Channel (typ Qbit))) in
-  let assoc = if assoc <%@?> "out"     then assoc else assoc <%@+> ("out"    , typ (Channel (typ (List (typ String))))) in
+  let assoc = if assoc <%@?> "out"     then assoc else assoc <%@+> ("out"    , typ (Channel (typ (List typstring)))) in
   let assoc = if assoc <%@?> "outq"    then assoc else assoc <%@+> ("outq"   , typ (Channel (typ Qstate))) in
-  let assoc = if assoc <%@?> "in"      then assoc else assoc <%@+> ("in"     , typ (Channel (typ String))) in
+  let assoc = if assoc <%@?> "in"      then assoc else assoc <%@+> ("in"     , typ (Channel typstring)) in
   assoc
 
 let rec check_unique_ns s = function

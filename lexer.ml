@@ -45,7 +45,7 @@ let string_of_token = function
     | TENSORPROD -> "TENSORPROD"
     | TENSORPOWER -> "TENSORPOWER"
     | STRINGTYPE -> "STRINGTYPE"
-    | STRING s  -> "STRING(" ^ s ^ ")"
+    | STRING cs  -> "STRING\"" ^ (String.concat "" (List.map Utf8.string_of_uchar cs)) ^ "\""
     | STAR      -> "STAR"
     | SEMICOLON -> "SEMICOLON"
     | RSQPAR    -> "RSQPAR"
@@ -108,7 +108,7 @@ let string_of_token = function
     | COMMA     -> "COMMA"
     | COLON     -> "COLON"
     | CHARTYPE  -> "CHARTYPE"
-    | CHAR (uc) -> "CHAR(" ^ Utf8.string_of_uchar uc ^ ")"
+    | CHAR (uc) -> "CHAR'" ^ Utf8.string_of_uchar uc ^ "'"
     | CHANTYPE  -> "CHANTYPE"
     | BRATYPE   -> "BRATYPE"
     | BRA (s)   -> "BRA(" ^ s ^ ")"
@@ -130,9 +130,6 @@ let get_linenum lexbuf =
   
 let get_loc lexbuf : Lexing.position * Lexing.position =
   Sedlexing.lexing_positions lexbuf
-
-(* this thing is ok, because we read utf8 chars byte by byte *)
-let stringbuffer = Buffer.create 256
 
 let bkconvert lexeme = Array.sub lexeme 1 (Array.length lexeme - 2)
 
@@ -286,8 +283,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "'\\", Chars "\\'\"ntbr ", "'"
                 ->  CHAR(Utf8.unescaped (Sedlexing.lexeme_char lexbuf 2)) 
   | "'\\", any  ->  raise (LexError(get_loc lexbuf, Printf.sprintf "illegal escape \\%s" (Utf8.string_of_uchar (Sedlexing.lexeme_char lexbuf 2))))
-  | '"'         ->  Buffer.clear stringbuffer;
-                    STRING (string (get_loc lexbuf) lexbuf)
+  | '"'         ->  STRING (string [] (get_loc lexbuf) lexbuf)
                 
 
   | number      -> NUM (string_of_lexeme (Sedlexing.lexeme lexbuf))
@@ -315,15 +311,15 @@ and bracomment spos lexbuf =
     | _             -> raise (Settings.Can'tHappen "bottom of Lexer.bracomment")
   
       
-and string spos lexbuf = 
+and string cs spos lexbuf = 
     match%sedlex lexbuf with
-    | '"'                       ->  Buffer.contents stringbuffer 
+    | '"'                       ->  List.rev cs
     | '\\', Chars "\\'\"ntbr "  ->  let c = Utf8.unescaped (Sedlexing.lexeme_char lexbuf 1) in
-                                    Buffer.add_utf_8_uchar stringbuffer c; string spos lexbuf 
+                                    string (c::cs) spos lexbuf 
                                                 
     | eof                       ->  raise (LexError (spos, "unterminated string")) 
-    | any                       ->  Buffer.add_utf_8_uchar stringbuffer (Sedlexing.lexeme_char lexbuf 0); string spos lexbuf 
-    | _                         -> raise (Settings.Can'tHappen "bottom of Lexer.string")
+    | any                       ->  string (Sedlexing.lexeme_char lexbuf 0::cs) spos lexbuf 
+    | _                         ->  raise (Settings.Can'tHappen "bottom of Lexer.string")
  
 (* let build_prog_from_string s =
     Parser.program make_token (Lexing.from_string s) *)

@@ -77,7 +77,6 @@ let rec is_resource_type t =
   | Bool
   | Char
   | Sxnum
-  | String
   | Bit 
   | Bra
   | Ket
@@ -243,7 +242,6 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Num
   | Bool
   | Char
-  | String
   | Bit 
   | Unit 
   | Sxnum

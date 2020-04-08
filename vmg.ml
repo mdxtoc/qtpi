@@ -252,11 +252,24 @@ let statistics_m mM =
   let n,m = rsize mM, csize mM in
   for i = 0 to n-1 do
     for j = 0 to m-1 do
-      count (mM.(i).(j))
+      count mM.(i).(j)
     done
   done;
   let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
   List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+
+let statistics_v vV =
+  let stats = CsnumHash.create 1000 in
+  let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
+  let count v = let r = get v in r:=!r+1 in
+  let n = vsize vV in
+  for i = 0 to n-1 do
+    count vV.(i)
+  done;
+  let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
+  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+
+let statistics_snv (_,v) = statistics_v v
 
 (* ******************* gate, matrix, vector arithmetic ****************************)
 

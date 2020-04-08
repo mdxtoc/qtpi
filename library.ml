@@ -358,7 +358,12 @@ let _statistics_m mM =
   let assoc = Vmg.statistics_m (matrixv mM) in
   vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_int i))) assoc)
 
+let _statistics_snv snv =
+  let assoc = Vmg.statistics_snv snv in
+  vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_int i))) assoc)
+
 let _ = Interpret.know ("statistics_m", "matrix -> [(sxnum,num)]", vfun _statistics_m)
+let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", vfun (_statistics_snv <.> ketv))
 
 (* ********************* I/O ************************ *)
 
@@ -409,7 +414,7 @@ let print_string s = vunit (Stdlib.print_string (stringv s); flush stdout)
 let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
                                         
 let _ = Interpret.know ("print_string" , "string -> ()"       , vfun (print_string))
-let _ = Interpret.know ("print_strings", "[string] -> ()"  , vfun (v_iter (vfun print_string)))
+let _ = Interpret.know ("print_strings", "[string] -> ()"     , vfun (v_iter (vfun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , vfun print_qbit)    (* yup, that's a qbit argument *)
 
 let _show v = 

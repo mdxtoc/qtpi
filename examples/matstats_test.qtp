@@ -19,7 +19,7 @@ fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n
                  where address = bits2num (rev bs) (* big-endian *)  
 
 fun showM name M =
-    print_strings [show name; " "; " -> "; show (statistics_m M); "\n"]
+    print_strings [name; " "; " -> "; show (statistics_m M); "\n"; show M; "\n"]
 
   showG name G = showM name (degate G)
 proc 
@@ -29,13 +29,23 @@ proc
     . (let _ = showG "F" F)
     . (let _ = showG "F⊗I" (F⊗I))
     . (let _ = showG "I⊗F" (I⊗F))
+    . (let _ = showG "H" (H))
+    . (let _ = showG "H⊗H" (H⊗H))
+    . (let _ = showG "H⊗H⊗H" (H⊗H⊗H))
+    . (let _ = showG "H⊗H⊗H⊗H" (H⊗H⊗H⊗H))
+    . (let _ = showG "Rx⊗Rx" (Rx⊗Rx))
+    . (let _ = showG "Rx⊗Rx⊗Rx" (Rx⊗Rx⊗Rx))
+    . (let _ = showG "Rx⊗Rx⊗Rx⊗Rx" (Rx⊗Rx⊗Rx⊗Rx))
+    . (let _ = showG "Rz⊗Rz" (Rz⊗Rz))
+    . (let _ = showG "Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz))
+    . (let _ = showG "Rz⊗Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz⊗Rz))
 
     (* . (let n = read_min_int 1 "number of Grover bits")
        . (let G = groverG n)
        . (let bs = randbits n)
        . (let U = groverU bs)
-       . out!["groverG "; show n; " -> "; show (statistics_m (degate G)); "\n"]
-       . out!["groverU "; show bs; " -> "; show (statistics_m (degate U)); "\n"]
+       . (let _ = showG (concat ["groverG "; show n]) G)
+       . (let _ = showG (concat ["groverU "; show bs]) U)
      *)
-    . _0
 
+    . _0 

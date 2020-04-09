@@ -51,7 +51,7 @@ type constructor =
   | CInt    of int
   | CBool   of bool
   | CChar   of Uchar.t
-  | CString of string
+  | CString of Uchar.t list
   | CBit    of bool          
   | CUnit          
   | CBra    of bkconst
@@ -77,7 +77,7 @@ let string_of_constructor = function
   | CInt    i   -> Printf.sprintf "CInt %d" i 
   | CBool   b   -> Printf.sprintf "CBool %B" b
   | CChar   c   -> Printf.sprintf "CChar'%s'" (Utf8.escaped c)
-  | CString s   -> Printf.sprintf "CString\"%s\"" (String.escaped s)
+  | CString ucs -> Printf.sprintf "CString\"%s\"" (String.escaped (Utf8.string_of_uchars ucs))
   | CBit    b   -> Printf.sprintf "CBit 0b%d" (if b then 1 else 0)           
   | CUnit       -> "CUnit"          
   | CBra    b   -> Printf.sprintf "CBra %s" (string_of_braconst b)
@@ -91,7 +91,7 @@ let short_string_of_constructor = function
   | CInt    i       -> Printf.sprintf "%d" i 
   | CBool   b       -> Printf.sprintf "%B" b
   | CChar   c       -> Printf.sprintf "'%s'" (Utf8.escaped c)
-  | CString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
+  | CString ucs     -> Printf.sprintf "\"%s\"" (String.escaped (Utf8.string_of_uchars ucs))
   | CBit    b       -> Printf.sprintf "0b%d" (if b then 1 else 0)           
   | CUnit           -> "CUnit"          
   | CBra    b       -> Printf.sprintf "%s" (string_of_braconst b)

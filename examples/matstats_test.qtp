@@ -40,12 +40,11 @@ proc
     . (let _ = showG "Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz))
     . (let _ = showG "Rz⊗Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz⊗Rz))
 
-    (* . (let n = read_min_int 1 "number of Grover bits")
-       . (let G = groverG n)
-       . (let bs = randbits n)
-       . (let U = groverU bs)
-       . (let _ = showG (concat ["groverG "; show n]) G)
-       . (let _ = showG (concat ["groverU "; show bs]) U)
-     *)
+    . (let n = read_min_int 1 "number of Grover bits")
+    . (let G = groverG n)
+    . (let bs = randbits n)
+    . (let U = groverU bs)
+    . (let _ = showG (concat ["groverG "; show n]) G)
+    . (let _ = showG (concat ["groverU "; show bs]) U)
 
-    . _0 
+    . _0

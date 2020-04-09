@@ -53,3 +53,6 @@ let rec phrase = function
   | [s1;s2] -> s1 ^ " and " ^ s2
   | s :: ss -> s ^ ", " ^ phrase ss
   | []      -> "?none?"
+
+let to_list s = Listutils.tabulate (String.length s) (fun i -> s.[i])
+let of_list cs = String.init (List.length cs) (fun i -> List.nth cs i)

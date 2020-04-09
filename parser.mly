@@ -56,7 +56,7 @@
 %token <string> NAME 
 %token <string> TVNAME 
 %token <string> TPNUM 
-%token <string> STRING 
+%token <Uchar.t list> STRING 
 %token <string> BRA
 %token <string> KET
 %token <Uchar.t> CHAR /* oh dear ... */
@@ -225,7 +225,7 @@ simple_typespec:
   | NUMTYPE                             {adorn Num}
   | BOOLTYPE                            {adorn Bool}
   | CHARTYPE                            {adorn Char}
-  | STRINGTYPE                          {adorn String}
+  | STRINGTYPE                          {adorn (List (adorn Char))}
   | BITTYPE                             {adorn Bit}
   | GATETYPE                            {adorn Gate}
   | SXNUMTYPE                           {adorn Sxnum}

@@ -57,7 +57,6 @@ type value =
   | VKet of snv
   | VMatrix of matrix
   | VGate of gate
-  | VString of string
   | VQbit of qbit
   | VQbits of qbit list
   | VQstate of string
@@ -117,7 +116,6 @@ let rec so_value optf v =
                | VMatrix m       -> string_of_matrix m
                | VGate g         -> string_of_gate g
                | VChar c         -> Printf.sprintf "'%s'" (Utf8.escaped c)
-               | VString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
                | VQbit  q        -> "Qbit " ^ string_of_qbit q
                | VQbits qs       -> "Qbits " ^ string_of_qbits qs
                | VQstate s       -> s

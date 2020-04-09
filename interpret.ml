@@ -73,7 +73,10 @@ let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
 let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
 let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
 let sxnumv  = function VSxnum  n       -> n      | v -> miseval "sxnumv"   v
-let stringv = function VString s       -> s      | v -> miseval "stringv"  v
+(* let stringv = function VString s       -> s      | v -> miseval "stringv"  v *)
+let stringv = function VList   vs      -> let cs = List.map charv vs in
+                                          Utf8.string_of_uchars cs
+                                                 | v -> miseval "stringv"  v
 let brav    = function VBra    b       -> b      | v -> miseval "brav"     v
 let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
 let matrixv = function VMatrix m       -> m      | v -> miseval "matrixv"  v
@@ -93,7 +96,8 @@ let vnum    n       = VNum    n
 let vbool   b       = VBool   b
 let vchar   c       = VChar   c
 let vsxnum  n       = VSxnum  n
-let vstring s       = VString s
+(* let vstring s       = VString s *)
+let vstring s       = VList (List.map vchar (Utf8.uchars_of_string s))
 let vbra    b       = VBra    b
 let vket    k       = VKet    k
 let vmatrix m       = VMatrix m
@@ -176,7 +180,7 @@ let matcher pos env pairs value =
     | PatBit    b       , VBit    b'        -> maybe (b=b')
     | PatBool   b       , VBool   b'        -> maybe (b=b')
     | PatChar   c       , VChar   c'        -> maybe (c=c')
-    | PatString s       , VString s'        -> maybe (s=s')
+    | PatString ucs     , VList   ucs'      -> maybe (ucs=List.map charv ucs')
     | PatBra    b       , VBra    b'        -> maybe (pv_of_braket b=b')
     | PatKet    k       , VKet    k'        -> maybe (pv_of_braket k=k')
     | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
@@ -207,7 +211,7 @@ let rec evale env e =
     | ENum n              -> VNum n
     | EBool b             -> VBool b
     | EChar c             -> VChar c
-    | EString s           -> VString s
+    | EString cs          -> vlist (List.map vchar cs)
     | EBit b              -> VBit b
     | EBra b              -> VBra (pv_of_braket b)
     | EKet k              -> VKet (pv_of_braket k)
@@ -418,7 +422,7 @@ and deepcompare = function (* list everything to be sure I don't make a mistake 
   | VKet     v1 , VKet     v2  -> Stdlib.compare v1 v2
   | VMatrix  v1 , VMatrix  v2  -> Stdlib.compare v1 v2
   | VGate    v1 , VGate    v2  -> Stdlib.compare v1 v2
-  | VString  v1 , VString  v2  -> Stdlib.compare v1 v2    (* none of these hide values *)
+  (* | VString  v1 , VString  v2  -> Stdlib.compare v1 v2 *)    (* none of these hide values *)
   | _                          -> raise (Can'tHappen "deepcompare given different types")
 
 and listcompare = function

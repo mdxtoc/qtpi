@@ -121,6 +121,16 @@ let string_of_uchar: uchar -> utf8string = fun u ->
 let uchar_of_string: utf8string -> uchar = fun str ->
     let s = Stream.of_string str in next_from_char_stream s
 
+let uchars_of_string: utf8string -> uchar list = fun str ->
+  let s = Stream.of_string str in 
+  let rec gen ucs =
+    try let uc = next_from_char_stream s in gen (uc::ucs) with Stream.Failure -> List.rev ucs
+  in
+  gen []
+
+let string_of_uchars: uchar list -> utf8string = fun ucs ->
+  String.concat "" (List.map string_of_uchar ucs)
+  
 let unescaped uc = 
   try Uchar.of_char (match Uchar.to_char uc with
                      | 'n' -> '\n'

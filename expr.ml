@@ -45,7 +45,7 @@ and enode =
   | ENum of Number.num
   | EBool of bool
   | EChar of Uchar.t
-  | EString of string
+  | EString of Uchar.t list
   | EBit of bool        (* 1=true *)
   | EBra of bkconst
   | EKet of bkconst
@@ -186,7 +186,7 @@ let rec string_of_primary e =
   | ENum n          -> Number.string_of_num n
   | EBool b         -> if b then "true" else "false"
   | EChar c         -> Printf.sprintf "'%s'" (Utf8.escaped c)
-  | EString s       -> Printf.sprintf "\"%s\"" (String.escaped s)
+  | EString ucs     -> Printf.sprintf "\"%s\"" (String.escaped (Utf8.string_of_uchars ucs))
   | ECons (hd,tl)   -> (* if it ends in nil, print as constant. Otherwise error *)
                        (match list_of_expr e with
                         | Some es -> bracketed_string_of_list string_of_expr es

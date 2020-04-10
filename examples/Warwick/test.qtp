@@ -93,7 +93,7 @@ proc System () =
                            ])
   out!["neighbours = "; show (enlist n m neighbours); "\n"]   .
   
-  (let prep = lam i j . (theta i j + 8*(foldl (lam x y . x+y) 0 (map (lam (i,j) . r' i j) (neighbours i j)))) % 16)
+  (let prep = lam i j . (theta i j + 8*(foldl (lam (x:num) y . x+y) 0 (map (lam (i,j) . r' i j) (neighbours i j)))) % 16)
   out!["prep = "; show (enlist n m prep); "\n"]   .
   
   (let delta = lam phi i j . m1*phi i j + theta i j + 8*r i j

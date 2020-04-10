@@ -375,6 +375,8 @@ let mult_mv m v =
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
 
 let mult_mm mA mB = 
+  if !verbose_qcalc then 
+    Printf.printf "mult_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
   let m = rsize mA in
   let n = csize mA in
   let p = rsize mB in
@@ -384,11 +386,15 @@ let mult_mm mA mB =
                                  (string_of_matrix mB)
                  )
           );
-  match mA, mB with
-  | DiagM vA       , DiagM vB       -> DiagM (Array.init n (fun i -> cprod vA.(i) vB.(i)))
-  | DiagM vA       , CompM (_,_,fB) -> CompM (m, p, (fun i -> cprod vA.(i) <.> revargs fB i))
-  | DiagM vA       , _              -> maybe_diag (init_m m p (fun i -> cprod vA.(i) <.> revargs ??mB i))
-  | _                               -> maybe_diag (init_m m p (fun i j -> rowcolprod n (??mA i) (revargs ??mB j)))
+  let mC = 
+    match mA, mB with
+    | DiagM vA       , DiagM vB       -> DiagM (Array.init n (fun i -> cprod vA.(i) vB.(i)))
+    | DiagM vA       , CompM (_,_,fB) -> CompM (m, p, (fun i -> cprod vA.(i) <.> revargs fB i))
+    | DiagM vA       , _              -> maybe_diag (init_m m p (fun i -> cprod vA.(i) <.> revargs ??mB i))
+    | _                               -> maybe_diag (init_m m p (fun i j -> rowcolprod n (??mA i) (revargs ??mB j)))
+  in
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix mC);
+  mC
   
 let mult_nm cn = function
   | DiagM v           -> DiagM (Array.map (fun cn' -> cprod cn cn') v)

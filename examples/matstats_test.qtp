@@ -26,6 +26,10 @@ proc
   System () =
     . (let _ = showG "I" I)
     . (let _ = showG "CNot" CNot)
+    . (let _ = showG "CZ" CZ)
+    . (let _ = showG "CZ⊗CZ" (CZ⊗CZ))
+    . (let _ = showG "CZ⊗CZ⊗CZ" (CZ⊗CZ⊗CZ))
+    . (let _ = showG "Rx⊗I⊗Rx⊗I⊗Rx⊗I" (Rx⊗I⊗Rx⊗I⊗Rx⊗I))
     . (let _ = showG "F" F)
     . (let _ = showG "F⊗I" (F⊗I))
     . (let _ = showG "I⊗F" (I⊗F))

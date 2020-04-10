@@ -30,14 +30,23 @@ open Forutils
 exception Error of string
 exception Disaster of string
 
-let check_twopower n f =
+(* find log_2 n, but only if n is a power of 2 -- else raise Invalid_argument *)
+let log_2 n =
   let rec find_twopower r i =
     if i=1               then r                    else
-    if i=0 || i land 1=1 then raise (Error (f n)) else
+    if i=0 || i land 1=1 then raise (Invalid_argument ("log_2 " ^ string_of_int n)) else
                               find_twopower (r+1) (i lsr 1)
   in
   find_twopower 0 n
-    
+
+(* i^n -- only for positive n *)
+let intexp i n =  
+  let rec exp r n = if n<=0 then r else exp (i*r) (n-1) in
+  exp 1 n
+  
+(* an n-bit mask, given an index -- in effect 2^n-1*)
+let mask n = intexp 2 n - 1
+
 (* *********************** vectors, matrices,gates ************************************ *)
 
 type vector = csnum array
@@ -456,7 +465,9 @@ let engate mA =
   let m = rsize mA in
   let n = csize mA in
   if m<>n then raise (Error (Printf.sprintf "non-square engate %s" (string_of_matrix mA)));
-  let _ = check_twopower m (fun _ -> Printf.sprintf "matrix size %d is not power of 2 in engate %s" m (string_of_matrix mA)) in
+  (try ignore (log_2 m) 
+   with _ -> raise (Error (Printf.sprintf "matrix size %d is not power of 2 in engate %s" m (string_of_matrix mA)))
+  );
   let mB = mult_mm mA (dagger_m mA) in
   if exists_m (fun i j x -> j=i && x<>c_1 || j<>i && x<>c_0) mB then
     raise (Error (Printf.sprintf "non-unitary engate %s\n(m*m† = %s)" (string_of_matrix mA) (string_of_matrix mB)));

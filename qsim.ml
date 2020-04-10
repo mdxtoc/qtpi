@@ -175,11 +175,14 @@ let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the ref
     let qsize = match vopt with
                 | None       -> 1
                 | Some (_,v) -> 
-                    check_twopower (vsize v) 
-                                   (fun k -> Printf.sprintf "ket size %d is not power of 2 in newqbits %s %s %s"
-                                                                k pn n
-                                                                (string_of_option string_of_ket vopt)
+                    try log_2 (vsize v) 
+                    with Invalid_argument _ ->  
+                      raise (Error (Printf.sprintf "ket size %d is not power of 2 in newqbits %s %s %s"
+                                      (vsize v) pn n
+                                      (string_of_option string_of_ket vopt)
                                    )
+                            )
+
     in 
     let qs, qv = match qsize with
                  | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s %s" pn n (string_of_option string_of_ket vopt)))
@@ -242,20 +245,13 @@ let idx q qs =
   in
   f 0 qs
 
-(* given an index, a mask to pick it out *)
-let bitmask iq qs = 1 lsl (List.length qs-iq-1)
+(* given an index, a one-bit mask to pick it out *)
+let onebitmask iq qs = 1 lsl (List.length qs-iq-1)
 
-(* a single-bit mask to pick out q from qs *)
+(* a one-bit mask to pick out q from qs *)
 let ibit q qs = 
   let iq = idx q qs in
-  bitmask iq qs
-
-(* an n-bit mask, given an index *)
-let mask n = 
-  let rec f m i =
-    if i=0 then m else f ((m lsl 1) lor 1) (i-1)
-  in
-  f 0 n
+  onebitmask iq qs
 
 (* n is destination; iq is where it is. *)
 let make_nth qs (vm,vv as v) n iq = 
@@ -284,8 +280,8 @@ let make_nth qs (vm,vv as v) n iq =
      qs, v
     )
   else
-    (let qmask = bitmask iq qs in
-     let nmask = bitmask n qs in
+    (let qmask = onebitmask iq qs in
+     let nmask = onebitmask n qs in
      let hdmask, midmask, tlmask =
        if n<iq then (mask n)        lsl (nqs-n),
                     (mask (iq-n))   lsl (nqs-iq),

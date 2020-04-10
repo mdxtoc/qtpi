@@ -640,7 +640,18 @@ let c_g = csnum_of_snum S_g
 
 let c_i = C (S_0, S_1)
 
-let cneg  (C (x,y)) = C (rneg x, rneg y)
+module CsnumH = struct type t = csnum
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string = string_of_csnum
+               end
+module CsnumHash = MyHash.Make (CsnumH)
+
+(* maybe this will save some space ... *)
+let interntab = CsnumHash.create 1000
+let intern cn = try CsnumHash.find interntab cn with Not_found -> (CsnumHash.add interntab cn cn; cn)
+
+let cneg  (C (x,y)) = intern (C (rneg x, rneg y))
 
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
@@ -648,22 +659,22 @@ let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | _       , _  , S_0     , S_0       -> c_0
   | S_1     , S_0, _       , _         -> c2  
   | _       , _  , S_1     , S_0       -> c1
-  | S_neg S_1, S_0, _       , _         -> cneg c2  
-  | _       , _  , S_neg S_1, S_0       -> cneg c1
-  | _       , S_0, _       , S_0       -> C (rprod x1 x2, S_0)            (* real    * real    *)
-  | _       , S_0, _       , _         -> C (rprod x1 x2, rprod x1 y2)    (* real    * complex *)
-  | _       , _  , _       , S_0       -> C (rprod x1 x2, rprod y1 x2)    (* complex * real    *)
-  | _                                  -> C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2))
+  | S_neg S_1, S_0, _       , _        -> cneg c2  
+  | _       , _  , S_neg S_1, S_0      -> cneg c1
+  | _       , S_0, _       , S_0       -> intern (C (rprod x1 x2, S_0))            (* real    * real    *)
+  | _       , S_0, _       , _         -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
+  | _       , _  , _       , S_0       -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
+  | _                                  -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
 
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
   | S_0, S_0, _  , _    -> c2 
   | _  , _  , S_0, S_0  -> c1
-  | _                   -> C (rsum x1 x2, rsum y1 y2)
+  | _                   -> intern (C (rsum x1 x2, rsum y1 y2))
 
 let cdiff c1 c2 = csum c1 (cneg c2)
 
-let cconj (C(x,y)) = C (rconj x, rneg (rconj y))
+let cconj (C(x,y)) = intern (C (rconj x, rneg (rconj y)))
 
 let absq  (C(x,y) as c) = (* this is going to cost me ... *)
   let x',y' = rconj x, rconj y in
@@ -690,14 +701,7 @@ let absq  (C(x,y) as c) = (* this is going to cost me ... *)
 (* we can't really divide 
     let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
  *)
-let c_r_div_h (C(x,y))            = C (rdiv_h x, rdiv_h y)
-
-module CsnumH = struct type t = csnum
-                      let equal = (=)
-                      let hash = Hashtbl.hash
-                      let to_string = string_of_csnum
-               end
-module CsnumHash = MyHash.Make (CsnumH)
+let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
 
 (* we no longer memoise any of these things ...
 

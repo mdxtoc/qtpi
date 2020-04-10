@@ -11,16 +11,18 @@ proc System () =
   . out ! ["q0,q1 = "; show b0; ","; show b1; "\n"]
   . _0
  *)
-   (let g1 = H><H><H><H><H><H)
-   (let g2 = CZ><CZ><CZ)
-   (let g3 = Rx><I><Rx><I><Rx><I)
-   (let g4 = I><CZ><CZ><I)
+   (let g1 = H⊗H⊗H⊗H⊗H⊗H)
+   (let g2 = CZ⊗CZ⊗CZ)
+   (let g3 = Rx⊗I⊗Rx⊗I⊗Rx⊗I)
+   (let g4 = I⊗CZ⊗CZ⊗I)
    (let g5 = g1)
    . out ! ["g1="; show g1; "\n"]
    . out ! ["g2="; show g2; "\n"]
    . out ! ["g3="; show g3; "\n"]
    . out ! ["g4="; show g4; "\n"]
    . out ! ["g5="; show g5; "\n"]
-   . out ! ["product="; show (g1*g2*g3*g4*g5); "\n"]
+   . out ! ["g1*g1="; show (g1*g1); "\n"]
+   . out ! ["g1*g5="; show (g1*g5); "\n"]
+   . out ! ["product="; show (g1*g2*g3*g4*g5(**)); "\n"] 
    . _0
    

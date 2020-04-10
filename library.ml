@@ -347,7 +347,7 @@ let v_tabulate_m m n f =
   let n = mustbe_intv n in
   let f = funv2 f in
   let ff i j = sxnumv (f ((vnum <.> num_of_int) i) ((vnum <.> num_of_int) j)) in
-  vmatrix( init_m m n ff)
+  vmatrix(maybe_diag (init_m m n ff))
  
 let _ = Interpret.know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
 

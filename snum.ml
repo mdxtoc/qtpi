@@ -74,8 +74,6 @@ and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
 
 and csnum = C of snum*snum (* complex snum A + iB *)
 
-and modulus = snum
-
 let rec string_of_snum s = 
   (* Everything is associative, but the normal form is sum of negated products.
    * So possbra below puts in _very_ visible brackets, for diagnostic purposes.

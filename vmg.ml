@@ -40,23 +40,39 @@ let check_twopower n f =
     
 (* *********************** vectors, matrices,gates ************************************ *)
 
-(* snv: symbolic normalised vector *)
-type snv = modulus * csnum array (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
+type vector = csnum array
 
-type gate = 
-    | MGate of matrix              (* must be square *)
-    | DGate of csnum array         (* diagonal matrix *)
+and matrix = 
+  | DenseM of csnum array array                 (* not necessarily square *)
+  | DiagM  of csnum array                       (* square, obvs *)
+  | CompM  of int * int * (int -> int -> csnum) (* rsize, csize, element function *)
 
-and matrix = csnum array array     (* not necessarily square *)
+and modulus = snum 
+
+and snv = modulus * vector (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
+
+and gate = matrix                               (* gates must be square, unitary and 2^n-sized *)
 
 let vsize = Array.length
 let snvsize (_,v) = vsize v
-let rsize = Array.length
-let csize m = vsize m.(0)
-let gsize = function
-  | MGate m -> rsize m  (* assuming square gates *)
-  | DGate v -> vsize v
-  
+let rsize = function
+  | DenseM m                 -> Array.length m
+  | DiagM  v                 -> Array.length v
+  | CompM  (rsize, csize, f) -> rsize
+
+let csize = function
+  | DenseM m                 -> Array.length m.(0)
+  | DiagM  v                 -> Array.length v
+  | CompM  (rsize, csize, f) -> csize
+
+let gsize = rsize
+
+(* accessing matrices whatever the form *)
+let (??) m i j =
+  match m with
+  | DenseM m       -> m.(i).(j)
+  | DiagM  v       -> if i=j then v.(i) else c_0
+  | CompM  (_,_,f) -> f i j
 
 let make_snv ss = S_1, Array.of_list ss
 
@@ -130,43 +146,38 @@ let string_of_snv bksign =
 let string_of_bra = string_of_snv PVBra
 let string_of_ket = string_of_snv PVKet
 
-let string_of_matrix m = 
-  let strings_of_row r = Array.fold_right (fun s ss -> string_of_csnum s::ss) r [] in
-  let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
-  let rwidth r = List.fold_left max 0 (List.map String.length r) in
-  let width = List.fold_left max 0 (List.map rwidth block) in
-  let pad s = s ^ String.make (width - String.length s) ' ' in
-  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
-  Printf.sprintf "\n{%s}\n" block
-  
-let string_of_gate = function 
-  | MGate m -> string_of_matrix m
-  | DGate v -> "diag{" ^ string_of_list string_of_csnum " " (Array.to_list v) ^ "}"
+let string_of_matrix = function
+  | DenseM m -> 
+      let strings_of_row r = Array.fold_right (fun s ss -> string_of_csnum s::ss) r [] in
+      let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
+      let rwidth r = List.fold_left max 0 (List.map String.length r) in
+      let width = List.fold_left max 0 (List.map rwidth block) in
+      let pad s = s ^ String.make (width - String.length s) ' ' in
+      let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
+      Printf.sprintf "\n{%s}\n" block
+  | DiagM v ->   
+      "diag{" ^ string_of_list string_of_csnum " " (Array.to_list v) ^ "}"
+  | CompM (rn,cn,_) ->
+      Printf.sprintf "compM(%d,%d,_)" rn cn
+      
+let string_of_gate = string_of_matrix
 
-let make_m rows = rows |> (List.map Array.of_list) |> (Array.of_list)
+let maybe_diag m =
+  let n = Array.length m in
+  let isdiag () = _for_all 0 1 n (fun i -> let row = m.(i) in
+                                           _for_all 0 1 n (fun j -> i=j || row.(j)=c_0)
+                                          )
+  in
+  if n = Array.length m.(0) && isdiag () then
+    DiagM (Array.init n (fun i -> m.(i).(i)))
+  else DenseM m
 
-let matrix_of_gate = function
-  | MGate m -> m
-  | DGate v -> let n = vsize v in
-               let zs = Listutils.tabulate n (const c_0) in
-               let rows = Listutils.tabulate n (const zs) in
-               let m = make_m rows in
-               for i = 0 to n-1 do
-                 m.(i).(i) <- v.(i)
-               done;
-               m
+let make_m rows = maybe_diag (rows |> (List.map Array.of_list) |> (Array.of_list))
+
+let matrix_of_gate g = g    (* trivial now *)
 
 (* this should only be used if it's really a unitary matrix *)               
-let gate_of_matrix m =
-  let n = rsize m in
-  let isdiag = _for_all 0 1 n (fun i ->
-                               let row = m.(i) in
-                               _for_all 0 1 n (fun j -> i=j || row.(j)=c_0)
-                              )
-  in
-  if isdiag then
-    DGate (Array.init n (fun i -> m.(i).(i)))
-  else MGate m
+let gate_of_matrix m = m
   
 let make_g rows = 
   gate_of_matrix (make_m rows)
@@ -229,10 +240,10 @@ let g_Fredkin = (* tediously, sorry *)
            
 let make_C g = 
   let m = matrix_of_gate g in
-  make_g  [[c_1; c_0; c_0      ; c_0       ];
-           [c_0; c_1; c_0      ; c_0       ];
-           [c_0; c_0; m.(0).(0); m.(0).(1) ];
-           [c_0; c_0; m.(1).(0); m.(1).(1) ]]
+  make_g  [[c_1; c_0; c_0    ; c_0    ];
+           [c_0; c_1; c_0    ; c_0    ];
+           [c_0; c_0; ??m 0 0; ??m 0 1];
+           [c_0; c_0; ??m 1 0; ??m 1 1]]
     
 let g_CX   = make_C g_X
 let g_CY   = make_C g_Y
@@ -252,7 +263,7 @@ let statistics_m mM =
   let n,m = rsize mM, csize mM in
   for i = 0 to n-1 do
     for j = 0 to m-1 do
-      count mM.(i).(j)
+      count (??mM i j)
     done
   done;
   let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
@@ -279,7 +290,10 @@ let init_v n f = Array.init n f
 let init_m n m f = Array.init m (fun i -> Array.init m (f i))
 
 let exists_v p v = _for_exists 0 1 (vsize v) (fun i -> p i v.(i))
-let exists_m p m = exists_v (fun i row -> exists_v (fun j x -> p i j x) row) m
+let exists_m p = function
+  | DiagM v         -> exists_v (fun i x -> p i i x) v
+  | DenseM m        -> exists_v (fun i row -> exists_v (fun j x -> p i j x) row) m
+  | CompM (rn,cn,f) -> _for_exists 0 1 rn (fun i -> _for_exists 0 1 cn (fun j -> p i j (f i j)))
 
 let tensor_vv vA vB =
   let nA = vsize vA in
@@ -302,36 +316,32 @@ let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
   mR,vR
 
 let tensor_mm mA mB =
-  let rA, cA = rsize mA, csize mA in
-  let rB, cB = rsize mB, csize mB in
-  let mC = init_m (rA*rB) (cA*cB) (fun _ _ -> c_0) in
-  for i = 0 to rA-1 do
-    for j = 0 to cA-1 do
-      let aij = mA.(i).(j) in
-      for m = 0 to rB-1 do
-        for p = 0 to cB-1 do
-          mC.(i*rB+m).(j*cB+p) <- cprod aij mB.(m).(p)
-        done (* p *)
-      done (* n *)
-    done (* j *)
-  done (* i *);
-  mC
-  
-let tensor_gg gA gB =
-  if !verbose_qcalc then Printf.printf "tensor_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
-  let g = if gA=g_1 then gB else
-          if gB=g_1 then gA else
-            (match gA, gB with
-             | DGate dA, DGate dB -> DGate (tensor_vv dA dB)
-             | _                  ->
-                 let mA = matrix_of_gate gA in
-                 let mB = matrix_of_gate gB in
-                 let mC = tensor_mm mA mB in
-                 gate_of_matrix mC
+  if !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
+  let m = if mA=g_1 then mB else
+          if mB=g_1 then mA else
+            (match mA, mB with
+             | DiagM vA, DiagM vB -> DiagM (tensor_vv vA vB)
+             | _                  -> 
+                 let rA, cA = rsize mA, csize mA in
+                 let rB, cB = rsize mB, csize mB in
+                 let mC = init_m (rA*rB) (cA*cB) (fun _ _ -> c_0) in
+                 for i = 0 to rA-1 do
+                   for j = 0 to cA-1 do
+                     let aij = ??mA i j in
+                     for m = 0 to rB-1 do
+                       for p = 0 to cB-1 do
+                         mC.(i*rB+m).(j*cB+p) <- cprod aij (??mB m p)
+                       done (* p *)
+                     done (* n *)
+                   done (* j *)
+                 done (* i *);
+                 maybe_diag mC
             )  
   in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
-  g
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m);
+  m
+
+let tensor_gg = tensor_mm
 
 let fpow f one v n =
   List.fold_left f one (Listutils.tabulate n (const v))
@@ -346,58 +356,48 @@ let rowcolprod n row col =
   let reals, ims = List.split els in
   C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
-let mult_gv g (vm,vv as v) =
-  if !verbose_qcalc then Printf.printf "mult_gv %s %s = " (string_of_gate g) (string_of_ket v);
-  let n = Array.length vv in
-  if gsize g <> n then
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_gv %s %s"
-                                 (string_of_gate g)
-                                 (string_of_ket v)
+let mult_mv m v =
+  if !verbose_qcalc then Printf.printf "mult_mv %s %s = " (string_of_matrix m) (string_of_ket (S_1,v));
+  let n = vsize v in
+  if csize m <> n then
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
+                                 (string_of_matrix m)
+                                 (string_of_ket (S_1,v))
                  )
           );
-  let v' = vm, match g with
-               | MGate m -> Array.init n (fun i -> let row = m.(i) in rowcolprod n (fun j -> row.(j)) (fun j -> vv.(j)))
-               | DGate d -> Array.init n (fun i -> cprod d.(i) vv.(i))
+  let v' = match m with
+           | DiagM d -> Array.init n (fun i -> cprod d.(i) v.(i))
+           | _       -> Array.init n (fun i -> rowcolprod n (??m i) (Array.get v))
   in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_ket v');
+  if !verbose_qcalc then Printf.printf "%s\n" (string_of_ket (S_1, v'));
   v'
+
+let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
 
 let mult_mm mA mB = 
   let m = rsize mA in
   let n = csize mA in
-  if n<>rsize mB then
+  let p = rsize mB in
+  if n<>p then
     raise (Error (Printf.sprintf "matrix size mismatch in multiply: %s * %s"
                                  (string_of_matrix mA)
                                  (string_of_matrix mB)
                  )
           );
-  let p = csize mB in
-  init_m m p (fun i j -> let row = mA.(i) in rowcolprod n (fun k -> row.(k)) (fun k -> mB.(k).(j)))
+  match mA, mB with
+  | DiagM vA       , DiagM vB       -> DiagM (Array.init n (fun i -> cprod vA.(i) vB.(i)))
+  | DiagM vA       , CompM (_,_,fB) -> CompM (m, p, (fun i -> cprod vA.(i) <.> revargs fB i))
+  | DiagM vA       , _              -> maybe_diag (init_m m p (fun i -> cprod vA.(i) <.> revargs ??mB i))
+  | _                               -> maybe_diag (init_m m p (fun i j -> rowcolprod n (??mA i) (revargs ??mB j)))
   
-let mult_nm cn mA = 
-  let m = rsize mA in
-  let n = csize mA in
-  init_m m n (fun i j -> cprod cn mA.(i).(j))
+let mult_nm cn = function
+  | DiagM v           -> DiagM (Array.map (fun cn' -> cprod cn cn') v)
+  | CompM (rs, cs, f) -> CompM (rs, cs, cprod cn <..> f)
+  | DenseM dm as mA   -> let m = rsize mA in
+                         let n = csize mA in
+                         maybe_diag (init_m m n (fun i j -> cprod cn (dm.(i).(j))))
   
-let mult_gg gA gB = 
-  if !verbose_qcalc then Printf.printf "mult_gg %s %s = " (string_of_gate gA) (string_of_gate gB);
-  let n = gsize gA in
-  if n <> gsize gB then (* our gates are square *)
-    raise (Error (Printf.sprintf "gate size mismatch in multiply: %s * %s"
-                                 (string_of_gate gA)
-                                 (string_of_gate gB)
-                 )
-          );
-  let g = match gA, gB with
-          | DGate dA, DGate dB -> DGate (Array.init n (fun i -> cprod dA.(i) dB.(i)))
-          | _                  -> 
-              let mA = matrix_of_gate gA in   
-              let mB = matrix_of_gate gB in
-              let m' = mult_mm mA mB in
-              gate_of_matrix m' 
-  in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g);
-  g
+let mult_gg = mult_mm
 
 let mult_kb (km, kv as k) (bm, bv as b) =
   let n = vsize kv in
@@ -412,24 +412,18 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                         (string_of_ket k) (string_of_bra b)
                  )
           );
-  init_m n n (fun i j -> cprod kv.(i) bv.(j))
+  maybe_diag (init_m n n (fun i j -> cprod kv.(i) bv.(j)))
   
 (* conjugate transpose: transpose and piecewise complex conjugate *)
-let dagger_m mA = 
-  let m = rsize mA in
-  let n = csize mA in
-  init_m m n (fun i j -> cconj mA.(j).(i))
-  
-let dagger_g g = 
-  if !verbose_qcalc then Printf.printf "dagger %s = " (string_of_gate g);
-  let n = gsize g in
-  let g' = match g with
-           | DGate d -> DGate (Array.init n (fun i -> cconj d.(i)))
-           | MGate m -> MGate (dagger_m m)
-  in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_gate g');
-  g'
-  
+let dagger_m = function
+  | DiagM  v          -> DiagM (Array.map cconj v)
+  | DenseM dm as mA   -> let m = rsize mA in
+                         let n = csize mA in
+                         DenseM (init_m m n (fun i j -> cconj (dm.(j).(i))))
+  | CompM (rn, cn, f) -> CompM (rn, cn, cconj <..> revargs f)
+
+let dagger_g = dagger_m
+
 let addsub_mm f s mA mB =
   let m = rsize mA in
   let n = csize mA in
@@ -440,7 +434,10 @@ let addsub_mm f s mA mB =
                                  (string_of_matrix mB)
                  )
           );
-  init_m m n (fun i j -> f mA.(i).(j) mB.(i).(j))
+  match mA, mB with
+  | DiagM vA      , DiagM vB       -> DiagM (Array.init m (fun i -> f vA.(i) vB.(i)))
+  | CompM (_,_,fA), CompM (_,_,fB) -> CompM (m, n, (fun i j -> f (fA i j) (fB i j)))
+  | _                              -> maybe_diag (init_m m n (fun i j -> f (??mA i j) (??mB i j)))
 
 let add_mm = addsub_mm csum "add_mm"
 let sub_mm = addsub_mm cdiff "sub_mm"

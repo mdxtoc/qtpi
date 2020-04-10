@@ -468,7 +468,7 @@ let ugstep_padded pn qs g gpad =
   
      if !verbose || !verbose_qsim then show_change qs' v' g';
   
-     let v'' = mult_gv g' v' in
+     let v'' = mult_gnv g' v' in
      record (qs',v'')
     )
 

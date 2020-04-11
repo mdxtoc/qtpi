@@ -200,6 +200,8 @@ let bmatch env pat v =
                            )
   
 let rec evale env e =
+  if !verbose || !verbose_interpret then
+    (Printf.printf "evaluating (%s) env=%s\n" (string_of_expr e) (string_of_env env); flush_all ());
   try
     match tinst e with
     | EUnit               -> VUnit
@@ -587,7 +589,7 @@ let rec interp env proc =
         ((try 
             stepcount := !stepcount+1;
             if !verbose || !verbose_interpret then
-              print_interp_state stdout;
+              (print_interp_state stdout; flush_all ());
             let runner = PQueue.pop runners in
             PQueue.excite runners;
             let pn, rproc, env = runner in

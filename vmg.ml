@@ -54,7 +54,7 @@ type vector = csnum array
 and matrix = 
   | DenseM of csnum array array                 (* not necessarily square *)
   | DiagM  of csnum array                       (* square, obvs *)
-  | CompM  of string * int * int * (int -> int -> csnum) (* rsize, csize, element function *)
+  | FuncM  of string * int * int * (int -> int -> csnum) (* rsize, csize, element function *)
 
 and modulus = snum 
 
@@ -67,12 +67,12 @@ let snvsize (_,v) = vsize v
 let rsize = function
   | DenseM m          -> Array.length m
   | DiagM  v          -> Array.length v
-  | CompM  (_,nr,_,_) -> nr
+  | FuncM  (_,nr,_,_) -> nr
 
 let csize = function
   | DenseM m          -> Array.length m.(0)
   | DiagM  v          -> Array.length v
-  | CompM  (_,_,nc,_) -> nc
+  | FuncM  (_,_,nc,_) -> nc
 
 let gsize = rsize
 
@@ -81,7 +81,7 @@ let (??) m i j =
   match m with
   | DenseM m         -> m.(i).(j)
   | DiagM  v         -> if i=j then v.(i) else c_0
-  | CompM  (_,_,_,f) -> f i j
+  | FuncM  (_,_,_,f) -> f i j
 
 let make_snv ss = S_1, Array.of_list ss
 
@@ -166,8 +166,8 @@ let string_of_matrix = function
       Printf.sprintf "\n{%s}\n" block
   | DiagM v ->   
       "diag{" ^ string_of_list string_of_csnum " " (Array.to_list v) ^ "}"
-  | CompM (id,rn,cn,_) ->
-      Printf.sprintf "compM(%s,%d,%d,_)" id rn cn
+  | FuncM (id,rn,cn,_) ->
+      Printf.sprintf "FuncM(%s,%d,%d,_)" id rn cn
       
 let string_of_gate = string_of_matrix
 
@@ -265,6 +265,19 @@ let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
 let m_1 = make_m [[c_1]]
 let m_0 = make_m [[c_0]]
 
+let func_I n = FuncM ((Printf.sprintf "I⊗⊗%d" n), 1 lsl n, 1 lsl n, (fun i j -> if i=j then c_1 else c_0))
+
+let func_H n = 
+  let rec bitcount r n = 
+    if n=0 then r else bitcount (if n land 1 = 1 then r+1 else r) (n lsr 1)
+  in
+  let sn = S_h n in
+  let f i j = 
+    C ((if bitcount 0 (i land j) land 1 = 1 then S_neg sn else sn), S_0)
+  in
+  let gsize = 1 lsl n in
+  FuncM ((Printf.sprintf "H⊗⊗%d" n), gsize, gsize, f)
+  
 let statistics_m mM =
   let stats = CsnumHash.create 1000 in
   let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
@@ -302,7 +315,7 @@ let exists_v p v = _for_exists 0 1 (vsize v) (fun i -> p i v.(i))
 let exists_m p = function
   | DiagM v           -> exists_v (fun i x -> p i i x) v
   | DenseM m          -> exists_v (fun i row -> exists_v (fun j x -> p i j x) row) m
-  | CompM (_,rn,cn,f) -> _for_exists 0 1 rn (fun i -> _for_exists 0 1 cn (fun j -> p i j (f i j)))
+  | FuncM (_,rn,cn,f) -> _for_exists 0 1 rn (fun i -> _for_exists 0 1 cn (fun j -> p i j (f i j)))
 
 let tensor_vv vA vB =
   let nA = vsize vA in
@@ -324,13 +337,37 @@ let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
                                        (string_of_ket (mR,vR));
   mR,vR
 
+let looks_like_gate g =
+  let nr = rsize g in
+  let nc = csize g in
+  nr = nc && (try ignore (log_2 nr); true with _ -> false)
+  
+(* func_tensor works with div and mod, because I think I can afford them, which means I don't have to insist on gates *)
+let func_tensor_gc m id nrB ncB f =
+  let nrA = rsize m in
+  let ncA = csize m in
+  let prodf i j =
+    cprod (??m (i / nrB) (j / ncB)) (f (i mod nrB) (j mod ncB))
+  in
+  FuncM ((Printf.sprintf "%s⊗(%s)" (string_of_matrix m) id), nrA*nrB, ncA*ncB, prodf)
+  
+let func_tensor_cg id nrA ncA f m =
+  let nrB = rsize m in
+  let ncB = csize m in
+  let prodf i j =
+    cprod (f (i / nrB) (j / ncB)) (??m (i mod nrB) (j mod ncB))
+  in
+  FuncM ((Printf.sprintf "%s⊗(%s)" id (string_of_matrix m)), nrA*nrB, ncA*ncB, prodf)
+  
 let tensor_mm mA mB =
   if !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
   let m = if mA=g_1 then mB else
           if mB=g_1 then mA else
             (match mA, mB with
-             | DiagM vA, DiagM vB -> DiagM (tensor_vv vA vB)
-             | _                  -> 
+             | DiagM vA          , DiagM vB           -> DiagM (tensor_vv vA vB)
+             | _                 , FuncM (id,nr,nc,f) -> func_tensor_gc mA id nr nc f
+             | FuncM (id,nr,nc,f), _                  -> func_tensor_cg id nr nc f mB
+             | _                                      -> 
                  let rA, cA = rsize mA, csize mA in
                  let rB, cB = rsize mB, csize mB in
                  let mC = init_m (rA*rB) (cA*cB) (fun _ _ -> c_0) in
@@ -398,8 +435,8 @@ let mult_mm mA mB =
   let mC = 
     match mA, mB with
     | DiagM vA       , DiagM vB          -> DiagM (Array.init n (fun i -> cprod vA.(i) vB.(i)))
-    | DiagM vA       , CompM (id,_,_,fB) -> let id = Printf.sprintf "%s*%s" (string_of_matrix mA) id in
-                                            CompM (id, m, p, (fun i -> cprod vA.(i) <.> revargs fB i))
+    | DiagM vA       , FuncM (id,_,_,fB) -> let id = Printf.sprintf "%s*%s" (string_of_matrix mA) id in
+                                            FuncM (id, m, p, (fun i -> cprod vA.(i) <.> revargs fB i))
     | DiagM vA       , _                 -> maybe_diag (init_m m p (fun i -> cprod vA.(i) <.> revargs ??mB i))
     | _                                  -> maybe_diag (init_m m p (fun i j -> rowcolprod n (??mA i) (revargs ??mB j)))
   in
@@ -408,8 +445,8 @@ let mult_mm mA mB =
   
 let mult_nm cn = function
   | DiagM v               -> DiagM (Array.map (fun cn' -> cprod cn cn') v)
-  | CompM (id, rs, cs, f) -> let id = Printf.sprintf "%s*%s" (string_of_csnum cn) id in
-                             CompM (id, rs, cs, cprod cn <..> f)
+  | FuncM (id, rs, cs, f) -> let id = Printf.sprintf "%s*%s" (string_of_csnum cn) id in
+                             FuncM (id, rs, cs, cprod cn <..> f)
   | DenseM dm as mA       -> let m = rsize mA in
                              let n = csize mA in
                              maybe_diag (init_m m n (fun i j -> cprod cn (dm.(i).(j))))
@@ -437,8 +474,8 @@ let dagger_m = function
   | DenseM dm as mA       -> let m = rsize mA in
                              let n = csize mA in
                              DenseM (init_m m n (fun i j -> cconj (dm.(j).(i))))
-  | CompM (id, rn, cn, f) -> let id = Printf.sprintf "(%s)†" id in
-                             CompM (id, rn, cn, cconj <..> revargs f)
+  | FuncM (id, rn, cn, f) -> let id = Printf.sprintf "(%s)†" id in
+                             FuncM (id, rn, cn, cconj <..> revargs f)
 
 let dagger_g = dagger_m
 
@@ -454,8 +491,8 @@ let addsub_mm f s mA mB =
           );
   match mA, mB with
   | DiagM vA          , DiagM vB           -> DiagM (Array.init m (fun i -> f vA.(i) vB.(i)))
-  | CompM (idA,_,_,fA), CompM (idB,_,_,fB) -> let id = Printf.sprintf "(%s)%s(%s)" idA s idB in
-                                              CompM (id, m, n, (fun i j -> f (fA i j) (fB i j)))
+  | FuncM (idA,_,_,fA), FuncM (idB,_,_,fB) -> let id = Printf.sprintf "(%s)%s(%s)" idA s idB in
+                                              FuncM (id, m, n, (fun i j -> f (fA i j) (fB i j)))
   | _                                      -> maybe_diag (init_m m n (fun i j -> f (??mA i j) (??mB i j)))
 
 let add_mm = addsub_mm csum "+"

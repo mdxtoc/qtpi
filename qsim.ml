@@ -391,13 +391,14 @@ let qsort (qs,v) =
 
 let ugstep_padded pn qs g gpad = 
   if !verbose || !verbose_qcalc then
-    Printf.printf "ugstep_padded %s %s %s %s\n" pn
+    (Printf.printf "ugstep_padded %s %s %s %s\n" pn
                                                 (bracketed_string_of_list string_of_qbit qs)
                                                 (string_of_gate g)
                                                 (string_of_gate gpad);
-  if g=g_I && List.length qs=1 then () else 
-    ((* let noway s = Printf.printf "can't yet handle %s %s\n" (id_string ()) s in *)
-     let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
+     flush_all ()
+    );
+  if g=g_I && (gpad=g_I || List.length qs=1) then () else 
+    (let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
                                                        pn
                                                        (bracketed_string_of_list string_of_qbit qs)
                                                        (string_of_gate g)
@@ -417,7 +418,7 @@ let ugstep_padded pn qs g gpad =
      let nqs = List.length qs in
      let veclength = 1 lsl nqs in
      if veclength=0 then bad "far too many qbits";
-     (* I think our matrices are always square: we start with square gates and multiply and/or tensor *)
+     (* gates are square *)
      if veclength<>gsize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
                                                        veclength
                                                        nqs
@@ -436,7 +437,8 @@ let ugstep_padded pn qs g gpad =
                                    (string_of_gate gpad)
                                    (string_of_gate g')
                                    (string_of_qbits qs')
-                                   (string_of_snv PVKet v')
+                                   (string_of_snv PVKet v');
+       flush_all ()
      in
   
      (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
@@ -453,16 +455,23 @@ let ugstep_padded pn qs g gpad =
      in
      let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
      let ifirst = idx (List.hd qs) qs' in
-  
+     
      (* add enough pads to g to deal with v *)
-     let g' = if g=gpad then tensor_n_gs (List.length qs') g else
-                             (let pre = tensor_n_gs ifirst gpad in
-                              let post = tensor_n_gs (List.length qs'-1-ilast) gpad in
-                              tensor_gg pre (tensor_gg g post)
-                             )  
+     let tensor_n_gs n g =
+       if n=0 then                     g_1             else
+       if n=1 then                     g               else
+       if !func_matrices && g=g_I then func_I n        else
+       if !func_matrices && g=g_H then func_H n        else
+                                       (if !func_matrices then Printf.printf "missed with %s %d\n" (string_of_gate g) n; tensor_n_gs n g)
+     in
+     let g' = if g=gpad then tensor_n_gs (List.length qs') g 
+              else (let pre = tensor_n_gs ifirst gpad in
+                    let post = tensor_n_gs (List.length qs'-1-ilast) gpad in
+                    tensor_gg pre (tensor_gg g post)
+                   )  
      in
   
-     if !verbose || !verbose_qsim then show_change qs' v' g';
+     if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
   
      let v'' = mult_gnv g' v' in
      record (qs',v'')

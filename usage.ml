@@ -40,6 +40,8 @@ let opts = Arg.align
                     Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
+              ("-func_matrices" , Arg.Bool (set_arg func_matrices), 
+                    Printf.sprintf " some matrices, such as I⊗⊗n and H⊗⊗n, are represented by functions (default %B)" !func_matrices);
               ("-interpret"  , Arg.Bool (set_arg interpret), 
                     Printf.sprintf " interpret the program (default %B)" !interpret);
               ("-matchcheck" , Arg.Bool (set_arg matchcheck), 

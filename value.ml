@@ -238,5 +238,6 @@ let short_string_of_env = short_so_env doptf
 let string_of_chan = so_chan doptf
 let short_string_of_chan = short_so_chan doptf 
 
+let string_of_runner = so_runner doptf
 let string_of_runnerqueue = so_runnerqueue doptf
 

@@ -41,6 +41,8 @@ let complexunknowns = ref true
 
 let fancyvec = ref true
 
+let func_matrices = ref true
+
 (* let detectdisposes = ref true *)
 
 let interpret = ref true

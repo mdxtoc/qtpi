@@ -53,8 +53,8 @@ type value =
   | VBool of bool
   | VSxnum of csnum
   | VChar of Uchar.t
-  | VBra of snv
-  | VKet of snv
+  | VBra of nv
+  | VKet of nv
   | VMatrix of matrix
   | VGate of gate
   | VQbit of qbit

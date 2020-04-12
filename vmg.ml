@@ -49,7 +49,12 @@ let mask n = intexp 2 n - 1
 
 (* *********************** vectors, matrices,gates ************************************ *)
 
-type vector = csnum array
+type vec  = csnum array
+and cvec  = (int * csnum) list (* assoc list *)
+
+type vector = 
+  | DenseV   of vec                             (* always 2^n-sized *)
+  | SparseV  of int * cvec                      (* size, default value, values *)
 
 and matrix = 
   | DenseM of csnum array array                 (* not necessarily square *)
@@ -58,12 +63,18 @@ and matrix =
 
 and modulus = snum 
 
-and snv = modulus * vector (* modulus, vector: written as 1/sqrt(modulus)(vec) *)
+and nv = modulus * vector                       (* modulus, vector: meaning 1/sqrt(modulus)(vec) *)
 
-and gate = matrix                               (* gates must be square, unitary and 2^n-sized *)
+and gate = matrix                               (* gates must be square, unitary and 2^n-sized, 
+                                                   but to say that we would need an existential type.
+                                                 *)
 
-let vsize = Array.length
-let snvsize (_,v) = vsize v
+let vsize = function
+  | DenseV  v     -> Array.length v
+  | SparseV (n,_) -> n
+
+let nvsize (_,v) = vsize v
+        
 let rsize = function
   | DenseM m          -> Array.length m
   | DiagM  v          -> Array.length v
@@ -76,6 +87,22 @@ let csize = function
 
 let gsize = rsize
 
+(* cvecs are ordered ... *)
+
+let cvseg n m cv = (* n<=i<m, natch *)
+  takewhile (fun (i,_) -> i<m) (dropwhile (fun (i,_) -> i<n) cv)
+  
+let rec find_cv xs i =
+  match xs with
+  | (j,x)::xs -> if i<j then c_0 else if i=j then x else find_cv xs i
+  | []        -> c_0
+
+(* accessing vectors whatever the form *)
+let (?.) v i = 
+  match v with 
+  | DenseV  v       -> v.(i)
+  | SparseV (_, cv) -> find_cv cv i
+
 (* accessing matrices whatever the form *)
 let (??) m i j =
   match m with
@@ -83,7 +110,86 @@ let (??) m i j =
   | DiagM  v         -> if i=j then v.(i) else c_0
   | FuncM  (_,_,_,f) -> f i j
 
-let make_snv ss = S_1, Array.of_list ss
+let statistics_m mM =
+  let stats = CsnumHash.create 1000 in
+  let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
+  let count v = let r = get v in r:=!r+1 in
+  let n,m = rsize mM, csize mM in
+  for i = 0 to n-1 do
+    for j = 0 to m-1 do
+      count (??mM i j)
+    done
+  done;
+  let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
+  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+
+let is_sparse_m k m =
+  let stats = statistics_m m in
+  let dx, freq = List.hd stats in
+  dx=c_0 && k*freq>(k-1)*rsize m*csize m 
+
+let statistics_v vV =
+  let stats = CsnumHash.create 1000 in
+  let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
+  let count v = let r = get v in r:=!r+1 in
+  let n = vsize vV in
+  for i = 0 to n-1 do
+    count (?.vV i)
+  done;
+  let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
+  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+
+let statistics_nv (_,v) = statistics_v v
+
+let densify_cv n cv = Array.init n (find_cv cv)
+
+let densify_v =
+  function
+  | DenseV v       -> v
+  | SparseV (n,cv) -> densify_cv n cv
+  
+let dense_countzeros_v n m v = (* from n to m-1, natch *)
+  _for_leftfold n 1 m (fun i nzs -> if v.(i)=c_0 then nzs+1 else nzs) 0
+  
+let countzeros_v n m v = (* from n to m-1, natch *)
+  if n>=m then 0 else match v with
+                      | DenseV  v      -> dense_countzeros_v n m v
+                      | SparseV (_,cv) -> let cv' = cvseg n m cv in m-n-List.length cv'
+
+let maybe_sparse_v v =
+  let n = Array.length v in
+  let freq = dense_countzeros_v 0 n v in
+  if freq*4>3*n then
+    ((* we have a sparse one! *)
+     let nxs = Array.to_list (Array.mapi (fun i x -> i,x) v) in
+     SparseV (n, List.filter (fun (_,x) -> x<>c_0) nxs)
+    )
+  else DenseV v
+
+let sparse_elements_dv v = List.filter (fun (_,x) -> x<>c_0) (Array.to_list (Array.mapi (fun i x -> i,x) v))
+
+let sparse_elements_v vV =
+  match vV with
+  | SparseV (_,cv) -> cv
+  | DenseV  v      -> sparse_elements_dv v
+
+let vseg n m vv = (* from n to m-1, natch *)
+  match vv with
+  | DenseV  v       -> DenseV (Array.init (m-n) (fun i -> v.(n+i)))
+  | SparseV (_, cv) -> SparseV (m-n, cvseg n m cv)
+
+let zeroseg n m vv = (* from n to m-1, natch *) (* ** uses assignment ** *) 
+  match vv with
+  | DenseV  v       -> _for n 1 m (fun i -> v.(i) <- c_0);
+                       vv
+  | SparseV (k, cv) -> SparseV (k, cvseg 0 n cv @ cvseg m k cv)
+
+let map_v f = 
+  function
+  | SparseV (n,cv) when f c_0 = c_0 -> SparseV (n, List.map (fun (i,x) -> i, f x) cv)
+  | v                               -> maybe_sparse_v (Array.map f (densify_v v))
+  
+(* ********************** build vectors, matrices, gates ******************************* *)
 
 let minus  (C (x,y)) = (* only for local use, please *)
   let negate = function
@@ -92,18 +198,20 @@ let minus  (C (x,y)) = (* only for local use, please *)
   in
   C (negate x, negate y) 
 
-let snv_zero  = make_snv [c_1   ; c_0         ]
-let snv_one   = make_snv [c_0   ; c_1         ]
-let snv_plus  = make_snv [c_h   ; c_h         ]
-let snv_minus = make_snv [c_h   ; minus c_h   ]
+let make_nv ss = S_1, DenseV (Array.of_list ss)
 
-let snv_1 = make_snv [c_1] (* a unit for folding *)
-let snv_0 = make_snv [c_0] (* another unit for folding *)
+let nv_zero  = make_nv [c_1   ; c_0         ]
+let nv_one   = make_nv [c_0   ; c_1         ]
+let nv_plus  = make_nv [c_h   ; c_h         ]
+let nv_minus = make_nv [c_h   ; minus c_h   ]
+
+let nv_1 = make_nv [c_1] (* a unit for folding *)
+let nv_0 = make_nv [c_0] (* another unit for folding *)
 
 type bksign = PVBra | PVKet
 
-let string_of_snv bksign = 
-  let so_snv v =
+let string_of_nv bksign = 
+  let so_v v =
     if !Settings.fancyvec then 
       (let n = vsize v in
        let rec ln2 n r = if n=1 then r
@@ -124,36 +232,39 @@ let string_of_snv bksign =
          (* all but simple real sums are bracketed in string_of_csnum *)
          match real, im with
          | S_sum _, S_0 -> true
-         | _           -> false
+         | _            -> false
        in
        let estrings = _for_leftfold 0 1 n
-                        (fun i ss -> match string_of_csnum v.(i) with
+                        (fun i ss -> match string_of_csnum (?.v i) with
                                      | "0"  -> ss
                                      | "1"  -> (string_of_basis_idx i) :: ss
                                      | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
                                      | s   ->  (Printf.sprintf "%s%s" 
-                                                               (if mustbracket v.(i) then "(" ^s ^ ")" else s) 
+                                                               (if mustbracket (?.v i) then "(" ^s ^ ")" else s) 
                                                                (string_of_basis_idx i)
                                                ) :: ss
                         )
                         []
        in
        match estrings with
-       | []  -> "??empty snv??"
+       | []  -> "??empty nv??"
        | [e] -> e
        | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
       )
     else
-      (let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
-       Printf.sprintf "(%s)" (String.concat " <,> " estrings)
-      )
+      match v with
+      | DenseV  v      -> let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
+                          Printf.sprintf "DenseV⟨%s⟩" (String.concat "," estrings)
+      | SparseV (n,cv) -> Printf.sprintf "SparseV(%d,[%s])" n (string_of_assoc string_of_int string_of_csnum ":" ";" cv)
   in
   function
-  | S_1, vv -> so_snv vv
-  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_snv vv)
+  | S_1, vv -> so_v vv
+  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_v vv)
   
-let string_of_bra = string_of_snv PVBra
-let string_of_ket = string_of_snv PVKet
+let string_of_bra = string_of_nv PVBra
+let string_of_ket = string_of_nv PVKet
+
+let string_of_vector v = string_of_ket (S_1,v)
 
 let string_of_matrix = function
   | DenseM m -> 
@@ -278,32 +389,6 @@ let func_H n =
   let gsize = 1 lsl n in
   FuncM ((Printf.sprintf "H⊗⊗%d" n), gsize, gsize, f)
   
-let statistics_m mM =
-  let stats = CsnumHash.create 1000 in
-  let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
-  let count v = let r = get v in r:=!r+1 in
-  let n,m = rsize mM, csize mM in
-  for i = 0 to n-1 do
-    for j = 0 to m-1 do
-      count (??mM i j)
-    done
-  done;
-  let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
-  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
-
-let statistics_v vV =
-  let stats = CsnumHash.create 1000 in
-  let get v = try CsnumHash.find stats v with _ -> (let r = ref 0 in CsnumHash.add stats v r; r) in
-  let count v = let r = get v in r:=!r+1 in
-  let n = vsize vV in
-  for i = 0 to n-1 do
-    count vV.(i)
-  done;
-  let compare (vi,i) (vj,j) = ~-(Stdlib.compare (i,vi) (j,vj)) in
-  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
-
-let statistics_snv (_,v) = statistics_v v
-
 (* ******************* gate, matrix, vector arithmetic ****************************)
 
 (* note that gates are square matrices, but we also have unsquare matrices *)
@@ -311,26 +396,45 @@ let statistics_snv (_,v) = statistics_v v
 let init_v n f = Array.init n f
 let init_m n m f = Array.init m (fun i -> Array.init m (f i))
 
-let exists_v p v = _for_exists 0 1 (vsize v) (fun i -> p i v.(i))
+let exists_v p v = _for_exists 0 1 (Array.length v) (fun i -> p i v.(i))
 let exists_m p = function
   | DiagM v           -> exists_v (fun i x -> p i i x) v
   | DenseM m          -> exists_v (fun i row -> exists_v (fun j x -> p i j x) row) m
   | FuncM (_,rn,cn,f) -> _for_exists 0 1 rn (fun i -> _for_exists 0 1 cn (fun j -> p i j (f i j)))
 
+let dense_tensor_vv va vb =
+  let na = Array.length va in
+  let nb = Array.length vb in
+  let vr = Array.make (na*nb) c_0 in
+  for i = 0 to na-1 do 
+    for j = 0 to nb-1 do vr.(i*nb+j) <- cprod va.(i) vb.(j) done
+  done;
+  vr
+
 let tensor_vv vA vB =
   let nA = vsize vA in
   let nB = vsize vB in
-  let vR = init_v (nA*nB) (fun i -> c_0) in
-  for i = 0 to nA-1 do 
-    for j = 0 to nB-1 do vR.(i*nB+j) <- cprod vA.(i) vB.(j)
-    done
-  done;
-  vR
+  (* let shift k = if k=0 then (fun v -> v) else  List.map (fun (i,y) -> i+k, y) in
+     let mult x = if x=c_0 then (fun _ -> []) else List.map (fun (i,y) -> i, cprod x y) in 
+   *)
+  let shift_mult k x = if x=c_0 then (fun _ -> []) 
+                       else List.map (fun (i,y) -> i+k, cprod x y) 
+  in (* can't resist an efficient composition *)
+  let do_sparse cvA cvB = 
+    let insert (i,x) = shift_mult (i*nB) x cvB in
+    let nvs = List.map insert cvA in
+    SparseV (nA*nB, List.concat nvs) 
+  in
+  match vA, vB with
+  | SparseV (_, cvA), _               -> do_sparse cvA (sparse_elements_v vB)
+  | _               , SparseV (_,cvB) -> do_sparse (sparse_elements_v vA) cvB
+  | DenseV  va      , DenseV  vb      -> maybe_sparse_v (dense_tensor_vv va vb)
 
-let tensor_pv2 (mA,vA) (mB,vB) = (rprod mA mB, tensor_vv vA vB)
+
+let tensor_nvnv (mA,vA) (mB,vB) = (rprod mA mB, tensor_vv vA vB)
   
 let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
-  let mR, vR = tensor_pv2 pvA pvB in
+  let mR, vR = tensor_nvnv pvA pvB in
   if !verbose_qcalc then Printf.printf "%s ⊗ %s -> %s\n"
                                        (string_of_ket (mA,vA))
                                        (string_of_ket (mB,vB))
@@ -364,7 +468,7 @@ let tensor_mm mA mB =
   let m = if mA=g_1 then mB else
           if mB=g_1 then mA else
             (match mA, mB with
-             | DiagM vA          , DiagM vB           -> DiagM (tensor_vv vA vB)
+             | DiagM va          , DiagM vb          -> DiagM (dense_tensor_vv va vb)
              | _                 , FuncM (id,nr,nc,f) -> func_tensor_gc mA id nr nc f
              | FuncM (id,nr,nc,f), _                  -> func_tensor_cg id nr nc f mB
              | _                                      -> 
@@ -393,17 +497,46 @@ let fpow f one v n =
   List.fold_left f one (Listutils.tabulate n (const v))
 
 let tensorpow_g = fpow tensor_gg g_1 
-let tensorpow_snv = fpow tensor_pv2 snv_1
+let tensorpow_nv = fpow tensor_nvnv nv_1
 let tensorpow_m = fpow tensor_mm m_1
+
+(* multiplication of sparse vectors ho hum *)
+let rec innerprod_cvcv cvA cvB =
+  let rec mult r cvA cvB =
+    match cvA, cvB with
+    | (i,x)::ixs, (j,y)::jys -> if i<j then mult r                    ixs cvB else
+                                if i=j then mult (csum r (cprod x y)) ixs jys else
+                                            mult r                    cvA jys
+    | _                      -> r
+  in
+  mult c_0 cvA cvB
+
+let rec innerprod_vv vA vB = 
+  if vsize vA<>vsize vB then 
+    raise (Disaster (Printf.sprintf "innerprod size mismatch %s*%s" (string_of_vector vA) (string_of_vector vB)));
+  match vA, vB with
+  | SparseV (_,cvA), _                -> innerprod_cvcv cvA (sparse_elements_v vB)
+  | _              , SparseV (_,cvB)  -> innerprod_cvcv (sparse_elements_v vA) cvB
+  | DenseV  va     , DenseV  vb       -> dense_innerprod va vb
+  
+and dense_innerprod va vb =
+  simplify_csum (List.map (uncurry2 cprod) (List.combine (Array.to_list va) (Array.to_list vb)))
   
 let rowcolprod n row col =
-  let de_C (C (x,y)) = x,y in
-  let els = Listutils.tabulate n (fun j -> de_C (cprod (row j) (col j))) in
-  let reals, ims = List.split els in
-  C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
+  let els = Listutils.tabulate n (fun j -> cprod (row j) (col j)) in
+  simplify_csum els
 
+let mult_nv cn v =
+  if cn=c_0 then SparseV (vsize v, []) 
+  else
+    match v with 
+    | DenseV  v      -> DenseV (Array.map (fun x -> cprod cn x) v)
+    | SparseV (n,cv) -> SparseV (n, List.map (fun (i,x) -> i, cprod cn x) cv)
+    
+(* this is the point of SparseV: multiplying sparse row by sparse column. But not ready yet. *)
 let mult_mv m v =
-  if !verbose_qcalc then Printf.printf "mult_mv %s %s = " (string_of_matrix m) (string_of_ket (S_1,v));
+  if !verbose_qcalc then 
+    (Printf.printf "mult_mv %s %s = " (string_of_matrix m) (string_of_ket (S_1,v)); flush_all());
   let n = vsize v in
   if csize m <> n then
     raise (Error (Printf.sprintf "** Disaster (size mismatch): mult_mv %s %s"
@@ -411,15 +544,18 @@ let mult_mv m v =
                                  (string_of_ket (S_1,v))
                  )
           );
-  let v' = match m with
-           | DiagM d -> Array.init n (fun i -> cprod d.(i) v.(i))
-           | _       -> Array.init n (fun i -> rowcolprod n (??m i) (Array.get v))
+  let default () = Array.init n (fun i -> rowcolprod n (??m i) (?.v)) in
+  let v' = match m, v with
+           | DiagM d, _                -> Array.init n (fun i -> cprod d.(i) (?.v i))
+           | _                         -> default ()
   in
-  if !verbose_qcalc then Printf.printf "%s\n" (string_of_ket (S_1, v'));
-  v'
+  if !verbose_qcalc then 
+    (Printf.printf "%s\n" (string_of_ket (S_1, DenseV v')); flush_all ());
+  maybe_sparse_v v'
 
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
 
+(* one day it might be possible to improve this, with sparsity everywhere. But not a priority *)
 let mult_mm mA mB = 
   if !verbose_qcalc then 
     Printf.printf "mult_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
@@ -466,7 +602,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                         (string_of_ket k) (string_of_bra b)
                  )
           );
-  maybe_diag (init_m n n (fun i j -> cprod kv.(i) bv.(j)))
+  maybe_diag (init_m n n (fun i j -> cprod (?.kv i) (?.bv j)))
   
 (* conjugate transpose: transpose and piecewise complex conjugate *)
 let dagger_m = function

@@ -44,7 +44,7 @@ make Qtpi
 ./Qtpi examples/hadamard.qtp
 ./Qtpi examples/badchannel_cointoss.qtp             # produces type error
 ./Qtpi examples/badresource_cointoss.qtp            # produces resourcing error
-./Qtpi -trace examples/random_cointoss.qtp          # often gets a phase error
+./Qtpi -trace examples/random_cointoss.qtp          # often (sometimes, anyway) gets a phase error
 ./Qtpi examples/poor_teleport.qtp                   # doesn't always work
 ./Qtpi examples/silly_teleport.qtp                  # doesn't work
 time ./Qtpi -chanbuf_limit 10 examples/BB84_QBC.qtp # works, but sticks because of Random

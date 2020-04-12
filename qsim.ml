@@ -36,7 +36,7 @@ open Number (* for num *)
 
 exception Error of string
 
-type qval = qbit list * snv (* with n qbits, 2^n probs in the vector; and it's a ket *)
+type qval = qbit list * nv (* with n qbits, 2^n probs in the vector; and it's a ket *)
 
 let string_of_qval_full full (qs,v) =
   match full, qs with
@@ -66,7 +66,7 @@ let qval q =  try Hashtbl.find qstate q
 let qval_of_qs qs = (* qs had better be distinct *)
   let qvals = Listutils.mkset (List.map qval qs) in (* find a faster mkset? *)
   let qss, vs = List.split qvals in
-  List.concat qss, List.fold_left tensor_qq snv_1 vs
+  List.concat qss, List.fold_left tensor_qq nv_1 vs
 
 let qvalmulti = qval_of_qs
   
@@ -110,20 +110,23 @@ let tensor_n_gs n g = tensorpow_g g n
 
 (* ****************** new and dispose for qbits ******************************* *)
 
-let qcopy (n,v) = n, Array.copy v (* nobody ought to know about this: I need a .mli for this file *)
+let qcopy (n,v) = (* nobody ought to know about this: I need a .mli for this file *)
+  match v with
+  | DenseV  v -> n, DenseV (Array.copy v) 
+  | SparseV _ -> n,v
 
 let pv_of_braket bks = 
   let rec pv (rm,rv as r) =
     function 
     | bk::bks -> let (m1,v1) = match bk with
-                           | Braket.BKZero  -> snv_zero
-                           | Braket.BKOne   -> snv_one
-                           | Braket.BKPlus  -> snv_plus
-                           | Braket.BKMinus -> snv_minus
+                           | Braket.BKZero  -> nv_zero
+                           | Braket.BKOne   -> nv_one
+                           | Braket.BKPlus  -> nv_plus
+                           | Braket.BKMinus -> nv_minus
                  in pv (rprod rm m1, tensor_vv rv v1) bks
     | []      -> r
   in 
-  pv snv_1 bks
+  pv nv_1 bks
 
 (* this is in the wrong place *)
 let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
@@ -158,16 +161,16 @@ let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the ref
                                  let pa_sq = Random.float 1.0 in
                                  let pb_sq = 1.0 -. pa_sq in
                                  let ab = sqrt(pa_sq), sqrt(pb_sq) in
-                                 make_snv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=ab}); 
-                                           csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=ab})
-                                          ] 
+                                 make_nv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=ab}); 
+                                          csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=ab})
+                                         ] 
                                 )
                               else (* random basis, random fixed value *)
                                qcopy (match Random.bool (), Random.bool ()  with
-                                      | false, false -> snv_zero 
-                                      | false, true  -> snv_one
-                                      | true , false -> snv_plus 
-                                      | true , true  -> snv_minus
+                                      | false, false -> nv_zero 
+                                      | false, true  -> nv_one
+                                      | true , false -> nv_plus 
+                                      | true , true  -> nv_minus
                                      )
       in
       q, vec
@@ -186,7 +189,7 @@ let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the ref
     in 
     let qs, qv = match qsize with
                  | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s %s" pn n (string_of_option string_of_ket vopt)))
-                 | _ -> let qs, vs = Listutils.unzip (tabulate qsize (fun _ -> single())) in
+                 | _ -> let qs, vs = Listutils.unzip (Listutils.tabulate qsize (fun _ -> single())) in
                         let qv = qs, List.hd vs in
                         List.iter (fun q -> Hashtbl.add qstate q qv) qs;
                         qs, qv
@@ -258,25 +261,19 @@ let make_nth qs (vm,vv as v) n iq =
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
                                         (bracketed_string_of_list string_of_qbit qs)
-                                        (string_of_ket v)
-                                        n
-                                        iq
-                                        s
+                                        (string_of_ket v) n iq s
                     )
           )
   in
   if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
                                                         (bracketed_string_of_list string_of_qbit qs)
-                                                        (string_of_ket v)
-                                                        n
-                                                        iq;
+                                                        (string_of_ket v) n iq;
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
   if iq<0 || iq>=nqs then bad "bad iq";
   let nv = vsize vv in
   if iq=n then 
-    (if !verbose || !verbose_qsim then
-       Printf.printf "-> (no change)\n";
+    (if !verbose || !verbose_qsim then Printf.printf "-> (no change)\n";
      qs, v
     )
   else
@@ -294,16 +291,23 @@ let make_nth qs (vm,vv as v) n iq =
        Printf.printf "qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
                       qmask nmask hdmask midmask tlmask;
       *)
-     let vv' = Array.copy vv in
-     for i=0 to nv-1 do
-       let j = (i land hdmask)                                    lor 
-               (if n<iq then (lsr) else (lsl)) (i land midmask) 1 lor 
-               (i land tlmask)                                    lor
-               (if i land qmask<>0 then nmask else 0)
-       in
-       (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
-       vv'.(j) <- vv.(i)
-     done;
+     let destn i = (i land hdmask)                                    lor 
+                   (if n<iq then (lsr) else (lsl)) (i land midmask) 1 lor 
+                   (i land tlmask)                                    lor
+                   (if i land qmask<>0 then nmask else 0)
+     in
+     let vv' = match vv with
+               | DenseV v ->
+                   let v' = Array.copy v in
+                   for i=0 to nv-1 do
+                     (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
+                     v'.(destn i) <- v.(i)
+                   done;
+                   DenseV v'
+               | SparseV (n, cv) -> 
+                   let cv' = List.map (fun (i,x) -> destn i, x) cv in
+                   SparseV (n, List.sort Stdlib.compare cv') 
+     in
      let v' = vm, vv' in
      let qs' =
        if n<iq then let hdseg, tlseg = take n qs, drop n qs in
@@ -317,7 +321,7 @@ let make_nth qs (vm,vv as v) n iq =
      in
      if !verbose || !verbose_qsim then Printf.printf "-> qs' %s v' %s\n" 
                                                         (bracketed_string_of_list string_of_qbit qs')
-                                                        (string_of_snv PVKet v');
+                                                        (string_of_ket v');
      qs', v'
     )
     
@@ -327,23 +331,22 @@ let rotate_left qs v = make_first qs v (List.length qs - 1)
 
 let try_split qs (vm,vv as v) =
   let nqs = List.length qs in
-  let nvs = Array.length vv in
-  let nzs = _for_leftfold 0 1 nvs (fun i nzs -> if vv.(i)=c_0 then nzs+1 else nzs) 0 in
+  let nvs = vsize vv in
+  let nzs = countzeros_v 0 nvs vv in
   let worth_a_try = nzs*2>=nvs in (* and I could do stuff with +, - as well ... *)
   let rec t_s i qs vv = 
     if i=nqs then None 
     else
       (if !verbose_qcalc then 
          Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
-       let n = vsize vv in
-       let nh = n / 2 in
-       (* if the first half is all zeros then use snv_one, which is 0+1 *)
-       if _for_all 0 1 nh (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy snv_one, (vm,Array.init nh (fun i -> vv.(nh+i))))
+       let nh = nvs / 2 in
+       (* if the first half is all zeros then use nv_one, which is 0+1 *)
+       if countzeros_v 0 nh vv = nh then
+         Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
        else
-       (* if the second half is all zeros then use snv_zero, which is 1+0 *)
-       if _for_all nh 1 n (fun i -> vv.(i)=c_0) then
-         Some (qs, qcopy snv_zero, (vm,Array.init nh (fun i -> vv.(i))))
+       (* if the second half is all zeros then use nv_zero, which is 1+0 *)
+       if countzeros_v nh nvs vv = nh then
+         Some (qs, qcopy nv_zero, (vm, vseg 0 nh vv))
        else
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
@@ -352,13 +355,12 @@ let try_split qs (vm,vv as v) =
   in
   let r = if worth_a_try then t_s 0 qs vv else None in
   if !verbose_qcalc then
-    Printf.printf "try_split %s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
-                  (string_of_snv PVKet v)
+    Printf.printf "try_split %s%s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
+                  (string_of_qbits qs) (string_of_ket v)
                   nzs nvs worth_a_try
-                  (string_of_option (string_of_triple (bracketed_string_of_list string_of_qbit)
-                                                      (string_of_snv PVKet) 
-                                                      (string_of_snv PVKet) 
-                                                      ","
+                  (string_of_option (fun (qs,k1,k2) -> Printf.sprintf "%s:%s; %s:%s"
+                                                                        (string_of_qbit (List.hd qs)) (string_of_ket k1) 
+                                                                        (string_of_qbits (List.tl qs)) (string_of_ket k2) 
                                     )
                                     r
                   );
@@ -391,10 +393,11 @@ let qsort (qs,v) =
 
 let ugstep_padded pn qs g gpad = 
   if !verbose || !verbose_qcalc then
-    (Printf.printf "ugstep_padded %s %s %s %s\n" pn
-                                                (bracketed_string_of_list string_of_qbit qs)
-                                                (string_of_gate g)
-                                                (string_of_gate gpad);
+    (Printf.printf "ugstep_padded %s %s %s %s\n" 
+                    pn 
+                    (bracketed_string_of_list (fun q -> string_of_pair string_of_qbit string_of_qval ":" (q,qval q)) qs)
+                    (string_of_gate g)
+                    (string_of_gate gpad);
      flush_all ()
     );
   if g=g_I && (gpad=g_I || List.length qs=1) then () else 
@@ -426,18 +429,13 @@ let ugstep_padded pn qs g gpad =
   
      let show_change qs' v' g' =
        Printf.printf "we took ugstep_padded %s %s %s %s and made %s*(%s,%s)\n"
-                                   pn
-                                   (bracketed_string_of_list (fun qm -> Printf.sprintf "%s:%s" 
-                                                                           (string_of_qbits qs)
-                                                                           (string_of_qval (qvalmulti qs))
-                                                             ) 
-                                                             qs
-                                   )
-                                   (string_of_gate g)
-                                   (string_of_gate gpad)
-                                   (string_of_gate g')
-                                   (string_of_qbits qs')
-                                   (string_of_snv PVKet v');
+                           pn
+                           (bracketed_string_of_list (fun q -> string_of_pair string_of_qbit string_of_qval ":" (q,qval q)) qs)
+                           (string_of_gate g)
+                           (string_of_gate gpad)
+                           (string_of_gate g')
+                           (string_of_qbits qs')
+                           (string_of_vector v');
        flush_all ()
      in
   
@@ -520,28 +518,26 @@ let rec qmeasure disposes pn gate q =
      let getsum i n =
        if !verbose || !verbose_qsim then 
          Printf.printf "getsum %d %d " i n;
-       let els = Listutils.tabulate n (fun j -> absq vv.(i+j)) in
+       let els = Listutils.tabulate n (fun j -> absq (?.vv (i+j))) in
        let r = simplify_sum (sflatten els) in
        if !verbose || !verbose_qsim || !verbose_measure then 
          Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_snum els) (string_of_snum r);
        r
      in
-     let snum = 
-       (* _for_leftfold nvhalf 1 nv (fun i -> rsum (absq vv.(i))) S_0 *) getsum nvhalf nvhalf
-     in
+     let prob_1 = getsum nvhalf nvhalf in
      if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-       Printf.printf "%s qmeasure [] %s; %s|->%s; snum |1> = %s;"
+       Printf.printf "%s qmeasure [] %s; %s|->%s; prob_1 = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)
                      (string_of_qval (qval q))
-                     (string_of_snum snum);
+                     (string_of_snum prob_1);
      (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
         more or less than vm^2/2.
       *)
      let r = let vm_sq_value = compute vm in
-             let prob_value = compute snum in (* squaring has been done *)
+             let prob_value = compute prob_1 in (* squaring has been done *)
              if prob_value=vm_sq_value then 
                (if !verbose || !verbose_qsim || !verbose_measure || paranoid then Printf.printf " that's 1\n";
                 1
@@ -557,52 +553,46 @@ let rec qmeasure disposes pn gate q =
                if !checkrandombias then
                  (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
                if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-                 Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r (string_of_num !_zeroes) (string_of_num !_ones);
+                 Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r 
+                                                                        (string_of_num !_zeroes) (string_of_num !_ones);
                r
      in
-     (* set the unchosen probs to zero, then normalise. *)
-     _for (if r=1 then 0 else nvhalf) 1 (if r=1 then nvhalf else nv) (fun i -> vv.(i) <- c_0);
+     (* set the unchosen probs to zero, then normalise *)
+     let vv = let lo = if r=1 then 0      else nvhalf in
+              let hi = if r=1 then nvhalf else nv     in
+              zeroseg lo hi vv
+     in
      let modulus = (* easy when q is first in qs *)
-       if r=1 then snum 
-       else (*_for_leftfold 0 1 nvhalf (fun i -> rsum (absq vv.(i))) S_0*) 
-            (* getsum 0 nvhalf *) 
-            simplify_sum (sflatten [vm; rneg snum])
+       if r=1 then prob_1 
+       else simplify_sum (sflatten [vm; rneg prob_1])
      in 
      if !verbose_qcalc then 
        Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm);
-     let vm' = 
+     let vm', vv = 
        match modulus with
-       | S_1                -> S_1
+       | S_1                -> S_1, vv
        | S_h k  when k mod 2 = 0 
                             -> let n = k/2 in
-                               (* multiply by 2**(n/2) *)
-                               _for 0 1 (n/2) (fun _ -> _for 0 1 nv (fun i -> vv.(i) <- csum vv.(i) vv.(i)));
+                               (* multiply by 2**(n/2) if n>=2 *)
+                               let fac = simplify_csum (tabulate (n/2) (const c_1)) in
+                               let vv = if n/2=0 then vv else mult_nv fac vv in
                                (* and then by 1/h if n is odd *)
-                               if n mod 2 = 1 then
-                                 _for 0 1 nv (fun i -> vv.(i) <- c_r_div_h vv.(i));
-                               S_1
-       (* this, so far as I can tell, was never used. And it is he only way to generate Error. So 
-          getting rid is a good idea 
-           | S_prod [s1;s2] when s1=s2 
-                                -> _for 0 1 nv (fun i -> vv.(i) <- c_r_div vv.(i) s1);
-                                   S_1
-        *)
+                               let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
+                               S_1, vv
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)
        | _                  -> 
            (* is there just one possibility? If so, set it to S_1. And note: normalise 1 *)
-           let nzs = List.map (fun p -> if p<>c_0 then 1 else 0) (Array.to_list vv) in
-           if List.fold_left (+) 0 nzs = 1 then
-             (_for 0 1 nv (fun i -> if vv.(i)<>c_0 then vv.(i)<-c_1);
-              S_1
-             )
+           if nv - countzeros_v 0 nv vv = 1 then
+             let cv = sparse_elements_v vv in
+              S_1, SparseV (nv, List.map (fun (i,_) -> (i,c_1)) cv)
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
                 Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
-                                          q r (string_of_qval (qval q)) (string_of_snum snum)
+                                          q r (string_of_qval (qval q)) (string_of_snum prob_1)
                                           (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
-              modulus
+              modulus, vv
              ) 
      in
      let qv = qs, (vm',vv) in

@@ -358,8 +358,8 @@ let _statistics_m mM =
   let assoc = Vmg.statistics_m (matrixv mM) in
   vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_int i))) assoc)
 
-let _statistics_snv snv =
-  let assoc = Vmg.statistics_snv snv in
+let _statistics_snv nv =
+  let assoc = Vmg.statistics_nv nv in
   vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_int i))) assoc)
 
 let _ = Interpret.know ("statistics_m", "matrix -> [(sxnum,num)]", vfun _statistics_m)

@@ -303,8 +303,8 @@ let rec evale env e =
                                    let v2 = evale env e2 in
                                    match v1, v2 with
                                    | VGate   g1, VGate g2   -> VGate (tensor_gg g1 g2)
-                                   | VBra    b1, VBra  b2   -> VBra (tensor_pv2 b1 b2)
-                                   | VKet    k1, VKet  k2   -> VBra (tensor_pv2 k1 k2)
+                                   | VBra    b1, VBra  b2   -> VBra (tensor_nvnv b1 b2)
+                                   | VKet    k1, VKet  k2   -> VBra (tensor_nvnv k1 k2)
                                    | VMatrix m1, VMatrix m2 -> VMatrix (tensor_mm m1 m2)
                                    | _                      -> 
                                       raise (Disaster (e.pos, Printf.sprintf "tensor product %s ⊗ %s" 
@@ -327,8 +327,8 @@ let rec evale env e =
                                    in
                                    match v with
                                    | VGate   g   -> VGate (tensorpow_g g n)
-                                   | VBra    b   -> VBra (tensorpow_snv b n)
-                                   | VKet    k   -> VKet (tensorpow_snv k n)
+                                   | VBra    b   -> VBra (tensorpow_nv b n)
+                                   | VKet    k   -> VKet (tensorpow_nv k n)
                                    | VMatrix m   -> VMatrix (tensorpow_m m n)
                                    | _           -> 
                                       raise (Disaster (e.pos, Printf.sprintf "tensor power %s ⊗⊗ %s" 

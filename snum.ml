@@ -573,7 +573,7 @@ module SnumHash = MyHash.Make (SnumH)
 let memofunProb f str = 
   let table = SnumHash.create 100 in
   SnumHash.memofun table (fun s -> if !verbose || !verbose_qcalc 
-                                                     then Printf.printf "%s (%s)\n" str (string_of_snum s); 
+                                                     then Printf.printf "memofun %s (%s)\n" str (string_of_snum s); 
                                                    f s
                                          )
 
@@ -584,7 +584,7 @@ let memofun2Prob f str =
                SnumHash.memofun t2 
                  (fun s2 -> let r = f s1 s2 in
                             if !verbose || !verbose_qcalc 
-                            then Printf.printf "%s (%s) (%s) -> %s\n" 
+                            then Printf.printf "memofun2 %s (%s) (%s) -> %s\n" 
                                                str 
                                                (string_of_snum s1) 
                                                (string_of_snum s2)
@@ -671,6 +671,11 @@ let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | S_0, S_0, _  , _    -> c2 
   | _  , _  , S_0, S_0  -> c1
   | _                   -> intern (C (rsum x1 x2, rsum y1 y2))
+
+let simplify_csum = function
+  | [] -> c_0
+  | cs -> let reals, ims = List.split (List.map (fun (C (x,y)) -> x,y) cs) in
+          C (simplify_sum (sflatten reals), simplify_sum (sflatten ims))  
 
 let cdiff c1 c2 = csum c1 (cneg c2)
 

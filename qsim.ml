@@ -329,54 +329,42 @@ let make_first qs v iq = make_nth qs v 0 iq
    
 let rotate_left qs v = make_first qs v (List.length qs - 1)
 
-(* split states with random phase *)
-let enphase (qs, single, multi as r) =
-  let ismulti = vsize (snd multi) > 1 in
-  if ismulti && !Settings.enphase && Random.bool () then 
-    (let neg_v (m,v) = m, map_v (fun x -> cneg x) v in
-     qs, neg_v single, neg_v multi
-    )
-  else r 
-
 let try_split qs (vm,vv as v) =
-  if !cansplitstate then
-    (let nqs = List.length qs in
-     let nvs = vsize vv in
-     let nzs = countzeros_v 0 nvs vv in
-     let worth_a_try = nzs*2>=nvs in (* and I could do stuff with +, - as well ... *)
-     let rec t_s i qs vv = 
-       if i=nqs then None 
+  let nqs = List.length qs in
+  let nvs = vsize vv in
+  let nzs = countzeros_v 0 nvs vv in
+  let worth_a_try = nzs*2>=nvs in (* and I could do stuff with +, - as well ... *)
+  let rec t_s i qs vv = 
+    if i=nqs then None 
+    else
+      (if !verbose_qcalc then 
+         Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
+       let nh = nvs / 2 in
+       (* if the first half is all zeros then use nv_one, which is 0+1 *)
+       if countzeros_v 0 nh vv = nh then
+         Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
        else
-         (if !verbose_qcalc then 
-            Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
-          let nh = nvs / 2 in
-          (* if the first half is all zeros then use nv_one, which is 0+1 *)
-          if countzeros_v 0 nh vv = nh then
-            Some (enphase (qs, qcopy nv_one, (vm, vseg nh nvs vv)))
-          else
-          (* if the second half is all zeros then use nv_zero, which is 1+0 *)
-          if countzeros_v nh nvs vv = nh then
-            Some (enphase (qs, qcopy nv_zero, (vm, vseg 0 nh vv)))
-          else
-            (let qs, (_,vv) = rotate_left qs (vm,vv) in 
-             t_s (i+1) qs vv
-            )
+       (* if the second half is all zeros then use nv_zero, which is 1+0 *)
+       if countzeros_v nh nvs vv = nh then
+         Some (qs, qcopy nv_zero, (vm, vseg 0 nh vv))
+       else
+         (let qs, (_,vv) = rotate_left qs (vm,vv) in 
+          t_s (i+1) qs vv
          )
-     in
-     let r = if worth_a_try then t_s 0 qs vv else None in
-     if !verbose_qcalc then
-       Printf.printf "try_split %s%s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
-                     (string_of_qbits qs) (string_of_ket v)
-                     nzs nvs worth_a_try
-                     (string_of_option (fun (qs,k1,k2) -> Printf.sprintf "%s:%s; %s:%s"
-                                                                           (string_of_qbit (List.hd qs)) (string_of_ket k1) 
-                                                                           (string_of_qbits (List.tl qs)) (string_of_ket k2) 
-                                       )
-                                       r
-                     );
-     r
-    )
-  else None
+      )
+  in
+  let r = if worth_a_try then t_s 0 qs vv else None in
+  if !verbose_qcalc then
+    Printf.printf "try_split %s%s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
+                  (string_of_qbits qs) (string_of_ket v)
+                  nzs nvs worth_a_try
+                  (string_of_option (fun (qs,k1,k2) -> Printf.sprintf "%s:%s; %s:%s"
+                                                                        (string_of_qbit (List.hd qs)) (string_of_ket k1) 
+                                                                        (string_of_qbits (List.tl qs)) (string_of_ket k2) 
+                                    )
+                                    r
+                  );
+  r
   
 let rec record ((qs, vq) as qv) =
    let report () = if !verbose || !verbose_qsim then
@@ -388,8 +376,8 @@ let rec record ((qs, vq) as qv) =
    in
    let accept q = Hashtbl.replace qstate q qv in
    match qs with
-   | []     -> () (* this can happen: see the non-split case in qmeasure *)
-   | [q]    -> report(); accept q
+   | []     -> raise (Error (Printf.sprintf "record gets %s" (string_of_qval qv)))
+   | [q]    -> accept q
    | _'     -> (* try to split it up *)
                match try_split qs vq with
                | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
@@ -447,7 +435,7 @@ let ugstep_padded pn qs g gpad =
                            (string_of_gate gpad)
                            (string_of_gate g')
                            (string_of_qbits qs')
-                           (string_of_ket v');
+                           (string_of_vector v');
        flush_all ()
      in
   
@@ -455,11 +443,18 @@ let ugstep_padded pn qs g gpad =
      let qs', v' = qval_of_qs qs in
   
      (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
-     (* Now that we have an efficient representation of I⊗⊗n, just do this straightforwardly *)
-     let numbered_qs = Listutils.numbered qs in
-     let qs', v' = List.fold_left (fun (qs',v') (n,q) -> make_nth qs' v' n (idx q qs')) (qs',v') numbered_qs in
+     (* But we don't want to do this too enthusiastically ... *)
+     let rec together ilast qs (qs',v') =
+       match qs with 
+       | []     -> ilast, qs', v'
+       | q::qs -> let iq = idx q qs' in
+                   let iq' = if iq<ilast then ilast else ilast+1 in
+                   together iq' qs (make_nth qs' v' iq' iq) 
+     in
+     let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
+     let ifirst = idx (List.hd qs) qs' in
      
-     (* add enough pads to g to deal with v' *)
+     (* add enough pads to g to deal with v *)
      let tensor_n_gs n g =
        if n=0 then                     g_1             else
        if n=1 then                     g               else
@@ -467,8 +462,11 @@ let ugstep_padded pn qs g gpad =
        if !func_matrices && g=g_H then func_H n        else
                                        (if !func_matrices then Printf.printf "missed with %s %d\n" (string_of_gate g) n; tensor_n_gs n g)
      in
-     let g' = if g=gpad then tensor_n_gs (List.length qs') g                                   else
-                             tensor_gg g (tensor_n_gs (List.length qs' - List.length qs) gpad)
+     let g' = if g=gpad then tensor_n_gs (List.length qs') g 
+              else (let pre = tensor_n_gs ifirst gpad in
+                    let post = tensor_n_gs (List.length qs'-1-ilast) gpad in
+                    tensor_gg pre (tensor_gg g post)
+                   )  
      in
   
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
@@ -575,8 +573,9 @@ let rec qmeasure disposes pn gate q =
        | S_1                -> S_1, vv
        | S_h k  when k mod 2 = 0 
                             -> let n = k/2 in
-                               (* multiply by 2**(n/2) *)
-                               let vv = _for_leftfold 1 1 n (fun _ -> map_v (fun x -> csum x x)) vv in
+                               (* multiply by 2**(n/2) if n>=2 *)
+                               let fac = simplify_csum (tabulate (n/2) (const c_1)) in
+                               let vv = if n/2=0 then vv else mult_nv fac vv in
                                (* and then by 1/h if n is odd *)
                                let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
                                S_1, vv
@@ -604,16 +603,7 @@ let rec qmeasure disposes pn gate q =
                                                                        ) 
                                                                        qs
                                              );
-     if !cansplitstate then record qv (* which will split it up for us *)
-     else 
-       (let _, single, multi = enphase (qs, 
-                                        qcopy (if r=1 then nv_one else nv_zero),
-                                        (vm', (if r=1 then vseg nvhalf nv else vseg 0 nvhalf) vv)
-                                       )
-        in
-        record ([q], single);
-        record (List.tl qs, multi)
-       );
+     record qv; (* which will split it up for us *)
      if disposes then disposeqbits pn [q];
      r
     )

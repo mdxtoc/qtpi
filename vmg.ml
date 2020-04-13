@@ -257,9 +257,23 @@ let string_of_nv bksign =
                           Printf.sprintf "DenseV⟨%s⟩" (String.concat "," estrings)
       | SparseV (n,cv) -> Printf.sprintf "SparseV(%d,[%s])" n (string_of_assoc string_of_int string_of_csnum ":" ";" cv)
   in
+  let normalised_sign vv = 
+    let doit x = 
+      match (string_of_csnum x).[0] with
+      | '-' -> so_v (map_v cneg vv)
+      | _   -> so_v vv 
+    in
+    match vv with
+    | SparseV (_, (_,x)::_) -> doit x
+    | SparseV (_, []      ) -> so_v vv
+    | DenseV  v             -> let xs = dropwhile ((=) c_0) (Array.to_list v) in
+                               match xs with
+                               | x::xs -> doit x
+                               | []    -> so_v vv
+  in
   function
-  | S_1, vv -> so_v vv
-  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_v vv)
+  | S_1, vv -> normalised_sign vv
+  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (normalised_sign vv)
   
 let string_of_bra = string_of_nv PVBra
 let string_of_ket = string_of_nv PVKet

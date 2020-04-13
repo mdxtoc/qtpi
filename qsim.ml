@@ -329,6 +329,15 @@ let make_first qs v iq = make_nth qs v 0 iq
    
 let rotate_left qs v = make_first qs v (List.length qs - 1)
 
+(* split states with random phase *)
+let enphase (qs, single, multi as r) =
+  let ismulti = vsize (snd multi) > 1 in
+  if ismulti && !Settings.enphase && Random.bool () then 
+    (let neg_v (m,v) = m, map_v (fun x -> cneg x) v in
+     qs, neg_v single, neg_v multi
+    )
+  else r 
+
 let try_split qs (vm,vv as v) =
   if !cansplitstate then
     (let nqs = List.length qs in
@@ -343,11 +352,11 @@ let try_split qs (vm,vv as v) =
           let nh = nvs / 2 in
           (* if the first half is all zeros then use nv_one, which is 0+1 *)
           if countzeros_v 0 nh vv = nh then
-            Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
+            Some (enphase (qs, qcopy nv_one, (vm, vseg nh nvs vv)))
           else
           (* if the second half is all zeros then use nv_zero, which is 1+0 *)
           if countzeros_v nh nvs vv = nh then
-            Some (qs, qcopy nv_zero, (vm, vseg 0 nh vv))
+            Some (enphase (qs, qcopy nv_zero, (vm, vseg 0 nh vv)))
           else
             (let qs, (_,vv) = rotate_left qs (vm,vv) in 
              t_s (i+1) qs vv
@@ -379,7 +388,7 @@ let rec record ((qs, vq) as qv) =
    in
    let accept q = Hashtbl.replace qstate q qv in
    match qs with
-   | []     -> raise (Error (Printf.sprintf "record gets %s" (string_of_qval qv)))
+   | []     -> () (* this can happen: see the non-split case in qmeasure *)
    | [q]    -> report(); accept q
    | _'     -> (* try to split it up *)
                match try_split qs vq with
@@ -597,8 +606,13 @@ let rec qmeasure disposes pn gate q =
                                              );
      if !cansplitstate then record qv (* which will split it up for us *)
      else 
-       (record ([q], qcopy (if r=1 then nv_one else nv_zero));
-        if List.length qs>1 then record (List.tl qs, (vm', (if r=1 then vseg nvhalf nv else vseg 0 nvhalf) vv))
+       (let _, single, multi = enphase (qs, 
+                                        qcopy (if r=1 then nv_one else nv_zero),
+                                        (vm', (if r=1 then vseg nvhalf nv else vseg 0 nvhalf) vv)
+                                       )
+        in
+        record ([q], single);
+        record (List.tl qs, multi)
        );
      if disposes then disposeqbits pn [q];
      r

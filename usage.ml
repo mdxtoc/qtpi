@@ -40,6 +40,8 @@ let opts = Arg.align
                     Printf.sprintf " unknown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
                     Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
+              ("-enphase" , Arg.Bool (set_arg enphase), 
+                    Printf.sprintf " when splitting a state, or measuring, choose phase of result randomly (default %B)" !enphase);
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-func_matrices" , Arg.Bool (set_arg func_matrices), 

@@ -33,6 +33,8 @@ let temp_setting vref v f =
     result
   with exn -> vref:=oldv; raise exn
   
+let cansplitstate = ref false
+
 let chanbuf_limit = ref 0           (* buffer limit for channels: -1 for infinite, 0 for synchronisation *)
 
 let checkrandombias = ref false

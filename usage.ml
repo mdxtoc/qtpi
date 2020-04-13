@@ -30,12 +30,14 @@ let usage = "Usage: " ^ progname ^ " [options]* filename filename ..."
 let set_arg aref v = aref:=v
 ;;
 let opts = Arg.align 
-             [("-chanbuf_limit"  , Arg.Int (set_arg chanbuf_limit), 
+             [("-cansplitstate" , Arg.Bool (set_arg cansplitstate), 
+                    Printf.sprintf " a state which is a tensor product can be split into parts, phase-ambiguously (default %B)" !cansplitstate);
+              ("-chanbuf_limit"  , Arg.Int (set_arg chanbuf_limit), 
                     Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
               ("-checkrandombias"  , Arg.Set checkrandombias, 
                     " print out simple stats on random choices");
               ("-complexunknowns" , Arg.Bool (set_arg complexunknowns), 
-                    Printf.sprintf " unnown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
+                    Printf.sprintf " unknown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
                     Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 

@@ -435,7 +435,7 @@ let ugstep_padded pn qs g gpad =
                            (string_of_gate gpad)
                            (string_of_gate g')
                            (string_of_qbits qs')
-                           (string_of_vector v');
+                           (string_of_ket v');
        flush_all ()
      in
   

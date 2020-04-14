@@ -69,7 +69,7 @@ let leftchild i = 2*i+1
 let parent i = (i-1) / 2
 
 let compare (i,ei) (j,ej) = (* all that matters is those integers ... *)
-  - (Stdlib.compare i j)
+  ~- (Stdlib.compare i j)
 
 (* When [create n] is called, we cannot allocate the array, since there is
    no known value of type element; we'll wait for the first addition to
@@ -159,10 +159,8 @@ let fold f q x0 =
     if i >= n then x else foldrec (f (snd d.(i)) x) (succ i)
   in
   foldrec x0 0
-
-(* This is for diagnostic / display purposes, so it doesn't need to be efficient. *)
  
-let elements q =
+let to_list q =
   let n = q.size in
   let d = q.data in
   if n<=0 then []

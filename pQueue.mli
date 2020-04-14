@@ -79,5 +79,5 @@ val iter : ('a -> unit) -> 'a t -> unit
 
 val fold : ('a -> 'a -> 'a) -> 'a t -> 'a -> 'a
 
-(* entries in queue order, not at all efficient *)
-val elements : 'a t -> 'a list
+(* entries in queue order *)
+val to_list : 'a t -> 'a list

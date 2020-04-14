@@ -97,7 +97,7 @@ let short_string_of_qbits = string_of_qbits
 (* ********************* string_of_ functions ***************************** *)
 
 let string_of_pqueue stringof sep pq = 
-  "{" ^ string_of_list stringof sep (PQueue.elements pq) ^ "}"
+  "{" ^ string_of_list stringof sep (PQueue.to_list pq) ^ "}"
 ;;
 
 (* so_value takes an argument optf to winnow out those things we don't want it to deal with directly *)

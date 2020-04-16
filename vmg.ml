@@ -25,6 +25,7 @@ open Settings
 open Listutils
 open Functionutils
 open Optionutils
+open Tupleutils
 open Snum
 open Forutils
 
@@ -60,14 +61,14 @@ type vector =
 and matrix = 
   | DenseM of dmat                              (* not necessarily square *)
   | SparseM of int * cvec array                 (* csize, sparse rows *)
-  | FuncM  of string * int * int * (int -> int -> csnum) * (int -> cvec) option
-                                                (* rsize, csize, element function, sparse row function option *)
+  | FuncM  of string * int * int * (int -> int -> csnum) * ((int -> cvec) * (int -> cvec)) option
+                                                (* rsize, csize, element function, sparse row/column option *)
 
 and dmat = csnum array array
 
-and modulus = snum 
-
 and nv = modulus * vector                       (* modulus, vector: meaning 1/sqrt(modulus)(vec) *)
+
+and modulus = snum 
 
 and gate = matrix                               (* gates must be square, unitary and 2^n-sized, 
                                                    but to say that we would need an existential type.
@@ -124,7 +125,7 @@ let densify_v =
   | SparseV (n,cv) -> densify_cv n cv
   
 let dense_countzeros_v n m v = (* from n to m-1, natch *)
-  for_fold_left n 1 m (fun i nzs -> if v.(i)=c_0 then nzs+1 else nzs) 0
+  _for_fold_left n 1 m 0 (fun nzs i -> if v.(i)=c_0 then nzs+1 else nzs)
   
 let countzeros_v n m v = (* from n to m-1, natch *)
   if n>=m then 0 else match v with
@@ -219,17 +220,18 @@ let string_of_nv bksign =
          | S_sum _, S_0 -> true
          | _            -> false
        in
-       let estrings = for_fold_left 0 1 n
-                        (fun i ss -> match string_of_csnum (?.v i) with
-                                     | "0"  -> ss
-                                     | "1"  -> (string_of_basis_idx i) :: ss
-                                     | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
-                                     | s   ->  (Printf.sprintf "%s%s" 
-                                                               (if mustbracket (?.v i) then "(" ^s ^ ")" else s) 
-                                                               (string_of_basis_idx i)
-                                               ) :: ss
-                        )
-                        []
+       let estringf ss (i,x) = match string_of_csnum x with
+                           | "0"  -> ss
+                           | "1"  -> (string_of_basis_idx i) :: ss
+                           | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
+                           | s   ->  (Printf.sprintf "%s%s" 
+                                                     (if mustbracket x then "(" ^s ^ ")" else s) 
+                                                     (string_of_basis_idx i)
+                                     ) :: ss
+       in
+       let estrings = match v with
+                      | SparseV (_, cv) -> List.fold_left estringf [] cv 
+                      | DenseV  dv      -> _for_fold_left 0 1 n [] (fun ss i-> estringf ss (i,dv.(i)))
        in
        match estrings with
        | []  -> "?..empty nv?.."
@@ -276,8 +278,8 @@ let string_of_matrix = function
       Printf.sprintf "\n{%s}\n" block
   | SparseM (nc,cvv) ->   
       Printf.sprintf "SparseM %d ⟨%s⟩\n" nc (string_of_list string_of_cv "\n" (Array.to_list cvv))
-  | FuncM (id,rn,cn,_,fopt) ->
-      Printf.sprintf "FuncM(%s,%d,%d,_,%s)" id rn cn (Optionutils.string_of_option (fun _ -> "_") fopt)
+  | FuncM (id,rn,cn,_,opt) ->
+      Printf.sprintf "FuncM(%s,%d,%d,_,%s)" id rn cn (Optionutils.string_of_option (fun _ -> "_,_") opt)
       
 let string_of_gate = string_of_matrix
 
@@ -330,6 +332,11 @@ let maybe_dense_m nc cvv =
   if nels*4 > Array.length cvv * nc then DenseM (dm_of_cvv nc cvv)
                                     else SparseM (nc, cvv)
     
+let transpose_cvv cvv =
+  let rvv = Array.map (fun cv -> PQueue.create (List.length cv+1)) cvv in
+  Array.iteri (fun i cv -> List.iter (fun (j,x) -> PQueue.push rvv.(j) (i,x)) cv) cvv;
+  Array.map PQueue.to_list rvv
+  
 module DmatH = struct type t = dmat 
                       let equal = (=)
                       let hash = Hashtbl.hash
@@ -337,15 +344,17 @@ module DmatH = struct type t = dmat
                end
 module DMatHash = MyHash.Make (DmatH)
                     
-let cvrowtab = DMatHash.create (100)
+let rcftab = DMatHash.create (100)
 
 let rowfopt_m = function
-  | SparseM (_, cvv)          -> Some (Array.get cvv)
+  | SparseM (n, cvv)          -> Some (Array.get cvv, Array.get (transpose_cvv cvv))
   | FuncM   (id,nr,nc,f,optf) -> optf
-  | DenseM dm                 -> try Some (Array.get (DMatHash.find cvrowtab dm)) (* if we are asked, it's needed *)
+  | DenseM dm                 -> (* if we are asked, it's needed *)
+                                 try Some (DMatHash.find rcftab dm) 
                                  with Not_found -> let cvv = cvv_of_dm dm in
-                                                   DMatHash.add cvrowtab dm cvv;
-                                                   Some (Array.get cvv)
+                                                   let r = Array.get cvv, Array.get (transpose_cvv cvv) in
+                                                   DMatHash.add rcftab dm r;
+                                                   Some r
                        
 (* ********************** build vectors, matrices, gates ******************************* *)
 
@@ -450,9 +459,11 @@ let g_0 = make_g [[c_0]] (* another unit for folding, maybe *)
 let m_1 = make_m [[c_1]]
 let m_0 = make_m [[c_0]]
 
-let func_I n = FuncM ((Printf.sprintf "I⊗⊗%d" n), 1 lsl n, 1 lsl n, 
+let func_I n = let nrc = 1 lsl n in
+               let rcf i = [(i,c_1)] in
+               FuncM ((Printf.sprintf "I⊗⊗%d" n), nrc, nrc, 
                       (fun i j -> if i=j then c_1 else c_0), 
-                      Some (fun i -> [(i,c_1)])
+                      Some (rcf, rcf)
                      )
 
 let func_H n = 
@@ -522,6 +533,9 @@ let tensor_qq (mA,vA as pvA) (mB,vB as pvB) =
   mR,vR
 
 (* func_tensor works with div and mod, because I think I can afford them, which means I don't have to insist on gates *)
+
+let tensor_ff nr2 nc2 f1 f2 i = tensor_cvcv nc2 (f1 (i/nr2)) (f2 (i mod nr2))
+
 let func_tensor_mf m id nrB ncB f rfopt =
   let nrA = rsize m in
   let ncA = csize m in
@@ -530,8 +544,8 @@ let func_tensor_mf m id nrB ncB f rfopt =
   in
   let rowfopt = 
     match rowfopt_m m, rfopt with
-    | Some mrf, Some rf -> Some (fun i -> tensor_cvcv ncB (mrf (i/nrB)) (rf (i mod nrB)))
-    | _                 -> None
+    | Some (mrf,mcf), Some (rf,cf) -> Some (tensor_ff nrB ncB mrf rf, tensor_ff ncB nrB mcf cf)
+    | _                            -> None
   in
   FuncM ((Printf.sprintf "%s⊗(%s)" (string_of_matrix m) id), nrA*nrB, ncA*ncB, prodf, rowfopt)
   
@@ -543,8 +557,8 @@ let func_tensor_fm id nrA ncA f rfopt m =
   in
   let rowfopt = 
     match rfopt, rowfopt_m m with
-    | Some rf, Some mrf -> Some (fun i -> tensor_cvcv ncB (rf (i/nrB)) (mrf (i mod nrB)))
-    | _                 -> None
+    | Some (rf,cf), Some (mrf,mcf) -> Some (tensor_ff nrB ncB rf mrf, tensor_ff ncB nrB cf mcf)
+    | _                            -> None
   in
   FuncM ((Printf.sprintf "%s⊗(%s)" id (string_of_matrix m)), nrA*nrB, ncA*ncB, prodf, rowfopt)
 
@@ -592,10 +606,12 @@ let tensorpow_g = fpow tensor_gg g_1
 let tensorpow_nv = fpow tensor_nvnv nv_1
 let tensorpow_m = fpow tensor_mm m_1
 
+let track_innerprod = true
+
 (* multiplication of sparse vectors ho hum *)
 let innerprod_cvcv cvA cvB =
-  (* if !verbose || !verbose_qcalc then 
-       Printf.printf "innerprod_cvcv %s %s = " (string_of_cv cvA) (string_of_cv cvB); *)
+  if track_innerprod && (!verbose || !verbose_qcalc) then 
+       Printf.printf "innerprod_cvcv %s %s = " (string_of_cv cvA) (string_of_cv cvB); 
   let rec mult r cvA cvB =
     match cvA, cvB with
     | (i,x)::ixs, (j,y)::jys -> if i<j then mult r                    ixs cvB else
@@ -604,7 +620,7 @@ let innerprod_cvcv cvA cvB =
     | _                      -> r
   in
   let r = mult c_0 cvA cvB in
-  (* if !verbose || !verbose_qcalc then Printf.printf "%s\n" (string_of_csnum r); *)
+  if track_innerprod && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (string_of_csnum r); 
   r
 
 let dense_innerprod va vb =
@@ -630,12 +646,14 @@ let mult_nv cn v =
     | SparseV (n,cv) -> SparseV (n, List.map (fun (i,x) -> i, cprod cn x) cv)
     
 (* this is the point of SparseV (and partly SparseM and FuncM): multiplying sparse row by sparse column. *)
-let mult_cvvcv nr rowf cv = 
-  let f i nxs = 
-    let x = innerprod_cvcv (rowf i) cv in
+let mult_cvvcv nr rf cf cv = 
+  let do_row nxs i = 
+    let x = innerprod_cvcv (rf i) cv in
     if x=c_0 then nxs else (i,x)::nxs
   in
-  maybe_dense_v nr (List.rev (for_fold_left 0 1 nr f []))
+  (* find the rows where the matrix has a value that goes with something in cv *)
+  let rs = List.rev (List.concat (List.fold_left (fun rss (i,_) -> (List.map fst (cf i))::rss) [] cv)) in
+  maybe_dense_v nr (List.rev (List.fold_left do_row [] rs))
   
 let mult_mv m v =
   if !verbose_qcalc then 
@@ -649,19 +667,14 @@ let mult_mv m v =
           );
   let default () = maybe_sparse_v (Array.init n (fun i -> rowcolprod n (?..m i) (?.v))) in
   let v' = match m, v with
-           | SparseM (_, cvv)       , SparseV (_, cv) -> mult_cvvcv n (Array.get cvv) cv
-           | FuncM (_,_,_,_,Some rf), SparseV (_, cv) -> mult_cvvcv n rf cv
-           | _                                        -> default ()
+           | SparseM (_, cvv)            , SparseV (_, cv) -> mult_cvvcv n (Array.get cvv) (Array.get (transpose_cvv cvv)) cv
+           | FuncM (_,_,_,_,Some (rf,cf)), SparseV (_, cv) -> mult_cvvcv n rf cf cv
+           | _                                            -> default ()
   in
   if !verbose_qcalc then 
     (Printf.printf "%s\n" (string_of_ket (S_1, v')); flush_all ());
   v'
 
-let transpose_cvv cvv =
-  let rvv = Array.map (fun cv -> PQueue.create (List.length cv+1)) cvv in
-  Array.iteri (fun i cv -> List.iter (fun (j,x) -> PQueue.push rvv.(j) (i,x)) cv) cvv;
-  Array.map PQueue.to_list rvv
-  
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
 
 (* This is not very optimised. But not a priority *)
@@ -696,13 +709,13 @@ let mult_mm mA mB =
   mC
   
 let mult_nm cn = 
-  let do_row cv = let cv' = List.map (fun (i,x) -> i,cprod cn x) cv in
+  let do_cv cv = let cv' = List.map (fun (i,x) -> i,cprod cn x) cv in
                             List.filter (fun (i,x) -> x<>c_0) cv'
   in
   function
-  | SparseM (n, cvv)             -> SparseM (n, Array.map do_row cvv)
+  | SparseM (n, cvv)             -> SparseM (n, Array.map do_cv cvv)
   | FuncM (id, rs, cs, f, rfopt) -> let id = Printf.sprintf "%s*%s" (string_of_csnum cn) id in
-                                    FuncM (id, rs, cs, cprod cn <..> f, rfopt &~~ (fun rf -> Some (do_row <.> rf)))
+                                    FuncM (id, rs, cs, cprod cn <..> f, rfopt &~~ (fun (rf,cf) -> Some (do_cv <.> rf, do_cv <.> cf)))
   | DenseM dm as mA              -> let m = rsize mA in
                                     let n = csize mA in
                                     maybe_sparse_m (init_m m n (fun i j -> cprod cn (dm.(i).(j))))
@@ -725,13 +738,15 @@ let mult_kb (km, kv as k) (bm, bv as b) =
   maybe_sparse_m (init_m n n (fun i j -> cprod (?.kv i) (?.bv j)))
   
 (* conjugate transpose: transpose and piecewise complex conjugate *)
+let cconj_cv = List.map (fun (i,x) -> i, cconj x)
+
 let dagger_m = function
-  | SparseM (nc, cvv)        -> SparseM (nc, Array.map (List.map (fun (i,x) -> i, cconj x)) (transpose_cvv cvv))
+  | SparseM (nc, cvv)        -> SparseM (nc, Array.map cconj_cv (transpose_cvv cvv))
   | DenseM dm as mA          -> let m = rsize mA in
                                 let n = csize mA in
                                 DenseM (init_m m n (fun i j -> cconj (dm.(j).(i))))
-  | FuncM (id, rn, cn, f, _) -> let id = Printf.sprintf "(%s)†" id in
-                                FuncM (id, rn, cn, cconj <..> revargs f, None) (* what's the row function, then? *)
+  | FuncM (id, rn, cn, f, opt) -> let id = Printf.sprintf "(%s)†" id in
+                                FuncM (id, rn, cn, cconj <..> revargs f, opt &~~ (fun (rf, cf ) -> Some (cconj_cv <.> rf, cconj_cv <.> cf))) 
 
 let dagger_g = dagger_m
 
@@ -747,6 +762,8 @@ let addsub_cvcv f s cvA cvB =
   in
   doit [] cvA cvB
   
+let addsub_ff f s f1 f2 i = addsub_cvcv f s (f1 i) (f2 i)
+
 let addsub_mm f s mA mB =
   let m = rsize mA in
   let n = csize mA in
@@ -764,8 +781,8 @@ let addsub_mm f s mA mB =
   | FuncM (idA,_,_,fA,optA), FuncM (idB,_,_,fB,optB) -> 
       let id = Printf.sprintf "(%s)%s(%s)" idA s idB in
       let opt = match optA, optB with
-                | Some rfA, Some rfB -> Some (fun i -> addsub_cvcv f s (rfA i) (rfB i))
-                | _                  -> None
+                | Some (rfA,cfA), Some (rfB,cfB) -> Some (addsub_ff f s rfA rfB, addsub_ff f s cfA cfB)
+                | _                              -> None
       in
       FuncM (id, m, n, (fun i j -> f (fA i j) (fB i j)), opt)
   | _                                                -> 

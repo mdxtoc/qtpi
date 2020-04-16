@@ -443,30 +443,20 @@ let ugstep_padded pn qs g gpad =
      let qs', v' = qval_of_qs qs in
   
      (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
-     (* But we don't want to do this too enthusiastically ... *)
-     let rec together ilast qs (qs',v') =
-       match qs with 
-       | []     -> ilast, qs', v'
-       | q::qs -> let iq = idx q qs' in
-                   let iq' = if iq<ilast then ilast else ilast+1 in
-                   together iq' qs (make_nth qs' v' iq' iq) 
-     in
-     let ilast, qs', v' = together (idx (List.hd qs) qs') (List.tl qs) (qs',v')  in
-     let ifirst = idx (List.hd qs) qs' in
+     (* Now that we have an efficient representation of I⊗⊗n, just put them first *)
+     let numbered_qs = Listutils.numbered qs in
+     let qs', v' = List.fold_left (fun (qs',v') (n,q) -> make_nth qs' v' n (idx q qs')) (qs',v') numbered_qs in
      
-     (* add enough pads to g to deal with v *)
+     (* add enough pads to g to deal with v' *)
      let tensor_n_gs n g =
        if n=0 then                     g_1             else
        if n=1 then                     g               else
        if !func_matrices && g=g_I then func_I n        else
        if !func_matrices && g=g_H then func_H n        else
-                                       (if !func_matrices then Printf.printf "missed with %s %d\n" (string_of_gate g) n; tensor_n_gs n g)
+                                       tensor_n_gs n g
      in
-     let g' = if g=gpad then tensor_n_gs (List.length qs') g 
-              else (let pre = tensor_n_gs ifirst gpad in
-                    let post = tensor_n_gs (List.length qs'-1-ilast) gpad in
-                    tensor_gg pre (tensor_gg g post)
-                   )  
+     let g' = if g=gpad then tensor_n_gs (List.length qs') g                                   else
+                             tensor_gg g (tensor_n_gs (List.length qs' - List.length qs) gpad)
      in
   
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
@@ -573,9 +563,8 @@ let rec qmeasure disposes pn gate q =
        | S_1                -> S_1, vv
        | S_h k  when k mod 2 = 0 
                             -> let n = k/2 in
-                               (* multiply by 2**(n/2) if n>=2 *)
-                               let fac = simplify_csum (tabulate (n/2) (const c_1)) in
-                               let vv = if n/2=0 then vv else mult_nv fac vv in
+                               (* multiply by 2**(n/2) *)
+                               let vv = _for_fold_left 1 1 n vv (fun vv _ -> map_v (fun x -> csum x x) vv) in
                                (* and then by 1/h if n is odd *)
                                let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
                                S_1, vv

@@ -32,17 +32,17 @@ let _for i inc n f = (* n is size, so up to n-1 *)
   in
   rf i
   
-let for_fold_left i inc n f v =
-  let rec ff i v =
-    if i<n then ff (i+inc) (f i v) else v
+let _for_fold_left i inc n v f =
+  let rec ff v i =
+    if i<n then ff (f v i) (i+inc) else v
   in
-  ff i v
+  ff v i
 
-let rec for_fold_right i inc n f v =
-  let rec ff i v =
-    if i<n then f i (ff (i+inc) v) else v
+let rec _for_fold_right i inc n f v =
+  let rec ff n v =
+    if i<=n then ff (n-inc) (f n v) else v
   in
-  ff i v
+  ff (n-1) v
 
 let _for_all i inc n f = 
   let rec ff i =

@@ -556,8 +556,10 @@ let rec qmeasure disposes pn gate q =
                if !checkrandombias then
                  (if r=1 then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
                if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-                 Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r 
+                 (Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r 
                                                                         (string_of_zint !_zeroes) (string_of_zint !_ones);
+                  flush_all()
+                 );
                r
      in
      (* set the unchosen probs to zero, then normalise *)
@@ -570,7 +572,9 @@ let rec qmeasure disposes pn gate q =
        else simplify_sum (sflatten [vm; rneg prob_1])
      in 
      if !verbose_qcalc then 
-       Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm);
+       (Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm);
+        flush_all()
+       );
      let vm', vv = 
        match modulus with
        | S_1                -> S_1, vv

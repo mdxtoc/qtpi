@@ -117,64 +117,70 @@ let (?..) m i j =
   | SparseM (_,cvv)    -> find_cv (cvv.(Z.to_int i)) j
   | FuncM  (_,_,_,f,_) -> f i j
 
-let densify_cv n cv = Array.init (my_to_int n "densify_cv") (find_cv cv <.> Z.of_int)
+(* a bit of false recursion, so I don't have to find what order to put these functions in 
+   -- all so I can use string_of_vector in diag printing when I need to
+ *)
+type bksign = PVBra | PVKet
 
-let densify_v =
+let rec densify_cv n cv = Array.init (my_to_int n "densify_cv") (find_cv cv <.> Z.of_int)
+
+and densify_v =
   function
   | DenseV v       -> v
   | SparseV (n,cv) -> densify_cv n cv
   
-let dense_countzeros_v n m v :int = (* from n to m-1, natch *)
+and dense_countzeros_v n m v :int = (* from n to m-1, natch *)
   _for_fold_left n 1 m 0 (fun nzs i -> if v.(i)=c_0 then nzs+1 else nzs)
   
-let countzeros_v n m v :zint = (* from n to m-1, natch *)
+and countzeros_v n m v :zint = (* from n to m-1, natch *)
   if n>=:m then z_0 else match v with
                       | DenseV  v      -> Z.of_int (dense_countzeros_v (Z.to_int n) (Z.to_int m) v)
                       | SparseV (_,cv) -> let cv' = cvseg n m cv in Z.(m-n-Z.of_int (List.length cv'))
 
-let cv_of_dv dv = 
+and cv_of_dv dv = 
   let nxs = Array.to_list (Array.mapi (fun i x -> (Z.of_int i),x) dv) in
   List.filter (fun (_,x) -> x<>c_0) nxs
   
-let maybe_sparse_v v =
+and maybe_sparse_v v =
   let n = Array.length v in
   let freq = dense_countzeros_v 0 n v in
   if freq*4>3*n then SparseV (Z.of_int n, cv_of_dv v)
                 else DenseV  v
 
-let dv_of_cv (n:zint) cv =
+and dv_of_cv (n:zint) cv =
   let dv = Array.make (my_to_int n "dv_of_cv 1") c_0 in
   List.iter (fun (i,x) -> dv.(my_to_int i "dv_of_cv 2") <- x) cv;
   dv
 
-let maybe_dense_v n cv =
+and maybe_dense_v n cv =
   if Z.(of_int (List.length cv)*z_4>n) then DenseV (dv_of_cv n cv)
                                        else SparseV (n, cv)
 
-let sparse_elements_dv dv = List.filter (fun (_,x) -> x<>c_0) (Array.to_list (Array.mapi (fun i x -> Z.of_int i,x) dv))
+and sparse_elements_dv dv = List.filter (fun (_,x) -> x<>c_0) (Array.to_list (Array.mapi (fun i x -> Z.of_int i,x) dv))
 
-let sparse_elements_v vV =
+and sparse_elements_v vV =
   match vV with
   | SparseV (_,cv) -> cv
   | DenseV  v      -> sparse_elements_dv v
 
-let vseg n m v = (* from n to m-1, natch *)
+and vseg n m v = (* from n to m-1, natch *)
   match v with
   | DenseV  dv      -> DenseV (Array.init (Z.to_int (m-:n)) (fun i -> dv.(Z.to_int n+i)))
   | SparseV (_, cv) -> SparseV (m-:n, cvseg n m cv)
 
-let zeroseg n m v = (* from n to m-1, natch *) (* ** uses assignment ** *) 
+and zeroseg n m v = (* from n to m-1, natch *) 
   match v with
-  | DenseV  dv      -> for i = Z.to_int n to Z.to_int m do dv.(i) <- c_0 done;
-                       v
+  | DenseV  dv      -> let dv' = Array.copy dv in
+                       for i = Z.to_int n to Z.to_int m-1 do dv'.(i) <- c_0 done;
+                       DenseV dv'
   | SparseV (k, cv) -> SparseV (k, cvseg z_0 n cv @ cvseg m k cv)
 
-let map_v f = 
+and map_v f = 
   function
   | SparseV (n,cv) when f c_0 = c_0 -> SparseV (n, List.map (fun (i,x) -> i, f x) cv)
   | v                               -> maybe_sparse_v (Array.map f (densify_v v))
 
-let intersect_cv cvA cvB =
+and intersect_cv cvA cvB =
   let rec inter rs cvA cvB =
     match cvA, cvB with
     | (i,x)::ixs, (j,y)::jys -> if i<j then inter rs            ixs cvB else
@@ -184,7 +190,7 @@ let intersect_cv cvA cvB =
   in
   inter [] cvA cvB
   
-let union_cv cvA cvB =
+and union_cv cvA cvB =
   let rec union rs cvA cvB =
     match cvA, cvB with
     | (i,x)::ixs, (j,y)::jys -> if i<j then union ((i,(x  ,c_0))::rs) ixs cvB else
@@ -194,9 +200,7 @@ let union_cv cvA cvB =
   in
   union [] cvA cvB
   
-type bksign = PVBra | PVKet
-
-let string_of_nv bksign = 
+and string_of_nv bksign = 
   let so_v v =
     if !Settings.fancyvec then 
       (let n = vsize v in
@@ -259,10 +263,10 @@ let string_of_nv bksign =
   | S_1, vv -> normalised_sign vv
   | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (normalised_sign vv)
   
-let string_of_bra = string_of_nv PVBra
-let string_of_ket = string_of_nv PVKet
+and string_of_bra b = string_of_nv PVBra b
+and string_of_ket k = string_of_nv PVKet k
 
-let string_of_vector v = string_of_ket (S_1,v)
+and string_of_vector v = string_of_ket (S_1,v)
 
 let string_of_matrix = function
   | DenseM m -> 

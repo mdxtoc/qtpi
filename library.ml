@@ -86,7 +86,7 @@ let _ = Interpret.know ("sx_f"    , "sxnum", vsxnum Snum.c_f)
 let _ = Interpret.know ("sx_g"    , "sxnum", vsxnum Snum.c_g)
 
 let v_makeC g =
-  if gsize g<>2 then
+  if gsize g<>z_2 then
     raise (LibraryError ("makeC " ^ string_of_gate g))
   else
     make_C g
@@ -233,13 +233,13 @@ let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vf
 let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , vfun (Stdlib.fst <.> pairv))
 let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , vfun (Stdlib.snd <.> pairv))
 
-let _zeroes = ref zero
-let _ones = ref zero
+let _zeroes = ref z_0
+let _ones = ref z_1
 
 let vrandbit () = 
   let b = Random.bool () in
   if !Settings.checkrandombias then
-    (if b then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
+    (if b then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
   b
   
 let _ = Interpret.know ("randbit",  "() -> bit"                             , vfun (vbit <.> vrandbit <.> unitv))
@@ -432,7 +432,7 @@ let _ = Interpret.know ("show", "'*a -> string", vfun (vstring <.> _show))   (* 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in
   let n = numv n in
-  let r = (pow ten (-k)) */ half in
+  let r = (pow num_10 (-k)) */ half in
   let n = if Q.sign n < 0 then n-/r else n+/r in
   let n = Q.to_float n in
   vstring (Printf.sprintf "%.*f" k n)

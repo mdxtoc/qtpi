@@ -44,40 +44,53 @@
     (or look at http://www.gnu.org).
 *)
 
-type 'a t
+module type OrderedPrio = sig
+    type prio
+    val compare : prio -> prio -> int (* pq is in descending order according to compare *)
+end
 
-exception Empty
+module type Q = sig
+  exception Empty
 
-(* [create n] creates a new queue, with initial capacity [n] *)
-val create : int -> 'a t
+  type prio
 
-(* [is_empty q] checks the emptiness of [q] *)
-val is_empty : 'a t -> bool
+  type 'a pq
 
-(* [push q x] adds a new element [x] in queue [q]; size of [q] is doubled
-   when maximum capacity is reached; complexity $O(log(n))$ *)
-val push : 'a t -> 'a -> unit
+  (* [create n] creates a new queue, with initial capacity [n] *)
+  val create : int -> 'a pq
 
-(* [first q] returns the first element of [q]; raises Empty
-   when [q] is empty; complexity $O(1)$ *)
-val first : 'a t -> 'a
+  (* [is_empty q] checks the emptiness of [q] *)
+  val is_empty : 'a pq -> bool
 
-(* [remove q] removes the first element of [q]; raises Empty
-   when [q] is empty; complexity $O(log(n))$ *)
-val remove : 'a t -> unit
+  (* [push q (prio, x)] adds a new element [x] in queue [q]; size of [q] is doubled
+     when maximum capacity is reached; complexity $O(log(n))$ *)
+  val push : 'a pq -> prio -> 'a -> unit
 
-(* [pop q] removes the first element of [q] and returns it;
-   raises Empty when [q] is empty; complexity $O(log(n))$ *)
-val pop : 'a t -> 'a
+  (* [first q] returns the first element of [q]; raises Empty
+     when [q] is empty; complexity $O(1)$ *)
+  val first : 'a pq -> 'a
 
-(* [excite q] reduces the random integer on each element of the queue. $O(n)$ *)
-val excite : 'a t -> unit
+  (* [remove q] removes the first element of [q]; raises Empty
+     when [q] is empty; complexity $O(log(n))$ *)
+  val remove : 'a pq -> unit
 
-(* usual iterators and combinators; elements are presented in
-   arbitrary order *)
-val iter : ('a -> unit) -> 'a t -> unit
+  (* [pop q] removes the first element of [q] and returns it;
+     raises Empty when [q] is empty; complexity $O(log(n))$ *)
+  val pop : 'a pq -> 'a
 
-val fold : ('a -> 'a -> 'a) -> 'a t -> 'a -> 'a
+  (* [excite f q] alters the priority of each element of the queue from [p] to [f p]. 
+     Requires that [f] doesn't alter the ordering. $O(n)$ *)
+  val excite : (prio->prio) -> 'a pq -> unit
 
-(* entries in queue order *)
-val to_list : 'a t -> 'a list
+  (* usual iterators and combinators; elements are presented in
+     arbitrary order *)
+  val iter : ('a -> unit) -> 'a pq -> unit
+
+  val fold : ('a -> 'a -> 'a) -> 'a pq -> 'a -> 'a
+
+  (* entries in queue order *)
+  val to_list : 'a pq -> (prio * 'a) list
+end
+
+module Make (Ord: OrderedPrio) : Q with type prio = Ord.prio
+  

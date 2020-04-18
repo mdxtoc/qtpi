@@ -178,10 +178,10 @@ let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the ref
     let qsize = match vopt with
                 | None       -> 1
                 | Some (_,v) -> 
-                    try log_2 (vsize v) 
+                    try Z.to_int (log_2 (vsize v)) 
                     with Invalid_argument _ ->  
-                      raise (Error (Printf.sprintf "ket size %d is not power of 2 in newqbits %s %s %s"
-                                      (vsize v) pn n
+                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
+                                      (string_of_zint (vsize v)) pn n
                                       (string_of_option string_of_ket vopt)
                                    )
                             )
@@ -248,13 +248,15 @@ let idx q qs =
   in
   f 0 qs
 
+  
+(* an n-bit mask, given an index -- in effect 2^n-1*)
+let mask n :zint = Z.(z_2**n - z_1)
+
 (* given an index, a one-bit mask to pick it out *)
-let onebitmask iq qs = 1 lsl (List.length qs-iq-1)
+let onebitmask iq qs :zint = let pos = List.length qs-iq-1 in Z.(z_1 lsl pos)
 
 (* a one-bit mask to pick out q from qs *)
-let ibit q qs = 
-  let iq = idx q qs in
-  onebitmask iq qs
+let ibit q qs :zint = let iq = idx q qs in onebitmask iq qs
 
 (* n is destination; iq is where it is. *)
 let make_nth qs (vm,vv as v) n iq = 
@@ -271,7 +273,6 @@ let make_nth qs (vm,vv as v) n iq =
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
   if iq<0 || iq>=nqs then bad "bad iq";
-  let nv = vsize vv in
   if iq=n then 
     (if !verbose || !verbose_qsim then Printf.printf "-> (no change)\n";
      qs, v
@@ -280,6 +281,7 @@ let make_nth qs (vm,vv as v) n iq =
     (let qmask = onebitmask iq qs in
      let nmask = onebitmask n qs in
      let hdmask, midmask, tlmask =
+       let (lsl) = Z.(lsl) in
        if n<iq then (mask n)        lsl (nqs-n),
                     (mask (iq-n))   lsl (nqs-iq),
                     mask (nqs-iq-1)
@@ -291,22 +293,25 @@ let make_nth qs (vm,vv as v) n iq =
        Printf.printf "qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
                       qmask nmask hdmask midmask tlmask;
       *)
-     let destn i = (i land hdmask)                                    lor 
-                   (if n<iq then (lsr) else (lsl)) (i land midmask) 1 lor 
-                   (i land tlmask)                                    lor
-                   (if i land qmask<>0 then nmask else 0)
+     let destn i = Z.(let (<) = Stdlib.(<) in
+                      (i land hdmask)                                    lor 
+                      (if n<iq then (asr) else (lsl)) (i land midmask) 1 lor 
+                      (i land tlmask)                                    lor
+                      (if i land qmask<>z_0 then nmask else z_0)
+                     )
      in
      let vv' = match vv with
                | DenseV v ->
                    let v' = Array.copy v in
+                   let nv = Array.length v in
                    for i=0 to nv-1 do
                      (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
-                     v'.(destn i) <- v.(i)
+                     v'.(Z.to_int (destn (Z.of_int i))) <- v.(i)
                    done;
                    DenseV v'
                | SparseV (n, cv) -> 
                    let cv' = List.map (fun (i,x) -> destn i, x) cv in
-                   SparseV (n, List.sort Stdlib.compare cv') 
+                   SparseV (n, List.sort (fun (i,_) (j,_) -> Z.compare i j) cv') 
      in
      let v' = vm, vv' in
      let qs' =
@@ -332,21 +337,21 @@ let rotate_left qs v = make_first qs v (List.length qs - 1)
 let try_split qs (vm,vv as v) =
   let nqs = List.length qs in
   let nvs = vsize vv in
-  let nzs = countzeros_v 0 nvs vv in
-  let worth_a_try = nzs*2>=nvs in (* and I could do stuff with +, - as well ... *)
+  let nzs = countzeros_v z_0 nvs vv in
+  let worth_a_try = Z.(nzs*z_2>=nvs) in (* and I could do stuff with |+>, |-> as well ... *)
   let rec t_s i qs vv = 
     if i=nqs then None 
     else
       (if !verbose_qcalc then 
          Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
-       let nh = nvs / 2 in
+       let nh = nvs /: z_2 in
        (* if the first half is all zeros then use nv_one, which is 0+1 *)
-       if countzeros_v 0 nh vv = nh then
+       if countzeros_v z_0 nh vv =: nh then
          Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
        else
        (* if the second half is all zeros then use nv_zero, which is 1+0 *)
-       if countzeros_v nh nvs vv = nh then
-         Some (qs, qcopy nv_zero, (vm, vseg 0 nh vv))
+       if countzeros_v nh nvs vv =: nh then
+         Some (qs, qcopy nv_zero, (vm, vseg z_0 nh vv))
        else
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
@@ -355,9 +360,9 @@ let try_split qs (vm,vv as v) =
   in
   let r = if worth_a_try then t_s 0 qs vv else None in
   if !verbose_qcalc then
-    Printf.printf "try_split %s%s (nzs=%d, nvs=%d, worth_a_try=%B) => %s\n" 
+    Printf.printf "try_split %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
                   (string_of_qbits qs) (string_of_ket v)
-                  nzs nvs worth_a_try
+                  (string_of_zint nzs) (string_of_zint nvs) worth_a_try
                   (string_of_option (fun (qs,k1,k2) -> Printf.sprintf "%s:%s; %s:%s"
                                                                         (string_of_qbit (List.hd qs)) (string_of_ket k1) 
                                                                         (string_of_qbits (List.tl qs)) (string_of_ket k2) 
@@ -419,12 +424,11 @@ let ugstep_padded pn qs g gpad =
   
      (* size of gate must be 2^(length qs) *)
      let nqs = List.length qs in
-     let veclength = 1 lsl nqs in
-     if veclength=0 then bad "far too many qbits";
+     let veclength = Z.(z_2**nqs) in
      (* gates are square *)
-     if veclength<>gsize g then bad (Printf.sprintf "qbit/gate mismatch (should be %d columns for %d qbits)"
-                                                       veclength
-                                                       nqs
+     if veclength<>:gsize g then bad (Printf.sprintf "qbit/gate mismatch (%d qbits, %s*%s gate)"
+                                                                            nqs
+                                                                            (string_of_zint (gsize g)) (string_of_zint (gsize g))
                                     );
   
      let show_change qs' v' g' =
@@ -491,8 +495,8 @@ let rec compute = function
   | S_sum  ss    -> List.fold_left ( +. ) 0.0 (List.map compute ss)
 
 let paranoid = false
-let _zeroes = ref zero
-let _ones = ref zero
+let _zeroes = ref z_0
+let _ones = ref z_0
 
 let rec qmeasure disposes pn gate q = 
   if gate = g_I then (* computational measure *)
@@ -501,14 +505,23 @@ let rec qmeasure disposes pn gate q =
      (* make q first in qs: it simplifies life no end *)
      let qs, (_, vv) = make_first qs v (idx q qs) in
      (* probability of measuring 1 is sum of second-half probs *)
-     let nvhalf = nv/2 in
+     let nvhalf = Z.(nv asr 1) in
      (* the obvious way is to fold sum across the vector. But that leads to nibbling by double 
         ... so we try to do it a more linear (maybe) way 
       *)
      let getsum i n =
        if !verbose || !verbose_qsim then 
-         Printf.printf "getsum %d %d " i n;
-       let els = Listutils.tabulate n (fun j -> absq (?.vv (i+j))) in
+         Printf.printf "getsum %s %s " (string_of_zint i) (string_of_zint n);
+       let els = match vv with
+                 | SparseV (_, cv) -> let lim = i+:n in
+                                      let cv' = takewhile (fun (j,_) -> j<:lim) 
+                                                          (dropwhile (fun (j,_) -> j<:i) cv)
+                                      in
+                                      List.map (fun (_,x) -> absq x) cv'
+                 | DenseV  dv      -> let i = Z.to_int i in
+                                      let n = Z.to_int n in
+                                      Listutils.tabulate n (fun j -> absq dv.(i+j)) 
+       in
        let r = simplify_sum (sflatten els) in
        if !verbose || !verbose_qsim || !verbose_measure then 
          Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_snum els) (string_of_snum r);
@@ -541,14 +554,14 @@ let rec qmeasure disposes pn gate q =
                let rg = Random.float vm_sq_value in
                let r = if rg<prob_value then 1 else 0 in
                if !checkrandombias then
-                 (if r=1 then _ones := !_ones +/ one else _zeroes := !_zeroes +/ one);
+                 (if r=1 then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
                if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
                  Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r 
-                                                                        (string_of_num !_zeroes) (string_of_num !_ones);
+                                                                        (string_of_zint !_zeroes) (string_of_zint !_ones);
                r
      in
      (* set the unchosen probs to zero, then normalise *)
-     let vv = let lo = if r=1 then 0      else nvhalf in
+     let vv = let lo = if r=1 then z_0    else nvhalf in
               let hi = if r=1 then nvhalf else nv     in
               zeroseg lo hi vv
      in
@@ -573,7 +586,7 @@ let rec qmeasure disposes pn gate q =
         *)
        | _                  -> 
            (* is there just one possibility? If so, set it to S_1. And note: normalise 1 *)
-           if nv - countzeros_v 0 nv vv = 1 then
+           if nv -: countzeros_v z_0 nv vv = z_1 then
              let cv = sparse_elements_v vv in
               S_1, SparseV (nv, List.map (fun (i,_) -> (i,c_1)) cv)
            else
@@ -597,8 +610,8 @@ let rec qmeasure disposes pn gate q =
      r
     )
   else (* in gate-defined basis *)
-    (if gsize gate <> 2 then 
-       raise (Error (Printf.sprintf "** Disaster: (arity) qmeasure %s %s %s"
+    (if gsize gate <> z_2 then 
+       raise (Error (Printf.sprintf "** Disaster: (basis arity) qmeasure %s %s %s"
                                     pn
                                     (string_of_gate gate)
                                     (string_of_qbit q)

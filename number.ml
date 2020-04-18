@@ -57,21 +57,20 @@ module Local = struct
   let ( -/ )=sub
   let ( +/ )=add
  
-  let zero  : Z.t = Z.zero
-  let one   : Z.t = Z.one
-  let two   : Z.t = Z.of_string "2"
-  let three : Z.t = Z.of_string "3"
-  let ten   : Z.t = Z.of_string "10"
-  let negone: Z.t = Z.minus_one
+  let z_0        : Z.t = Z.zero
+  let z_1        : Z.t = Z.one
+  let z_2        : Z.t = Z.of_string "2"
+  let z_3        : Z.t = Z.of_string "3"
+  let z_10       : Z.t = Z.of_string "10"
  
-  let pow10: int -> Z.t = fun exp -> Z.pow ten exp
+  let pow10: int -> Z.t = fun exp -> Z.pow z_10 exp
  
   let qpow10: int -> num = 
           fun exp -> 
               if exp>=0 then 
-                 Q.make (pow10(exp)) one
+                 Q.make (pow10(exp)) z_1
               else
-                 Q.make one (pow10(Stdlib.abs exp)) 
+                 Q.make z_1 (pow10(Stdlib.abs exp)) 
 
   let fraction s = Q.make (Z.of_string s) (pow10 (String.length s))
   let exponent s = qpow10 (int_of_string s)
@@ -109,13 +108,13 @@ module Local = struct
       fun n ->
       let num = n.num
       and den = n.den
-      in Q.make (Z.(/) num den) one
+      in Q.make (Z.(/) num den) z_1
   
   let ceiling: num -> num =
       fun n ->
       let num = n.num
       and den = n.den
-      in Q.make (Z.cdiv num den) one
+      in Q.make (Z.cdiv num den) z_1
 
   let integer: num -> num =
       fun n ->
@@ -124,14 +123,14 @@ module Local = struct
       in 
         match sign n with
         | 0    -> n
-        | 1    -> Q.make (Z.div num den) one
-        | _    -> Q.make (Z.div num den) negone (* sign n = -1 *)
+        | 1    -> Q.make (Z.div num den) z_1
+        | _    -> Q.make (Z.div num den) Z.minus_one (* sign n = -1 *)
    
   let zint_of_num: num -> zint = 
     fun n -> (integer n).num
     
   let num_of_zint: zint -> num =
-    fun zi -> Q.make zi one
+    fun zi -> Q.make zi z_1
     
   let rem: num -> num -> num =  
     fun a -> fun b -> 
@@ -141,16 +140,16 @@ module Local = struct
       
   let numden: num -> (num*num) =
       fun n ->
-      let num = Q.make n.num one
-      and den = Q.make n.den one
+      let num = Q.make n.num z_1
+      and den = Q.make n.den z_1
       in (num, den)
 
   let divmod: num -> (num*num) =
       fun n ->
       let q, r = Z.div_rem n.num n.den
-      in (Q.make q one, Q.make r one)
+      in (Q.make q z_1, Q.make r z_1)
    
-  let is_int: num -> bool = fun n -> Z.equal n.den one
+  let is_int: num -> bool = fun n -> Z.equal n.den z_1
   
   let is_zero: num -> bool = fun n -> (match Q.classify n with Q.ZERO -> true | _ -> false)
    
@@ -162,18 +161,40 @@ module Local = struct
       in  if exp >= 0 then Q.make n' d' else Q.make d' n'
   
 end
+let ( ~-: ) = Z.(~-);;
+let ( /:  ) = Z.(/);;
+let ( *:  ) = Z.( * );;
+let ( -:  ) = Z.(-);;
+let ( +:  ) = Z.(add);;
+let ( =:  ) = Z.equal;;
+let ( <>: ) a b = not (a =: b);;
+let ( <:  ) = Z.lt;;
+let ( >:  ) = Z.gt;;
+let ( <=: ) = Z.leq;;
+let ( >=: ) = Z.geq;;
+let ( **: ) = Z.pow;;
+ 
+let string_of_zint:      zint -> string     = Z.to_string;;
+let zint_of_string:      string -> zint     = Z.of_string;;
+let z_0:              zint               = Local.z_0;;
+let z_1:              zint               = Local.z_1;;
+let z_2:              zint               = z_1 +: z_1;;
+let z_3:              zint               = z_2 +: z_1;;
+let z_4:              zint               = z_2 +: z_2;;
+let z_10:             zint               = Local.z_10;;
+
 let num_of_string:       string -> num      = Local.num_of_string;;
 let string_of_num:       num    -> string   = Local.string_of_num;;
 let set_print_precision: num    -> unit     = Local.set_print_precision;;
 let num_of_zint:         zint -> num        = Local.num_of_zint;;
-let zero:                num                = Q.zero;;
-let one:                 num                = Q.one;;
-let two:                 num                = num_of_zint Local.two;;
-let three:               num                = num_of_zint Local.three;;
-let ten:                 num                = num_of_zint Local.ten;;
-let zzero:               zint               = Local.zero;;
-let ztwo:                zint               = Local.two;;
+let num_0:               num                = Q.zero;;
+let num_1:               num                = Q.one;;
+let num_2:               num                = num_of_zint z_2;;
+let num_3:               num                = num_of_zint z_3;;
+let num_10:              num                = num_of_zint z_10;;
 let num_of_int:          int -> num         = Q.of_int;;
+let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
+let zint_of_num:         num -> zint        = Local.zint_of_num;;
 
 let ( ~-/ ) = Q.(~-);;
 let ( //  ) = Q.(/);;
@@ -197,10 +218,8 @@ let divmod_num:          num -> num*num     = Local.divmod;;
 let integer_num:         num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
-let zint_of_num:         num -> zint        = Local.zint_of_num;;
-let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
 
-let half:                num                = one // two;;      
+let half:                num                = num_1 // num_2;;      
 let round:               num -> num         = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 
 

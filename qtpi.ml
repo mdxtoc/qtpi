@@ -58,10 +58,10 @@ let _ = match !Usage.files with
                     if !Settings.interpret then
                       interpret defs;
                     if !Settings.checkrandombias then
-                      (Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
-                                            (Number.string_of_num !Library._zeroes) (Number.string_of_num !Library._ones)
-                                            (Number.string_of_num !Qsim._zeroes) (Number.string_of_num !Qsim._ones)
-                      )
+                      Number.(Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
+                                                   (string_of_zint !Library._zeroes) (string_of_zint !Library._ones)
+                                                   (string_of_zint !Qsim._zeroes) (string_of_zint !Qsim._ones)
+                             )
                 with 
                 | Interpret.Disaster (pos, s) -> Printf.eprintf "\n\n** interpret disaster ** %s: %s\n"
                                                                (string_of_sourcepos pos)

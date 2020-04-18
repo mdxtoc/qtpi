@@ -26,33 +26,47 @@
    today. But one day ...
  *)
  
-let _for i inc n f = (* n is size, so up to n-1 *)
-  let rec rf i =
-    if i<n then (f i; rf (i+inc)) (* else skip *)
+let _for i inc n f = (* i<=j<n *)
+  let rec rf j =
+    if j<n then (f j; rf (j+inc)) (* else skip *)
   in
   rf i
   
+let _forZ i inc n f = (* i<=j<n *)
+  Z.(let rec rf j =
+       if j<n then (f j; rf (j+inc)) (* else skip *)
+     in
+     rf i
+    )
+  
 let _for_fold_left i inc n v f =
-  let rec ff v i =
-    if i<n then ff (f v i) (i+inc) else v
+  let rec ff v j =
+    if j<n then ff (f v j) (j+inc) else v
   in
   ff v i
 
 let rec _for_fold_right i inc n f v =
-  let rec ff n v =
-    if i<=n then ff (n-inc) (f n v) else v
+  let rec ff j v =
+    if i<j then ff (j-inc) (f (j-inc) v) else v
   in
-  ff (n-1) v
+  ff n v
 
 let _for_all i inc n f = 
-  let rec ff i =
-    i>=n || (f i && ff (i+inc))
+  let rec ff j =
+    j>=n || (f j && ff (j+inc))
   in
   ff i 
   
 let _for_exists i inc n f = 
-  let rec ff i =
-    i<n && (f i || ff (i+inc))
+  let rec ff j =
+    j<n && (f j || ff (j+inc))
   in
   ff i 
+
+let _for_existsZ i inc n f = 
+  Z.(let rec ff j =
+       j<n && (f j || ff (j+inc))
+     in
+     ff i
+    ) 
   

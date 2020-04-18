@@ -38,6 +38,12 @@ open Vmg
 exception Disaster of string
 exception Error of string
 
+module OrderedPrioI = struct type prio = int
+                            let compare = (~-)<..>Stdlib.compare
+                     end
+
+module Ipq = PQueue.Make (OrderedPrioI)
+
 let queue_elements q = let vs = Queue.fold (fun vs v -> v::vs) [] q in
                        List.rev vs
 
@@ -74,7 +80,7 @@ and qbit = int
    The space leak is because we keep a set stuck_chans (a set?) for diagnostic printing purposes.
  *)
  
-and chan = {cname: int; traced: bool; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) PQueue.t; rwaiters: (rwaiter*gsum_info) PQueue.t}
+and chan = {cname: int; traced: bool; stream: value Queue.t; wwaiters: (wwaiter*gsum_info) Ipq.pq; rwaiters: (rwaiter*gsum_info) Ipq.pq}
 
 and gsum_info = (bool * chan list) ref
 
@@ -97,7 +103,7 @@ let short_string_of_qbits = string_of_qbits
 (* ********************* string_of_ functions ***************************** *)
 
 let string_of_pqueue stringof sep pq = 
-  "{" ^ string_of_list stringof sep (PQueue.to_list pq) ^ "}"
+  "{" ^ string_of_list stringof sep (List.map snd( Ipq.to_list pq)) ^ "}"
 ;;
 
 (* so_value takes an argument optf to winnow out those things we don't want it to deal with directly *)

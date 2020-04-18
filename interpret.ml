@@ -121,10 +121,10 @@ let mistyped pos thing v shouldbe =
         
 (* bring out your dead: a nasty space leak plugged *)
 let rec boyd pq = 
-  try let _, gsir = PQueue.first pq in
+  try let _, gsir = Ipq.first pq in
       let b, _ = !gsir in
-      if b then () else (PQueue.remove pq; boyd pq)
-  with PQueue.Empty -> ()
+      if b then () else (Ipq.remove pq; boyd pq)
+  with Ipq.Empty -> ()
 
 ;; (* to give boyd a polytype *)
 
@@ -317,7 +317,7 @@ let rec evale env e =
                                   (let v = evale env e1 in
                                    let num = numev env e2 in
                                    let n = if is_int num then
-                                             if num >=/ zero then int_of_num num
+                                             if num >=/ num_0 then int_of_num num
                                              else raise (Error (e.pos, Printf.sprintf "negative tensor-power exponent %s" (string_of_num num)
                                                                )
                                                         )
@@ -505,8 +505,8 @@ and gateev env e =
 
 let mkchan c traced = {cname=c; traced= traced;
                                 stream=Queue.create (); 
-                                rwaiters=PQueue.create 10; (* 10 is a guess *)
-                                wwaiters=PQueue.create 10; (* 10 is a guess *)
+                                rwaiters=Ipq.create 10; (* 10 is a guess *)
+                                wwaiters=Ipq.create 10; (* 10 is a guess *)
                       }
 
 module OrderedChan = struct type t = chan 
@@ -516,6 +516,10 @@ module OrderedChan = struct type t = chan
 module ChanSet = MySet.Make (OrderedChan)
 
 type gsum = Grw of rwaiter | Gww of wwaiter
+
+let pq_push pq = Ipq.push pq (Random.bits ())
+
+let pq_excite pq = Ipq.excite (fun i -> i/2) pq
 
 let stepcount = ref 0
 
@@ -529,8 +533,8 @@ let rec interp env proc =
     boyd c.rwaiters;
     boyd c.wwaiters;
     if Queue.is_empty c.stream && 
-       PQueue.is_empty c.rwaiters &&
-       PQueue.is_empty c.wwaiters
+       Ipq.is_empty c.rwaiters &&
+       Ipq.is_empty c.wwaiters
     then
       stuck_chans := ChanSet.remove c !stuck_chans
   in
@@ -541,8 +545,8 @@ let rec interp env proc =
     VChan chan 
   in
   let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
-  let runners = PQueue.create (10) in (* 10 is a guess *)
-  let addrunner runner = PQueue.push runners runner in
+  let runners = Ipq.create (10) in (* 10 is a guess *)
+  let addrunner runner = pq_push runners runner in
   let addnewproc name = 
     let rec adn i =
       let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
@@ -560,7 +564,7 @@ let rec interp env proc =
                             )
   in
   let rec step () =
-      if PQueue.is_empty runners then 
+      if Ipq.is_empty runners then 
         (let string_of_stepcount () =
            if !Settings.showstepcount then
              Printf.sprintf "%d interpreter steps" !stepcount
@@ -590,8 +594,8 @@ let rec interp env proc =
             stepcount := !stepcount+1;
             if !verbose || !verbose_interpret then
               (print_interp_state stdout; flush_all ());
-            let runner = PQueue.pop runners in
-            PQueue.excite runners;
+            let runner = Ipq.pop runners in
+            pq_excite runners;
             let pn, rproc, env = runner in
             let show_pstep s =
                  Printf.printf "%s: %s" pn s;
@@ -739,7 +743,7 @@ let rec interp env proc =
                    let numopt = eopt &~~ (fun e -> Some (numev env e)) in
                    let n = match numopt with 
                            | None   -> 0 
-                           | Some n -> if n<=/Number.zero || not (is_int n) then
+                           | Some n -> if n<=/num_0 || not (is_int n) then
                                           let pos = _The (eopt &~~ (fun e -> Some e.pos)) in
                                           raise (Error (pos, Printf.sprintf "%s is invalid qbits size" (string_of_num n)))
                                        else int_of_num n
@@ -795,15 +799,15 @@ let rec interp env proc =
                          (maybe_forget_chan c; do_match v')
                    with Queue.Empty ->
                    try boyd c.wwaiters; (* now the first must be alive *)
-                       let (pn',v',proc',env'),gsir = PQueue.pop c.wwaiters in
+                       let (pn',v',proc',env'),gsir = Ipq.pop c.wwaiters in
                        let _, chans = !gsir in
                        gsir := false, [];
                        withdraw chans;
-                       PQueue.excite c.wwaiters;
+                       pq_excite c.wwaiters;
                        addrunner (pn', proc', env');
                        if !traceevents && c.traced then trace (EVMessage (c, pn', pn, v'));
                        do_match v'
-                   with PQueue.Empty -> None
+                   with Ipq.Empty -> None
                  in
                  let canwrite pos c v =
                    let can'twrite s = raise (Error (pos, "cannot write to " ^ s ^ " channel (this should be a type error -- sorry)")) in
@@ -830,16 +834,16 @@ let rec interp env proc =
                      )
                    else
                    try boyd c.rwaiters;
-                       let (pn',pat',proc',env'),gsir = PQueue.pop c.rwaiters in
+                       let (pn',pat',proc',env'),gsir = Ipq.pop c.rwaiters in
                        let _, chans = !gsir in
                        gsir := false, [];
                        withdraw chans;
-                       PQueue.excite c.rwaiters;
+                       pq_excite c.rwaiters;
                        let v' = bmatch env' pat' v in
                        addrunner (pn', proc', v');
                        if !traceevents && c.traced then trace (EVMessage (c, pn, pn', v));
                        true
-                   with PQueue.Empty -> 
+                   with Ipq.Empty -> 
                    if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
                       !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
                    then
@@ -850,7 +854,7 @@ let rec interp env proc =
                    else false
                  in
                  let rec try_iosteps gsum pq = 
-                   try let (iostep,proc) = PQueue.pop pq in
+                   try let (iostep,proc) = Ipq.pop pq in
                        match iostep.inst with
                        | Read (ce,pat) -> let c = chanev env ce in
                                           (match canread iostep.pos c pat with
@@ -871,21 +875,21 @@ let rec interp env proc =
                                                           )
                                             )
                                           else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
-                   with PQueue.Empty ->
+                   with Ipq.Empty ->
                    let cs = List.map fst gsum in
                    let gsir = ref (true, cs) in
                    let add_waiter = function
-                     | c, Grw rw -> PQueue.push c.rwaiters (rw,gsir);
+                     | c, Grw rw -> pq_push c.rwaiters (rw,gsir);
                                     remember_chan c
-                     | c, Gww ww -> PQueue.push c.wwaiters (ww,gsir);
+                     | c, Gww ww -> pq_push c.wwaiters (ww,gsir);
                                     remember_chan c
                    in
                    List.iter add_waiter gsum;
                    if !pstep then 
                      show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_process rproc))
                  in
-                 let pq = PQueue.create (List.length ioprocs) in
-                 List.iter (PQueue.push pq) ioprocs;
+                 let pq = Ipq.create (List.length ioprocs) in
+                 List.iter (pq_push pq) ioprocs;
                  try_iosteps [] pq
              | TestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not compiled"))
              | Iter _ -> raise (Error (proc.pos, "Iter not compiled"))

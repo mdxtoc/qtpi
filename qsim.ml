@@ -342,9 +342,12 @@ let try_split qs (vm,vv as v) =
   let rec t_s i qs vv = 
     if i=nqs then None 
     else
-      (if !verbose_qcalc then 
-         Printf.printf "t_s %s\n" (string_of_qval (qs,(vm,vv)));
-       let nh = nvs /: z_2 in
+      (let nh = nvs /: z_2 in
+       if !verbose_qcalc then 
+         Printf.printf "t_s %s nh=%s nvs=%s countzeros_v z_0 nh=%s countzeros_v nh nvs=%s\n" 
+                            (string_of_qval (qs,(vm,vv)))
+                            (string_of_zint nh) (string_of_zint nvs)
+                            (string_of_zint (countzeros_v z_0 nh vv)) (string_of_zint (countzeros_v nh nvs vv)) ;
        (* if the first half is all zeros then use nv_one, which is 0+1 *)
        if countzeros_v z_0 nh vv =: nh then
          Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
@@ -529,11 +532,12 @@ let rec qmeasure disposes pn gate q =
      in
      let prob_1 = getsum nvhalf nvhalf in
      if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-       Printf.printf "%s qmeasure [] %s; %s|->%s; prob_1 = %s;"
+       Printf.printf "%s qmeasure [] %s; %s|->%s; nv=%s ;nvhalf=%s; prob_1 = %s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)
-                     (string_of_qval (qval q))
+                     (string_of_qval (qs,(vm,vv)))
+                     (string_of_zint nv) (string_of_zint nvhalf)
                      (string_of_snum prob_1);
      (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
@@ -571,17 +575,17 @@ let rec qmeasure disposes pn gate q =
        if r=1 then prob_1 
        else simplify_sum (sflatten [vm; rneg prob_1])
      in 
-     if !verbose_qcalc then 
-       (Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm);
+     if !verbose_qcalc || !verbose_qsim then 
+       (Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
      let vm', vv = 
        match modulus with
        | S_1                -> S_1, vv
        | S_h k  when k mod 2 = 0 
-                            -> let n = k/2 in
+                            -> let n = k/2 in (* h(n) is sqrt modulus *)
                                (* multiply by 2**(n/2) *)
-                               let vv = _for_fold_left 1 1 n vv (fun vv _ -> map_v (fun x -> csum x x) vv) in
+                               let vv = _for_fold_left 0 1 (n/2) vv (fun vv _ -> map_v (fun x -> csum x x) vv) in
                                (* and then by 1/h if n is odd *)
                                let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
                                S_1, vv
@@ -605,7 +609,7 @@ let rec qmeasure disposes pn gate q =
      if !verbose || !verbose_qsim || !verbose_measure then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
                                                                                      (string_of_qbit q)
-                                                                                     (string_of_qval (qval q))
+                                                                                     (string_of_qval qv)
                                                                        ) 
                                                                        qs
                                              );

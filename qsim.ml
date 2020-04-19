@@ -267,14 +267,14 @@ let make_nth qs (vm,vv as v) n iq =
                     )
           )
   in
-  if !verbose || !verbose_qsim then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
+  if !verbose || !verbose_qcalc then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
                                                         (bracketed_string_of_list string_of_qbit qs)
                                                         (string_of_ket v) n iq;
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
   if iq<0 || iq>=nqs then bad "bad iq";
   if iq=n then 
-    (if !verbose || !verbose_qsim then Printf.printf "-> (no change)\n";
+    (if !verbose || !verbose_qcalc then Printf.printf "-> (no change)\n";
      qs, v
     )
   else
@@ -289,7 +289,7 @@ let make_nth qs (vm,vv as v) n iq =
                     (mask (n-iq))  lsl (nqs-n-1),
                     mask (nqs-n-1)
      in
-     (* if !verbose || !verbose_qsim then 
+     (* if !verbose || !verbose_qcalc then 
        Printf.printf "qmask %d nmask %d hdmask %d midmask %d tlmask %d\n" 
                       qmask nmask hdmask midmask tlmask;
       *)
@@ -305,7 +305,7 @@ let make_nth qs (vm,vv as v) n iq =
                    let v' = Array.copy v in
                    let nv = Array.length v in
                    for i=0 to nv-1 do
-                     (* if !verbose || !verbose_qsim then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
+                     (* if !verbose || !verbose_qcalc then Printf.printf "v'.(%d) <- v.(%d)\n" j i; *)
                      v'.(Z.to_int (destn (Z.of_int i))) <- v.(i)
                    done;
                    DenseV v'
@@ -324,7 +324,7 @@ let make_nth qs (vm,vv as v) n iq =
                     let midseg, tlseg = take (n-iq) tlseg, drop (n-iq) tlseg in
                     hdseg@midseg@[q]@tlseg
      in
-     if !verbose || !verbose_qsim then Printf.printf "-> qs' %s v' %s\n" 
+     if !verbose || !verbose_qcalc then Printf.printf "-> qs' %s v' %s\n" 
                                                         (bracketed_string_of_list string_of_qbit qs')
                                                         (string_of_ket v');
      qs', v'
@@ -513,7 +513,7 @@ let rec qmeasure disposes pn gate q =
         ... so we try to do it a more linear (maybe) way 
       *)
      let getsum i n =
-       if !verbose || !verbose_qsim then 
+       if !verbose || !verbose_qcalc || !verbose_measure then 
          Printf.printf "getsum %s %s " (string_of_zint i) (string_of_zint n);
        let els = match vv with
                  | SparseV (_, cv) -> let lim = i+:n in
@@ -526,7 +526,7 @@ let rec qmeasure disposes pn gate q =
                                       Listutils.tabulate n (fun j -> absq dv.(i+j)) 
        in
        let r = simplify_sum (sflatten els) in
-       if !verbose || !verbose_qsim || !verbose_measure then 
+       if !verbose || !verbose_qcalc || !verbose_measure then 
          Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_snum els) (string_of_snum r);
        r
      in

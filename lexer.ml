@@ -226,13 +226,13 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "/^"        -> TESTPOINT
   | 0x2041      -> TESTPOINT    (* ⁁ *)
   | ".*"        -> PROCITER
-  
+  | 0x22a0      -> PROCITER     (* ⊠ *)
   | '?'         -> QUERY
   | '!'         -> BANG
   | "-/-"       -> MEASURE
+  | "-//-"      -> MEASURES
   | 0x2322, 0x0338
                 -> MEASURE      (* ⌢̸ *)
-  | "-//-"      -> MEASURES
   | 0x2322, 0x20EB
                 -> MEASURES      (* ⌢⃫ *)
   | ">>"        -> THROUGH

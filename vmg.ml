@@ -166,7 +166,7 @@ and sparse_elements_v vV =
 and vseg n m v = (* from n to m-1, natch *)
   match v with
   | DenseV  dv      -> DenseV (Array.init (Z.to_int (m-:n)) (fun i -> dv.(Z.to_int n+i)))
-  | SparseV (_, cv) -> SparseV (m-:n, cvseg n m cv)
+  | SparseV (_, cv) -> SparseV (m-:n, List.map (fun (i,x) -> i-:n,x) (cvseg n m cv))
 
 and zeroseg n m v = (* from n to m-1, natch *) 
   match v with

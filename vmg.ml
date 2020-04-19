@@ -792,7 +792,7 @@ let dagger_m = function
                                 let n = Z.to_int (csize mA) in
                                 DenseM (init_m m n (fun i j -> cconj (dm.(j).(i))))
   | FuncM (id, rn, cn, f, opt) -> let id = Printf.sprintf "(%s)†" id in
-                                FuncM (id, rn, cn, cconj <..> revargs f, opt &~~ (fun (rf, cf ) -> Some (cconj_cv <.> rf, cconj_cv <.> cf))) 
+                                FuncM (id, rn, cn, cconj <..> revargs f, opt &~~ (fun (rf, cf) -> Some (cconj_cv <.> cf, cconj_cv <.> rf))) 
 
 let dagger_g = dagger_m
 

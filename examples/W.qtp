@@ -17,14 +17,13 @@ proc W (c,n) =
        . (new c1) 
        | W (c1,k)     
        | . c1?(q0s)      
-         . out!["W "; show n; " working\n"]
+         . out!["W "; show n; " has "; show (n/2); "\n"]
          . (newqs q1s = |0>⊗⊗(n-k))   
-         . out!["W "; show n; " has partner\n"]
          . (newq anc = |+>)        
          . [i←ixs k: anc,q0s↓i,q1s↓i>>F . out!["."] . _0] 
-         . out!["W "; show n; " has done F\n"]
+         . out!["W "; show n; " has done its Fs\n"]
          . [i←ixs k: q1s↓i,anc>>CNot . out!["."] . _0] 
-         . out!["W "; show n; " has done CNot\n"]
+         . out!["W "; show n; " has done its CNots\n"]
          . dispose!anc
          . (joinqs q0s, q1s → qs)
          . c!qs
@@ -37,11 +36,11 @@ proc Wmake (c,n) =
     . out!["W "; show k; " = "] . outq!qvals qs . out!["\n"]
     . if k=n then _0
       else 
-        . out!["discarding "; show (k-n); " qbits\n"]
+        . out!["discarding "; show (k-n); " qbits "]
         . (splitqs qs → q0s(k-n),qs)
         . q0s⌢⃫(bs)
-        . out!["extras measured "; show bs; ", and now we have "] . outq!qvals qs . out!["\n"]
-        . if forall (λ b . b=0b0) bs then _0 else Wmake (c,n)  
+        . out!["which measured "; show bs; ", leaving "] . outq!qvals qs 
+        . if forall (λ b . b=0b0) bs then out!["\n"] . _0 else out![" -- round again!\n"] . Wmake (c,n)  
                
 
 proc System () =

@@ -58,7 +58,7 @@ let opts = Arg.align
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
-              ("-pstep"  , Arg.Set pstep, 
+              ("-pstep"     , Arg.Set pstep, 
 					" step through protocol execution");
               ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
@@ -66,8 +66,10 @@ let opts = Arg.align
 					 Printf.sprintf " show interpreter stepcount");
               ("-trace"  , Arg.Set traceevents, 
 					" show trace of quantum events, messages, disposal, at end of execution");
-              ("-traceId"  , Arg.Set traceevents, 
+              ("-traceId"     , Arg.Set traceevents, 
 					" show trace of process ids (probably unnecessary), at end of execution");
+              ("-try_rotate"  , Arg.Bool (set_arg try_rotate), 
+					 Printf.sprintf " when splitting state, try every qbit (default %B)" !Settings.try_rotate);
               ("-typereport"  , Arg.Set typereport, 
 					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 

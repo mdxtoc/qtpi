@@ -71,6 +71,8 @@ let traceevents = ref false
 let traceId = ref false
 let traceIO = ref false
 
+let try_rotate = ref false
+
 let typereport = ref false
 
 let verbose             = ref false

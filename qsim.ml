@@ -356,9 +356,11 @@ let try_split qs (vm,vv as v) =
        if countzeros_v nh nvs vv =: nh then
          Some (qs, qcopy nv_zero, (vm, vseg z_0 nh vv))
        else
+       if !try_rotate then
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
          )
+       else None
       )
   in
   let r = if worth_a_try then t_s 0 qs vv else None in

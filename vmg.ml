@@ -627,12 +627,12 @@ let tensorpow_g = fpow tensor_gg g_1
 let tensorpow_nv = fpow tensor_nvnv nv_1
 let tensorpow_m = fpow tensor_mm m_1
 
-let track_innerprod = true
+let track_dotprod = true
 
 (* multiplication of sparse vectors ho hum *)
-let innerprod_cvcv cvA cvB =
-  if track_innerprod && (!verbose || !verbose_qcalc) then 
-       Printf.printf "innerprod_cvcv %s %s = " (string_of_cv cvA) (string_of_cv cvB); 
+let dotprod_cvcv cvA cvB =
+  if track_dotprod && (!verbose || !verbose_qcalc) then 
+       Printf.printf "dotprod_cvcv %s %s = " (string_of_cv cvA) (string_of_cv cvB); 
   let rec mult r cvA cvB =
     match cvA, cvB with
     | (i,x)::ixs, (j,y)::jys -> if i<j then mult r                    ixs cvB else
@@ -641,19 +641,19 @@ let innerprod_cvcv cvA cvB =
     | _                      -> r
   in
   let r = mult c_0 cvA cvB in
-  if track_innerprod && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (string_of_csnum r); 
+  if track_dotprod && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (string_of_csnum r); 
   r
 
-let dense_innerprod va vb =
+let dense_dotprod va vb =
   simplify_csum (List.map (uncurry2 cprod) (List.combine (Array.to_list va) (Array.to_list vb)))
   
-let innerprod_vv vA vB = 
+let dotprod_vv vA vB = 
   if vsize vA<>vsize vB then 
-    raise (Disaster (Printf.sprintf "innerprod size mismatch %s*%s" (string_of_vector vA) (string_of_vector vB)));
+    raise (Disaster (Printf.sprintf "dotprod size mismatch %s*%s" (string_of_vector vA) (string_of_vector vB)));
   match vA, vB with
-  | SparseV (_,cvA), _                -> innerprod_cvcv cvA (sparse_elements_v vB)
-  | _              , SparseV (_,cvB)  -> innerprod_cvcv (sparse_elements_v vA) cvB
-  | DenseV  va     , DenseV  vb       -> dense_innerprod va vb
+  | SparseV (_,cvA), _                -> dotprod_cvcv cvA (sparse_elements_v vB)
+  | _              , SparseV (_,cvB)  -> dotprod_cvcv (sparse_elements_v vA) cvB
+  | DenseV  va     , DenseV  vb       -> dense_dotprod va vb
   
 let rowcolprod n row col =
   let els = Listutils.tabulate (my_to_int n "rowcolprod") (fun j -> cprod (row (Z.of_int j)) (col (Z.of_int j))) in
@@ -676,7 +676,7 @@ module ZSet = MySet.Make (OrderedZ)
 (* this is the point of SparseV (and partly SparseM and FuncM): multiplying sparse row by sparse column. *)
 let mult_cvvcv nr rf cf cv = 
   let do_row nxs i = 
-    let x = innerprod_cvcv (rf i) cv in
+    let x = dotprod_cvcv (rf i) cv in
     if x=c_0 then nxs else (i,x)::nxs
   in
   (* find the rows where the matrix has a value that goes with something in cv *)
@@ -735,7 +735,7 @@ let mult_mm mA mB =
                    let cvv = Array.make (Z.to_int m) [] in
                    for i = 0 to Z.to_int m-1 do
                      for j = 0 to Z.to_int p-1 do
-                       let x = innerprod_cvcv cvvA.(i) rvvB.(j) in
+                       let x = dotprod_cvcv cvvA.(i) rvvB.(j) in
                        if x<>c_0 then cvv.(i) <- (Z.of_int j,x)::cvv.(i)
                      done
                    done;

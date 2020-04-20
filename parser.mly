@@ -62,7 +62,7 @@
 %token <Uchar.t> CHAR /* oh dear ... */
 
 %token EOP OFFSIDE /* could it be EOP? No. */
-%token FUN PROC WHERE LAMBDA WITH TESTPOINT PROCITER
+%token FUN PROC WHERE LAMBDA WITH TESTPOINT LEFTREPEAT RIGHTREPEAT
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
@@ -343,9 +343,9 @@ simpleprocess:
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
   | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR DOT process /* alternative syntax for Iter ... */
                                         {adorn (Iter ($2,$4,$6,$9))}
-  | PROCITER indentHere bpattern LEFTARROW expr COLON indentNext process outdent outdent 
+  | LEFTREPEAT indentHere bpattern LEFTARROW expr COLON indentNext process outdent outdent dacapoq
              DOT process
-                                        {adorn (Iter ($3,$5,$8,$12))}
+                                        {adorn (Iter ($3,$5,$8,$13))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */
@@ -359,6 +359,10 @@ simpleprocess:
   | IF indentPrev ubif outdent fiq      {$3}
   | DOT process                         {$2} /* I hope this works ... */
 
+dacapoq:    /* optional 𝄇 */
+  | RIGHTREPEAT                         {}
+  |                                     {}
+  
 procargs:
   | LPAR RPAR                           {[]}
   | LPAR exprtuple RPAR                 {$2}

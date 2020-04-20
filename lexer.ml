@@ -59,7 +59,8 @@ let string_of_token = function
     | QBITSDEC  -> "QBITSDEC"
     | QBITSJOIN -> "QBITSJOIN"
     | QBITSSPLIT -> "QBITSSPLIT"
-    | PROCITER  -> "PROCITER"
+    | LEFTREPEAT -> "LEFTREPEAT"
+    | RIGHTREPEAT -> "RIGHTREPEAT"
     | PROCESS   -> "PROCESS"
     | PROC      -> "PROC"
     | POW       -> "POW"
@@ -225,8 +226,10 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x03bb      -> LAMBDA       (* λ *)
   | "/^"        -> TESTPOINT
   | 0x2041      -> TESTPOINT    (* ⁁ *)
-  | ".*"        -> PROCITER
-  | 0x22a0      -> PROCITER     (* ⊠ *)
+  | "|:"        -> LEFTREPEAT   
+  | ":|"        -> RIGHTREPEAT 
+  | 0x1d106     -> LEFTREPEAT   (* 𝄆 *)
+  | 0x1d107     -> RIGHTREPEAT (* 𝄇 *)
   | '?'         -> QUERY
   | '!'         -> BANG
   | "-/-"       -> MEASURE

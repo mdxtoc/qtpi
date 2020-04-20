@@ -20,9 +20,9 @@ proc W (c,n) =
          . out!["W "; show n; " has "; show (n/2); "\n"]
          . (newqs q1s = |0>⊗⊗(n-k))   
          . (newq anc = |+>)        
-         . ⊠ i←ixs k: anc,q0s↓i,q1s↓i>>F . out!["."] . _0
+         . 𝄆 i←ixs k: anc,q0s↓i,q1s↓i>>F . out!["."] . _0
          . out!["W "; show n; " has done its Fs\n"]
-         . ⊠ i←ixs k: q1s↓i,anc>>CNot . out!["."] . _0 
+         . 𝄆 i←ixs k: q1s↓i,anc>>CNot . out!["."] . _0 
          . out!["W "; show n; " has done its CNots\n"]
          . dispose!anc
          . (joinqs q0s, q1s → qs)

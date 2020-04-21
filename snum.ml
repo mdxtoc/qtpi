@@ -110,7 +110,7 @@ let rec string_of_snum s =
 and string_of_s_symb symb =
     Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
                               (string_of_int symb.id) 
-                              (if symb.conj then "!" else "")
+                              (if symb.conj then "†" else "")
                               (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
 
 and string_of_snums ss = bracketed_string_of_list string_of_snum ss
@@ -279,12 +279,12 @@ and simplify_prod ss = (* We deal with constants, f^2, g^2, gh, fg *)
 
 and rsum s1 s2 = 
   let r = match s1, s2 with
-          | S_0     , _           -> s2
-          | _       , S_0         -> s1
+          | S_0      , _          -> s2
+          | _        , S_0        -> s1
           | S_sum s1s, S_sum s2s  -> simplify_sum (s1s @ s2s)
-          | _       , S_sum s2s   -> simplify_sum (s1 :: s2s)
+          | _        , S_sum s2s  -> simplify_sum (s1 :: s2s)
           | S_sum s1s, _          -> simplify_sum (s2 :: s1s)
-          | _                    -> simplify_sum [s1;s2]
+          | _                     -> simplify_sum [s1;s2]
   in
   if !verbose_simplify then
     Printf.printf "rsum (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
@@ -326,9 +326,9 @@ and simplify_sum ss =
               | []          -> None
             in
             let rec nsplit3 isneg = function
-                                    | S_neg s          -> nsplit3 (not isneg) s
+                                    | S_neg s         -> nsplit3 (not isneg) s
                                     | S_h i when i>=2 -> Some (isneg,[],i,[])
-                                    | S_prod ss        -> split3 isneg [] ss
+                                    | S_prod ss       -> split3 isneg [] ss
                                     | _               -> None
             in
             let r = match nsplit3 false s1 with
@@ -572,7 +572,7 @@ module SnumHash = MyHash.Make (SnumH)
 
 let memofunProb f str = 
   let table = SnumHash.create 100 in
-  SnumHash.memofun table (fun s -> if !verbose || !verbose_qcalc 
+  SnumHash.memofun table (fun s -> if !verbose || !verbose_simplify 
                                                      then Printf.printf "memofun %s (%s)\n" str (string_of_snum s); 
                                                    f s
                                          )
@@ -583,7 +583,7 @@ let memofun2Prob f str =
     (fun s1 -> let t2 = SnumHash.create 100 in
                SnumHash.memofun t2 
                  (fun s2 -> let r = f s1 s2 in
-                            if !verbose || !verbose_qcalc 
+                            if !verbose || !verbose_simplify 
                             then Printf.printf "memofun2 %s (%s) (%s) -> %s\n" 
                                                str 
                                                (string_of_snum s1) 
@@ -620,11 +620,12 @@ let rec rsum s1 s2 =
     (* we do 0 ourselves *)
     | S_0     , _       -> s2
     | _       , S_0     -> s1
-    (* we memoise sum *)
+   (* (* we memoise sum *)
     | S_sum  _ , _
     | _       , S_sum  _ -> memo_rsum s1 s2
     (* everything else is raw *)
-    | _                 -> raw_rsum s1 s2
+    | _                 -> raw_rsum s1 s2 *)
+    | _                -> memo_rsum s1 s2
   else
     raw_rsum s1 s2
   

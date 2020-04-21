@@ -77,6 +77,13 @@ let tabulate n f =
   in 
   tab [] 0
 
+let tabulateZ n f = 
+  Z.(let rec tab acc i = 
+       if i<n then tab (f i::acc) (i+one) else List.rev acc
+     in 
+     tab [] zero
+    )
+
 let take n xs =
   let rec take rs n xs =
     match n, xs with

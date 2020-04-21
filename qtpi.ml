@@ -91,6 +91,8 @@ let _ = match !Usage.files with
                 | Parseutils.Error s     -> prerr_endline s
                 | Library.Abandon s      -> Printf.eprintf "\n\n** %s -- execution abandoned\n" s
                 | Settings.Can'tHappen s -> Printf.eprintf "!! Can't Happen !! -- %s" s
+                | Snum.Disaster s        -> Printf.eprintf "** Calculator disaster: %s **\n" s
+                | Vmg.Error s            -> Printf.eprintf "** Vector/matrix algebra error: %s **\n" s
                 | exn                    -> Printf.eprintf "\n\n** unexpected exception %s **\n"
                                                           (Printexc.to_string exn)
 

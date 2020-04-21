@@ -45,6 +45,13 @@ let _for_fold_left i inc n v f =
   in
   ff v i
 
+let _for_fold_leftZ i inc n v f =
+  Z.(let rec ff v j =
+       if j<n then ff (f v j) (j+inc) else v
+     in
+     ff v i
+    )
+
 let rec _for_fold_right i inc n f v =
   let rec ff j v =
     if i<j then ff (j-inc) (f (j-inc) v) else v

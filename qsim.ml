@@ -309,9 +309,9 @@ let make_nth qs (vm,vv as v) n iq =
                      v'.(Z.to_int (destn (Z.of_int i))) <- v.(i)
                    done;
                    DenseV v'
-               | SparseV (n, cv) -> 
+               | SparseV (n, sv, cv) -> 
                    let cv' = List.map (fun (i,x) -> destn i, x) cv in
-                   SparseV (n, List.sort (fun (i,_) (j,_) -> Z.compare i j) cv') 
+                   SparseV (n, sv, List.sort (fun (i,_) (j,_) -> Z.compare i j) cv') 
      in
      let v' = vm, vv' in
      let qs' =
@@ -514,18 +514,20 @@ let rec qmeasure disposes pn gate q =
      (* the obvious way is to fold sum across the vector. But that leads to nibbling by double 
         ... so we try to do it a more linear (maybe) way 
       *)
-     let getsum i n =
+     let getsum i n = (* from i, n elements *)
        if !verbose || !verbose_qcalc || !verbose_measure then 
          Printf.printf "getsum %s %s " (string_of_zint i) (string_of_zint n);
        let els = match vv with
-                 | SparseV (_, cv) -> let lim = i+:n in
-                                      let cv' = takewhile (fun (j,_) -> j<:lim) 
-                                                          (dropwhile (fun (j,_) -> j<:i) cv)
-                                      in
-                                      List.map (fun (_,x) -> absq x) cv'
-                 | DenseV  dv      -> let i = Z.to_int i in
-                                      let n = Z.to_int n in
-                                      Listutils.tabulate n (fun j -> absq dv.(i+j)) 
+                 | SparseV (_,sv,cv) -> let lim = i+:n in
+                                        let cv' = takewhile (fun (j,_) -> j<:lim) 
+                                                            (dropwhile (fun (j,_) -> j<:i) cv)
+                                        in
+                                        let probs = List.map (fun (_,x) -> absq x) cv' in
+                                        if sv=c_0 then probs 
+                                        else S_sum (sflatten Z.(tabulateZ (n-(of_int (List.length cv'))) (const (absq sv))))::probs
+                 | DenseV  dv        -> let i = Z.to_int i in
+                                        let n = Z.to_int n in
+                                        Listutils.tabulate n (fun j -> absq dv.(i+j)) 
        in
        let r = simplify_sum (sflatten els) in
        if !verbose || !verbose_qcalc || !verbose_measure then 
@@ -545,9 +547,9 @@ let rec qmeasure disposes pn gate q =
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
         more or less than vm^2/2.
       *)
-     let r = let vm_sq_value = compute vm in
+     let r = let vm_value = compute vm in
              let prob_value = compute prob_1 in (* squaring has been done *)
-             if prob_value=vm_sq_value then 
+             if prob_value=vm_value then 
                (if !verbose || !verbose_qsim || !verbose_measure || paranoid then Printf.printf " that's 1\n";
                 1
                ) 
@@ -557,7 +559,7 @@ let rec qmeasure disposes pn gate q =
                 0
                ) 
              else
-               let rg = Random.float vm_sq_value in
+               let rg = Random.float vm_value in
                let r = if rg<prob_value then 1 else 0 in
                if !checkrandombias then
                  (if r=1 then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
@@ -569,16 +571,15 @@ let rec qmeasure disposes pn gate q =
                r
      in
      (* set the unchosen probs to zero, then normalise *)
-     let vv = let lo = if r=1 then z_0    else nvhalf in
-              let hi = if r=1 then nvhalf else nv     in
-              zeroseg lo hi vv
+     let measured_q, qs = List.hd qs, List.tl qs in
+     let vv, modulus, measured_qv = 
+       if r=1 then vseg nvhalf nv  vv, prob_1                                   , ([measured_q],qcopy nv_one) 
+              else vseg z_0 nvhalf vv, simplify_sum (sflatten [vm; rneg prob_1]), ([measured_q],qcopy nv_zero)
      in
-     let modulus = (* easy when q is first in qs *)
-       if r=1 then prob_1 
-       else simplify_sum (sflatten [vm; rneg prob_1])
-     in 
      if !verbose_qcalc || !verbose_qsim then 
-       (Printf.printf " (un-normalised %s modulus %s vm_sq %s);" (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
+       (Printf.printf " %s->%s; (un-normalised %s modulus %s vm_sq %s);" 
+                        (string_of_qbit measured_q) (string_of_qval measured_qv)
+                        (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
      let vm', vv = 
@@ -597,8 +598,8 @@ let rec qmeasure disposes pn gate q =
        | _                  -> 
            (* is there just one possibility? If so, set it to S_1. And note: normalise 1 *)
            if nv -: countzeros_v z_0 nv vv = z_1 then
-             let cv = sparse_elements_v vv in
-              S_1, SparseV (nv, List.map (fun (i,_) -> (i,c_1)) cv)
+             let cv = sparse_elements_v c_0 vv in
+              S_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
                 Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
@@ -615,7 +616,8 @@ let rec qmeasure disposes pn gate q =
                                                                        ) 
                                                                        qs
                                              );
-     record qv; (* which will split it up for us *)
+     record measured_qv;
+     if qs<>[] then record qv; 
      if disposes then disposeqbits pn [q];
      r
     )

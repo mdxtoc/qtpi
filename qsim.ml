@@ -131,110 +131,6 @@ let pv_of_braket bks =
 (* this is in the wrong place *)
 let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
 
-let newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo = (* hide the references *)
-  let qbitcount = ref 0 in
-  let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
-  let qlimbo = ref [] in (* for disposed entangled bits *)
-  let newqbits pn n vopt : qbit list =
-    let single () =
-      let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
-               let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in
-               match vopt, !qlimbo with
-               | None, _     -> fresh () (* a qbit with symbolic probabilities must be fresh, or
-                                            we might re-use symbolic variables which are still in
-                                            use. Note this is a space leak, but a small one.
-                                            But it makes too many qbits in some demos.
-                                            If I could devise a cheap lookup for free variables 
-                                            in the qstate, I'd do it.
-                                          *)
-               | _   , q::qs ->  (match Hashtbl.find qstate q with
-                                  | [_],_ -> (* it's a singleton now, we can have it *)
-                                             qlimbo := qs; Hashtbl.remove qstate q; q
-                                  | _     -> tryfrees ()
-                                 )
-              | _            -> tryfrees ()
-      in
-      let vec = match vopt with
-                | Some bk  -> bk
-                | None     -> if !Settings.symbq then
-                                ((* this could be a bug if we used qfrees *)
-                                 let pa_sq = Random.float 1.0 in
-                                 let pb_sq = 1.0 -. pa_sq in
-                                 let ab = sqrt(pa_sq), sqrt(pb_sq) in
-                                 make_nv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=ab}); 
-                                          csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=ab})
-                                         ] 
-                                )
-                              else (* random basis, random fixed value *)
-                               qcopy (match Random.bool (), Random.bool ()  with
-                                      | false, false -> nv_zero 
-                                      | false, true  -> nv_one
-                                      | true , false -> nv_plus 
-                                      | true , true  -> nv_minus
-                                     )
-      in
-      q, vec
-    in
-    let qsize = match vopt with
-                | None       -> 1
-                | Some (_,v) -> 
-                    try Z.to_int (log_2 (vsize v)) 
-                    with Invalid_argument _ ->  
-                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
-                                      (string_of_zint (vsize v)) pn n
-                                      (string_of_option string_of_ket vopt)
-                                   )
-                            )
-
-    in 
-    let qs, qv = match qsize with
-                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s %s" pn n (string_of_option string_of_ket vopt)))
-                 | _ -> let qs, vs = Listutils.unzip (Listutils.tabulate qsize (fun _ -> single())) in
-                        let qv = qs, List.hd vs in
-                        List.iter (fun q -> Hashtbl.add qstate q qv) qs;
-                        qs, qv
-    in
-    if !verbose || !verbose_qsim then
-        Printf.printf "%s newqbits %s (%s) -> %s; now %s|->%s\n"
-                      (Name.string_of_name pn)
-                      (Name.string_of_name n)
-                      (string_of_option (string_of_ket) vopt)
-                      (string_of_qbits qs)
-                      (string_of_qbits qs)
-                      (string_of_qval qv);
-    qs
-  in
-  let disposeqbits pn qs = 
-    if !verbose || !verbose_qsim then
-      Printf.printf "%s disposes %s " (Name.string_of_name pn) (string_of_qbits qs);
-    let single q = 
-      match Hashtbl.find qstate q with
-                        | [q],_ -> Hashtbl.remove qstate q; Queue.add q qfrees;
-                                   if !verbose || !verbose_qsim then
-                                     Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit (queue_elements qfrees))
-                        | qv    -> (* don't dispose entangled qbits *)
-                                   if !verbose || !verbose_qsim then
-                                     Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
-                                                                       (fun q -> Printf.sprintf "%s|->%s"
-                                                                                                (string_of_qbit q)
-                                                                                                (string_of_qval (Hashtbl.find qstate q))
-                                                                       )
-                                                                       !qlimbo
-                                                                    )
-                                                   ;
-                                   qlimbo := q::!qlimbo
-    in
-    List.iter single qs
-  in
-  let string_of_qfrees () = bracketed_string_of_list string_of_qbit (queue_elements qfrees) in
-  let string_of_qlimbo () = bracketed_string_of_list string_of_qbit !qlimbo in
-  newqbits, disposeqbits, string_of_qfrees, string_of_qlimbo
-  
-let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
-                             Printf.sprintf "qfrees=%s" (string_of_qfrees ());
-                             Printf.sprintf "qlimbo=%s" (string_of_qlimbo ())
-                            ]
-
 (* idx: the index position of q in qs *)
 let idx q qs = 
   let rec f i = function
@@ -350,11 +246,11 @@ let try_split qs (vm,vv as v) =
                             (string_of_zint (countzeros_v z_0 nh vv)) (string_of_zint (countzeros_v nh nvs vv)) ;
        (* if the first half is all zeros then use nv_one, which is 0+1 *)
        if countzeros_v z_0 nh vv =: nh then
-         Some (qs, qcopy nv_one, (vm, vseg nh nvs vv))
+         Some (List.hd qs, qcopy nv_one, List.tl qs, (vm, vseg nh nvs vv))
        else
        (* if the second half is all zeros then use nv_zero, which is 1+0 *)
        if countzeros_v nh nvs vv =: nh then
-         Some (qs, qcopy nv_zero, (vm, vseg z_0 nh vv))
+         Some (List.hd qs, qcopy nv_zero, List.tl qs, (vm, vseg z_0 nh vv))
        else
        if !try_rotate then
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
@@ -368,30 +264,142 @@ let try_split qs (vm,vv as v) =
     Printf.printf "try_split %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
                   (string_of_qbits qs) (string_of_ket v)
                   (string_of_zint nzs) (string_of_zint nvs) worth_a_try
-                  (string_of_option (fun (qs,k1,k2) -> Printf.sprintf "%s:%s; %s:%s"
-                                                                        (string_of_qbit (List.hd qs)) (string_of_ket k1) 
-                                                                        (string_of_qbits (List.tl qs)) (string_of_ket k2) 
+                  (string_of_option (fun (q,k1,qs,k2) -> Printf.sprintf "%s:%s; %s:%s"
+                                                                        (string_of_qbit q) (string_of_ket k1) 
+                                                                        (string_of_qbits qs) (string_of_ket k2) 
                                     )
                                     r
                   );
   r
   
-let rec record ((qs, vq) as qv) =
-   let report () = if !verbose || !verbose_qsim then
-                    Printf.printf "recording %s|->%s\n" (match qs with 
-                                                         | [q] -> string_of_qbit q
-                                                         | _   -> bracketed_string_of_list string_of_qbit qs
-                                                        ) 
-                                                        (string_of_qval qv)
+let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide the references *)
+  let qbitcount = ref 0 in
+  let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
+  let qlimbo = ref [] in (* for disposed entangled bits *)
+  let newqbits pn n vopt : qbit list =
+    let single () =
+      let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
+               let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in
+               match vopt, !qlimbo with
+               | None, _     -> fresh () (* a qbit with symbolic probabilities must be fresh, or
+                                            we might re-use symbolic variables which are still in
+                                            use. Note this is a space leak, but a small one.
+                                            But it makes too many qbits in some demos.
+                                            If I could devise a cheap lookup for free variables 
+                                            in the qstate, I'd do it.
+                                          *)
+               | _   , q::qs ->  (match Hashtbl.find qstate q with
+                                  | [_],_ -> (* it's a singleton now, we can have it *)
+                                             qlimbo := qs; Hashtbl.remove qstate q; q
+                                  | _     -> tryfrees ()
+                                 )
+              | _            -> tryfrees ()
+      in
+      let vec = match vopt with
+                | Some bk  -> bk
+                | None     -> if !Settings.symbq then
+                                ((* this could be a bug if we used qfrees *)
+                                 let pa_sq = Random.float 1.0 in
+                                 let pb_sq = 1.0 -. pa_sq in
+                                 let ab = sqrt(pa_sq), sqrt(pb_sq) in
+                                 make_nv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=ab}); 
+                                          csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=ab})
+                                         ] 
+                                )
+                              else (* random basis, random fixed value *)
+                               qcopy (match Random.bool (), Random.bool ()  with
+                                      | false, false -> nv_zero 
+                                      | false, true  -> nv_one
+                                      | true , false -> nv_plus 
+                                      | true , true  -> nv_minus
+                                     )
+      in
+      q, vec
+    in
+    let qsize = match vopt with
+                | None       -> 1
+                | Some (_,v) -> 
+                    try Z.to_int (log_2 (vsize v)) 
+                    with Invalid_argument _ ->  
+                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
+                                      (string_of_zint (vsize v)) pn n
+                                      (string_of_option string_of_ket vopt)
+                                   )
+                            )
+
+    in 
+    let qs, qv = match qsize with
+                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s %s" pn n (string_of_option string_of_ket vopt)))
+                 | _ -> let qs, vs = Listutils.unzip (Listutils.tabulate qsize (fun _ -> single())) in
+                        let qv = qs, List.hd vs in
+                        List.iter (fun q -> Hashtbl.add qstate q qv) qs;
+                        qs, qv
+    in
+    if !verbose || !verbose_qsim then
+        Printf.printf "%s newqbits %s (%s) -> %s; now %s|->%s\n"
+                      (Name.string_of_name pn)
+                      (Name.string_of_name n)
+                      (string_of_option (string_of_ket) vopt)
+                      (string_of_qbits qs)
+                      (string_of_qbits qs)
+                      (string_of_qval qv);
+    qs
+  in
+  let rec disposeqbits pn qs = 
+    if !verbose || !verbose_qsim then
+      Printf.printf "%s disposes %s " (Name.string_of_name pn) (string_of_qbits qs);
+    let single q = 
+      match Hashtbl.find qstate q with
+                        | [q],_ -> Hashtbl.remove qstate q; Queue.add q qfrees;
+                                   if !verbose || !verbose_qsim then
+                                     Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit (queue_elements qfrees))
+                        | qs,v  -> (* don't dispose entangled qbits *)
+                                   (* so why not try to disentangle them? *)
+                                   let qs, v = make_first qs v (idx q qs) in
+                                   match try_split qs v with
+                                   | Some (q,v,qs',v') -> 
+                                       record false ([q],v); record false (qs',v'); disposeqbits pn [q] 
+                                   | None            -> 
+                                       if !verbose || !verbose_qsim then
+                                         Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
+                                                                           (fun q -> Printf.sprintf "%s|->%s"
+                                                                                                    (string_of_qbit q)
+                                                                                                    (string_of_qval (Hashtbl.find qstate q))
+                                                                           )
+                                                                           !qlimbo
+                                                                        )
+                                                       ;
+                                       qlimbo := q::!qlimbo
+    in
+    List.iter single qs
+  and record split ((qs, vq) as qv) =
+    let report () = if !verbose || !verbose_qsim then
+                     Printf.printf "recording %s|->%s\n" (match qs with 
+                                                          | [q] -> string_of_qbit q
+                                                          | _   -> bracketed_string_of_list string_of_qbit qs
+                                                         ) 
+                                                         (string_of_qval qv)
+    in
+    let accept q = Hashtbl.replace qstate q qv in
+    match qs with
+    | []     -> () 
+    | [q]    -> accept q
+    | _      -> let default () = report (); List.iter accept qs in
+                if split then (* try to split it up *)
+                  match try_split qs vq with
+                  | Some (q,v,qs',v') -> record split ([q], v); record split (qs', v')
+                  | _                 -> default ()
+                else default ()
+
    in
-   let accept q = Hashtbl.replace qstate q qv in
-   match qs with
-   | []     -> raise (Error (Printf.sprintf "record gets %s" (string_of_qval qv)))
-   | [q]    -> accept q
-   | _'     -> (* try to split it up *)
-               match try_split qs vq with
-               | Some (q::qs',v,vq') -> record ([q], v); record (qs', vq')
-               | _                   -> report (); List.iter accept qs
+  let string_of_qfrees () = bracketed_string_of_list string_of_qbit (queue_elements qfrees) in
+  let string_of_qlimbo () = bracketed_string_of_list string_of_qbit !qlimbo in
+  newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo
+  
+let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
+                             Printf.sprintf "qfrees=%s" (string_of_qfrees ());
+                             Printf.sprintf "qlimbo=%s" (string_of_qlimbo ())
+                            ]
 
 let qsort (qs,v) = 
   let qs' = List.sort Stdlib.compare qs in
@@ -471,7 +479,7 @@ let ugstep_padded pn qs g gpad =
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
   
      let v'' = mult_gnv g' v' in
-     record (qs',v'')
+     record false (qs',v'')
     )
 
 let ugstep pn qs g = ugstep_padded pn qs g g_I
@@ -616,8 +624,8 @@ let rec qmeasure disposes pn gate q =
                                                                        ) 
                                                                        qs
                                              );
-     record measured_qv;
-     if qs<>[] then record qv; 
+     record false measured_qv;
+     if qs<>[] then record true qv; 
      if disposes then disposeqbits pn [q];
      r
     )

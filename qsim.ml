@@ -531,8 +531,9 @@ let rec qmeasure disposes pn gate q =
                                                             (dropwhile (fun (j,_) -> j<:i) cv)
                                         in
                                         let probs = List.map (fun (_,x) -> absq x) cv' in
-                                        if sv=c_0 then probs 
-                                        else rmult_zint (absq sv) (n-:Z.of_int (List.length cv'))::probs
+                                        let ngaps = n-:(Z.of_int (List.length cv')) in
+                                        if sv=c_0 || ngaps=z_0 then probs 
+                                        else rmult_zint (absq sv) ngaps::probs
                  | DenseV  dv        -> let i = Z.to_int i in
                                         let n = Z.to_int n in
                                         Listutils.tabulate n (fun j -> absq dv.(i+j)) 
@@ -590,6 +591,7 @@ let rec qmeasure disposes pn gate q =
                         (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
+     let nv = nvhalf in
      let vm', vv = 
        match modulus with
        | S_h 0              -> S_h 0, vv
@@ -606,10 +608,12 @@ let rec qmeasure disposes pn gate q =
               S_h 0, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
-                Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
+                (Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
                                           q r (string_of_qval (qval q)) (string_of_snum prob_1)
-                                          (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
-              modulus, vv
+                                         (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
+                 flush_all();
+                );
+               modulus, vv
              ) 
      in
      let qv = qs, (vm',vv) in

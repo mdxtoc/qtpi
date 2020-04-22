@@ -173,7 +173,7 @@ and sum_separate = function
   | s1::s2::ss -> if Stringutils.starts_with s2 "-" then s1 ^ sum_separate (s2::ss) 
                   else s1 ^ "+" ^ sum_separate (s2::ss) 
   | [s]        -> s
-  | []         -> raise (Can'tHappen "sum_separate []")
+  | []         -> "0" (* oh yes it can happen ... raise (Can'tHappen "sum_separate []") *)
 
 (* *********************** symbolic arithmetic ************************************ *)
 

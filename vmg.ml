@@ -284,9 +284,10 @@ and string_of_nv bksign =
   in
   let normalised_sign vv = 
     let doit x = 
-      match (string_of_csnum x).[0] with
-      | '-' -> so_v (map_v cneg vv)
-      | _   -> so_v vv 
+      try match (string_of_csnum x).[0] with
+          | '-' -> so_v (map_v cneg vv)
+          | _   -> so_v vv 
+      with exn -> Printf.eprintf "doit got it\n"; flush_all(); raise exn
     in
     match vv with
     | SparseV (_, sv, (i,x)::_) -> if sv=c_0 || i=z_0 then doit x else doit sv

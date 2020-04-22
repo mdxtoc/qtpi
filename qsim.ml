@@ -230,7 +230,7 @@ let make_first qs v iq = make_nth qs v 0 iq
    
 let rotate_left qs v = make_first qs v (List.length qs - 1)
 
-let try_split qs (vm,vv as v) =
+let try_split rotate qs (vm,vv as v) =
   let nqs = List.length qs in
   let nvs = vsize vv in
   let nzs = countzeros_v z_0 nvs vv in
@@ -252,7 +252,7 @@ let try_split qs (vm,vv as v) =
        if countzeros_v nh nvs vv =: nh then
          Some (List.hd qs, qcopy nv_zero, List.tl qs, (vm, vseg z_0 nh vv))
        else
-       if !try_rotate then
+       if rotate then
          (let qs, (_,vv) = rotate_left qs (vm,vv) in 
           t_s (i+1) qs vv
          )
@@ -261,7 +261,8 @@ let try_split qs (vm,vv as v) =
   in
   let r = if worth_a_try then t_s 0 qs vv else None in
   if !verbose_qcalc then
-    Printf.printf "try_split %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
+    Printf.printf "try_split %B %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
+                  rotate
                   (string_of_qbits qs) (string_of_ket v)
                   (string_of_zint nzs) (string_of_zint nvs) worth_a_try
                   (string_of_option (fun (q,k1,qs,k2) -> Printf.sprintf "%s:%s; %s:%s"
@@ -356,10 +357,10 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
                         | qs,v  -> (* don't dispose entangled qbits *)
                                    (* so why not try to disentangle them? *)
                                    let qs, v = make_first qs v (idx q qs) in
-                                   match try_split qs v with
-                                   | Some (q,v,qs',v') -> 
+                                   match try_split false qs v with
+                                   | Some (q',v,qs',v') when q'=q -> 
                                        record false ([q],v); record false (qs',v'); disposeqbits pn [q] 
-                                   | None            -> 
+                                   | _                            -> 
                                        if !verbose || !verbose_qsim then
                                          Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
                                                                            (fun q -> Printf.sprintf "%s|->%s"
@@ -386,7 +387,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
     | [q]    -> accept q
     | _      -> let default () = report (); List.iter accept qs in
                 if split then (* try to split it up *)
-                  match try_split qs vq with
+                  match try_split !try_rotate qs vq with
                   | Some (q,v,qs',v') -> record split ([q], v); record split (qs', v')
                   | _                 -> default ()
                 else default ()

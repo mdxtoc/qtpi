@@ -320,7 +320,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
     let qsize = match vopt with
                 | None       -> 1
                 | Some (_,v) -> 
-                    try Z.to_int (log_2 (vsize v)) 
+                    try log_2 (vsize v) 
                     with Invalid_argument _ ->  
                       raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
                                       (string_of_zint (vsize v)) pn n
@@ -532,7 +532,7 @@ let rec qmeasure disposes pn gate q =
                                         in
                                         let probs = List.map (fun (_,x) -> absq x) cv' in
                                         if sv=c_0 then probs 
-                                        else S_sum (sflatten Z.(tabulateZ (n-(of_int (List.length cv'))) (const (absq sv))))::probs
+                                        else rmult_zint (absq sv) (n-:Z.of_int (List.length cv'))::probs
                  | DenseV  dv        -> let i = Z.to_int i in
                                         let n = Z.to_int n in
                                         Listutils.tabulate n (fun j -> absq dv.(i+j)) 
@@ -594,12 +594,8 @@ let rec qmeasure disposes pn gate q =
        match modulus with
        | S_h 0              -> S_h 0, vv
        | S_h k  when k mod 2 = 0 
-                            -> let n = k/2 in (* h(n) is sqrt modulus *)
-                               (* multiply by 2**(n/2) *)
-                               let vv = _for_fold_left 0 1 (n/2) vv (fun vv _ -> map_v (fun x -> csum x x) vv) in
-                               (* and then by 1/h if n is odd *)
-                               let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
-                               S_h 0, vv
+                            -> let n = k/2 in (* h(n) is sqrt modulus -- multiply by h(-n) *)
+                               S_h 0, mult_nv (csnum_of_snum (S_h (-n))) vv
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)

@@ -27,12 +27,32 @@ open Listutils
 open Optionutils
 open Functionutils
 open Tupleutils
+open Number
 
 exception Disaster of string
 
+(* some random things to do with bits of zints *)
+
+(* bits set in a zint -- positive only *)
+let setbits : zint -> int list = fun n ->
+  let rec sb bs k n =
+    if n=:z_0 then List.rev bs 
+              else sb Z.(if (n mod z_2 = z_0) then bs else k::bs) (k+1) Z.(n asr 1)
+  in
+  if Z.(n<zero) then raise (Invalid_argument ("setbits " ^ string_of_zint n))
+                else sb [] 0 n 
+  
+(* find log_2 n, but only if n is a power of 2 -- else raise Invalid_argument *)
+let log_2 : zint -> int = fun n ->
+  match setbits n with
+  | [k] -> k
+  | _   -> raise (Invalid_argument ("log_2 " ^ string_of_zint n))
+
+(* ***************** Symbolic numbers, used as amplitudes and probabilities ************************** *)
+
 (* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
    f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
-   g = sqrt ((1-h)/2) = sin (pi/8); the partner of h;
+   g = sqrt ((1-h)/2) = sin (pi/8); the partner of f;
    
    Note h^2 = 1/2; 
         f^2 = (1+h)/2 = h^2(1+h) = h^2+h^3;
@@ -312,55 +332,16 @@ and simplify_sum ss =
          (* | S_prod s1s, S_prod s2s -> Stdlib.compare s1s s2s *)
             | _                      -> Stdlib.compare s1 s2
           in
-          let rec double s1 rest = (* looking for h^2k*X+h^2k*X+.... *)
-            (* find the h entry, if any, in s1 *)
-            let rec split3 isneg pres ss =
-              match ss with 
-              | S_h i :: ss -> if i>=2 then Some (isneg, pres, i, ss) else None
-              | s     :: ss -> split3 isneg (s::pres) ss
-              | []          -> None
-            in
-            let rec nsplit3 isneg = function
-                                    | S_neg s         -> nsplit3 (not isneg) s
-                                    | S_h i when i>=2 -> Some (isneg,[],i,[])
-                                    | S_prod ss       -> split3 isneg [] ss
-                                    | _               -> None
-            in
-            let r = match nsplit3 false s1 with
-                    | Some (isneg,pres,maxi,posts) ->
-                        (* i is how many hs we use up, k is 2^(i/2) *)
-                        let rec gofor i k rest =
-                          let rec takeeqs k rest =
-                            match k, rest with
-                            | 0, _       -> Some rest
-                            | _, s::rest -> if s1=s then takeeqs (k-1) rest else None
-                            | _, []      -> None
-                          in
-                          if i>maxi then None else
-                          takeeqs k rest &~~ (fun rest -> gofor (i+2) (k*2) rest
-                                                          |~~ (fun _ -> let r = Some ((if isneg then rneg else id)
-                                                                                        (simplify_prod (prepend pres (S_h (maxi-i)::posts))),
-                                                                                      rest
-                                                                                     )
-                                                                          in
-                                                                          if !verbose_simplify then
-                                                                            Printf.printf "gofor %d %d %s (s1=%s)-> %s\n"
-                                                                                            i
-                                                                                            k
-                                                                                            (bracketed_string_of_list string_of_snum rest)
-                                                                                            (string_of_snum s1)
-                                                                                            (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
-                                                                          r
-                                                              )
-                                             )
-                        in
-                        gofor 2 1 rest
-                    | _                            -> None
+          let rec multiple s1 rest = (* looking for X+X+... -- we no longer care about the h's *)
+            let r = (match takedropwhile ((=)s1) rest with
+                     | [] , _    -> None (* not going to happen, but never mind *)
+                     | s1s, rest -> Some (rmult_zint s1 (Z.of_int (List.length s1s+1)), rest)
+                    )
             in
             if !verbose_simplify then
-              Printf.printf "double (%s) %s -> %s\n" (string_of_snum s1)  
-                                                     (bracketed_string_of_list string_of_snum rest)
-                                                     (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
+              Printf.printf "multiple (%s) %s -> %s\n" (string_of_snum s1)  
+                                                       (bracketed_string_of_list string_of_snum rest)
+                                                       (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_snum) ",") r);
             r
           in
           let rec a2b2 s ss = (* looking for X*aa!Y+X*bb!Y to replace with XY. Sorting doesn't put pairs next to each other always *)
@@ -430,19 +411,15 @@ and simplify_sum ss =
             | (S_neg (S_prod (S_h 2 :: s1s) as s1)) :: ss  
                    when List.exists ((=) (make_prod s1s)) ss  
                                                   -> sp true (s1::r) (Listutils.remove (make_prod s1s) ss)
-            | S_prod (S_f :: S_h 1 :: s1s) ::
-              S_prod (S_f :: S_h 1 :: s2s) :: ss
-                   when s1s=s2s && 
-                        List.exists ((=) (S_neg (make_prod (S_f :: s1s)))) ss
+            | S_prod (S_f :: S_h (-1) :: s1s) :: ss
+                   when List.exists ((=) (S_neg (make_prod (S_f :: s1s)))) ss
                                                   -> sp true (make_prod (S_g :: s1s) :: r) 
                                                              (Listutils.remove (S_neg (make_prod (S_f :: s1s))) ss)
-            | S_neg (S_prod (S_f :: S_h 1 :: s1s)) ::
-              S_neg (S_prod (S_f :: S_h 1 :: s2s)) :: ss
-                   when s1s=s2s && 
-                        List.exists ((=) (make_prod (S_f :: s1s))) ss
+            | S_neg (S_prod (S_f :: S_h (-1) :: s1s)) :: ss
+                   when List.exists ((=) (make_prod (S_f :: s1s))) ss
                                                   -> sp true (S_neg (make_prod (S_g :: s1s)) :: r) 
                                                              (Listutils.remove (make_prod (S_f :: s1s)) ss)
-            | s1      :: s2      :: ss when s1=s2 -> (match double s1 (s2::ss) with
+            | s1      :: s2      :: ss when s1=s2 -> (match multiple s1 (s2::ss) with
                                                       | Some (s,ss) -> sp true (s::r) ss
                                                       | None        -> sp again (s1::r) (s2::ss)
                                                      )
@@ -466,90 +443,22 @@ and simplify_sum ss =
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_snum (S_sum ss)) (string_of_snum r);
   r
 
+and rmult_zint sn zi =
+  if sn=S_0 || Z.(zi=zero) then S_0 else
+  if Z.(zi<zero) then rneg (rmult_zint sn Z.(~-zi))
+                 else match setbits zi with
+                      | []  -> S_0
+                      | [0] -> sn
+                      | bs  -> rprod sn (S_sum (List.map (fun i -> S_h (-2*i)) bs))
+  
 and sqrt_half i =   (* (1/sqrt 2)**i *)
   let r = if i=0 then S_h 0 else S_h i in
   if !verbose_simplify then
     Printf.printf "sqrt_half %d -> %s\n" i (string_of_snum r);
   r
 
-(* warning: this can deliver a sum *)
-and rdiv_h s = (* multiply by sqrt 2 (= divide by h). Happens: see normalise *)
-  let r = match s with
-          | S_0                              -> s
-          | S_neg s                           -> rneg (rdiv_h s)
-          | S_h i                  when i>=1 -> sqrt_half (i-1)
-          | S_prod (     S_h i::ss) when i>=1 -> simplify_prod (     sqrt_half (i-1) :: ss)
-          | S_prod (S_f::S_h i::ss) when i>=1 -> simplify_prod (S_f::sqrt_half (i-1) :: ss)
-          | S_prod (S_g::S_h i::ss) when i>=1 -> simplify_prod (S_g::sqrt_half (i-1) :: ss)
-          | S_sum  ss                         -> simplify_sum  (sflatten (List.map rdiv_h ss)) (* sflatten because we can get a sum ... *)
-          | _                                -> (* s/h = (sh^2+sh^2)/h = sh+sh *)
-                                                let ph = rprod s (S_h 1) in
-                                                rsum ph ph
-  in
-  if !verbose_simplify then
-    Printf.printf "rdiv_h (%s) -> %s\n" (string_of_snum s) (string_of_snum r);
-  r
-(* in the case of dividing sums, look for factors fP-fhP, which is gh *)
-and rdiv_sum_h orig_ps =
-  let default () = sflatten (List.map rdiv_h orig_ps) (* sflatten because we can get a sum ... *) in
-  let rec has_hfactor = function 
-                         | S_neg s                               -> has_hfactor s
-                         | S_h i                      
-                         | S_prod (S_h i :: _)         
-                         | S_prod (S_f :: S_h i :: _)  when i>=1 -> true
-                         | _                                    -> false
-  in
-  let rec findit ss =
-    match ss with
-    | []                                     -> None
-    | S_prod (S_f :: S_h _ :: _)        :: ss -> findit ss
-    | S_prod (S_f :: ss')               :: ss -> if List.exists ((=) (S_neg (S_prod (S_f :: S_h 1 :: ss')))) orig_ps
-                                                then Some (true, ss')
-                                                else findit ss
-    | S_neg (S_prod (S_f :: S_h _ :: _)) :: ss -> findit ss
-    | S_neg (S_prod (S_f :: ss') )       :: ss -> if List.exists ((=) (S_prod (S_f :: S_h 1 :: ss'))) orig_ps
-                                                then Some (false, ss')
-                                                else findit ss
-    | _                                :: ss -> findit ss
-  in
-  if List.for_all has_hfactor orig_ps then default ()
-  else
-  match findit orig_ps with
-  | Some (true, ss)  -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
-                                      (string_of_snum (S_prod (S_f :: ss)))
-                                      (string_of_snum (S_neg (S_prod (S_f :: S_h 1 :: ss))))
-                                      (string_of_snum (S_sum orig_ps));
-                        default()
-  | Some (false, ss) -> Printf.printf "found %s and %s in rdiv_sum_h of %s\n"
-                                      (string_of_snum (S_neg (S_prod (S_f :: ss))))
-                                      (string_of_snum (S_prod (S_f :: S_h 1 :: ss)))
-                                      (string_of_snum (S_sum orig_ps));
-                        default()
-  | None             -> default()
+and rdiv_h s = rprod (S_h (-1)) s (* multiply by h(-1) (= divide by h(1)). Happens: see normalise *)
   
-(* we can't really divide
-    and rdiv s1 s2 = (* happens in normalise *) (* this needs work for division by sums and also for division by products *)
-      let bad () = 
-        raise (Error (Printf.sprintf "rdiv (%s) (%s)" (string_of_snum s1) (string_of_snum s2)))
-      in
-      let r = match s1 with
-              | S_0               -> S_0
-              | _ when s1=s2      -> S_h 0
-              | S_neg s1           -> rneg (rdiv s1 s2)
-              | S_prod ss          -> let rec del ss =
-                                       match ss with
-                                       | [] -> bad()
-                                       | s::ss -> if s=s2 then ss else s::del ss
-                                     in
-                                     S_prod (del ss)
-              | S_sum ss           -> simplify_sum (List.map (fun s -> rdiv s s2) ss)
-              | _                 -> bad ()
-      in
-      if !verbose_simplify then
-        Printf.printf "rdiv (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
-      r
- *)
-
 (******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
 
 module SnumH = struct type t = snum 
@@ -698,7 +607,9 @@ let absq  (C(x,y) as c) = (* this is going to cost me ... *)
  *)
 let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
 
-(* we no longer memoise any of these things ...
+let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi))
+
+(* we no longer memoise any complex arithmetic functions ...
 
     module OrderedC = struct type t = csnum 
                              let compare = Stdlib.compare

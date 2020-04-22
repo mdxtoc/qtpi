@@ -36,16 +36,6 @@ exception Disaster of string
 let my_to_int n s =
   try Z.to_int n with Z.Overflow -> raise (Disaster (Printf.sprintf "to_int %s in %s" (string_of_zint n) s))
   
-(* find log_2 n, but only if n is a power of 2 -- else raise Invalid_argument *)
-let log_2 n :zint =
-  Z.(let rec find_twopower r i =
-       if i=one                   then r                                                      else
-       if i=one || i land one=one then raise (Invalid_argument ("log_2 " ^ string_of_zint n)) else
-                                       find_twopower (r+one) (i asr 1)
-       in
-       find_twopower zero n
-    )
-
 (* *********************** vectors, matrices,gates ************************************ *)
 
 (* because matrices and vectors can become very large (see the W example), indices are now zint *)
@@ -253,10 +243,10 @@ and string_of_nv bksign =
        let width = log_2 n in
        let string_of_bin i =
          let rec sb i k =
-           if k=:width then ""
-           else sb Z.(i/z_2) Z.(k+z_1) ^ (if Z.(i mod z_2 = z_0) then "0" else "1")
+           if k=width then ""
+           else sb Z.(i/z_2) (k+1) ^ if Z.(i mod z_2 = z_0) then "0" else "1"
          in
-         sb i z_0
+         sb i 0
        in
        let string_of_basis_idx i =
          Printf.sprintf (match bksign with PVBra -> "<%s|" | PVKet -> "|%s>") (string_of_bin i)
@@ -294,9 +284,10 @@ and string_of_nv bksign =
   in
   let normalised_sign vv = 
     let doit x = 
-      match (string_of_csnum x).[0] with
-      | '-' -> so_v (map_v cneg vv)
-      | _   -> so_v vv 
+      try match (string_of_csnum x).[0] with
+          | '-' -> so_v (map_v cneg vv)
+          | _   -> so_v vv 
+      with exn -> Printf.eprintf "doit got it\n"; flush_all(); raise exn
     in
     match vv with
     | SparseV (_, sv, (i,x)::_) -> if sv=c_0 || i=z_0 then doit x else doit sv
@@ -307,13 +298,13 @@ and string_of_nv bksign =
                                    | []    -> so_v vv
   in
   function
-  | S_1, vv -> normalised_sign vv
+  | S_h 0, vv -> normalised_sign vv
   | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (normalised_sign vv)
   
 and string_of_bra b = string_of_nv PVBra b
 and string_of_ket k = string_of_nv PVKet k
 
-and string_of_vector v = string_of_ket (S_1,v)
+and string_of_vector v = string_of_ket (S_h 0,v)
 
 (* with sparse vectors, we can have some seriously large ones ... *)
 and statistics_v v :(csnum*zint) list =
@@ -453,7 +444,7 @@ let minus  (C (x,y)) = (* only for local use, please *)
   in
   C (negate x, negate y) 
 
-let make_nv ss = S_1, DenseV (Array.of_list ss)
+let make_nv ss = S_h 0, DenseV (Array.of_list ss)
 
 let nv_zero  = make_nv [c_1   ; c_0         ]
 let nv_one   = make_nv [c_0   ; c_1         ]
@@ -742,8 +733,8 @@ let dotprod_cvcv n sva cva svb cvb =
   let sv = cprod sva svb in
   let svs =
     if sv=c_0 then (fun k n vs -> vs) else
-    let rec svs k n vs =
-      if k=:n then vs else svs (k+:z_1) n (sv::vs) 
+    let rec svs k n vs = 
+      if k=:n || sv=c_0 then vs else cmult_zint sv (n-:k) :: vs  
     in
     svs
   in
@@ -786,11 +777,11 @@ let rowcolprod nc row col =
   simplify_csum els
 
 let mult_nv cn v =
-  if cn=c_0 then SparseV (vsize v, c_0, []) 
-  else
-    match v with 
-    | DenseV  v         -> DenseV (Array.map (fun x -> cprod cn x) v)
-    | SparseV (n,sv,cv) -> SparseV (n, cprod cn sv, List.map (fun (i,x) -> i, cprod cn x) cv)
+  if cn=c_0 then SparseV (vsize v, c_0, []) else
+  if cn=c_1 then v                          else
+                 match v with 
+                 | DenseV  v         -> DenseV (Array.map (fun x -> cprod cn x) v)
+                 | SparseV (n,sv,cv) -> SparseV (n, cprod cn sv, List.map (fun (i,x) -> i, cprod cn x) cv)
 
 module OrderedZ = struct type t = zint
                          let compare = Z.compare
@@ -844,7 +835,7 @@ let mult_mv m v =
                default ()
   in
   if !verbose_qcalc then 
-    (Printf.printf "%s\n" (string_of_ket (S_1, v')); flush_all ());
+    (Printf.printf "%s\n" (string_of_ket (S_h 0, v')); flush_all ());
   v'
 
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
@@ -926,7 +917,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                                  (string_of_ket k) (string_of_bra b)
                           )
                    );
-           if bm<>S_1 || km<>S_1 then 
+           if bm<>S_h 0 || km<>S_h 0 then 
              raise (Error (Printf.sprintf "bra*ket multiplication with non-unit modulus\n%s\n%s"
                                                  (string_of_ket k) (string_of_bra b)
                           )

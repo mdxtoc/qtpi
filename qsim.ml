@@ -320,7 +320,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
     let qsize = match vopt with
                 | None       -> 1
                 | Some (_,v) -> 
-                    try Z.to_int (log_2 (vsize v)) 
+                    try log_2 (vsize v) 
                     with Invalid_argument _ ->  
                       raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
                                       (string_of_zint (vsize v)) pn n
@@ -494,7 +494,6 @@ let fp_g = sqrt fp_g2
 
 let rec compute = function
   | S_0         -> 0.0
-  | S_1         -> 1.0
   | S_f         -> fp_f
   | S_g         -> fp_g
   | S_h i       -> (match i with
@@ -532,8 +531,9 @@ let rec qmeasure disposes pn gate q =
                                                             (dropwhile (fun (j,_) -> j<:i) cv)
                                         in
                                         let probs = List.map (fun (_,x) -> absq x) cv' in
-                                        if sv=c_0 then probs 
-                                        else S_sum (sflatten Z.(tabulateZ (n-(of_int (List.length cv'))) (const (absq sv))))::probs
+                                        let ngaps = n-:(Z.of_int (List.length cv')) in
+                                        if sv=c_0 || ngaps=z_0 then probs 
+                                        else rmult_zint (absq sv) ngaps::probs
                  | DenseV  dv        -> let i = Z.to_int i in
                                         let n = Z.to_int n in
                                         Listutils.tabulate n (fun j -> absq dv.(i+j)) 
@@ -591,30 +591,29 @@ let rec qmeasure disposes pn gate q =
                         (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
+     let nv = nvhalf in
      let vm', vv = 
        match modulus with
-       | S_1                -> S_1, vv
+       | S_h 0              -> S_h 0, vv
        | S_h k  when k mod 2 = 0 
-                            -> let n = k/2 in (* h(n) is sqrt modulus *)
-                               (* multiply by 2**(n/2) *)
-                               let vv = _for_fold_left 0 1 (n/2) vv (fun vv _ -> map_v (fun x -> csum x x) vv) in
-                               (* and then by 1/h if n is odd *)
-                               let vv = if n mod 2 = 1 then map_v c_r_div_h vv else vv in
-                               S_1, vv
+                            -> let n = k/2 in (* h(n) is sqrt modulus -- multiply by h(-n) *)
+                               S_h 0, mult_nv (csnum_of_snum (S_h (-n))) vv
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)
        | _                  -> 
-           (* is there just one possibility? If so, set it to S_1. And note: normalise 1 *)
+           (* is there just one possibility? If so, set it to S_h 0. And note: normalise 1 *)
            if nv -: countzeros_v z_0 nv vv = z_1 then
              let cv = sparse_elements_v c_0 vv in
-              S_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
+              S_h 0, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
-                Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
+                (Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
                                           q r (string_of_qval (qval q)) (string_of_snum prob_1)
-                                          (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
-              modulus, vv
+                                         (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
+                 flush_all();
+                );
+               modulus, vv
              ) 
      in
      let qv = qs, (vm',vv) in

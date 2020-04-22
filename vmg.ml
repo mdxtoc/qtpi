@@ -307,13 +307,13 @@ and string_of_nv bksign =
                                    | []    -> so_v vv
   in
   function
-  | S_1, vv -> normalised_sign vv
+  | S_h 0, vv -> normalised_sign vv
   | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (normalised_sign vv)
   
 and string_of_bra b = string_of_nv PVBra b
 and string_of_ket k = string_of_nv PVKet k
 
-and string_of_vector v = string_of_ket (S_1,v)
+and string_of_vector v = string_of_ket (S_h 0,v)
 
 (* with sparse vectors, we can have some seriously large ones ... *)
 and statistics_v v :(csnum*zint) list =
@@ -453,7 +453,7 @@ let minus  (C (x,y)) = (* only for local use, please *)
   in
   C (negate x, negate y) 
 
-let make_nv ss = S_1, DenseV (Array.of_list ss)
+let make_nv ss = S_h 0, DenseV (Array.of_list ss)
 
 let nv_zero  = make_nv [c_1   ; c_0         ]
 let nv_one   = make_nv [c_0   ; c_1         ]
@@ -844,7 +844,7 @@ let mult_mv m v =
                default ()
   in
   if !verbose_qcalc then 
-    (Printf.printf "%s\n" (string_of_ket (S_1, v')); flush_all ());
+    (Printf.printf "%s\n" (string_of_ket (S_h 0, v')); flush_all ());
   v'
 
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
@@ -926,7 +926,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                                  (string_of_ket k) (string_of_bra b)
                           )
                    );
-           if bm<>S_1 || km<>S_1 then 
+           if bm<>S_h 0 || km<>S_h 0 then 
              raise (Error (Printf.sprintf "bra*ket multiplication with non-unit modulus\n%s\n%s"
                                                  (string_of_ket k) (string_of_bra b)
                           )

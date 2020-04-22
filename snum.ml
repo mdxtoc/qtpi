@@ -42,9 +42,8 @@ exception Disaster of string
    Also f^2+g^2 = 1 (which will fall out of the above)
  *)
 
-type snum = 
+type snum = (* no S_1: h is now allowed neg and zero powers. So 1 is S_h 0 *)
   | S_0
-  | S_1
   | S_f              
   | S_g 
   | S_h    of int              
@@ -80,7 +79,6 @@ let rec string_of_snum s =
    *)
   let prio = function
     | S_0
-    | S_1
     | S_f  
     | S_g 
     | S_h  _ 
@@ -97,9 +95,9 @@ let rec string_of_snum s =
   in
   match s with
   | S_0             -> "0"
-  | S_1             -> "1"
   | S_f             -> "f"
   | S_g             -> "g"
+  | S_h 0           -> "1"
   | S_h 1           -> "h"
   | S_h n           -> Printf.sprintf "h(%d)" n
   | S_symb symb     -> string_of_s_symb symb 
@@ -117,7 +115,6 @@ and string_of_snums ss = bracketed_string_of_list string_of_snum ss
 
 and string_of_snum_struct = function
               | S_0         -> "S_0"
-              | S_1         -> "S_1"
               | S_f         -> "S_f"
               | S_g         -> "S_g"
               | S_h i       -> Printf.sprintf "S_h %d" i             
@@ -136,7 +133,7 @@ and string_of_s_symb_struct symb =
 and string_of_csnum (C (x,y)) =
   let im y = 
     match y with
-    | S_1      -> "i"
+    | S_h 0    -> "i"
     | S_f  
     | S_g 
     | S_h   _ 
@@ -163,7 +160,7 @@ and sum_separate = function
 (* The normal form is a sum of possibly-negated products. 
  * Both sums and products are left-recursive.
  * Products are sorted according to the type definition: i.e.
- * S_0, S_1, S_f, S_g, S_h, S_symb. But ... this isn't good enough. 
+ * S_0, S_f, S_g, S_h, S_symb. But ... this isn't good enough. 
  
  * We need to sort identifiers according to their suffix: a0,b0,a1,b1, ...
  
@@ -189,7 +186,6 @@ let sort compare ss =
 let rconj s = 
   let rec rc = function
     | S_0
-    | S_1
     | S_f              
     | S_g 
     | S_h    _      -> None
@@ -215,8 +211,8 @@ and rprod s1 s2 =
   let r = match s1, s2 with
           | S_0             , _
           | _               , S_0               -> S_0
-          | S_1             , _                 -> s2
-          | _               , S_1               -> s1
+          | S_h 0           , _                 -> s2
+          | _               , S_h 0             -> s1
           | S_neg s1         , _                -> rneg (rprod s1 s2)
           | _               , S_neg s2          -> rneg (rprod s1 s2)
           | _               , S_sum s2s         -> let ss = List.map (rprod s1) s2s in
@@ -234,7 +230,7 @@ and rprod s1 s2 =
 
 and make_prod = function
   | [s] -> s
-  | []  -> S_1
+  | []  -> S_h 0
   | ss  -> S_prod ss
   
 (* warning: this can deliver a sum, which mucks up the normal form *)
@@ -249,7 +245,6 @@ and simplify_prod ss = (* We deal with constants, f^2, g^2, gh, fg *)
             in
             match ss with
             | S_0            :: ss -> None, [S_0]
-            | S_1            :: ss 
             | S_h 0          :: ss -> sp r ss
             | S_f   :: S_f   :: ss -> premult (S_sum [S_h 2; S_h 3]) ss
             | S_f   :: S_g   :: ss -> premult (S_h 3) ss
@@ -258,14 +253,14 @@ and simplify_prod ss = (* We deal with constants, f^2, g^2, gh, fg *)
               when i>=3            -> sp (S_f :: r) (S_g :: S_g :: (ihs (i-3) ss)) 
  *)
             | S_g   :: S_h i :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
-              when i>=1            -> premult (S_sum [S_1; S_neg (S_h 1)]) (S_f :: (ihs (i-1) ss))
+              when i>=1            -> premult (S_sum [S_h 0; S_neg (S_h 1)]) (S_f :: (ihs (i-1) ss))
             | S_h i :: S_h j :: ss -> sp (ihs (i+j) r) ss
             | s              :: ss -> sp (s::r) ss
             | []                   -> None, List.rev r
           in
           let popt, ss = sp [] (sort Stdlib.compare ss) in
           let s = match ss with 
-                  | []  -> S_1
+                  | []  -> S_h 0
                   | [s] -> s 
                   | _   -> S_prod ss 
           in
@@ -378,7 +373,7 @@ and simplify_sum ss =
                             -> 
                     let remake post =
                       let r = match prepend pres post with 
-                              | []  -> S_1
+                              | []  -> S_h 0
                               | [s] -> s
                               | ss  -> S_prod ss
                       in
@@ -415,12 +410,6 @@ and simplify_sum ss =
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
              *)
-            | S_1        ::  ss  
-                    when List.exists ((=) (S_neg (S_h 2))) ss
-                                                  -> sp true (S_h 2::r) (Listutils.remove (S_neg (S_h 2)) ss)
-            | S_neg (S_1) :: ss  
-                    when List.exists ((=) (S_h 2)) ss  
-                                                  -> sp true (S_neg (S_h 2)::r) (Listutils.remove (S_h 2) ss)
             | S_h j      ::  ss  
                     when List.exists ((=) (S_neg (S_h (j+2)))) ss
                                                   -> sp true (S_h (j+2)::r) (Listutils.remove (S_neg (S_h (j+2))) ss)
@@ -478,7 +467,7 @@ and simplify_sum ss =
   r
 
 and sqrt_half i =   (* (1/sqrt 2)**i *)
-  let r = if i=0 then S_1 else S_h i in
+  let r = if i=0 then S_h 0 else S_h i in
   if !verbose_simplify then
     Printf.printf "sqrt_half %d -> %s\n" i (string_of_snum r);
   r
@@ -545,7 +534,7 @@ and rdiv_sum_h orig_ps =
       in
       let r = match s1 with
               | S_0               -> S_0
-              | _ when s1=s2      -> S_1
+              | _ when s1=s2      -> S_h 0
               | S_neg s1           -> rneg (rdiv s1 s2)
               | S_prod ss          -> let rec del ss =
                                        match ss with
@@ -602,8 +591,8 @@ let rec rprod s1 s2 =
     (* we do 0, 1 and neg ourselves *)
     | S_0     , _
     | _       , S_0     -> S_0
-    | S_1     , _       -> s2
-    | _       , S_1     -> s1
+    | S_h 0     , _     -> s2
+    | _       , S_h 0   -> s1
     | S_neg  s1, _       -> rneg (rprod s1 s2)
     | _       , S_neg s2 -> rneg (rprod s1 s2)
     (* we memoise everything else *)
@@ -634,12 +623,12 @@ let rec rsum s1 s2 =
 let csnum_of_snum s = C (s, S_0)
 
 let c_0 = csnum_of_snum S_0
-let c_1 = csnum_of_snum S_1
+let c_1 = csnum_of_snum (S_h 0)
 let c_h = csnum_of_snum (S_h 1)
 let c_f = csnum_of_snum S_f
 let c_g = csnum_of_snum S_g
 
-let c_i = C (S_0, S_1)
+let c_i = C (S_0, S_h 0)
 
 module CsnumH = struct type t = csnum
                       let equal = (=)
@@ -656,16 +645,16 @@ let cneg  (C (x,y)) = intern (C (rneg x, rneg y))
 
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
-  | S_0     , S_0, _       , _    
-  | _       , _  , S_0     , S_0       -> c_0
-  | S_1     , S_0, _       , _         -> c2  
-  | _       , _  , S_1     , S_0       -> c1
-  | S_neg S_1, S_0, _       , _        -> cneg c2  
-  | _       , _  , S_neg S_1, S_0      -> cneg c1
-  | _       , S_0, _       , S_0       -> intern (C (rprod x1 x2, S_0))            (* real    * real    *)
-  | _       , S_0, _       , _         -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
-  | _       , _  , _       , S_0       -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
-  | _                                  -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
+  | S_0          , S_0, _            , _    
+  | _            , _  , S_0          , S_0       -> c_0
+  | S_h 0        , S_0, _            , _         -> c2  
+  | _            , _  , S_h 0        , S_0       -> c1
+  | S_neg (S_h 0), S_0, _            , _         -> cneg c2  
+  | _            , _  , S_neg( S_h 0), S_0       -> cneg c1
+  | _            , S_0, _            , S_0       -> intern (C (rprod x1 x2, S_0))            (* real    * real    *)
+  | _            , S_0, _            , _         -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
+  | _            , _  , _            , S_0       -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
+  | _                                            -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
 
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
@@ -748,13 +737,13 @@ let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
     let mcprod = memofunC2 cprod "cprod"
     let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
       match x1,y1, x2,y2 with
-      | S_0     , S_0, _       , _    
-      | _       , _  , S_0     , S_0       -> c_0
-      | S_1     , S_0, _       , _         -> c2  
-      | _       , _  , S_1     , S_0       -> c1
-      | S_neg S_1, S_0, _       , _         -> cneg c2  
-      | _       , _  , S_neg S_1, S_0       -> cneg c1
-      | _                                  -> mcprod c1 c2
+      | S_0          , S_0, _            , _    
+      | _            , _  , S_0          , S_0       -> c_0
+      | S_h 0        , S_0, _            , _         -> c2  
+      | _            , _  , S_h 0        , S_0       -> c1
+      | S_neg (S_h 0), S_0, _            , _         -> cneg c2  
+      | _            , _  , S_neg (S_h 0), S_0       -> cneg c1
+      | _                                            -> mcprod c1 c2
   
     let mcsum = memofunC2 csum "csum"
     let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 

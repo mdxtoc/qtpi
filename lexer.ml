@@ -177,8 +177,6 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "><><"      -> TENSORPOWER
   | 0x2297, 0x2297      
                 -> TENSORPOWER (* ⊗⊗ *)
-  | "<-"        -> LEFTARROW
-  | 0x2190      -> LEFTARROW
   | "^^"        -> DAGGER
   | 0x2020      -> DAGGER       (* † *)
   | "true"      -> TRUE
@@ -276,10 +274,13 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "All"       -> FORALL
   | "process"   -> PROCESS
   
+  | "<-"        -> LEFTARROW
+  | 0x2190      -> LEFTARROW        (* ← *)
+
   | "->"        -> RIGHTARROW
-  | 0x2192      -> RIGHTARROW    (* → *)
+  | 0x2192      -> RIGHTARROW       (* → *)
   
-  | 0x2193      -> DOWNARROW     (* ↓ *)
+  | 0x2193      -> DOWNARROW        (* ↓ *)
     
   | "'", Compl (Chars "'\\\n\r\t"), "'"
                 -> CHAR (Sedlexing.lexeme_char lexbuf 1)

@@ -80,7 +80,7 @@ the constant after the `=` used to be a `basisv` type, which had no other use.
 There is now a type `bra`, and also a type `ket`.
 
 The type `matrix` joins the type `gate`. Gates are square matrices, sized
-$$2^n$$ for some $$n$$, and unitary ($$m*m†=I⊗⊗n$$).
+2\*\**n* for some *n*, and unitary (*m*\**m*†=I⊗..⊗n).
 
  
 
@@ -178,7 +178,7 @@ some *n*, and unitary (*m*\**n*`†`=I⊗..⊗I), and type-converts it to a gate
 matrix.
 
 The *groverU* function uses the library function `tabulate_m` to construct the
-oracle matrix, which is a 2\*\*3  diagonal matrix of 1s, except that at the
+oracle matrix, which is a 2\*\*3 diagonal matrix of 1s, except that at the
 'answer' position it's -1. *engate* checks that it's a proper gate.
 
 Qtpi had until this point used a Hindley-Milner type-assignment algorithm, and

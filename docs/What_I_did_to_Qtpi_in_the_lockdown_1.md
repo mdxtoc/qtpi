@@ -167,17 +167,18 @@ fun groverG n = engate ((sx_1+sx_1)*(|+++>*(<+++|)-(degate (I⊗I⊗I))
 
  
 
-The *groverG* function constructs `|+++>*<+++|` (a matrix of $$2^3*2^3$$
-entries, each $$2^{-3}$$), multiplies it by 2 (sx_1 is a symbolic complex number
-respresenting 1) (a matrix of $$2^3*2^3$$ entries, each $$2^{-2}$$), and
-subtracts the diagonal matrix `I⊗I⊗I`, leaving a matrix which is $$2^{-2}$$
-everywhere, except on the diagonal where it is $$2^{-2}-1$$. Then the *engate*
-library function checks that it is a square matrix, size $$2^n$$ for some $$n$$,
-and unitary ($$n*n$$`†`$$=I⊗I⊗I$$), and type-converts it to a gate. The *degate*
-library function is necessary to type-convert `I⊗I⊗I` from a gate to a matrix.
+The *groverG* function constructs `|+++>*<+++|` (a matrix of 2\*\*3 by 2\*\*3
+entries, each 2\*\*(-3)), multiplies it by 2 (sx_1 is a symbolic complex number
+respresenting 1) to give a matrix of 2\*\*3 by 2\*\*3 entries entries, each
+2\*\*(-2). Then subtracts the diagonal matrix `I⊗I⊗I`, leaving a matrix which is
+2\*\*(-2) everywhere, except on the diagonal where it is 2\*\*(-2)-1. Then the
+*engate* library function checks that it is a square matrix, size 2\*\**n* for
+some *n*, and unitary (*m*\**n*`†`=I⊗..⊗I), and type-converts it to a gate. The
+*degate* library function is necessary to type-convert `I⊗I⊗I` from a gate to a
+matrix.
 
 The *groverU* function uses the library function `tabulate_m` to construct the
-oracle matrix, which is a $$2^3$$ diagonal matrix of 1s, except that at the
+oracle matrix, which is a 2\*\*3  diagonal matrix of 1s, except that at the
 'answer' position it's -1. *engate* checks that it's a proper gate.
 
 Qtpi had until this point used a Hindley-Milner type-assignment algorithm, and
@@ -441,12 +442,82 @@ proc System () =
 
  
 
-The `Wmake` process makes a collection size $$k$$ for $$2^{k-1}<n<=2^k$$, then
-if it has made too many, separates $$k-n$$ of them, measures those and if it
-finds only \|0\> values, it has done the job. The technique is also from the
+The `Wmake` process makes a collection size *k* for *2\*\**(*k*-1)\<*n*⩽2\*\*k;
+then, if it has made too many, separates *k*-*n* of them, measures those and if
+it finds only \|0\> values, it has done the job. The technique is also from the
 [Q\# github
 repository](https://github.com/microsoft/QuantumKatas/blob/master/Superposition/ReferenceImplementation.qs)
 (solution based on generation for 2ᵏ and post-selection using measurements).
+
+ 
+
+Sparse vectors and matrices
+---------------------------
+
+ 
+
+All this language ingenuity is all very well (I think so, anyway), but a bit of
+experience with the Grover and W examples showed that they ran slowly (Grover)
+and/or ran out of space (W, and possibly Grover). The problem, a bit of
+experiment with diagnostic switches such as -verbose qsim and -verbose qcalc
+showed me, is tensoring of very large matrices and multiplication of large
+matrices and large vectors. But in many cases -- in all the cases I was looking
+at -- these matrices were very repetitive. For example, the groverG matrix is
+almost all *h*\*\**n* for some *n* (where *h*=1/*sqrt*(2), and the matrices and
+vectors used in the W example are almost all zeros.
+
+### Sparsity with zeros
+
+I made it possible (easy to say, but it took me quite some time) to have sparse
+vectors and matrices where the missing entries were all zeros. One very useful
+sparse matrix is I⊗⊗*n*, and I gave it special treatment: it's represented as an
+OCaml function. That meant that steps like `anc,q0s↓i,q1s↓i>>F` in the W example
+don't generate a large matrix representation: it's constant space. And since the
+state of the qbits is also mostly zeros, the space problem goes away. (I've also
+functionalised H⊗⊗*n*, which is useful when measuring in the diagonal basis, but
+I haven't exploited it yet.)
+
+But it's very tempting to try to optimise the dot product operation that's at
+the heart of a gating step: the vector which represents the state of all the
+qbits, size *2\*\*n,* where *n* is the number of qbits we're dealing with, is
+multiplied by the matrix F⊗(I⊗⊗(*n*-3)), which means forming the dot product of
+each row of the matrix with the vector, each dot product about 2*n*
+multiplications, but most delivering 0. But we have a sparse vector
+representation of the state: if we look at the columns of the matrix we can see
+which rows are non-zero in at least one of the positions at which the state is
+non-zero. It's easy to do that, given a functional representation of the matrix,
+and it speeds up the gating operation no end.
+
+Before the dot product optimisation qtpi could just about do W 16; following the
+optimisation it could do W 16 and W 32 really quickly and of course I tried W 64
+... which crashed.
+
+### Addressing with large integers
+
+The problem with the W algorithm and 64 qbits is that the matrix must be 2\^64
+square, but OCaml uses 63-bit integers. My sparse tensor algorithm went wrong,
+because division and remaindering by large numbers doesn't work. But no matter:
+OCaml has a Z module that represents arbitrarily large integers. It was a slog
+to go over to zint addressing of matrices, but it worked. I could do W 64, W
+128, ... all the way to W 1024, which is a bit more than a real quantum computer
+will be able to do for a decade or two. It will do more, but I got bored and the
+execution times got a bit long.
+
+### Sparsity with non-zero values
+
+To save space in the Grover example, I had to allow sparse matrices in which the
+gaps are non-zero. This, too, was a slog, and it made little difference at first
+because the Grover matrices weren't very big -- large examples take too much
+time -- and because I couldn't optimise the dot product, or at least I couldn't
+do it as well as in the zero case. Then I realised that if I allowed negative
+powers of my constant *h* (1/*sqrt*(2), remember) then I could efficiently
+implement multiplication of a symbolic number by a zint. That speeded up the dot
+product, but not as much as I'd hoped. Still, I can do larger Grover examples
+now.
+
+### What a lot of effort
+
+It was a lot of work. I felt quite heroic, at the end of each of the stages.
 
  
 

@@ -232,46 +232,48 @@ let rotate_left qs v = make_first qs v (List.length qs - 1)
 
 let try_split rotate qs (vm,vv as v) =
   let nqs = List.length qs in
-  let nvs = vsize vv in
-  let nzs = countzeros_v z_0 nvs vv in
-  let worth_a_try = Z.(nzs*z_2>=nvs) in (* and I could do stuff with |+>, |-> as well ... *)
-  let rec t_s i qs vv = 
-    if i=nqs then None 
-    else
-      (let nh = nvs /: z_2 in
-       if !verbose_qcalc then 
-         Printf.printf "t_s %s nh=%s nvs=%s countzeros_v z_0 nh=%s countzeros_v nh nvs=%s\n" 
-                            (string_of_qval (qs,(vm,vv)))
-                            (string_of_zint nh) (string_of_zint nvs)
-                            (string_of_zint (countzeros_v z_0 nh vv)) (string_of_zint (countzeros_v nh nvs vv)) ;
-       (* if the first half is all zeros then use nv_one, which is 0+1 *)
-       if countzeros_v z_0 nh vv =: nh then
-         Some (List.hd qs, qcopy nv_one, List.tl qs, (vm, vseg nh nvs vv))
+  if nqs = 1 then None else
+    (let nvs = vsize vv in
+     let nzs = countzeros_v z_0 nvs vv in
+     let worth_a_try = Z.(nzs*z_2>=nvs) in (* and I could do stuff with |+>, |-> as well ... *)
+     let rec t_s i qs vv = 
+       if i=nqs then None 
        else
-       (* if the second half is all zeros then use nv_zero, which is 1+0 *)
-       if countzeros_v nh nvs vv =: nh then
-         Some (List.hd qs, qcopy nv_zero, List.tl qs, (vm, vseg z_0 nh vv))
-       else
-       if rotate then
-         (let qs, (_,vv) = rotate_left qs (vm,vv) in 
-          t_s (i+1) qs vv
+         (let nh = nvs /: z_2 in
+          if !verbose_qcalc then 
+            Printf.printf "t_s %s nh=%s nvs=%s countzeros_v z_0 nh=%s countzeros_v nh nvs=%s\n" 
+                               (string_of_qval (qs,(vm,vv)))
+                               (string_of_zint nh) (string_of_zint nvs)
+                               (string_of_zint (countzeros_v z_0 nh vv)) (string_of_zint (countzeros_v nh nvs vv)) ;
+          (* if the first half is all zeros then use nv_one, which is 0+1 *)
+          if countzeros_v z_0 nh vv =: nh then
+            Some (List.hd qs, qcopy nv_one, List.tl qs, (vm, vseg nh nvs vv))
+          else
+          (* if the second half is all zeros then use nv_zero, which is 1+0 *)
+          if countzeros_v nh nvs vv =: nh then
+            Some (List.hd qs, qcopy nv_zero, List.tl qs, (vm, vseg z_0 nh vv))
+          else
+          if rotate then
+            (let qs, (_,vv) = rotate_left qs (vm,vv) in 
+             t_s (i+1) qs vv
+            )
+          else None
          )
-       else None
-      )
-  in
-  let r = if worth_a_try then t_s 0 qs vv else None in
-  if !verbose_qcalc then
-    Printf.printf "try_split %B %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
-                  rotate
-                  (string_of_qbits qs) (string_of_ket v)
-                  (string_of_zint nzs) (string_of_zint nvs) worth_a_try
-                  (string_of_option (fun (q,k1,qs,k2) -> Printf.sprintf "%s:%s; %s:%s"
-                                                                        (string_of_qbit q) (string_of_ket k1) 
-                                                                        (string_of_qbits qs) (string_of_ket k2) 
-                                    )
-                                    r
-                  );
-  r
+     in
+     let r = if worth_a_try then t_s 0 qs vv else None in
+     if !verbose_qcalc then
+       Printf.printf "try_split %B %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
+                     rotate
+                     (string_of_qbits qs) (string_of_ket v)
+                     (string_of_zint nzs) (string_of_zint nvs) worth_a_try
+                     (string_of_option (fun (q,k1,qs,k2) -> Printf.sprintf "%s:%s; %s:%s"
+                                                                           (string_of_qbit q) (string_of_ket k1) 
+                                                                           (string_of_qbits qs) (string_of_ket k2) 
+                                       )
+                                       r
+                     );
+     r
+    )
   
 let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide the references *)
   let qbitcount = ref 0 in
@@ -387,7 +389,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
     | [q]    -> accept q
     | _      -> let default () = report (); List.iter accept qs in
                 if split then (* try to split it up *)
-                  match try_split !try_rotate qs vq with
+                  match try_split split qs vq with
                   | Some (q,v,qs',v') -> record split ([q], v); record split (qs', v')
                   | _                 -> default ()
                 else default ()
@@ -480,7 +482,7 @@ let ugstep_padded pn qs g gpad =
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
   
      let v'' = mult_gnv g' v' in
-     record false (qs',v'')
+     record !try_rotate (qs',v'')
     )
 
 let ugstep pn qs g = ugstep_padded pn qs g g_I

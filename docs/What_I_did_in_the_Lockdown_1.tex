@@ -1,0 +1,71 @@
+%!TEX TS-program = pdflatexmk -xelatex
+\documentclass[11pt,a4paper]{article}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{subfigure}
+\usepackage[round]{natbib}
+\usepackage[pagebackref]{hyperref}
+
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+
+\newcommand{\stix}[1]{{\fontspec{STIXGeneral-Regular}#1}}
+\newcommand{\stixi}[1]{{\fontspec{STIXGeneral-Italic}#1}}
+\newcommand{\Symbol}[1]{{\fontspec{Apple Symbols}#1}}
+
+\hoffset = 0mm
+\voffset = 0mm
+\textwidth = 165mm
+\textheight = 229mm
+\oddsidemargin = 0.0 in
+\evensidemargin = 0.0 in
+\topmargin = 0.0 in
+\headheight = 0.0 in
+\headsep = 0.0 in
+\parskip = 3pt
+\parindent = 0.0in
+
+\makeatletter
+\renewcommand{\@makefntext}[1]{\setlength{\parindent}{0pt}%
+\begin{list}{}{\setlength{\labelwidth}{1em}%
+  \setlength{\leftmargin}{\labelwidth}%
+  \setlength{\labelsep}{3pt}\setlength{\itemsep}{0pt}%
+  \setlength{\parsep}{0pt}\setlength{\topsep}{0pt}%
+  \footnotesize}\item[\hfill\@makefnmark]#1%
+\end{list}}
+\makeatother
+
+%\newcommand{\greyorcolour}[2]{#2} % #1 highlighting (etc.) for greyscale, #2 for colour
+%\input{rbmacros}
+
+\title{What I did to Qtpi in the Lockdown (part 1)}
+\author{Richard Bornat \\ School of Science and Technology, Middlesex University, London, UK \\ R.Bornat@mdx.ac.uk}
+
+\begin{document}
+\maketitle
+
+I'm well over 75, it's about seven weeks into my personal lockdown, and my main distraction so far has been hacking Qtpi. I've done several things: unicoding, overloading operators, qbit collections, iteration, and sparse vectors and matrices.
+
+\section{Unicoding}
+
+Some of the operators in Qtpi are pretty ugly in their ASCII form, so I switched to a lexer which can do Unicode. Here's what has happened so far
+
+\begin{table}\caption{Unicode symbols}\centering\begin{tabular}{|l|c|c|}\hline 
+\multicolumn{1}{|c|}{Symbol} & Unicode & ASCII \\
+\hline
+tensor product & \Symbol{⊗} & \texttt{><} \\
+\hline
+\end{tabular}\label{unicodetable}\end{table}
+
+
+%%\begin{abstract}
+%%\noindent
+%%
+%%\end{abstract}
+
+\bibliographystyle{plainnat}
+\bibliography{bornat} 
+
+\end{document}

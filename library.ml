@@ -477,8 +477,13 @@ let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c ->
 
 let _qval q =
   let q = qbitv q in
-  let qv = Qsim.qval q in
-  Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv))
+  let qs,v = Qsim.qval q in
+  let qs',v' = Qsim.make_first qs v (Qsim.idx q qs) in
+  let printit q qv = Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv)) in
+  match Qsim.try_split false qs' v' with
+  | Some (q',v,_,_) when q=q' -> printit q ([q],v)
+  | _                         -> printit q (qs,v)
+  
 
 let _qvals qs =
   let qs = qbitsv qs in

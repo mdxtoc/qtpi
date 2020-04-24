@@ -628,10 +628,10 @@ and assigntype_expr cxt t e =
                                (let tn1, tn2, tnout = 
                                   match op with
                                   | Plus
-                                  | Minus       -> let t = Unknown (new_unknown UnkEq) in t, t, t (* uniform overloading *)
-                                  | Times       
-                                  | TensorProd  -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
-                                  | TensorPower -> Unknown (new_unknown UnkEq), Num, Unknown (new_unknown UnkEq)
+                                  | Minus       
+                                  | TensorProd  -> let t = Unknown (new_unknown UnkEq) in t, t, t (* uniform overloading *)
+                                  | TensorPower -> let t = Unknown (new_unknown UnkEq) in t, Num, t
+                                  | Times       -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
                                   | _           -> Num , Num , Num
                                 in
                                 let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
@@ -712,39 +712,20 @@ and assigntype_expr cxt t e =
                                          Ket    -> Ket    -> Ket
                                          Gate   -> Gate   -> Gate
                                          Matrix -> Matrix -> Matrix
+                                      -- so it's uniform
                                      *)
-                                    (match t1.inst, t2.inst, tout.inst with
-                                     | Bra      , Bra      , _ 
-                                     | Ket      , Ket      , _ 
-                                     | Gate     , Gate     , _    
-                                     | Matrix   , Matrix   , _    
-                                     | Bra      , _        , Bra
-                                     | Ket      , _        , Ket
-                                     | Gate     , _        , Gate
-                                     | Matrix   , _        , Matrix   
-                                     | _        , Bra      , Bra 
-                                     | _        , Ket      , Ket 
-                                     | _        , Gate     , Gate     
-                                     | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout
-                                                                           with _ -> bad ()
-                                                                          )
-                                     | Bra      , _        , _          
-                                     | Ket      , _        , _          
-                                     | Gate     , _        , _          
-                                     | Matrix   , _        , _         -> (try unifytypes t1 tout; unifytypes t2 tout;
-                                                                               ovld_warn e2 t1
-                                                                           with _ -> bad ()
-                                                                          )  
-
-                                     | _        , Bra      , _          
-                                     | _        , Ket      , _          
-                                     | _        , Gate     , _          
-                                     | _        , Matrix   , _         -> (try unifytypes t2 tout; unifytypes t1 tout;
-                                                                               ovld_warn e1 t2
-                                                                           with _ -> bad ()
-                                                                          )  
-                                     
-                                     | _                               -> bad ()
+                                    (match t1.inst with
+                                     | Bra       
+                                     | Ket      
+                                     | Gate         
+                                     | Matrix    -> ()
+                                     | Unknown _ -> raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s or %s"
+                                                                                           (string_of_arithop op)
+                                                                                           (string_of_expr e1)
+                                                                                           (string_of_expr e2)
+                                                                  )
+                                                           )       
+                                     | _         -> bad ()
                                     )
                                 | TensorPower ->
                                     (* we currently have the following
@@ -752,25 +733,21 @@ and assigntype_expr cxt t e =
                                          Ket    -> Num    -> Ket
                                          Gate   -> Num    -> Gate
                                          Matrix -> Num    -> Matrix
+                                      -- also uniform
                                      *)
-                                    (match t1.inst, tout.inst with
-                                     | Bra      , _                  
-                                     | Ket      , _                  
-                                     | Gate     , _                  
-                                     | Matrix   , _          
-                                     | _        , Bra      
-                                     | _        , Ket      
-                                     | _        , Gate     
-                                     | _        , Matrix    -> (try unifytypes t1 tout with _ -> bad ())  
-                                     
-                                     | Unknown _, _         -> 
+                                    (match t1.inst with
+                                     | Bra                       
+                                     | Ket                        
+                                     | Gate                       
+                                     | Matrix    -> ()  
+                                     | Unknown _ -> 
                                          raise (Error (e.pos, Printf.sprintf "overloaded %s: cannot deduce type of %s"
                                                                                (string_of_arithop op)
                                                                                (string_of_expr e1)
                                                       )
                                                )
                                      
-                                     | _                    -> bad ()
+                                     | _         -> bad ()
                                     )
                                 | Plus
                                 | Minus       ->

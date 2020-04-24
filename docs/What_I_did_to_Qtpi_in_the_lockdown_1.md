@@ -50,7 +50,7 @@ equivalents are still available.
 | measure               | ⌢̸       | `-/-`         |
 | multi-measure         | ⌢⃫       | \-//-         |
 | not                   | ¬       | `not`         |
-| right arrow           | →       | \-\>          |
+| right arrow           | → | \-\>          |
 | left arrow            | ←       | \<-           |
 | down arrow            | ↓       | no equivalent |
 
@@ -188,19 +188,19 @@ overloading of various operators:
 
  
 
-| Operator          | types                                                      |
-|-------------------|------------------------------------------------------------|
-| unitary minus (-) | *'a* →\* *'a for* num*,* sxnum\*                           |
-| \+, -             | *'a* →\* 'a *→* 'a\* for *num*, *sxnum*, *matrix*          |
-| †                 | *'a* →\* 'a *→* 'a\* for *gate*, *matrix*                  |
-| `*`               | *'a* →\* 'a *→* 'a\* for *num*, *sxnum*, *gate*, *matrix*  |
-|                   | *gate* →\* ket *→* ket\*                                   |
-|                   | *ket* →\* bra *→* matrix\*                                 |
-|                   | *bra* →\* ket *→* sxnum\*                                  |
-|                   | *sxnum* →\* matrix *→* matrix\*                            |
-|                   | *matrix* →\* sxnum *→* matrix\*                            |
-| ⊗                 | \* 'a\* →\* 'a *→* 'a\* for *bra*, *ket*, *gate*, *matrix* |
-| ⊗⊗                | *'a* → *num* →\* 'a\* for *bra*, *ket*, *gate*, *matrix*   |
+| Operator          | types                                               |
+|-------------------|-----------------------------------------------------|
+| unitary minus (-) | 'a → 'a for *num*, *sxnum*                        |
+| \+, -             | 'a → 'a → 'a for *num*, *sxnum*, *matrix*         |
+| †                 | 'a → 'a → 'a for *gate*, *matrix*                 |
+| `*`               | 'a → 'a → 'a for *num*, *sxnum*, *gate*, *matrix* |
+|                   | *gate* → *ket* → *ket*                            |
+|                   | *ket* → *bra* → *matrix*                          |
+|                   | *bra* → *ket* → *sxnum*                           |
+|                   | *sxnum* → *matrix* → *matrix*                     |
+|                   | *matrix* → *sxnum* → *matrix*                     |
+| ⊗                 | 'a → 'a → 'a for *bra*, *ket*, *gate*, *matrix*   |
+| ⊗⊗                | 'a → *num* → 'a for *bra*, *ket*, *gate*, *matrix*  |
 
  
 

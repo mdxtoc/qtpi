@@ -159,8 +159,15 @@ and maybe_dense_v sv n cv =
      let sv',freq = List.hd stats in
      if Z.(freq*z_4>z_3*n) then
        if sv=sv' then vv 
-                 else SparseV (n,sv',sparse_elements_cv sv sv' n cv) (* should this be DenseV?? *)
-     else dense()
+                 else SparseV (n,sv',sparse_elements_cv sv sv' n cv) 
+     else (if !verbose || !verbose_qcalc then
+             Printf.printf "maybe_dense_v %s dense with n=%s sv=%s stats=[\n%s]\n" 
+                  (string_of_vector vv)
+                  (string_of_zint n) 
+                  (string_of_csnum sv) 
+                  (string_of_assoc string_of_csnum string_of_zint ":" ";\n" stats);
+           dense()
+          )
     )
   else dense()
 
@@ -314,7 +321,7 @@ and statistics_v v :(csnum*zint) list =
   (match v with
    | DenseV  dv        -> Array.iter count dv
    | SparseV (n,sv,cv) -> let r = get sv in
-                          r:=!r+:(n-:Z.of_int (List.length cv));
+                          r:=!r+:(n-:zlength cv);
                           List.iter (fun (_,x) -> count x) cv
   );
   let compare (i,fi) (j,fj) = ~-(Z.compare fi fj) in
@@ -746,8 +753,7 @@ let dotprod_cvcv n sva cva svb cvb =
                                                f (vadd (cprod sva y) (svs k j vs)) (j+z_1) cva jys
        | (i,x)::ixs, []         -> f (vadd (cprod x svb) (svs k i vs)) (i+z_1) ixs cvb 
        | []        , (j,y)::jys -> f (vadd (cprod sva y) (svs k j vs)) (j+z_1) cva jys
-       | _                      -> let vs = svs k n vs in
-                                   let r = simplify_csum vs in
+       | _                      -> let r = simplify_csum (svs k n vs) in
                                    if track_dotprod && (!verbose || !verbose_qcalc) then 
                                      Printf.printf "(vs = %s; csum=%s) " (bracketed_string_of_list string_of_csnum vs) (string_of_csnum r); 
                                    r
@@ -810,7 +816,9 @@ let mult_cvvcv nr nc sv rf cf svv cv =
               in
               List.sort Z.compare (ZSet.elements rset)
              )
-           else tabulate (Z.to_int nr) Z.of_int
+           else tabulate (Z.to_int nr) Z.of_int (* if the svs aren't zero, we have to do each row. Rats.
+                                                   But if we had a 'sparse row' notion of cvv ... Hmm.
+                                                 *)
   in
   maybe_dense_v sv' nr (List.rev (List.fold_left do_row [] rs))
   

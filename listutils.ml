@@ -71,6 +71,8 @@ let string_of_assoc fx fy colon semicolon xys =
 
 let numbered xs = Array.to_list (Array.mapi (fun i x -> i,x) (Array.of_list xs))
 
+let zlength xs = Z.of_int (List.length xs)
+
 let tabulate n f = 
   let rec tab acc i = 
     if i<n then tab (f i::acc) (i+1) else List.rev acc

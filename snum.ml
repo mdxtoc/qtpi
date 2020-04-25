@@ -391,26 +391,49 @@ and simplify_sum ss =
                If it all works then we should allow also for j=0, and the whole mess
                prefixed with f (but not g, because of simplify_prod).
              *)
+            (* and for confluence, dammit, I have to do the h(j)+h(j+2) = h(j-2)-h(j+2) thing. Rats. *)
             | S_h j      ::  ss  
                     when List.exists ((=) (S_neg (S_h (j+2)))) ss
                                                   -> sp true (S_h (j+2)::r) (Listutils.remove (S_neg (S_h (j+2))) ss)
+            | S_h j      ::  ss  
+                    when List.exists ((=) (S_h (j+2))) ss
+                                                  -> sp true (S_neg (S_h (j+2))::S_h (j-2)::r) (Listutils.remove (S_h (j+2)) ss)
             | S_neg (S_h j) :: ss  
                     when List.exists ((=) (S_h (j+2))) ss  
                                                   -> sp true (S_neg (S_h (j+2))::r) (Listutils.remove (S_h (j+2)) ss)
+            | S_neg (S_h j) :: ss  
+                    when List.exists ((=) (S_neg (S_h (j+2)))) ss  
+                                                  -> sp true (S_h (j+2)::S_neg (S_h (j-2))::r) (Listutils.remove (S_neg (S_h (j+2))) ss)
             | S_prod (S_h j :: s1s) :: ss
                     when List.exists ((=) (S_neg (S_prod (S_h (j+2) :: s1s)))) ss                 
                                                   -> sp true (S_prod (S_h (j+2) :: s1s)::r) 
                                                              (Listutils.remove (S_neg (S_prod (S_h (j+2) :: s1s))) ss)
+            | S_prod (S_h j :: s1s) :: ss
+                    when List.exists ((=) (S_prod (S_h (j+2) :: s1s))) ss                 
+                                                  -> sp true (S_neg (S_prod (S_h (j+2) :: s1s))::(S_prod (S_h (j-2) :: s1s))::r) 
+                                                             (Listutils.remove (S_prod (S_h (j+2) :: s1s)) ss)
             | S_neg (S_prod (S_h j :: s1s)) :: ss
                     when List.exists ((=) (S_prod (S_h (j+2) :: s1s))) ss                 
                                                   -> sp true (S_neg (S_prod (S_h (j+2) :: s1s)) :: r) 
                                                              (Listutils.remove (S_prod (S_h (j+2) :: s1s)) ss)
+            | S_neg (S_prod (S_h j :: s1s)) :: ss
+                    when List.exists ((=) (S_neg (S_prod (S_h (j+2) :: s1s)))) ss                 
+                                                  -> sp true (S_prod (S_h (j+2) :: s1s) :: S_neg (S_prod (S_h (j-2) :: s1s)) :: r) 
+                                                             (Listutils.remove (S_prod (S_h (j+2) :: s1s)) ss)
+            (* the next four are backwards ... *)
             | (S_prod (S_h 2 :: s1s) as s1) :: ss  
                    when List.exists ((=) (S_neg (make_prod s1s))) ss 
                                                   -> sp true (S_neg s1::r) (Listutils.remove (S_neg (make_prod s1s)) ss)
+            | (S_prod (S_h 2 :: s1s) as s1) :: ss  
+                   when List.exists ((=) (make_prod s1s)) ss 
+                                                  -> sp true (S_neg s1::S_prod (S_h (-2) :: s1s)::r) (Listutils.remove (S_neg (make_prod s1s)) ss)
             | (S_neg (S_prod (S_h 2 :: s1s) as s1)) :: ss  
                    when List.exists ((=) (make_prod s1s)) ss  
                                                   -> sp true (s1::r) (Listutils.remove (make_prod s1s) ss)
+            | (S_neg (S_prod (S_h 2 :: s1s) as s1)) :: ss  
+                   when List.exists ((=) (S_neg (make_prod s1s))) ss  
+                                                  -> sp true (s1::S_neg (S_prod (S_h (-2) :: s1s))::r) (Listutils.remove (S_neg (make_prod s1s)) ss)
+            (* and no more about hs for a while *)
             | S_prod (S_f :: S_h (-1) :: s1s) :: ss
                    when List.exists ((=) (S_neg (make_prod (S_f :: s1s)))) ss
                                                   -> sp true (make_prod (S_g :: s1s) :: r) 

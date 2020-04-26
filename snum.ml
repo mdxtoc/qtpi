@@ -339,10 +339,10 @@ and simplify_sum ps =
                                                       | Some (s,ps) -> sp true (s@r) ps
                                                       | None        -> sp again (p1::r) (p2::ps)
                                                      )
-            (* last desperate throw: a^2+b^2 *) (* shouldn't happen here *)
-            | p                  :: _             -> (match a2b2 p ps with
+            (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
+            | p                  :: ps            -> (match a2b2 p ps with
                                                       | Some (p', ps') -> sp true (p'::r) ps'
-                                                      | None         -> sp again (p::r) ps
+                                                      | None           -> sp again (p::r) ps
                                                      )
             | []                                  -> if again then doit r else sort prodcompare r
           and doit ps = sp false [] (sort prodcompare ps)

@@ -115,49 +115,57 @@ let isneg_snum : snum -> bool = function
   | sprod::_ -> isneg_sprod sprod
   | []       -> false (* because it's zero *)
   
-let rec string_of_snum (s:snum) = 
-  let prodstrings = List.map string_of_prod s in
-  let ensign str = if str.[0]='-' then str else "+" ^ str in
-  match prodstrings with
-  | []        -> "0"
-  | [str]     -> str
-  | str::strs -> str ^ (String.concat "" (List.map ensign strs))
+let string_of_el_struct = function
+  | S_f         -> "f"            
+  | S_g         -> "g"
+  | S_symb symb -> let a,b = symb.secret in
+                   Printf.sprintf "{id=%d; alpha=%B; conj=%B secret=(%f,%f)}" 
+                            symb.id symb.alpha symb.conj a b
 
-and string_of_prod = function
+let string_of_els_struct = bracketed_string_of_list string_of_el_struct
+
+let string_of_prod_struct = bracketed_string_of_triple string_of_bool string_of_int string_of_els_struct 
+
+let string_of_snum_struct = bracketed_string_of_list string_of_prod_struct 
+
+let string_of_snum_structs = bracketed_string_of_list string_of_snum_struct 
+
+let string_of_el = 
+  if !fancynum then
+    function
+    | S_f         -> "f"            
+    | S_g         -> "g"
+    | S_symb symb -> Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
+                                (string_of_int symb.id) 
+                                (if symb.conj then "†" else "")
+                                (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
+  else string_of_el_struct
+  
+let string_of_els = if !fancynum then String.concat "*" <.> List.map string_of_el else string_of_els_struct
+
+let rec string_of_prod p = 
+  if !fancynum then
+    match p with
     | true, hn, els  -> "-" ^ string_of_prod (false, hn, els)
     | _   , 0 , []   -> "1"
     | _   , 1 , []   -> "h"
     | _   , hn, []   -> Printf.sprintf "h(%d)" hn
-    | _   , 0 , els  -> string_of_sn_els els
-    | _   , hn, els  -> Printf.sprintf "%s*%s" (string_of_prod (false,hn,[])) (string_of_sn_els els)
-
-and string_of_s_symb symb =
-    Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
-                              (string_of_int symb.id) 
-                              (if symb.conj then "†" else "")
-                              (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
-
-and string_of_sn_el = function
-  | S_f         -> "f"            
-  | S_g         -> "g"
-  | S_symb symb -> string_of_s_symb symb
-
-and string_of_sn_els els = String.concat "*"( List.map string_of_sn_el els)
+    | _   , 0 , els  -> string_of_els els
+    | _   , hn, els  -> Printf.sprintf "%s*%s" (string_of_prod (false,hn,[])) (string_of_els els)
+  else string_of_prod_struct p
+  
+let string_of_snum (s:snum) = 
+  if !fancynum then
+  (let prodstrings = List.map string_of_prod s in
+   let ensign str = if str.[0]='-' then str else "+" ^ str in
+   match prodstrings with
+   | []        -> "0"
+   | [str]     -> str
+   | str::strs -> str ^ (String.concat "" (List.map ensign strs))
+  )
+  else string_of_snum_struct s
 
 let string_of_snums = bracketed_string_of_list string_of_snum
-
-let string_of_snum_struct = 
-  let so_el_struct = function
-    | S_symb symb -> let a,b = symb.secret in
-                     Printf.sprintf "{id=%d; alpha=%B;%s secret=(%f,%f)}" 
-                              symb.id symb.alpha (if !complexunknowns then Printf.sprintf " conj=%B;" symb.conj else "") a b
-    | el          -> string_of_sn_el el
-  in
-  let so_els_struct = bracketed_string_of_list so_el_struct in
-  let so_prod_struct = bracketed_string_of_triple string_of_bool string_of_int so_els_struct in
-  bracketed_string_of_list so_prod_struct 
-
-let string_of_snum_structs = bracketed_string_of_list string_of_snum_struct 
 
 let rec sum_separate = function
   | s1::s2::ss -> if Stringutils.starts_with s2 "-" then s1 ^ sum_separate (s2::ss) 

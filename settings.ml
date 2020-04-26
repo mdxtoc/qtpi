@@ -39,6 +39,8 @@ let checkrandombias = ref false
 
 let complexunknowns = ref true
 
+let fancynum = ref true
+
 let fancyvec = ref true
 
 let func_matrices = ref true

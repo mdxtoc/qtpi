@@ -243,7 +243,7 @@ and map_v f = function
      union [] cvA cvB
  *)
  
-and string_of_nv bksign = 
+and string_of_nv bksign (vm, vv) = 
   let so_v v =
     if !Settings.fancyvec then 
       (let n = vsize v in
@@ -259,10 +259,10 @@ and string_of_nv bksign =
          Printf.sprintf (match bksign with PVBra -> "<%s|" | PVKet -> "|%s>") (string_of_bin i)
        in
        let mustbracket (C(real,im)) = 
-         (* all but simple real sums are bracketed in string_of_csnum *)
+         (* bracket real sums: everything else is bracketed in csnum *)
          match real, im with
-         | S_sum _, S_0 -> true
-         | _            -> false
+         | _::_::_, [] -> true
+         | _           -> false
        in
        let estringf ss (i,x) = match string_of_csnum x with
                            | "0"  -> ss
@@ -289,29 +289,29 @@ and string_of_nv bksign =
                              Printf.sprintf "DenseV⟨%s⟩" (String.concat "," estrings)
       | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s[%s])" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
   in
-  let normalised_sign vv = 
-    let doit x = 
-      try match (string_of_csnum x).[0] with
-          | '-' -> so_v (map_v cneg vv)
-          | _   -> so_v vv 
-      with exn -> Printf.eprintf "doit got it\n"; flush_all(); raise exn
-    in
-    match vv with
-    | SparseV (_, sv, (i,x)::_) -> if sv=c_0 || i=z_0 then doit x else doit sv
-    | SparseV (n, sv, []      ) -> doit sv
-    | DenseV  v                 -> let xs = dropwhile ((=) c_0) (Array.to_list v) in
-                                   match xs with
-                                   | x::xs -> doit x
-                                   | []    -> so_v vv
-  in
-  function
-  | S_h 0, vv -> normalised_sign vv
-  | vm , vv -> Printf.sprintf "<<%s>>%s" (string_of_snum vm) (normalised_sign vv)
+  (* since splitting the state is now not a normal thing, we don't need this ...
+     let normalised_sign vv = 
+       let doit x = 
+         try match (string_of_csnum x).[0] with
+             | '-' -> so_v (map_v cneg vv)
+             | _   -> so_v vv 
+         with exn -> Printf.eprintf "doit got it\n"; flush_all(); raise exn
+       in
+       match vv with
+       | SparseV (_, sv, (i,x)::_) -> if sv=c_0 || i=z_0 then doit x else doit sv
+       | SparseV (n, sv, []      ) -> doit sv
+       | DenseV  v                 -> let xs = dropwhile ((=) c_0) (Array.to_list v) in
+                                      match xs with
+                                      | x::xs -> doit x
+                                      | []    -> so_v vv
+     in
+   *)
+  if vm=snum_1 then so_v vv else Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_v vv)
   
 and string_of_bra b = string_of_nv PVBra b
 and string_of_ket k = string_of_nv PVKet k
 
-and string_of_vector v = string_of_ket (S_h 0,v)
+and string_of_vector v = string_of_ket (snum_1,v)
 
 (* with sparse vectors, we can have some seriously large ones ... *)
 and statistics_v v :(csnum*zint) list =
@@ -444,19 +444,12 @@ let rowfopt_m = function
                        
 (* ********************** build vectors, matrices, gates ******************************* *)
 
-let minus  (C (x,y)) = (* only for local use, please *)
-  let negate = function
-    | S_0 -> S_0
-    | s   -> S_neg s
-  in
-  C (negate x, negate y) 
-
-let make_nv ss = S_h 0, DenseV (Array.of_list ss)
+let make_nv ss = snum_1, DenseV (Array.of_list ss)
 
 let nv_zero  = make_nv [c_1   ; c_0         ]
 let nv_one   = make_nv [c_0   ; c_1         ]
 let nv_plus  = make_nv [c_h   ; c_h         ]
-let nv_minus = make_nv [c_h   ; minus c_h   ]
+let nv_minus = make_nv [c_h   ; cneg c_h    ]
 
 let nv_1 = make_nv [c_1] (* a unit for folding *)
 let nv_0 = make_nv [c_0] (* another unit for folding *)
@@ -475,24 +468,24 @@ let g_I  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; c_1        ]] 
 let g_X  = make_g   [[c_0       ; c_1        ];
                      [c_1       ; c_0        ]] 
-let g_Y  = make_g   [[c_0       ; minus c_i  ];
+let g_Y  = make_g   [[c_0       ; cneg c_i   ];
                      [c_i       ; c_0        ]]
 let g_Z  = make_g   [[c_1       ; c_0        ];
-                     [c_0       ; minus c_1  ]] 
+                     [c_0       ; cneg c_1   ]] 
 let g_H  = make_g   [[c_h       ; c_h        ];
-                     [c_h       ; minus (c_h)]]
+                     [c_h       ; cneg (c_h) ]]
                      
 (* these two are intended to be like rotations. Unlike H, Rz*Rz<>I *)
 
-let g_Rz = make_g   [[c_f       ; minus c_g  ];
+let g_Rz = make_g   [[c_f       ; cneg c_g   ];
                      [c_g       ; c_f        ]]
-let g_G  = make_g   [[c_g       ; minus c_f  ];
+let g_G  = make_g   [[c_g       ; cneg c_f   ];
                      [c_f       ; c_g        ]]
 
 (* experimental Rx(pi/8) gate *)
 
-let g_Rx = make_g   [[c_1       ; c_0        ];
-                     [c_0       ; C(S_f,S_g) ]]
+let g_Rx = make_g   [[c_1       ; c_0              ];
+                     [c_0       ; C(snum_f,snum_g) ]]
                      
 let g_Phi = function (* as Pauli *)
   | 0 -> g_I
@@ -555,9 +548,10 @@ let func_I (n:int) =
     )
 
 let func_H (n:int) = 
-  Z.(let sn = S_h n in
+  Z.(let sn = snum_h n in
+     let negsn = rneg sn in
      let f i j = 
-       C ((if Stdlib.(land) (popcount (i land j)) 1 = 1 then S_neg sn else sn), S_0)
+       C ((if Stdlib.(land) (popcount (i land j)) 1 = 1 then negsn else sn), snum_0)
      in
      let gsize = z_1 lsl n in
      FuncM ((Printf.sprintf "H⊗⊗%d" n), gsize, gsize, f, None)
@@ -843,7 +837,7 @@ let mult_mv m v =
                default ()
   in
   if !verbose_qcalc then 
-    (Printf.printf "%s\n" (string_of_ket (S_h 0, v')); flush_all ());
+    (Printf.printf "%s\n" (string_of_ket (snum_1, v')); flush_all ());
   v'
 
 let mult_gnv g (n,v) = n, mult_mv (matrix_of_gate g) v
@@ -925,7 +919,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                                                  (string_of_ket k) (string_of_bra b)
                           )
                    );
-           if bm<>S_h 0 || km<>S_h 0 then 
+           if bm<>snum_1 || km<>snum_1 then 
              raise (Error (Printf.sprintf "bra*ket multiplication with non-unit modulus\n%s\n%s"
                                                  (string_of_ket k) (string_of_bra b)
                           )

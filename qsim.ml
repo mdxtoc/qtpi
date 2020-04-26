@@ -305,8 +305,8 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
                                  let pa_sq = Random.float 1.0 in
                                  let pb_sq = 1.0 -. pa_sq in
                                  let ab = sqrt(pa_sq), sqrt(pb_sq) in
-                                 make_nv [csnum_of_snum (S_symb {id=q; alpha=false; conj=false; secret=ab}); 
-                                          csnum_of_snum (S_symb {id=q; alpha=true;  conj=false; secret=ab})
+                                 make_nv [csnum_of_snum (snum_symb {id=q; alpha=false; conj=false; secret=ab}); 
+                                          csnum_of_snum (snum_symb {id=q; alpha=true;  conj=false; secret=ab})
                                          ] 
                                 )
                               else (* random basis, random fixed value *)
@@ -494,20 +494,21 @@ let fp_f = sqrt fp_f2
 let fp_g2 = (1.0 -. fp_h) /. 2.0
 let fp_g = sqrt fp_g2
 
-let rec compute = function
-  | S_0         -> 0.0
-  | S_f         -> fp_f
-  | S_g         -> fp_g
-  | S_h i       -> (match i with
-                    | 0             -> 1.0
-                    | 1             -> fp_h
-                    | _ when i<0    -> 1.0 /. compute (S_h (~-i))
-                    | _             -> fp_h2 *. compute (S_h (i-2))
-                   )             
-  | S_symb symb  -> let a,b = symb.secret in if symb.alpha then b else a
-  | S_neg  p     -> ~-. (compute p)
-  | S_prod ss    -> List.fold_left ( *. ) 1.0 (List.map compute ss)
-  | S_sum  ss    -> List.fold_left ( +. ) 0.0 (List.map compute ss)
+let rec compute = 
+  let rec compute_h = function
+    | 0             -> 1.0
+    | 1             -> fp_h
+    | i when i<0    -> 1.0 /. compute_h (~-i) 
+    | i             -> fp_h2 *. compute_h (i-2)
+  and compute_prod = function
+    | false, hn, els -> compute_h hn *. (List.fold_left ( *. ) 1.0 (List.map compute_el els))
+    | true , hn, els -> ~-. (compute_prod (false, hn, els))
+  and compute_el = function
+    | S_f         -> fp_f
+    | S_g         -> fp_g
+    | S_symb symb -> let a,b = symb.secret in if symb.alpha then b else a
+  in
+  List.fold_left ( +. ) 0.0 <.> List.map compute_prod
 
 let paranoid = false
 let _zeroes = ref z_0
@@ -595,19 +596,19 @@ let rec qmeasure disposes pn gate q =
        );
      let nv = nvhalf in
      let vm', vv = 
-       match modulus with
-       | S_h 0              -> S_h 0, vv
-       | S_h k  when k mod 2 = 0 
+       match modulus with (* modulus is sum of squares, always positive *)
+       | [_,0,[]]           -> snum_1, vv
+       | [_,k,[]] when k mod 2 = 0 
                             -> let n = k/2 in (* h(n) is sqrt modulus -- multiply by h(-n) *)
-                               S_h 0, mult_nv (csnum_of_snum (S_h (-n))) vv
+                               snum_1, mult_nv (csnum_of_snum (snum_h (~-n))) vv
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)
        | _                  -> 
-           (* is there just one possibility? If so, set it to S_h 0. And note: normalise 1 *)
+           (* is there just one possibility? If so, set it to snum_1. And note: normalise 1 *)
            if nv -: countzeros_v z_0 nv vv = z_1 then
              let cv = sparse_elements_v c_0 vv in
-              S_h 0, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
+              snum_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
            else
              (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
                 (Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 

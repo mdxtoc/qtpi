@@ -35,6 +35,7 @@
 cd ~/gitrepositories/qtpi
 eval $(opam env) # to get the ocaml stuff into the path
 
+
 make clean
 make links
 
@@ -77,13 +78,13 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp  # works, but sticks because 
 # but with -complexunknowns true, which is the default, it panics:
 #
 # initially Alice's z is #2:((-h(2)*b2+i*(-h*a2+h(2)*b2))|0&gt;+(h(2)*b2+i*(-h*a2-h(2)*b2))|1&gt;)
-# interpreter step () sees exception Snum.Disaster("|(-h(4)*b2+i*(-h(3)*a2+h(4)*b2))|^2 is ((-h(4)*b2+i*(-h(3)*a2+h(4)*b2)))*((-h(4)*b2!+i*(h(3)*a2!-h(4)*b2!))) = (h(6)-h(7)*a2*b2!-h(7)*a2!*b2+i*(h(7)*a2*b2!-h(7)*a2!*b2))")
+# interpreter step () sees exception Snum.Disaster("|(-h(4)*b2+i*(-h(3)*a2+h(4)*b2))|^2 is ((-h(4)*b2+i*(-h(3)*a2+h(4)*b2)))*((-h(4)*b2†+i*(h(3)*a2†-h(4)*b2†))) = (h(6)-h(7)*a2*b2†-h(7)*a2†*b2+i*(h(7)*a2*b2†-h(7)*a2†*b2))")
 #
 # Its complaint is that the squared modulus doesn't look like a real number: it's got
-# an 'i' in it, after all. But ... it does simplify, because (x-x!)/2 = Re x and
-# (x+x!)/2i = Im x, into
+# an 'i' in it, after all. But ... it does simplify, because (x-x†)/2 = Re x and
+# (x+x†)/2i = Im x, into
 # 
-# (h(6)-h(7)*2*Re(a2*b2!))+i*(h(7)*2*i*Im(a2*b2!)) = h(6) - h(5)*(Re(a2*b2!)-Im(a2*b2!))
+# (h(6)-h(7)*2*Re(a2*b2†))+i*(h(7)*2*i*Im(a2*b2†)) = h(6) - h(5)*(Re(a2*b2†)-Im(a2*b2†))
 # 
 # -- which is at least a real number. Qtpi is not able to support that simplification (yet).
 # 

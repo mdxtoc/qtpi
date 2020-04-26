@@ -287,7 +287,7 @@ and string_of_nv bksign (vm, vv) =
       match v with
       | DenseV  v         -> let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
                              Printf.sprintf "DenseV⟨%s⟩" (String.concat "," estrings)
-      | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s[%s])" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
+      | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s,%s)" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
   in
   (* since splitting the state is now not a normal thing, we don't need this ...
      let normalised_sign vv = 

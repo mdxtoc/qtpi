@@ -374,10 +374,11 @@ module SnumHash = MyHash.Make (SnumH)
 
 let memofunProb f str = 
   let table = SnumHash.create 100 in
-  SnumHash.memofun table (fun s -> if !verbose || !verbose_simplify 
-                                                     then Printf.printf "memofun %s (%s)\n" str (string_of_snum s); 
-                                                   f s
-                                         )
+  SnumHash.memofun table (fun s -> let r = f s in
+                                   if !verbose || !verbose_simplify || !verbose_memo then 
+                                      Printf.printf "memofun %s (%s) -> %s\n" str (string_of_snum s) (string_of_snum r); 
+                                   r
+                         )
 
 let memofun2Prob f str = 
   let t1 = SnumHash.create 100 in
@@ -385,7 +386,7 @@ let memofun2Prob f str =
     (fun s1 -> let t2 = SnumHash.create 100 in
                SnumHash.memofun t2 
                  (fun s2 -> let r = f s1 s2 in
-                            if !verbose || !verbose_simplify 
+                            if !verbose || !verbose_simplify || !verbose_memo 
                             then Printf.printf "memofun2 %s (%s) (%s) -> %s\n" 
                                                str 
                                                (string_of_snum s1) 
@@ -429,7 +430,18 @@ let rec rsum s1 s2 =
     | _                 -> raw_rsum s1 s2 *)
     | _                 -> memo_rsum s1 s2
   else
-    raw_rsum s1 s2
+    memo_rsum s1 s2
+
+(* memoising simplify_sum slows things down, at least in Grover ... *)
+let raw_simplify_sum = simplify_sum  
+let memo_simplify_sum = memofunProb simplify_sum "simplify_sum"
+
+let memoise_simplify_sum = false
+
+let simplify_sum =
+  if !Settings.memoise && memoise_simplify_sum then memo_simplify_sum
+  else raw_simplify_sum 
+
   
 (* *********************** complex arith in terms of reals ************************************ *)
 

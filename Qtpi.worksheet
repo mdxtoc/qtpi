@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CurrentWorkingDirectory</key>
+	<string>/Users/richard/gitrepositories/qtpi</string>
 	<key>WorksheetContents</key>
 	<string>#    Copyright (C) 2018 Richard Bornat
 #     
@@ -32,7 +34,6 @@
 
 cd ~/gitrepositories/qtpi
 eval $(opam env) # to get the ocaml stuff into the path
-
 
 make clean
 make links

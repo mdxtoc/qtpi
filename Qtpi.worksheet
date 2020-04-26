@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CurrentWorkingDirectory</key>
-	<string>/Users/richard/gitrepositories/qtpi</string>
 	<key>WorksheetContents</key>
 	<string>#    Copyright (C) 2018 Richard Bornat
 #     
@@ -117,7 +115,7 @@ time ./Qtpi -show_final examples/BB84_QBC_untyped.qtp
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...
 # and each extra qbit makes it more than 4 times slower. The time is all in the measurement ...
-# trying 18: bound to fail!
+# trying 18: with sparse vectors and matrices doesn't fail, but does take ages.
 
 time ./Qtpi examples/Warwick/test.qtp
 time ./Qtpi examples/Warwick/newtest.qtp

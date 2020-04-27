@@ -812,59 +812,24 @@ module CsnumsHash = MyHash.Make (CsnumsH)
 (* this is the point of SparseV (and partly SparseM and FuncM): multiplying sparse row by sparse column. *)
 
 (* gives a vector *)
+(* I did some experimentation with Grover. Unless sv=c_0 && svv=c_0, there was nothing I could do that made an improvement *)
 let mult_cvvcv nr nc sv rf cf svv cv = 
-  let zsparse = sv=c_0 && svv=c_0 in
-  let do_row sv' nxs i = 
-    let x = dotprod_cvcv nc sv (rf i) svv cv in
-    if x=sv' then nxs else (i,x)::nxs
-  in
-  (* find the rows where the matrix has a non-sparse value that multiplies a non-sparse value in in cv *)
-  let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
-                                                              rset 
-                                                              (cf c)
-                            ) 
-                            ZSet.empty 
-                            cv 
-  in
-  if Z.of_int (ZSet.cardinal rset) <: nr then (* let's hope *)
-    if zsparse then
-      (let rs = List.sort Z.compare (ZSet.elements rset) in
-       maybe_dense_v c_0 nr (List.rev (List.fold_left (do_row c_0) [] rs))
-      )
-    else
-      (* try to avoid building a vector with the wrong sv. This mechanism runs through
-         the rows twice: once to compute the non-rset rows, finding sv; then again
-         through all the rows, building the vector.
-       *)
-      (let vec = List.map snd cv in
-       let vecv = simplify_csum (List.map (cprod sv) vec) in
-       let nv = zlength vec in
-       let sv_gap = cprod sv svv in
-       let do_other_row (row:csnum list) =
-         let rowv = simplify_csum (List.map (cprod svv) row) in
-         let gapv = cmult_zint sv_gap (nc-:nv-:zlength row) in
-         simplify_csum [rowv; gapv; vecv]
-       in
-       (* memoise do_other_row *)
-       let dorow_tab = CsnumsHash.create 1000 in
-       let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
-       (* count the 'other' results, find sv' *)
-       let stats_tab = stats_init 1000 in
-       let count = stats_inc stats_tab z_1 in
-       _forZ z_0 z_1 nr (fun r ->
-           if ZSet.mem r rset then ()
-           else count (do_other_row (List.map snd (rf r)))
-         );
-       let sv',_ = List.hd (stats_to_list stats_tab) in
-       let xs = _for_fold_leftZ z_0 z_1 nr [] (fun xs r ->
-                    if ZSet.mem r rset then do_row sv' xs r
-                    else (let x = do_other_row (List.map snd (rf r)) in
-                          if x=sv' then xs else (r,x)::xs
-                         )
-                  )
-       in
-       maybe_dense_v sv' nr (List.rev xs)
-      )
+  if sv=c_0 && svv=c_0 then
+    (let do_row nxs i = 
+       let x = dotprod_cvcv nc sv (rf i) svv cv in
+       if x=c_0 then nxs else (i,x)::nxs
+     in
+     (* find the rows where the matrix has a non-zero value that multiplies a non-zero value in cv *)
+     let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
+                                                                 rset 
+                                                                 (cf c)
+                               ) 
+                               ZSet.empty 
+                               cv 
+     in
+     let rs = List.sort Z.compare (ZSet.elements rset) in
+     maybe_dense_v c_0 nr (List.rev (List.fold_left do_row [] rs))
+    )
   else (* row by row, we have to *)
     maybe_sparse_v (Array.init (Z.to_int nr) (fun r -> dotprod_cvcv nc sv (rf (Z.of_int r)) svv cv))
   

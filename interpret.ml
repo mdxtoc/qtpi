@@ -620,314 +620,320 @@ let rec interp env proc =
               if assoc''<>[] then Printf.sprintf "\n  binds %s" (string_of_monassoc "=" string_of_value assoc'')
               else ""
             in
-            (match rproc.inst with
-             | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
-             | GoOnAs (gpn, es) -> 
-                 (let vs = List.map (evale env) es in
-                  try (match env<@>tinst gpn with
-                       | VProcess (n, er, ns, proc) -> 
-                           let locals = zip ns vs in
-                           let env = monenv_of_lg locals !er in
-                           deleteproc pn;
-                           let gpn' = addnewproc n in
-                           addrunner (gpn', proc, env);
-                           if !traceId then trace (EVChangeId (pn, [gpn']));
-                           if !pstep then
-                             show_pstep (Printf.sprintf "%s(%s)" 
-                                                        (tinst gpn) 
-                                                        (string_of_list short_string_of_value "," vs)
-                                        )
-                       | v -> mistyped rproc.pos (string_of_name (tinst gpn)) v "a process"
-                      )  
-                  with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name (tinst gpn)))
-                 )
-             | WithNew ((traced, ps), proc) ->
-                 let ps' = List.map (fun n -> (n, newchan traced)) (names_of_params ps) in
-                 let env' = List.fold_left (<@+>) env ps' in
-                 addrunner (pn, proc, env');
-                 if !pstep then 
-                   show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
-             | WithQbit (plural, qss, proc) -> (* currently assume plural: soon to be generalised *)
-                 let ket_eval vopt = vopt &~~ (_Some <.> ketv <.> evale env) in
-                 let qss' = List.map (fun (par,vopt) -> let n = name_of_param par in 
-                                                        let kopt = ket_eval vopt in
-                                                        (n, kopt, newqbits pn n kopt)
-                                     ) 
-                                     qss 
-                 in
-                 let do_q env (n, kopt, qs) =
-                   match plural, qs with
-                   | true , qs  -> env <@+> (n, VQbits qs)
-                   | false, [q] -> env <@+> (n, VQbit q)
-                   | false, qs  -> raise (Error (rproc.pos, Printf.sprintf "single qbit %s cannot be initialised to %s"
-                                                                                  (string_of_name n)
-                                                                                  (string_of_ket (_The kopt))
-                                                )
-                                         )
-                 in
-                 let env' = List.fold_left do_q env qss' in
-                 addrunner (pn, proc, env');
-                 if !pstep then 
-                   show_pstep (Printf.sprintf "(newq %s)\n%s" (commasep (List.map string_of_qspec qss)) (pstep_state env'))
-             | WithLet ((pat,e), proc) ->
-                 let v = evale env e in
-                 addrunner (pn, proc, bmatch env pat v);
-                 if !pstep then 
-                   show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
-             | WithProc ((brec,pn',params,proc),p) ->
-                 let er = ref env in
-                 let procv = VProcess (tinst pn', er, names_of_params params, proc) in
-                 let env = env<@+>(tinst pn', procv) in
-                 if brec then er := env;
-                 addrunner (pn, p, env)
-             | WithQstep (qstep, proc) ->
-                 (let qeval e =
-                    match evale env e with
-                    | VQbit  q  -> [q]
-                    | VQbits qs -> qs 
-                    | _         -> raise (Disaster (e.pos, Printf.sprintf "%s is not qbit/qbits" (string_of_expr e)))
-                 in
-                  match qstep.inst with
-                  | Measure (plural, e, gopt, pat) -> 
-                      let qs = qeval e in
-                      (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
-                      let disposed = !measuredestroys in
-                      let aqs = 
-                        if !traceevents then 
-                          let allqs = fst (qval_of_qs qs) in
-                          List.fold_left (fun qs q -> if disposed then Listutils.remove q qs else qs)
-                                         allqs
-                                         qs
-                        else 
-                          qs
-                      in
-                      let gv = (gateev env ||~~ g_I) gopt in
-                      let vs = List.map (fun q -> vbit (qmeasure disposed pn gv q = 1)) qs in
-                      if !traceevents then trace (EVMeasure (pn, qs, gv, vs, tev aqs));
-                      let env' = bmatch env pat (if plural then VList vs else List.hd vs) in
+              ((try
+                  match rproc.inst with
+                  | Terminate           -> deleteproc pn; if !pstep then show_pstep "_0"
+                  | GoOnAs (gpn, es) -> 
+                      (let vs = List.map (evale env) es in
+                       try (match env<@>tinst gpn with
+                            | VProcess (n, er, ns, proc) -> 
+                                let locals = zip ns vs in
+                                let env = monenv_of_lg locals !er in
+                                deleteproc pn;
+                                let gpn' = addnewproc n in
+                                addrunner (gpn', proc, env);
+                                if !traceId then trace (EVChangeId (pn, [gpn']));
+                                if !pstep then
+                                  show_pstep (Printf.sprintf "%s(%s)" 
+                                                             (tinst gpn) 
+                                                             (string_of_list short_string_of_value "," vs)
+                                             )
+                            | v -> mistyped rproc.pos (string_of_name (tinst gpn)) v "a process"
+                           )  
+                       with Not_found -> raise (Error (dummy_spos, "** Disaster: no process called " ^ string_of_name (tinst gpn)))
+                      )
+                  | WithNew ((traced, ps), proc) ->
+                      let ps' = List.map (fun n -> (n, newchan traced)) (names_of_params ps) in
+                      let env' = List.fold_left (<@+>) env ps' in
                       addrunner (pn, proc, env');
                       if !pstep then 
-                        show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
-                                                              (pstep_state env')
-                                                              (pstep_env env' env)
-                                   )
-                  | Through (plural, es, g)      -> 
-                      let qs = List.concat (List.map qeval es) in
-                      let g = gateev env g in
-                      let qvs = if !traceevents then tev qs else [] in
-                      ugstep pn qs g;
-                      addrunner (pn, proc, env);
-                      if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
+                        show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps)))
+                  | WithQbit (plural, qss, proc) -> (* currently assume plural: soon to be generalised *)
+                      let ket_eval vopt = vopt &~~ (_Some <.> ketv <.> evale env) in
+                      let qss' = List.map (fun (par,vopt) -> let n = name_of_param par in 
+                                                             let kopt = ket_eval vopt in
+                                                             (n, kopt, newqbits pn n kopt)
+                                          ) 
+                                          qss 
+                      in
+                      let do_q env (n, kopt, qs) =
+                        match plural, qs with
+                        | true , qs  -> env <@+> (n, VQbits qs)
+                        | false, [q] -> env <@+> (n, VQbit q)
+                        | false, qs  -> raise (Error (rproc.pos, Printf.sprintf "single qbit %s cannot be initialised to %s"
+                                                                                       (string_of_name n)
+                                                                                       (string_of_ket (_The kopt))
+                                                     )
+                                              )
+                      in
+                      let env' = List.fold_left do_q env qss' in
+                      addrunner (pn, proc, env');
                       if !pstep then 
-                        show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
-                 )
-             | JoinQs (qns, qp, proc) ->
-                 let do_qn qn =
-                   qbitsv (try env<@>tinst qn
-                           with Not_found -> 
-                             raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
-                          )
-                 in
-                 let v = vqbits (List.concat (List.map do_qn qns)) in
-                 let env = env<@+>(name_of_param qp,v) in
-                 addrunner (pn, proc, env);
-                 if !pstep then
-                   show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) (string_of_param qp) (pstep_state env))
-             | SplitQs (qn, qspecs, proc) -> 
-                 let qvs = qbitsv (try env<@>tinst qn
-                                   with Not_found -> 
-                                     raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
-                                  )
-                 in
-                 let do_spec qns (qp, eopt) =
-                   let numopt = eopt &~~ (fun e -> Some (numev env e)) in
-                   let n = match numopt with 
-                           | None   -> 0 
-                           | Some n -> if n<=/num_0 || not (is_int n) then
-                                          let pos = _The (eopt &~~ (fun e -> Some e.pos)) in
-                                          raise (Error (pos, Printf.sprintf "%s is invalid qbits size" (string_of_num n)))
-                                       else int_of_num n
-                   in
-                   (name_of_param qp,n)::qns
-                 in
-                 let qns = List.fold_left do_spec [] qspecs in
-                 let avail = List.length qvs in
-                 let total = List.fold_left (fun total (_,n) -> total+n) 0 qns in
-                 let zeroes = List.length (List.filter (fun (_,n) -> n=0) qns) in
-                 if zeroes > 1 then 
-                   raise (Error (rproc.pos, "** Disaster: more than one un-sized qbits sub-collection"))
-                 else
-                 if zeroes = 0 && total<>avail then
-                    raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d" avail total))
-                 else
-                 if total>=avail then 
-                    raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d and then one more" avail total))
-                 ;
-                 let spare = avail-total in
-                 let carve (env,qvs) (qn,n) =
-                   let k = if n=0 then spare else n in
-                   if k>List.length qvs then 
-                     raise (Disaster (rproc.pos, "taken too many in carve"));
-                   let qvs1, qvs = take k qvs, drop k qvs in
-                   env<@+>(qn, vqbits qvs1),qvs
-                 in
-                 let env,qvs = List.fold_left carve (env,qvs) qns in
-                 if qvs<>[] then raise (Disaster (rproc.pos, "not taken enough in carve"));
-                 addrunner (pn, proc, env);
-                 if !pstep then
-                   show_pstep (Printf.sprintf "(splitqs %s→%s)\n%s" 
-                                                (string_of_typedname qn) 
-                                                (string_of_list string_of_splitspec "," qspecs) 
-                                                (pstep_state env)
-                              )
-             | GSum ioprocs      -> 
-                 let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
-                 let canread pos c pat =
-                   let can'tread s = raise (Error (pos, "cannot read from " ^ s ^ " channel (this should be a type error -- sorry)")) in
-                   let do_match v' = Some (bmatch env pat v') in
-                   try if c.cname = dispose_c then can'tread "dispose" 
-                       else
-                       if c.cname = out_c || c.cname = outq_c then can'tread "output"
-                       else
-                       if c.cname = in_c then 
-                         (let v = vstring (read_line ()) in
-                          if !traceIO then trace (EVInput (pn,v));
-                          do_match v
-                         )
-                       else
-                         let v' = Queue.pop c.stream in
-                         (maybe_forget_chan c; do_match v')
-                   with Queue.Empty ->
-                   try boyd c.wwaiters; (* now the first must be alive *)
-                       let (pn',v',proc',env'),gsir = Ipq.pop c.wwaiters in
-                       let _, chans = !gsir in
-                       gsir := false, [];
-                       withdraw chans;
-                       pq_excite c.wwaiters;
-                       addrunner (pn', proc', env');
-                       if !traceevents && c.traced then trace (EVMessage (c, pn', pn, v'));
-                       do_match v'
-                   with Ipq.Empty -> None
-                 in
-                 let canwrite pos c v =
-                   let can'twrite s = raise (Error (pos, "cannot write to " ^ s ^ " channel (this should be a type error -- sorry)")) in
-                   if c.cname = in_c then can'twrite "input"
-                   else
-                   if c.cname = dispose_c then 
-                      (disposeqbits pn [qbitv v]; 
-                       if !traceevents then trace (EVDispose (pn,v));
-                       true
+                        show_pstep (Printf.sprintf "(newq %s)\n%s" (commasep (List.map string_of_qspec qss)) (pstep_state env'))
+                  | WithLet ((pat,e), proc) ->
+                      let v = evale env e in
+                      addrunner (pn, proc, bmatch env pat v);
+                      if !pstep then 
+                        show_pstep (Printf.sprintf "(let %s)" (string_of_letspec (pat,e)))
+                  | WithProc ((brec,pn',params,proc),p) ->
+                      let er = ref env in
+                      let procv = VProcess (tinst pn', er, names_of_params params, proc) in
+                      let env = env<@+>(tinst pn', procv) in
+                      if brec then er := env;
+                      addrunner (pn, p, env)
+                  | WithQstep (qstep, proc) ->
+                      (let qeval e =
+                         match evale env e with
+                         | VQbit  q  -> [q]
+                         | VQbits qs -> qs 
+                         | _         -> raise (Disaster (e.pos, Printf.sprintf "%s is not qbit/qbits" (string_of_expr e)))
+                      in
+                       match qstep.inst with
+                       | Measure (plural, e, gopt, pat) -> 
+                           let qs = qeval e in
+                           (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
+                           let disposed = !measuredestroys in
+                           let aqs = 
+                             if !traceevents then 
+                               let allqs = fst (qval_of_qs qs) in
+                               List.fold_left (fun qs q -> if disposed then Listutils.remove q qs else qs)
+                                              allqs
+                                              qs
+                             else 
+                               qs
+                           in
+                           let gv = (gateev env ||~~ g_I) gopt in
+                           let vs = List.map (fun q -> vbit (qmeasure disposed pn gv q = 1)) qs in
+                           if !traceevents then trace (EVMeasure (pn, qs, gv, vs, tev aqs));
+                           let env' = bmatch env pat (if plural then VList vs else List.hd vs) in
+                           addrunner (pn, proc, env');
+                           if !pstep then 
+                             show_pstep (Printf.sprintf "%s\n%s%s" (string_of_qstep qstep) 
+                                                                   (pstep_state env')
+                                                                   (pstep_env env' env)
+                                        )
+                       | Through (plural, es, g)      -> 
+                           let qs = List.concat (List.map qeval es) in
+                           let g = gateev env g in
+                           let qvs = if !traceevents then tev qs else [] in
+                           ugstep pn qs g;
+                           addrunner (pn, proc, env);
+                           if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
+                           if !pstep then 
+                             show_pstep (Printf.sprintf "%s\n%s" (string_of_qstep qstep) (pstep_state env))
                       )
-                   else
-                   if c.cname = out_c then
-                     (let s = String.concat "" (List.map stringv (listv v)) in
-                      print_string s; flush stdout; 
-                      if !traceIO then trace (EVOutput (pn,vstring s));
-                      true
-                     )
-                   else
-                   if c.cname = outq_c then
-                     (let s = qstatev v in
-                      print_string s; flush stdout; 
-                      if !traceIO then trace (EVOutput (pn,vstring s));
-                      true
-                     )
-                   else
-                   try boyd c.rwaiters;
-                       let (pn',pat',proc',env'),gsir = Ipq.pop c.rwaiters in
-                       let _, chans = !gsir in
-                       gsir := false, [];
-                       withdraw chans;
-                       pq_excite c.rwaiters;
-                       let v' = bmatch env' pat' v in
-                       addrunner (pn', proc', v');
-                       if !traceevents && c.traced then trace (EVMessage (c, pn, pn', v));
-                       true
-                   with Ipq.Empty -> 
-                   if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                      !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-                   then
-                     (Queue.push v c.stream;
-                      remember_chan c;
-                      true
-                     )
-                   else false
-                 in
-                 let rec try_iosteps gsum pq = 
-                   try let (iostep,proc) = Ipq.pop pq in
-                       match iostep.inst with
-                       | Read (ce,pat) -> let c = chanev env ce in
-                                          (match canread iostep.pos c pat with
-                                           | Some env' -> addrunner (pn, proc, env');
-                                                          if !pstep then 
-                                                            show_pstep (Printf.sprintf "%s%s\n" (string_of_iostep iostep) 
-                                                                                                (pstep_env env env')
-                                                                       )
-                                           | None      -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
-                                          )
-                       | Write (ce,e)  -> let c = chanev env ce in
-                                          let v = evale env e in
-                                          if canwrite iostep.pos c v then 
-                                            (addrunner (pn, proc, env);
-                                             if !pstep then 
-                                               show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_iostep iostep) 
-                                                                                           (string_of_value v)
-                                                          )
-                                            )
-                                          else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
-                   with Ipq.Empty ->
-                   let cs = List.map fst gsum in
-                   let gsir = ref (true, cs) in
-                   let add_waiter = function
-                     | c, Grw rw -> pq_push c.rwaiters (rw,gsir);
-                                    remember_chan c
-                     | c, Gww ww -> pq_push c.wwaiters (ww,gsir);
-                                    remember_chan c
-                   in
-                   List.iter add_waiter gsum;
-                   if !pstep then 
-                     show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_process rproc))
-                 in
-                 let pq = Ipq.create (List.length ioprocs) in
-                 List.iter (pq_push pq) ioprocs;
-                 try_iosteps [] pq
-             | TestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not compiled"))
-             | Iter _ -> raise (Error (proc.pos, "Iter not compiled"))
-             | Cond (e, p1, p2)  ->
-                 let bv = boolev env e in
-                 addrunner (pn, (if bv then p1 else p2), env);
-                 if !pstep then 
-                   show_pstep (Printf.sprintf "%s (%B)" (short_string_of_process rproc) bv)
-             | PMatch (e,pms)    -> 
-                 let v = evale env e in
-                 (match matcher rproc.pos env pms v with
-                  | Some (env', proc) -> addrunner (pn, proc, env');
-                                         if !pstep then 
-                                           show_pstep (Printf.sprintf "%s\nchose %s%s" (short_string_of_process rproc)
-                                                                                       (short_string_of_process proc)
-                                                                                       (pstep_env env' env)
-                                                      )
-                  | None              -> raise (MatchError (rproc.pos, Printf.sprintf "match failed against %s"
-                                                                                      (string_of_value v)
+                  | JoinQs (qns, qp, proc) ->
+                      let do_qn qn =
+                        qbitsv (try env<@>tinst qn
+                                with Not_found -> 
+                                  raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                               )
+                      in
+                      let v = vqbits (List.concat (List.map do_qn qns)) in
+                      let env = env<@+>(name_of_param qp,v) in
+                      addrunner (pn, proc, env);
+                      if !pstep then
+                        show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) (string_of_param qp) (pstep_state env))
+                  | SplitQs (qn, qspecs, proc) -> 
+                      let qvs = qbitsv (try env<@>tinst qn
+                                        with Not_found -> 
+                                          raise (Error (qn.pos, "** Disaster: unbound " ^ string_of_name (tinst qn)))
+                                       )
+                      in
+                      let do_spec qns (qp, eopt) =
+                        let numopt = eopt &~~ (fun e -> Some (numev env e)) in
+                        let n = match numopt with 
+                                | None   -> 0 
+                                | Some n -> if n<=/num_0 || not (is_int n) then
+                                               let pos = _The (eopt &~~ (fun e -> Some e.pos)) in
+                                               raise (Error (pos, Printf.sprintf "%s is invalid qbits size" (string_of_num n)))
+                                            else int_of_num n
+                        in
+                        (name_of_param qp,n)::qns
+                      in
+                      let qns = List.fold_left do_spec [] qspecs in
+                      let avail = List.length qvs in
+                      let total = List.fold_left (fun total (_,n) -> total+n) 0 qns in
+                      let zeroes = List.length (List.filter (fun (_,n) -> n=0) qns) in
+                      if zeroes > 1 then 
+                        raise (Error (rproc.pos, "** Disaster: more than one un-sized qbits sub-collection"))
+                      else
+                      if zeroes = 0 && total<>avail then
+                         raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d" avail total))
+                      else
+                      if total>=avail then 
+                         raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d and then one more" avail total))
+                      ;
+                      let spare = avail-total in
+                      let carve (env,qvs) (qn,n) =
+                        let k = if n=0 then spare else n in
+                        if k>List.length qvs then 
+                          raise (Disaster (rproc.pos, "taken too many in carve"));
+                        let qvs1, qvs = take k qvs, drop k qvs in
+                        env<@+>(qn, vqbits qvs1),qvs
+                      in
+                      let env,qvs = List.fold_left carve (env,qvs) qns in
+                      if qvs<>[] then raise (Disaster (rproc.pos, "not taken enough in carve"));
+                      addrunner (pn, proc, env);
+                      if !pstep then
+                        show_pstep (Printf.sprintf "(splitqs %s→%s)\n%s" 
+                                                     (string_of_typedname qn) 
+                                                     (string_of_list string_of_splitspec "," qspecs) 
+                                                     (pstep_state env)
+                                   )
+                  | GSum ioprocs      -> 
+                      let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
+                      let canread pos c pat =
+                        let can'tread s = raise (Error (pos, "cannot read from " ^ s ^ " channel (this should be a type error -- sorry)")) in
+                        let do_match v' = Some (bmatch env pat v') in
+                        try if c.cname = dispose_c then can'tread "dispose" 
+                            else
+                            if c.cname = out_c || c.cname = outq_c then can'tread "output"
+                            else
+                            if c.cname = in_c then 
+                              (let v = vstring (read_line ()) in
+                               if !traceIO then trace (EVInput (pn,v));
+                               do_match v
+                              )
+                            else
+                              let v' = Queue.pop c.stream in
+                              (maybe_forget_chan c; do_match v')
+                        with Queue.Empty ->
+                        try boyd c.wwaiters; (* now the first must be alive *)
+                            let (pn',v',proc',env'),gsir = Ipq.pop c.wwaiters in
+                            let _, chans = !gsir in
+                            gsir := false, [];
+                            withdraw chans;
+                            pq_excite c.wwaiters;
+                            addrunner (pn', proc', env');
+                            if !traceevents && c.traced then trace (EVMessage (c, pn', pn, v'));
+                            do_match v'
+                        with Ipq.Empty -> None
+                      in
+                      let canwrite pos c v =
+                        let can'twrite s = raise (Error (pos, "cannot write to " ^ s ^ " channel (this should be a type error -- sorry)")) in
+                        if c.cname = in_c then can'twrite "input"
+                        else
+                        if c.cname = dispose_c then 
+                           (disposeqbits pn [qbitv v]; 
+                            if !traceevents then trace (EVDispose (pn,v));
+                            true
+                           )
+                        else
+                        if c.cname = out_c then
+                          (let s = String.concat "" (List.map stringv (listv v)) in
+                           print_string s; flush stdout; 
+                           if !traceIO then trace (EVOutput (pn,vstring s));
+                           true
+                          )
+                        else
+                        if c.cname = outq_c then
+                          (let s = qstatev v in
+                           print_string s; flush stdout; 
+                           if !traceIO then trace (EVOutput (pn,vstring s));
+                           true
+                          )
+                        else
+                        try boyd c.rwaiters;
+                            let (pn',pat',proc',env'),gsir = Ipq.pop c.rwaiters in
+                            let _, chans = !gsir in
+                            gsir := false, [];
+                            withdraw chans;
+                            pq_excite c.rwaiters;
+                            let v' = bmatch env' pat' v in
+                            addrunner (pn', proc', v');
+                            if !traceevents && c.traced then trace (EVMessage (c, pn, pn', v));
+                            true
+                        with Ipq.Empty -> 
+                        if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                           !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+                        then
+                          (Queue.push v c.stream;
+                           remember_chan c;
+                           true
+                          )
+                        else false
+                      in
+                      let rec try_iosteps gsum pq = 
+                        try let (iostep,proc) = Ipq.pop pq in
+                            match iostep.inst with
+                            | Read (ce,pat) -> let c = chanev env ce in
+                                               (match canread iostep.pos c pat with
+                                                | Some env' -> addrunner (pn, proc, env');
+                                                               if !pstep then 
+                                                                 show_pstep (Printf.sprintf "%s%s\n" (string_of_iostep iostep) 
+                                                                                                     (pstep_env env env')
+                                                                            )
+                                                | None      -> try_iosteps ((c, Grw (pn, pat, proc, env))::gsum) pq
+                                               )
+                            | Write (ce,e)  -> let c = chanev env ce in
+                                               let v = evale env e in
+                                               if canwrite iostep.pos c v then 
+                                                 (addrunner (pn, proc, env);
+                                                  if !pstep then 
+                                                    show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_iostep iostep) 
+                                                                                                (string_of_value v)
+                                                               )
+                                                 )
+                                               else try_iosteps ((c, Gww (pn, v, proc, env))::gsum) pq
+                        with Ipq.Empty ->
+                        let cs = List.map fst gsum in
+                        let gsir = ref (true, cs) in
+                        let add_waiter = function
+                          | c, Grw rw -> pq_push c.rwaiters (rw,gsir);
+                                         remember_chan c
+                          | c, Gww ww -> pq_push c.wwaiters (ww,gsir);
+                                         remember_chan c
+                        in
+                        List.iter add_waiter gsum;
+                        if !pstep then 
+                          show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_process rproc))
+                      in
+                      let pq = Ipq.create (List.length ioprocs) in
+                      List.iter (pq_push pq) ioprocs;
+                      try_iosteps [] pq
+                  | TestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not compiled"))
+                  | Iter _ -> raise (Error (proc.pos, "Iter not compiled"))
+                  | Cond (e, p1, p2)  ->
+                      let bv = boolev env e in
+                      addrunner (pn, (if bv then p1 else p2), env);
+                      if !pstep then 
+                        show_pstep (Printf.sprintf "%s (%B)" (short_string_of_process rproc) bv)
+                  | PMatch (e,pms)    -> 
+                      let v = evale env e in
+                      (match matcher rproc.pos env pms v with
+                       | Some (env', proc) -> addrunner (pn, proc, env');
+                                              if !pstep then 
+                                                show_pstep (Printf.sprintf "%s\nchose %s%s" (short_string_of_process rproc)
+                                                                                            (short_string_of_process proc)
+                                                                                            (pstep_env env' env)
                                                            )
-                                                )
-                 )  
-             | Par ps            ->
-                 deleteproc pn;
-                 let npns = 
-                   List.fold_left  (fun ns (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
-                                                       addrunner (n, proc, env);
-                                                       n::ns
-                                   ) 
-                                   []
-                                   (numbered ps)
-                 in
-                 if !traceId then trace (EVChangeId (pn, List.rev npns));
-                 if !pstep then 
-                   show_pstep (short_string_of_process rproc)
-            ) (* end of match *)
+                       | None              -> raise (MatchError (rproc.pos, Printf.sprintf "match failed against %s"
+                                                                                           (string_of_value v)
+                                                                )
+                                                     )
+                      )  
+                  | Par ps            ->
+                      deleteproc pn;
+                      let npns = 
+                        List.fold_left  (fun ns (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
+                                                            addrunner (n, proc, env);
+                                                            n::ns
+                                        ) 
+                                        []
+                                        (numbered ps)
+                      in
+                      if !traceId then trace (EVChangeId (pn, List.rev npns));
+                      if !pstep then 
+                        show_pstep (short_string_of_process rproc)
+               with
+                 | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
+                 | exn                 ->
+                     Printf.eprintf "interpreter %s sees exception %s\n" (string_of_sourcepos rproc.pos) (Printexc.to_string exn);
+                     print_interp_state stderr;
+                     raise exn
+             )) (* end of match *)
           with 
-          | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
           | exn                 ->
               Printf.eprintf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
               print_interp_state stderr;

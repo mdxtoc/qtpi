@@ -33,7 +33,6 @@
 # (cd &lt;qtpi directory&gt;, make clean, make links). After that, just make Qtpi whenever you need to
 
 cd ~/gitrepositories/qtpi
-eval $(opam env) # to get the ocaml stuff into the path
 
 make clean
 make links

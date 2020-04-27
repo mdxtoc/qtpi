@@ -36,6 +36,19 @@ exception Disaster of string
 let my_to_int n s =
   try Z.to_int n with Z.Overflow -> raise (Disaster (Printf.sprintf "to_int %s in %s" (string_of_zint n) s))
   
+let stats_init n = CsnumHash.create n
+
+let stats_ref table cn = try CsnumHash.find table cn 
+                         with _ -> (let r = ref z_0 in CsnumHash.add table cn r; r)
+
+let stats_inc table inc cn = 
+  let r = stats_ref table cn in
+  r:=!r+:inc
+
+let stats_to_list table =
+  let compare (i,fi) (j,fj) = ~-(Z.compare fi fj) in
+  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc table))
+  
 (* *********************** vectors, matrices,gates ************************************ *)
 
 (* because matrices and vectors can become very large (see the W example), indices are now zint *)
@@ -286,7 +299,7 @@ and string_of_nv bksign (vm, vv) =
     else
       match v with
       | DenseV  v         -> let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
-                             Printf.sprintf "DenseV⟨%s⟩" (String.concat "," estrings)
+                             Printf.sprintf "DenseV%s" (bracketed_string_of_list id estrings)
       | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s,%s)" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
   in
   (* since splitting the state is now not a normal thing, we don't need this ...
@@ -315,17 +328,18 @@ and string_of_vector v = string_of_ket (snum_1,v)
 
 (* with sparse vectors, we can have some seriously large ones ... *)
 and statistics_v v :(csnum*zint) list =
-  let stats = CsnumHash.create 1000 in
-  let get cn = try CsnumHash.find stats cn with _ -> (let r = ref z_0 in CsnumHash.add stats cn r; r) in
-  let count cn = let r = get cn in r:=!r+:z_1 in
+  let nv = match v with 
+           | DenseV  _         -> vsize v 
+           | SparseV (n,sv,cv) -> zlength cv *: z_4
+  in
+  let stats = stats_init (Z.to_int nv) in
+  let count = stats_inc stats z_1 in
   (match v with
    | DenseV  dv        -> Array.iter count dv
-   | SparseV (n,sv,cv) -> let r = get sv in
-                          r:=!r+:(n-:zlength cv);
-                          List.iter (fun (_,x) -> count x) cv
+   | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
+                          List.iter (count <.> snd) cv
   );
-  let compare (i,fi) (j,fj) = ~-(Z.compare fi fj) in
-  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+  stats_to_list stats
 
 let statistics_nv (_,v) = statistics_v v
 
@@ -339,21 +353,20 @@ let string_of_matrix = function
       let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
       Printf.sprintf "\n{%s}\n" block
   | SparseM (nc,sv,cvv) ->   
-      Printf.sprintf "SparseM %s %s ⟨%s⟩\n" (string_of_zint nc) (string_of_csnum sv) (string_of_list string_of_cv ";" (Array.to_list cvv))
+      Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (bracketed_string_of_list string_of_cv (Array.to_list cvv))
   | FuncM (id,nr,nc,_,opt) ->
       Printf.sprintf "FuncM(%s,%s,%s,_,%s)" id (string_of_zint nr) (string_of_zint nc) (Optionutils.string_of_option (fun _ -> "_,_") opt)
       
 let string_of_gate = string_of_matrix
 
 let statistics_m m :(csnum*zint) list =
-  let stats = CsnumHash.create 1000 in
-  let get cn = try CsnumHash.find stats cn with _ -> (let r = ref z_0 in CsnumHash.add stats cn r; r) in
-  let count cn = let r = get cn in r:=!r+:z_1 in
+  let stats = stats_init 1000 in
+  let count = stats_inc stats z_1 in
   (match m with
    | DenseM  dm          -> Array.iter (Array.iter count) dm
-   | SparseM (nc,sv,cvv) -> let svr = get sv in
+   | SparseM (nc,sv,cvv) -> let svr = stats_ref stats sv in
                             let count_cv cv = 
-                              svr:=!svr+:(nc-:Z.of_int (List.length cv));
+                              svr :=!svr+:nc-:zlength cv;
                               List.iter (count <.> snd) cv
                             in
                             Array.iter count_cv cvv
@@ -361,8 +374,7 @@ let statistics_m m :(csnum*zint) list =
                               _forZ z_0 z_1 nc (fun j -> count (f i j))
                             )
   );
-  let compare (i,fi) (j,fj) = ~-(Z.compare fi fj) in
-  List.sort compare (List.map (fun (v,r) -> v,!r) (CsnumHash.to_assoc stats))
+  stats_to_list stats
 
 let countzeros_dm dm :int = 
   Array.fold_left (Array.fold_left (fun n x -> if x=c_0 then n+1 else n)) 0 dm
@@ -790,31 +802,68 @@ module OrderedZ = struct type t = zint
                       
 module ZSet = MySet.Make (OrderedZ)
 
+module CsnumsH = struct type t = csnum list
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string = bracketed_string_of_list string_of_csnum
+               end
+module CsnumsHash = MyHash.Make (CsnumsH)
+
 (* this is the point of SparseV (and partly SparseM and FuncM): multiplying sparse row by sparse column. *)
 
-(* gives a cv with sv=cprod sv svv *)
+(* gives a vector *)
 let mult_cvvcv nr nc sv rf cf svv cv = 
-  let sv' = cprod sv svv in
-  let do_row nxs i = 
+  let zsparse = sv=c_0 && svv=c_0 in
+  let do_row sv' nxs i = 
     let x = dotprod_cvcv nc sv (rf i) svv cv in
     if x=sv' then nxs else (i,x)::nxs
   in
-  (* find the rows where the matrix has a value that goes with something in cv *)
-  let rs = if sv=c_0 && svv=c_0 then
-             (let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
-                                                                          rset 
-                                                                          (cf c)
-                                        ) 
-                                        ZSet.empty 
-                                        cv 
-              in
-              List.sort Z.compare (ZSet.elements rset)
-             )
-           else tabulate (Z.to_int nr) Z.of_int (* if the svs aren't zero, we have to do each row. Rats.
-                                                   But if we had a 'sparse row' notion of cvv ... Hmm.
-                                                 *)
+  (* find the rows where the matrix has a non-sparse value that multiplies a non-sparse value in in cv *)
+  let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
+                                                              rset 
+                                                              (cf c)
+                            ) 
+                            ZSet.empty 
+                            cv 
   in
-  maybe_dense_v sv' nr (List.rev (List.fold_left do_row [] rs))
+  if zsparse then
+    (let rs = List.sort Z.compare (ZSet.elements rset) in
+     SparseV (nr, c_0, List.rev (List.fold_left (do_row c_0) [] rs))
+    )
+  else
+    (* try to avoid building a vector with the wrong sv. This mechanism runs through
+       the rows twice: once to compute the non-rset rows, finding sv; then again
+       through all the rows, building the vector.
+     *)
+    (let vec = List.map snd cv in
+     let vecv = simplify_csum (List.map (cprod sv) vec) in
+     let nv = zlength vec in
+     let sv_gap = cprod sv svv in
+     let do_other_row (row:csnum list) =
+       let rowv = simplify_csum (List.map (cprod svv) row) in
+       let gapv = cmult_zint sv_gap (nc-:nv-:zlength row) in
+       simplify_csum [rowv; gapv; vecv]
+     in
+     (* memoise do_other_row *)
+     let dorow_tab = CsnumsHash.create 1000 in
+     let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
+     (* count the 'other' results, find sv' *)
+     let stats_tab = stats_init 1000 in
+     let count = stats_inc stats_tab z_1 in
+     _forZ z_0 z_1 nr (fun r ->
+       if ZSet.mem r rset then ()
+       else count (do_other_row (List.map snd (rf r)))
+     );
+     let sv',_ = List.hd (stats_to_list stats_tab) in
+     let xs = _for_fold_leftZ z_0 z_1 nr [] (fun xs r ->
+                if ZSet.mem r rset then do_row sv' xs r
+                else (let x = do_other_row (List.map snd (rf r)) in
+                      if x=sv' then xs else (r,x)::xs
+                     )
+              )
+     in
+     SparseV(nr, sv', List.rev xs)
+    )
   
 let mult_mv m v =
   if !verbose_qcalc then 

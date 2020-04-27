@@ -812,26 +812,44 @@ module CsnumsHash = MyHash.Make (CsnumsH)
 (* this is the point of SparseV (and partly SparseM and FuncM): multiplying sparse row by sparse column. *)
 
 (* gives a vector *)
-(* I did some experimentation with Grover. Unless sv=c_0 && svv=c_0, there was nothing I could do that made an improvement *)
+(* I did some experimentation with Grover. Unless sv=c_0 && svv=c_0, there was nothing I could do that made an improvement.
+   But there might be some cases nevertheless, so I persist a little
+ *)
 let mult_cvvcv nr nc sv rf cf svv cv = 
+  (* find the rows where the matrix has a non-sparse value that multiplies a non-sparse value in cv *)
+  let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
+                                                              rset 
+                                                              (cf c)
+                            ) 
+                            ZSet.empty 
+                            cv 
+  in
   if sv=c_0 && svv=c_0 then
     (let do_row nxs i = 
        let x = dotprod_cvcv nc sv (rf i) svv cv in
        if x=c_0 then nxs else (i,x)::nxs
      in
-     (* find the rows where the matrix has a non-zero value that multiplies a non-zero value in cv *)
-     let rset = List.fold_left (fun rset (c,_) -> List.fold_left (fun rset (r,_) -> ZSet.add r rset) 
-                                                                 rset 
-                                                                 (cf c)
-                               ) 
-                               ZSet.empty 
-                               cv 
-     in
      let rs = List.sort Z.compare (ZSet.elements rset) in
      maybe_dense_v c_0 nr (List.rev (List.fold_left do_row [] rs))
     )
   else (* row by row, we have to *)
-    maybe_sparse_v (Array.init (Z.to_int nr) (fun r -> dotprod_cvcv nc sv (rf (Z.of_int r)) svv cv))
+    (let vec = List.map snd cv in
+     let vecv = simplify_csum (List.map (cprod sv) vec) in
+     let nv = zlength vec in
+     let sv_gap = cprod sv svv in
+     let do_other_row (row:csnum list) =
+       let rowv = simplify_csum (List.map (cprod svv) row) in
+       let gapv = cmult_zint sv_gap (nc-:nv-:zlength row) in
+       simplify_csum [rowv; gapv; vecv]
+     in
+     let dorow_tab = CsnumsHash.create 1000 in
+     let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
+     let dotprod r = 
+       if ZSet.mem r rset then dotprod_cvcv nc sv (rf r) svv cv
+                          else do_other_row (List.map snd (rf r))
+     in
+     maybe_sparse_v (Array.init (Z.to_int nr) (dotprod <.> Z.of_int))
+    )
   
 let mult_mv m v =
   if !verbose_qcalc then 

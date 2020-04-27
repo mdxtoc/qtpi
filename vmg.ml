@@ -826,44 +826,47 @@ let mult_cvvcv nr nc sv rf cf svv cv =
                             ZSet.empty 
                             cv 
   in
-  if zsparse then
-    (let rs = List.sort Z.compare (ZSet.elements rset) in
-     SparseV (nr, c_0, List.rev (List.fold_left (do_row c_0) [] rs))
-    )
-  else
-    (* try to avoid building a vector with the wrong sv. This mechanism runs through
-       the rows twice: once to compute the non-rset rows, finding sv; then again
-       through all the rows, building the vector.
-     *)
-    (let vec = List.map snd cv in
-     let vecv = simplify_csum (List.map (cprod sv) vec) in
-     let nv = zlength vec in
-     let sv_gap = cprod sv svv in
-     let do_other_row (row:csnum list) =
-       let rowv = simplify_csum (List.map (cprod svv) row) in
-       let gapv = cmult_zint sv_gap (nc-:nv-:zlength row) in
-       simplify_csum [rowv; gapv; vecv]
-     in
-     (* memoise do_other_row *)
-     let dorow_tab = CsnumsHash.create 1000 in
-     let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
-     (* count the 'other' results, find sv' *)
-     let stats_tab = stats_init 1000 in
-     let count = stats_inc stats_tab z_1 in
-     _forZ z_0 z_1 nr (fun r ->
-       if ZSet.mem r rset then ()
-       else count (do_other_row (List.map snd (rf r)))
-     );
-     let sv',_ = List.hd (stats_to_list stats_tab) in
-     let xs = _for_fold_leftZ z_0 z_1 nr [] (fun xs r ->
-                if ZSet.mem r rset then do_row sv' xs r
-                else (let x = do_other_row (List.map snd (rf r)) in
-                      if x=sv' then xs else (r,x)::xs
-                     )
-              )
-     in
-     SparseV(nr, sv', List.rev xs)
-    )
+  if Z.of_int (ZSet.cardinal rset) <: nr then (* let's hope *)
+    if zsparse then
+      (let rs = List.sort Z.compare (ZSet.elements rset) in
+       maybe_dense_v c_0 nr (List.rev (List.fold_left (do_row c_0) [] rs))
+      )
+    else
+      (* try to avoid building a vector with the wrong sv. This mechanism runs through
+         the rows twice: once to compute the non-rset rows, finding sv; then again
+         through all the rows, building the vector.
+       *)
+      (let vec = List.map snd cv in
+       let vecv = simplify_csum (List.map (cprod sv) vec) in
+       let nv = zlength vec in
+       let sv_gap = cprod sv svv in
+       let do_other_row (row:csnum list) =
+         let rowv = simplify_csum (List.map (cprod svv) row) in
+         let gapv = cmult_zint sv_gap (nc-:nv-:zlength row) in
+         simplify_csum [rowv; gapv; vecv]
+       in
+       (* memoise do_other_row *)
+       let dorow_tab = CsnumsHash.create 1000 in
+       let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
+       (* count the 'other' results, find sv' *)
+       let stats_tab = stats_init 1000 in
+       let count = stats_inc stats_tab z_1 in
+       _forZ z_0 z_1 nr (fun r ->
+           if ZSet.mem r rset then ()
+           else count (do_other_row (List.map snd (rf r)))
+         );
+       let sv',_ = List.hd (stats_to_list stats_tab) in
+       let xs = _for_fold_leftZ z_0 z_1 nr [] (fun xs r ->
+                    if ZSet.mem r rset then do_row sv' xs r
+                    else (let x = do_other_row (List.map snd (rf r)) in
+                          if x=sv' then xs else (r,x)::xs
+                         )
+                  )
+       in
+       maybe_dense_v sv' nr (List.rev xs)
+      )
+  else (* row by row, we have to *)
+    maybe_sparse_v (Array.init (Z.to_int nr) (fun r -> dotprod_cvcv nc sv (rf (Z.of_int r)) svv cv))
   
 let mult_mv m v =
   if !verbose_qcalc then 

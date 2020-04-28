@@ -11,13 +11,11 @@ fun read_min_int m s
 
 fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n))
 
-   groverU bs = engate (tabulate_m (2**n) (2**n) tf)
-                 where n = length bs
-                 where tf i j = if i<>j      then  sx_0 else
-                                if i=address then -sx_1 else 
-                                                   sx_1
-                 where address = bits2num (rev bs) (* big-endian *)  
-                 
+   groverU bs = engate (tabulate_diag_m (2**n) tf
+                            where n = length bs
+                            where tf i = if i=address then -sx_1 else sx_1
+                            where address = bits2num (rev bs) (* big-endian *)  
+                       )
 proc 
   System () =
     . (let n = read_min_int 1 "number of bits")
@@ -26,21 +24,21 @@ proc
     . (let G = groverG n)
     . (let bs = randbits n)
     . (let U = groverU bs)
-    . (let GU = G*U)
     . (let iters = floor (pi*sqrt(2**n)/4+0.5))
     . ⁁1
-    . Grover (iters, GU, qs, bs)
+    . Grover (iters, G, U, qs, bs) 
   
                   with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
 
-  Grover (iters, GU, qs, secretbs) =
+  Grover (iters, G, U, qs, secretbs) =
     if iters=0 then
       . qs⌢⃫(bs) 
       . ⁁1
       . _0
     else
-      . qs>>>GU
-      . Grover (iters-1, GU, qs, secretbs)
+      . qs>>>U
+      . qs>>>G
+      . Grover (iters-1, G, U, qs, secretbs)
   
                   with
                     1: . out!["measurement says "; show bs; 

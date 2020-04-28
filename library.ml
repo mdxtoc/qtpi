@@ -347,9 +347,15 @@ let v_tabulate_m m n f =
   let n = mustbe_intv n in
   let f = funv2 f in
   let ff i j = sxnumv (f ((vnum <.> num_of_int) i) ((vnum <.> num_of_int) j)) in
-  vmatrix(maybe_sparse_m (init_m m n ff))
+  vmatrix(maybe_sparse_m (init_dm m n ff))
+ 
+let v_tabulate_diag_m n f =
+  let n = mustbe_intv n in
+  let f = funv f in
+  vmatrix (init_diag_m (Z.of_int n) (sxnumv <.> f <.> vnum <.> num_of_zint))
  
 let _ = Interpret.know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
+let _ = Interpret.know ("tabulate_diag_m"  , "num -> (num -> sxnum) -> matrix", vfun2 v_tabulate_diag_m)
 
 let _ = Interpret.know ("degate"  , "gate -> matrix", vfun (vmatrix <.> matrix_of_gate <.> gatev))
 let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmg.engate <.> matrixv))

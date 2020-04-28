@@ -726,12 +726,31 @@ let tensor_mm mA mB =
 
 let tensor_gg = tensor_mm
 
-let fpow f one v n =
-  List.fold_left f one (Listutils.tabulate n (const v))
+let tensorpow_g g n = 
+  if !verbose || !verbose_qcalc then
+    Printf.printf "tensorpow_g %s %d = " (string_of_gate g) n;
+  let r = if n=0 then                     g_1             else
+          if n=1 then                     g               else
+          if !func_matrices && g=g_I then func_I n        else
+          if !func_matrices && g=g_H then func_H n        else
+                                          List.fold_left tensor_gg g (tabulate (n-1) (const g))
+  in
+  if !verbose || !verbose_qcalc then
+    Printf.printf "%s\n" (string_of_gate r);
+  r
+  
+let tensorpow_nv nv n = 
+  if !verbose || !verbose_qcalc then
+    Printf.printf "tensorpow_nv %s %d = " (string_of_ket nv) n;
+  let r = if n=0 then nv_1             else
+          if n=1 then nv               else
+                      List.fold_left tensor_nvnv nv (tabulate (n-1) (const nv))
+  in
+  if !verbose || !verbose_qcalc then
+    Printf.printf "%s\n" (string_of_ket r);
+  r
 
-let tensorpow_g = fpow tensor_gg g_1 
-let tensorpow_nv = fpow tensor_nvnv nv_1
-let tensorpow_m = fpow tensor_mm m_1
+let tensorpow_m = tensorpow_g
 
 let track_dotprod = false
 

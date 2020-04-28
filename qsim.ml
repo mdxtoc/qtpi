@@ -468,13 +468,6 @@ let ugstep_padded pn qs g gpad =
      let qs', v' = List.fold_left (fun (qs',v') (n,q) -> make_nth qs' v' n (idx q qs')) (qs',v') numbered_qs in
      
      (* add enough pads to g to deal with v' *)
-     let tensor_n_gs n g =
-       if n=0 then                     g_1             else
-       if n=1 then                     g               else
-       if !func_matrices && g=g_I then func_I n        else
-       if !func_matrices && g=g_H then func_H n        else
-                                       tensor_n_gs n g
-     in
      let g' = if g=gpad then tensor_n_gs (List.length qs') g                                   else
                              tensor_gg g (tensor_n_gs (List.length qs' - List.length qs) gpad)
      in

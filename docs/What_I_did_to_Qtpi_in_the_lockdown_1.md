@@ -1,5 +1,5 @@
 ---
-title: What I did to Qtpi in the Lockdown
+title: What I did to Qtpi in the Lockdown (parts 1 and 1a)
 ---
 
  
@@ -14,6 +14,9 @@ title: What I did to Qtpi in the Lockdown
 
  
 -
+
+Part 1
+======
 
 Background
 ----------
@@ -50,7 +53,7 @@ equivalents are still available.
 | measure               | ⌢̸       | `-/-`         |
 | multi-measure         | ⌢⃫       | \-//-         |
 | not                   | ¬       | `not`         |
-| right arrow           | → | \-\>          |
+| right arrow           | →       | \-\>          |
 | left arrow            | ←       | \<-           |
 | down arrow            | ↓       | no equivalent |
 
@@ -188,19 +191,19 @@ overloading of various operators:
 
  
 
-| Operator          | types                                               |
-|-------------------|-----------------------------------------------------|
-| unitary minus (-) | 'a → 'a for *num*, *sxnum*                        |
-| \+, -             | 'a → 'a → 'a for *num*, *sxnum*, *matrix*         |
-| †                 | 'a → 'a → 'a for *gate*, *matrix*                 |
-| `*`               | 'a → 'a → 'a for *num*, *sxnum*, *gate*, *matrix* |
-|                   | *gate* → *ket* → *ket*                            |
-|                   | *ket* → *bra* → *matrix*                          |
-|                   | *bra* → *ket* → *sxnum*                           |
-|                   | *sxnum* → *matrix* → *matrix*                     |
-|                   | *matrix* → *sxnum* → *matrix*                     |
-| ⊗                 | 'a → 'a → 'a for *bra*, *ket*, *gate*, *matrix*   |
-| ⊗⊗                | 'a → *num* → 'a for *bra*, *ket*, *gate*, *matrix*  |
+| Operator          | types                                              |
+|-------------------|----------------------------------------------------|
+| unitary minus (-) | 'a → 'a for *num*, *sxnum*                         |
+| \+, -             | 'a → 'a → 'a for *num*, *sxnum*, *matrix*          |
+| †                 | 'a → 'a → 'a for *gate*, *matrix*                  |
+| `*`               | 'a → 'a → 'a for *num*, *sxnum*, *gate*, *matrix*  |
+|                   | *gate* → *ket* → *ket*                             |
+|                   | *ket* → *bra* → *matrix*                           |
+|                   | *bra* → *ket* → *sxnum*                            |
+|                   | *sxnum* → *matrix* → *matrix*                      |
+|                   | *matrix* → *sxnum* → *matrix*                      |
+| ⊗                 | 'a → 'a → 'a for *bra*, *ket*, *gate*, *matrix*    |
+| ⊗⊗                | 'a → *num* → 'a for *bra*, *ket*, *gate*, *matrix* |
 
  
 
@@ -521,8 +524,46 @@ It was a lot of work. I felt quite heroic, at the end of each of the stages.
 
  
 
+Part 1a
+=======
+
+ 
+
+Sparse matrices and Grover
+--------------------------
+
+The [Grover
+example](https://github.com/mdxtoc/qtpi/blob/master/examples/Grover/grover.qtp)
+ran annoyingly slowly: anything over 8 qbits took minutes. And there was a long
+delay before it reported the random choice of bit values and the number of
+iterations. There were a number of things going on.
+
+First, it calculated `G*U` and each iteration put the qbit collection through
+that gate. But although `G` and `U` are diagonal, `G*U` isn't. That considerably
+slowed my gating mechanism. Putting the collection through `U` and then `G`
+speeded it up a lot, which made the initialisation delay more annoying still.
+
+The first problem was the multiplication `(|+>⊗⊗n)*(<+|⊗⊗n)`. I hadn't optimised
+the function that did the work: given that both sides are very extremely sparse
+(only zero values in either vector), it should have been easy. Eventually I
+worked it out.
+
+The second problem was the *engate* function. It has to check that its argument
+is a square matrix (easy) and that its size is a power of 2 (easy). Then it
+computes `m*m†` and checks that it's all zeros except for a diagonal of ones.
+Again, for the matrices `G` and `U` this should have been easy. Eventually I
+worked out how to do matrix multiplication of sparse diagonal matrices, even
+when the off-diagonal values aren't zero, and the initialisation delay dropped
+from tens of seconds to tenths of a second.
+
+Now, even Grover 13 is easily computed in about a minute.
+
+All that sounds easier than it was ...
+
+ 
+
 That's all, folks!
-------------------
+==================
 
  
 
@@ -530,6 +571,6 @@ as of today.
 
  
 
-RB 2020/04/24
+RB 2020/04/28
 
  

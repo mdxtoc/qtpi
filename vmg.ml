@@ -197,9 +197,9 @@ and sparse_elements_cv sv sv' n cv = (* fill in all the gaps with sv, cut out al
        if k=:n then ixs else svs (k+:z_1) n ((k,sv)::ixs) 
      in
      let rec f ixs k = function
-       | []        -> List.rev (svs k n ixs)
-       | (i,x)::cv -> let ixs = svs k i ixs in
-                      f (if x=sv' then ixs else (i,x)::ixs) (i+:z_1) cv
+       | []              -> List.rev (svs k n ixs)
+       | (i,x as ix)::cv -> let ixs = svs k i ixs in
+                            f (if x=sv' then ixs else ix::ixs) (i+:z_1) cv
      in 
      f [] z_0 cv
     )
@@ -419,12 +419,14 @@ let maybe_dense_m sv nc cvv =
      else dense()
     )
   else dense()
-  
-module OrderedPrioZ = struct type prio = zint
-                            let compare = (~-)<..>Z.compare
-                     end
 
-module Zpq = PQueue.Make (OrderedPrioZ)
+(* I don't need this any more. Which means I didn't need to modularise PQueue. Oh well.  
+   module OrderedPrioZ = struct type prio = zint
+                               let compare = (~-)<..>Z.compare
+                        end
+
+   module Zpq = PQueue.Make (OrderedPrioZ)
+ *)
 
 module CvvH = struct type t = zint * cvec array 
                       let equal = (=)
@@ -439,9 +441,13 @@ let transpose_cvv =
   curry2 
     (CvvHash.memofun cvvtab (uncurry2 (fun nc cvv ->
         let nc = my_to_int nc "transpose_cvv" in
-        let rvv = Array.init nc (fun _ -> Zpq.create 10) in
-        Array.iteri (fun i cv -> List.iter (fun (j,x) -> Zpq.push rvv.(my_to_int j "transpose_cvv") (Z.of_int i) x) cv) cvv;
-        Array.map Zpq.to_list rvv
+        let rvv = Array.make nc [] in
+        for i = Array.length cvv downto 0 do
+          let row = cvv.(i) in
+          let i = Z.of_int i in
+          List.iter (fun (j,x) -> let j = Z.to_int j in rvv.(j) <- (i,x)::rvv.(j)) row;
+        done;
+        rvv 
       ))
     )
 
@@ -1047,9 +1053,10 @@ let mult_kb (km, kv as k) (bm, bv as b) =
            match kv, bv with
            | SparseV (_, svA, cvA), SparseV (_, svB, cvB) ->
                 let cvv = transpose_cvv n (Array.make 1 cvA) in
-                let rowmult x = List.map (fun (i,y) -> i, cprod x y) cvB in
-                let default = if svA=c_0 then [] else rowmult svA in
-                SparseM (n, cprod svA svB, Array.map (function | [(_,x)] -> rowmult x | _ -> default) cvv)
+                let sv' = cprod svA svB in
+                let rowmult x = sparse_elements_cv (cprod x svB) sv' n (List.map (fun (i,y) -> i, cprod x y) cvB) in
+                let svrow = if svA=c_0 then [] else rowmult svA in
+                SparseM (n, sv', Array.map (function | [(_,x)] -> rowmult x | _ -> svrow) cvv)
            | SparseV (_, svA, cvA), DenseV  dvB           -> 
                 default (densify_cv n svA cvA) dvB
            | DenseV  dvA          , SparseV (_, svB, cvB) -> 

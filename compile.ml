@@ -209,19 +209,30 @@ let compile_builtin (pn,params,p,mon as pdef) =
 
 exception CompileError of sourcepos * string
 
-(* I make heavy use of Obj.magic here. Type value is a place holder *)
+(* I make heavy use of Obj.magic here. Type vt is a place holder *)
+
+type vt = int (* or so we pretend *)
 
 (* for the moment I'm still using an assoc list as environment *)
 
-let boolc   : value -> bool       = Obj.magic
-let csnumc  : value -> csnum      = Obj.magic
-let gatec   : value -> gate       = Obj.magic
-let listc   : value -> value list = Obj.magic
-let matrixc : value -> matrix     = Obj.magic
-let numc    : value -> num        = Obj.magic
-let nvc     : value -> nv         = Obj.magic
-let ucharc  : value -> Uchar.t    = Obj.magic
-let valuec  : 'a    -> value      = Obj.magic
+let to_bool   : vt -> bool       = Obj.magic
+let to_csnum  : vt -> csnum      = Obj.magic
+let to_fun    : vt -> (vt -> vt) = Obj.magic
+let to_gate   : vt -> gate       = Obj.magic
+let to_list   : vt -> vt list    = Obj.magic
+let to_matrix : vt -> matrix     = Obj.magic
+let to_num    : vt -> num        = Obj.magic
+let to_nv     : vt -> nv         = Obj.magic
+let to_uchar  : vt -> Uchar.t    = Obj.magic
+
+let of_bool   : bool    -> vt = Obj.magic
+let of_csnum  : csnum   -> vt = Obj.magic
+let of_gate   : gate    -> vt = Obj.magic
+let of_list   : vt list -> vt = Obj.magic
+let of_matrix : matrix  -> vt = Obj.magic
+let of_num    : num     -> vt = Obj.magic
+let of_nv     : nv      -> vt = Obj.magic
+let of_qbit   : qbit    -> vt = Obj.magic
 
 (** Because we have nums in values we can't even use equality, I think.
 
@@ -235,9 +246,9 @@ let valuec  : 'a    -> value      = Obj.magic
 let rec deepcompare t v1 v2 = (* list everything to be sure I don't make a mistake *)
   match t.inst with
   | Unit      -> 0
-  | Num       -> Q.compare (numc v1) (numc v2)
-  | Tuple ts  -> tupcompare ts (listc v1) (listc v2)
-  | List  t   -> listcompare t (listc v1) (listc v2)
+  | Num       -> Q.compare (to_num v1) (to_num v2)
+  | Tuple ts  -> tupcompare ts (to_list v1) (to_list v2)
+  | List  t   -> listcompare t (to_list v1) (to_list v2)
   | Bit       
   | Bool       
   | Char
@@ -280,17 +291,17 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let rec compile_expr : expr -> (value monenv -> value) = fun e ->
+let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
   let t = type_of_expr e in
-  let simple e env = (Obj.magic e : value) in
-  let canthappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type t))) in
+  let simple e env = (Obj.magic e : vt) in
+  let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type t))) in
 
-  let intc : sourcepos -> string -> value -> int = fun pos str v -> 
-    let n = numc v in
+  let intc : sourcepos -> string -> vt -> int = fun pos str v -> 
+    let n = to_num v in
     if is_int n then int_of_num n
     else raise (Error (e.pos, Printf.sprintf "%s: %s" str (string_of_num n)))
   in
-  let nonnegintc : sourcepos -> string -> value -> int = fun pos str v -> 
+  let nonnegintc : sourcepos -> string -> vt -> int = fun pos str v -> 
     let i = intc pos ("fractional " ^ str) v in
     if i>=0 then i
     else raise (Error (e.pos, Printf.sprintf "negative %s: %s" str (string_of_int i)))
@@ -309,47 +320,47 @@ let rec compile_expr : expr -> (value monenv -> value) = fun e ->
   | EMinus e        -> (* overloaded *)
       (let f = compile_expr e in
        match t.inst with
-       | Num   -> (fun env -> valuec (~-/(numc (f env))))
-       | Sxnum -> (fun env -> (Obj.magic (Snum.cneg (Obj.magic (f env):csnum)):value))
-       | _     -> canthappen ()
+       | Num   -> fun env -> of_num (~-/(to_num (f env)))
+       | Sxnum -> fun env -> of_csnum (Snum.cneg (to_csnum (f env)))
+       | _     -> can'thappen ()
       )
   | ENot e          ->
       (let f = compile_expr e in
-       (fun env -> (Obj.magic (not (Obj.magic (f env):bool)):value))
+       fun env -> of_bool (not (to_bool (f env)))
       )
   | EDagger e       -> (* overloaded *)
       (let f = compile_expr e in
        match t.inst with
-       | Gate   -> (fun env -> (Obj.magic (dagger_g (Obj.magic (f env):gate)):value))
-       | Matrix -> (fun env -> (Obj.magic (dagger_m (Obj.magic (f env):matrix)):value))
-       | _      -> canthappen ()
+       | Gate   -> fun env -> of_gate (dagger_g (to_gate (f env)))
+       | Matrix -> fun env -> of_matrix (dagger_m (to_matrix (f env)))
+       | _      -> can'thappen ()
       )
   | ETuple es       ->
       (let apply env f = f env in
        let fs = List.map compile_expr es in
-       (fun env -> (Obj.magic (List.map (apply env) fs) :value))
+       fun env -> of_list (List.map (apply env) fs)
       )
   | ENil        -> simple []
   | ECons (e1,e2)   ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
-       (fun env -> (Obj.magic (f1 env :: (Obj.magic (f2 env) :value list)) :value))
+       fun env -> of_list (f1 env :: (to_list (f2 env)))
       )
   | EAppend (e1,e2)     ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
-       (fun env -> (Obj.magic (List.append (Obj.magic (f1 env) :value list) (Obj.magic (f2 env) :value list)) :value))
+       fun env -> of_list (List.append (to_list (f1 env)) (to_list (f2 env)))
       )
   | ECond (ce,te,ee)    ->
       (let cf = compile_expr ce in
        let tf = compile_expr te in
        let ef = compile_expr ee in
-       (fun env -> if (Obj.magic (cf env) :bool) then tf env else ef env)
+       (fun env -> (if (to_bool (cf env)) then tf else ef) env)
       )
   | EJux (fe,ae)        ->
       (let ff = compile_expr fe in
        let af = compile_expr ae in
-       (fun env -> try (Obj.magic (ff env) :value->value) (af env)
+       (fun env -> try (to_fun (ff env)) (af env)
                    with LibraryError s -> raise (Error (e.pos, s))
        )
       )
@@ -362,58 +373,58 @@ let rec compile_expr : expr -> (value monenv -> value) = fun e ->
        | Minus      ->
            (match (type_of_expr e1).inst with
             | Num    -> let f = if op=Plus then (+/) else (-/) in
-                        (fun env -> valuec (f (numc (f1 env)) (numc (f2 env))))
+                        fun env -> of_num (f (to_num (f1 env)) (to_num (f2 env)))
             | Matrix -> let f = if op=Plus then add_mm else sub_mm in
-                        (fun env -> valuec (f (matrixc (f1 env)) (matrixc (f2 env))))
+                        fun env -> of_matrix (f (to_matrix (f1 env)) (to_matrix (f2 env)))
             | Sxnum  -> let f = if op=Plus then Snum.csum else Snum.cdiff in
-                        (fun env -> valuec (f (csnumc (f1 env)) (csnumc (f2 env))))
-            | _      -> canthappen ()
+                        fun env -> of_csnum (f (to_csnum (f1 env)) (to_csnum (f2 env)))
+            | _      -> can'thappen ()
            )
        | Times      ->
            (match (type_of_expr e1).inst, (type_of_expr e2).inst with
-            | Num   , Num    -> (fun env -> (Obj.magic ((Obj.magic (f1 env):num) */ (Obj.magic (f2 env):num)) :value))
-            | Sxnum , Sxnum  -> (fun env -> (Obj.magic (cprod (Obj.magic (f1 env):csnum) (Obj.magic (f2 env):csnum)) :value))
-            | Gate  , Gate   -> (fun env -> (Obj.magic (mult_gg (Obj.magic (f1 env):gate) (Obj.magic (f2 env):gate)) :value))
-            | Ket   , Bra    -> (fun env -> valuec (mult_kb (nvc (f1 env)) (nvc (f2 env))))
-            | Matrix, Matrix -> (fun env -> (Obj.magic (mult_mm (Obj.magic (f1 env):matrix) (Obj.magic (f2 env):matrix)) :value))
-            | Sxnum , Matrix -> (fun env -> valuec (mult_nm (csnumc (f1 env)) (matrixc (f2 env))))
-            | Matrix, Sxnum  -> (fun env -> valuec (mult_nm (csnumc (f2 env)) (matrixc (f1 env))))
-            | _                          -> canthappen()
+            | Num   , Num    -> fun env -> of_num ((to_num (f1 env)) */ (to_num (f2 env)))
+            | Sxnum , Sxnum  -> fun env -> of_csnum (cprod (to_csnum (f1 env)) (to_csnum (f2 env)))
+            | Gate  , Gate   -> fun env -> of_gate (mult_gg (to_gate (f1 env)) (to_gate (f2 env)))
+            | Ket   , Bra    -> fun env -> of_matrix (mult_kb (to_nv (f1 env)) (to_nv (f2 env)))
+            | Matrix, Matrix -> fun env -> of_matrix (mult_mm (to_matrix (f1 env)) (to_matrix (f2 env)))
+            | Sxnum , Matrix -> fun env -> of_matrix (mult_nm (to_csnum (f1 env)) (to_matrix (f2 env)))
+            | Matrix, Sxnum  -> fun env -> of_matrix (mult_nm (to_csnum (f2 env)) (to_matrix (f1 env)))
+            | _                         -> can'thappen()
            )
-       | Div        -> (fun env -> valuec (numc (f1 env) // numc (f2 env)))
-       | Power      -> (fun env -> valuec (numc (f1 env) **/ intc e2.pos "fractional power" (f2 env)))
-       | Mod        -> (fun env -> valuec (numc (f1 env) **/ intc e2.pos "fractional mod" (f2 env)))
+       | Div        -> fun env -> of_num (to_num (f1 env) // to_num (f2 env))
+       | Power      -> fun env -> of_num (to_num (f1 env) **/ intc e2.pos "fractional power" (f2 env))
+       | Mod        -> fun env -> of_num (to_num (f1 env) **/ intc e2.pos "fractional mod" (f2 env))
        | TensorProd -> (* overloaded *)
            (match (type_of_expr e1).inst with
-            | Gate   -> (fun env -> valuec (tensor_gg (gatec (f1 env)) (gatec (f2 env))))
+            | Gate   -> fun env -> of_gate (tensor_gg (to_gate (f1 env)) (to_gate (f2 env)))
             | Bra  
-            | Ket    -> (fun env -> valuec (tensor_nvnv (nvc (f1 env)) (nvc (f2 env))))
-            | Matrix -> (fun env -> valuec (tensor_mm (matrixc (f1 env)) (matrixc (f2 env))))
-            | _      -> canthappen()
+            | Ket    -> fun env -> of_nv (tensor_nvnv (to_nv (f1 env)) (to_nv (f2 env)))
+            | Matrix -> fun env -> of_matrix (tensor_mm (to_matrix (f1 env)) (to_matrix (f2 env)))
+            | _      -> can'thappen()
            )
        | TensorPower ->
            (let powc = nonnegintc e2.pos "tensor-power exponent" in
             match (type_of_expr e1).inst with
-            | Gate   -> (fun env -> valuec (tensorpow_g (gatec (f1 env)) (powc (f2 env))))
+            | Gate   -> fun env -> of_gate (tensorpow_g (to_gate (f1 env)) (powc (f2 env)))
             | Bra    
-            | Ket    -> (fun env ->  valuec (tensorpow_nv (nvc (f1 env)) (powc (f2 env))))
-            | Matrix -> fun env -> valuec (tensorpow_m (matrixc (f1 env)) (powc (f2 env)))
-            | _      -> canthappen()
+            | Ket    -> fun env -> of_nv (tensorpow_nv (to_nv (f1 env)) (powc (f2 env)))
+            | Matrix -> fun env -> of_matrix (tensorpow_m (to_matrix (f1 env)) (powc (f2 env)))
+            | _      -> can'thappen()
            )
       )
   | ECompare (e1,op,e2) ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
        let t = type_of_expr e1 in
-       fun env -> valuec (let c = deepcompare t (f1 env) (f2 env) in
-                          match op with
-                          | Eq  -> c=0
-                          | Neq -> c<>0
-                          | Lt  -> c<0
-                          | Leq -> c<=0
-                          | Geq -> c>=0
-                          | Gt  -> c>0
-                         )
+       fun env -> of_bool (let c = deepcompare t (f1 env) (f2 env) in
+                           match op with
+                           | Eq  -> c=0
+                           | Neq -> c<>0
+                           | Lt  -> c<0
+                           | Leq -> c<=0
+                           | Geq -> c>=0
+                           | Gt  -> c>0
+                          )
       )
   | EBoolArith (e1,op,e2)   ->
       (let f1 = compile_expr e1 in
@@ -424,18 +435,18 @@ let rec compile_expr : expr -> (value monenv -> value) = fun e ->
                | Implies   -> (fun b1 b2 -> (not b1) || b2)
                | Iff       -> (=)
        in
-       fun env -> valuec (f (boolc (f1 env)) (boolc (f2 env)))
+       fun env -> of_bool (f (to_bool (f1 env)) (to_bool (f2 env)))
       )
   | ESub (e1,e2)            ->
-      (let f1 = listc <.> compile_expr e1 in
+      (let f1 = to_list <.> compile_expr e1 in
        let f2 = nonnegintc e2.pos "subscript" <.> compile_expr e2 in
-       fun env -> valuec (try List.nth (f1 env) (f2 env)
-                          with _ -> raise (Error (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
-                                                                    (f2 env)
-                                                                    (List.length (f1 env))
-                                                 )
+       fun env -> (try List.nth (f1 env) (f2 env)
+                   with _ -> raise (Error (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
+                                                             (f2 env)
+                                                             (List.length (f1 env))
                                           )
-                         )
+                                   )
+                  )
       )
   | EMatch  _ (*of expr * ematch list*)
   | ELambda _ (*of pattern list * expr*)

@@ -51,7 +51,6 @@ open Event
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
-exception LibraryError of string
 exception BitOverflow of string
 exception IntOverflow of string
 exception FractionalInt of string

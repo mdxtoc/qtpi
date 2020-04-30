@@ -27,8 +27,8 @@
  */
  
 %{
+  open Settings
   open Parserparams
-  open Program
   open Def
   open Process
   open Step

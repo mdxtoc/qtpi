@@ -21,6 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
+open Settings
 open Sourcepos
 open Functionutils
 open Listutils

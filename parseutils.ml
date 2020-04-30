@@ -107,7 +107,7 @@ let parse_program filename =
                     )
              )
       )
-  | Program.LexposParseError s ->
+  | Settings.LexposParseError s ->
       (close_in in_channel;
        let lnum, cpos, lexeme = lexinfo () in
        raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (looking at %s): %s\n"
@@ -115,7 +115,7 @@ let parse_program filename =
                     )
              )
       )
-  | Program.ParseError(spos,s) ->
+  | Settings.ParseError(spos,s) ->
       (close_in in_channel;
        raise (Error (Printf.sprintf "\n** %s: SYNTAX ERROR: %s\n"
                                     (string_of_sourcepos spos)

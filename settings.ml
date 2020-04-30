@@ -23,6 +23,9 @@
  
 exception Can'tHappen of string (* for anybody to use *)
 exception Error of string       (* ditto *)
+exception LibraryError of string
+exception ParseError of Sourcepos.sourcepos * string (* because I can't put it in Parser, and I have to put it somewhere *)
+exception LexposParseError of string                 (* ditto *)
 
 let temp_setting vref v f =
   let oldv = !vref in

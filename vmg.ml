@@ -442,7 +442,7 @@ let transpose_cvv =
     (CvvHash.memofun cvvtab (uncurry2 (fun nc cvv ->
         let nc = my_to_int nc "transpose_cvv" in
         let rvv = Array.make nc [] in
-        for i = Array.length cvv downto 0 do
+        for i = Array.length cvv -1 downto 0 do
           let row = cvv.(i) in
           let i = Z.of_int i in
           List.iter (fun (j,x) -> let j = Z.to_int j in rvv.(j) <- (i,x)::rvv.(j)) row;

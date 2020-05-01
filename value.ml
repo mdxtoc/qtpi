@@ -161,29 +161,29 @@ let of_tuple   : vt list    -> vt = Obj.magic
 let of_unit    : unit       -> vt = Obj.magic
 
 (* convert strings, for the library *)
-let string_of_vt : vt -> string = fun v -> let cs = List.map to_uchar (to_list v) in
+let reveal_string : vt -> string = fun v -> let cs = List.map to_uchar (to_list v) in
                                            Utf8.string_of_uchars cs
-let vt_of_string : string -> vt = fun s -> of_list (List.map of_uchar (Utf8.uchars_of_string s))
+let hide_string : string -> vt = fun s -> of_list (List.map of_uchar (Utf8.uchars_of_string s))
 
-let qstate_of_vt = string_of_vt
-let vt_of_qstate = vt_of_string
+let reveal_qstate = reveal_string
+let hide_qstate = hide_string
 
 (* convert triples, for the library *)
-let pair_of_vt   : vt -> 'a * 'b = fun v -> let vs = to_list v in 
+let reveal_pair   : vt -> 'a * 'b = fun v -> let vs = to_list v in 
                                             (Obj.magic (List.hd vs) :'a), 
                                             (Obj.magic (List.hd (List.tl vs)) :'b)
-let vt_of_pair   : 'a * 'b -> vt = fun (a,b) -> let vs =  [(Obj.magic a :int); (Obj.magic b :int)] in
+let hide_pair   : 'a * 'b -> vt = fun (a,b) -> let vs =  [(Obj.magic a :int); (Obj.magic b :int)] in
                                                 of_tuple vs
 
-let triple_of_vt : vt -> 'a * 'b * 'c = fun v -> let vs = to_list v in 
+let reveal_triple : vt -> 'a * 'b * 'c = fun v -> let vs = to_list v in 
                                         (Obj.magic (List.hd vs) :'a), 
                                         (Obj.magic (List.hd (List.tl vs)) :'b), 
                                         (Obj.magic (List.hd (List.tl (List.tl vs))) :'c)
-let vt_of_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:int); (Obj.magic b:int); (Obj.magic c:int)] in
+let hide_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:int); (Obj.magic b:int); (Obj.magic c:int)] in
                                                       of_tuple vs
 
 (* convert integers, for the library *) 
-let vt_of_int    : int -> vt = fun i -> of_num (num_of_int i) 
+let hide_int    : int -> vt = fun i -> of_num (num_of_int i) 
 
 (* ********************* string_of_ functions ***************************** *)
 
@@ -210,7 +210,7 @@ let rec so_value optf t v =
                | Char          -> Printf.sprintf "'%s'" (Utf8.escaped (to_uchar v))
                | Qbit          -> "Qbit " ^ string_of_qbit (to_qbit v)
                | Qbits         -> "Qbits " ^ string_of_qbits (to_qbits v)
-               | Qstate        -> string_of_vt v
+               | Qstate        -> reveal_string v
                | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (so_value optf t) (to_list v)

@@ -762,7 +762,7 @@ let rec interp env proc =
                             if c.cname = out_c || c.cname = outq_c then can'tread "output"
                             else
                             if c.cname = in_c then 
-                              (let v = vt_of_string (read_line ()) in
+                              (let v = hide_string (read_line ()) in
                                if !traceIO then trace (EVInput (pn, (tpat,v)));
                                do_match v
                               )
@@ -792,14 +792,14 @@ let rec interp env proc =
                            )
                         else
                         if c.cname = out_c then
-                          (let s = String.concat "" (List.map string_of_vt (to_list v)) in
+                          (let s = String.concat "" (List.map reveal_string (to_list v)) in
                            print_string s; flush stdout; 
-                           if !traceIO then trace (EVOutput (pn, (t, vt_of_string s)));
+                           if !traceIO then trace (EVOutput (pn, (t, hide_string s)));
                            true
                           )
                         else
                         if c.cname = outq_c then
-                          (let s = string_of_vt v in
+                          (let s = reveal_string v in
                            print_string s; flush stdout; 
                            if !traceIO then trace (EVOutput (pn, (t,v)));
                            true

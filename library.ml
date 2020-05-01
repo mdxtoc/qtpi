@@ -165,14 +165,14 @@ let v_randbits n =
   in
   of_list (randbits i)
 
-let v_zip xs ys = of_list (List.map vt_of_pair (mirazip (to_list xs) (to_list ys))) 
+let v_zip xs ys = of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys))) 
 
-let v_unzip xys = let xs, ys = List.split (List.map pair_of_vt (to_list xys)) in
-                  vt_of_pair (of_list xs, of_list ys)
+let v_unzip xys = let xs, ys = List.split (List.map reveal_pair (to_list xys)) in
+                  hide_pair (of_list xs, of_list ys)
 
 let v_concat xss = of_list (List.concat (List.map to_list (to_list xss)))
 
-let _ = Interpret.know ("length"   , "['a] -> num                        "  , of_fun (vt_of_int <.> List.length <.> to_list))
+let _ = Interpret.know ("length"   , "['a] -> num                        "  , of_fun (hide_int <.> List.length <.> to_list))
 
 let _ = Interpret.know ("hd"       , "['a] -> 'a                         "  , of_fun v_hd)
 let _ = Interpret.know ("tl"       , "['a] -> ['a]                    "     , of_fun v_tl)
@@ -192,10 +192,10 @@ let _ = Interpret.know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vf
 let _ = Interpret.know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
 let _ = Interpret.know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , of_fun v_unzip)
 
-let _ = Interpret.know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map vt_of_pair (mirazip (to_list xs) (to_list ys)))))
-let _ = Interpret.know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map vt_of_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = Interpret.know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = Interpret.know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
 let _ = Interpret.know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
-                            , vfun3 (fun xs ys zs -> of_list (List.map vt_of_triple (mirazip3 (to_list xs) (to_list ys) (to_list zs)))))
+                            , vfun3 (fun xs ys zs -> of_list (List.map hide_triple (mirazip3 (to_list xs) (to_list ys) (to_list zs)))))
 
 let _ = Interpret.know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
 
@@ -210,7 +210,7 @@ let _ = Interpret.know ("concat"   , "[['a]] -> ['a]                "       , of
 let v_tabulate n f =
   let i = mustbe_intv n in
   let f = to_fun f in
-  let a = Array.init i (f <.> vt_of_int) in
+  let a = Array.init i (f <.> hide_int) in
   of_list (Array.to_list a)
 
 let v_const a b = a
@@ -219,15 +219,15 @@ let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vf
 let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
 
 (* can't do these ...
-   let v_compare a b = vt_of_int (Value.deepcompare (a,b))
+   let v_compare a b = hide_int (Value.deepcompare (a,b))
    let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
 
    let v_sort compare vs = of_list (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (to_list vs))
    let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
  *)
 
-let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> pair_of_vt))
-let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> pair_of_vt))
+let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> reveal_pair))
+let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> reveal_pair))
 
 let _zeroes = ref z_0
 let _ones = ref z_1
@@ -364,11 +364,11 @@ let _ = Interpret.know ("engate"  , "matrix -> gate", of_fun (of_gate <.> Vmg.en
 
 let _statistics_m mM =
   let assoc = Vmg.statistics_m (to_matrix mM) in
-  of_list (List.map (fun (v,i) -> vt_of_pair (of_csnum v, of_num (num_of_zint i))) assoc)
+  of_list (List.map (fun (v,i) -> hide_pair (of_csnum v, of_num (num_of_zint i))) assoc)
 
 let _statistics_snv nv =
   let assoc = Vmg.statistics_nv nv in
-  of_list (List.map (fun (v,i) -> vt_of_pair (of_csnum v, of_num (num_of_zint i))) assoc)
+  of_list (List.map (fun (v,i) -> hide_pair (of_csnum v, of_num (num_of_zint i))) assoc)
 
 let _ = Interpret.know ("statistics_m", "matrix -> [(sxnum,num)]", of_fun _statistics_m)
 let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statistics_snv <.> to_ket))
@@ -381,7 +381,7 @@ let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statist
 
 let rec get_string s = 
   flush stdout; 
-  let prompt = string_of_vt s ^"? " in
+  let prompt = reveal_string s ^"? " in
   prerr_string prompt; flush stderr; 
   let input = Stdlib.read_line () in
   let plength = String.length prompt in
@@ -394,32 +394,32 @@ let rec read_num s = try of_num (num_of_string (get_string s)) with Failure _
                                                                 | Invalid_argument _ -> print_endline "pardon?"; read_num s
 let _ = Interpret.know ("read_num", "string -> num"                     , of_fun read_num)
 
-let rec read_string s = vt_of_string (get_string s) 
+let rec read_string s = hide_string (get_string s) 
 let _ = Interpret.know ("read_string", "string -> string"               , of_fun read_string)
 
 let rec read_alternative prompt sep alts =
-  let assoc = List.map pair_of_vt (to_list alts) in
+  let assoc = List.map reveal_pair (to_list alts) in
   let promptstring = Printf.sprintf "%s (%s)" 
-                                    (string_of_vt prompt) 
-                                    (String.concat (string_of_vt sep) (List.map (string_of_vt <.> fst) assoc)) 
+                                    (reveal_string prompt) 
+                                    (String.concat (reveal_string sep) (List.map (reveal_string <.> fst) assoc)) 
   in
-  let s = read_string (vt_of_string promptstring) in
+  let s = read_string (hide_string promptstring) in
   try List.assoc s assoc
   with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
 
 let _ = Interpret.know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
   
-let read_bool prompt y n = read_alternative prompt (vt_of_string "/") (of_list [vt_of_pair (y,of_bool true); vt_of_pair (n,of_bool false)])
+let read_bool prompt y n = read_alternative prompt (hide_string "/") (of_list [hide_pair (y,of_bool true); hide_pair (n,of_bool false)])
 let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
 
 exception Abandon of string
 
-let abandon ss = raise (Abandon (String.concat "" (List.map string_of_vt (to_list ss))))
+let abandon ss = raise (Abandon (String.concat "" (List.map reveal_string (to_list ss))))
 let _ = Interpret.know ("abandon", "[string] -> '*a", of_fun abandon) (* note classical result type ... *)
 
 
-let print_string s = of_unit (Stdlib.print_string (string_of_vt s); flush stdout)
-let print_qbit q   = print_string (vt_of_string (Qsim.string_of_qval (Qsim.qval (to_qbit q))))  
+let print_string s = of_unit (Stdlib.print_string (reveal_string s); flush stdout)
+let print_qbit q   = print_string (hide_string (Qsim.string_of_qval (Qsim.qval (to_qbit q))))  
                                         
 let _ = Interpret.know ("print_string" , "string -> ()"       , of_fun (print_string))
 let _ = Interpret.know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
@@ -437,7 +437,7 @@ let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , of_fun print_qbi
      in
      so_value optf v
 
-   let _ = Interpret.know ("show", "'*a -> string", of_fun (vt_of_string <.> _show))   (* yup, it's a non-classical argument *)
+   let _ = Interpret.know ("show", "'*a -> string", of_fun (hide_string <.> _show))   (* yup, it's a non-classical argument *)
  *)  
 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
@@ -446,7 +446,7 @@ let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let r = (pow num_10 (-k)) */ half in
   let n = if Q.sign n < 0 then n-/r else n+/r in
   let n = Q.to_float n in
-  vt_of_string (Printf.sprintf "%.*f" k n)
+  hide_string (Printf.sprintf "%.*f" k n)
 
 let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   
   
@@ -454,7 +454,7 @@ let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)
 
 module OneMap = MyMap.Make (struct type t        = vt
                                    let compare   = Stdlib.compare (* can't be anything else *)
-                                   let to_string = string_of_vt
+                                   let to_string = reveal_string
                             end
                            )
 
@@ -466,7 +466,7 @@ let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"       
   
 module TwoMap = MyMap.Make (struct type t        = vt*vt
                                    let compare   = Stdlib.compare (* ok not to be deepcompare *)
-                                   let to_string = bracketed_string_of_pair string_of_vt string_of_vt
+                                   let to_string = bracketed_string_of_pair reveal_string reveal_string
                             end
                            )
 
@@ -476,7 +476,7 @@ let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"        
   
 module ThreeMap = MyMap.Make (struct type t        = vt*vt*vt
                                      let compare   = Stdlib.compare (* ok not to be deepcompare *)
-                                     let to_string = bracketed_string_of_triple string_of_vt string_of_vt string_of_vt
+                                     let to_string = bracketed_string_of_triple reveal_string reveal_string reveal_string
                               end
                              )
 
@@ -501,5 +501,5 @@ let _qvals qs =
   let qv = Qsim.qval_of_qs qs in
   Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qbit qs) (Qsim.string_of_qval qv) (* oh the qsort ... *)
   
-let _ = Interpret.know ("qval" , "qbit  -> qstate", of_fun (vt_of_string <.> _qval))       (* yup, that's a qbit argument *)
-let _ = Interpret.know ("qvals", "qbits -> qstate", of_fun (vt_of_string <.> _qvals))      (* yup, that's a qbits argument *)
+let _ = Interpret.know ("qval" , "qbit  -> qstate", of_fun (hide_string <.> _qval))       (* yup, that's a qbit argument *)
+let _ = Interpret.know ("qvals", "qbits -> qstate", of_fun (hide_string <.> _qvals))      (* yup, that's a qbits argument *)

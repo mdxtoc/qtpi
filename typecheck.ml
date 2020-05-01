@@ -111,6 +111,7 @@ let rec rewrite_expr e =
        match tinst e with
        | EUnit
        | ENil
+       | EShow
        | EVar        _
        | ENum        _
        | EBool       _
@@ -533,6 +534,7 @@ and assigntype_expr cxt t e =
      match tinst e with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
+     | EShow                -> unifytypes t (adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char)))))
      | ENum i               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Bit              -> if i=/zero||i=/one then ()

@@ -318,6 +318,22 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
        fun env -> of_tuple (List.map (apply env) fs)
       )
   | ENil        -> cconst []
+  | EShow       -> 
+      (match et.inst with
+       | Fun (t,_) ->
+           let f = let optf t = match t.inst with
+                                | Qbits     -> Some "<qbit>"
+                                | Qstate    -> Some "<qstate>"
+                                | Fun     _ -> Some "<function>"
+                                | Channel _ -> Some "<channel>"
+                                | Process _ -> Some "<process>"
+                                | _         -> None
+                   in
+                   so_value optf t
+           in
+           fun env -> of_fun (vt_of_string <.> f)
+       | _         -> raise (Can'tHappen (Printf.sprintf "eshow %s" (string_of_type et)))
+      )
   | ECons (e1,e2)   ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in

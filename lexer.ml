@@ -123,6 +123,7 @@ let string_of_token = function
     | DAGGER    -> "DAGGER"
     | SXNUMTYPE -> "SXNUMTYPE"
     | DOWNARROW -> "DOWNARROW"
+    | RESSHOW   -> "RESSHOW"
 
   
 let get_linenum lexbuf = 
@@ -281,6 +282,8 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x2192      -> RIGHTARROW       (* → *)
   
   | 0x2193      -> DOWNARROW        (* ↓ *)
+  
+  | "show"      -> RESSHOW
     
   | "'", Compl (Chars "'\\\n\r\t"), "'"
                 -> CHAR (Sedlexing.lexeme_char lexbuf 1)

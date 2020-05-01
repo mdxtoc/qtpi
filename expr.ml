@@ -65,6 +65,7 @@ and enode =
   | ESub of expr * expr
   | ELambda of pattern list * expr
   | EWhere of expr * edecl
+  | EShow                       (* the Turner hack: see "the special function 'show'" in the Miranda manual *)
 
 and arithop =
   | Plus
@@ -144,6 +145,7 @@ let rec exprprio e =
   match tinst e with 
   | EUnit                   
   | ENil
+  | EShow
   | EVar        _   
   | ENum        _
   | EBool       _
@@ -179,6 +181,7 @@ let rec string_of_primary e =
   match tinst e with
   | EUnit           -> "()"
   | ENil            -> "[]"
+  | EShow           -> "show"
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBra b          -> string_of_braconst b
@@ -225,6 +228,7 @@ and string_of_expr e =
   match tinst e with 
   | EUnit       
   | ENil
+  | EShow
   | EVar        _
   | EBit        _
   | EBra        _
@@ -315,6 +319,7 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       match tinst e with
       | EVar        n          -> s_add n e s
       | EUnit  
+      | EShow
       | ENum        _ 
       | EBool       _ 
       | EChar       _ 

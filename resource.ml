@@ -404,7 +404,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       match tinst e with
       | EUnit 
       | ENil
-      | EShow
+      | ERes        _
       | ENum        _              
       | EBool       _
       | EChar       _
@@ -739,7 +739,7 @@ let frees = Expr.frees_fun ne_filter
 let rec ffv_expr expr =
   match tinst expr with
   | EUnit
-  | EShow
+  | ERes       _
   | EVar       _
   | ENum       _
   | EBool      _

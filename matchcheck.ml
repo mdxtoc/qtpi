@@ -401,7 +401,7 @@ let rec matchcheck_expr e =
     Printf.printf "\nmatchcheck_expr %s\n" (string_of_expr e);
   match tinst e with
   | EUnit
-  | EShow
+  | ERes        _
   | EVar        _
   | ENum        _
   | EBool       _

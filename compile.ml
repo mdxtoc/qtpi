@@ -270,6 +270,8 @@ let cconst : 'a -> env -> vt = fun v env -> (Obj.magic v : vt)
 ;;
 
 let rec compile_expr : expr -> (env -> vt) = fun e ->
+  if !verbose || !verbose_compile then
+    (Printf.printf "compile_expr %s\n" (string_of_expr e); flush_all());
   let et = type_of_expr e in
   let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type et))) in
 
@@ -318,21 +320,38 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
        fun env -> of_tuple (List.map (apply env) fs)
       )
   | ENil        -> cconst []
-  | EShow       -> 
+  | ERes w      -> 
       (match et.inst with
        | Fun (t,_) ->
-           let f = let optf t = match t.inst with
-                                | Qbits     -> Some "<qbit>"
-                                | Qstate    -> Some "<qstate>"
-                                | Fun     _ -> Some "<function>"
-                                | Channel _ -> Some "<channel>"
-                                | Process _ -> Some "<process>"
-                                | _         -> None
-                   in
-                   so_value optf t
-           in
-           fun env -> of_fun (vt_of_string <.> f)
-       | _         -> raise (Can'tHappen (Printf.sprintf "eshow %s" (string_of_type et)))
+           (match w with
+            | ResShow -> 
+                let f = let optf t = match t.inst with
+                                     | Qbits     -> Some "<qbit>"
+                                     | Qstate    -> Some "<qstate>"
+                                     | Fun     _ -> Some "<function>"
+                                     | Channel _ -> Some "<channel>"
+                                     | Process _ -> Some "<process>"
+                                     | _         -> None
+                        in
+                        so_value optf t
+                in
+                fun env -> of_fun (hide_string <.> f)
+            | ResCompare ->
+                ((match t.inst with
+                  | Unknown _
+                  | Known _
+                  | Poly _       -> raise (CompileError (e.pos, (Printf.sprintf "'compare' used with poly-type %s" 
+                                                                                    (string_of_type t)
+                                                                )
+                                                        )
+                                         )
+                  | _            -> ()
+                 );
+                 let f = deepcompare t in
+                 fun env -> of_fun (fun v -> of_fun (fun v' -> hide_int (f v v')))
+                )
+           )
+       | _         -> raise (Can'tHappen (Printf.sprintf "%s %s" (string_of_expr e) (string_of_type et)))
       )
   | ECons (e1,e2)   ->
       (let f1 = compile_expr e1 in

@@ -143,57 +143,53 @@ let in_c      = -4
 
 let matcher pos env pairs t value =
   let sop p = "(" ^ string_of_pattern p ^ ")" in
-  Printf.printf "matcher %s %s %s\n -- doesn't work yet\n" 
-                                         (short_string_of_env env)
-                                         (bracketed_string_of_list (sop <.> fst) pairs)
-                                         (string_of_value t value);
-  
-  exit 1
-  
-  (* 
-     let rec fail pairs =
-       match pairs with
-       | []               -> None
-       | (pat,rhs)::pairs -> _match env pat value [] rhs pairs
-     and succeed env work rhs pairs =
-       match work with
-       | []                         -> if !verbose || !verbose_interpret then
-                                         Printf.printf "matcher succeeds %s\n\n" (short_string_of_env env);
-                                       Some (env,rhs)
-       | ([]      , []      )::work -> succeed env work rhs pairs
-       | (p1::pats, v1::vals)::work -> _match env p1 v1 ((pats,vals)::work) rhs pairs
-       | (ps      , vs      )::_    -> raise (Disaster (pos,
-                                                        Printf.sprintf "matcher succeed pats %s values %s"
-                                                                       (bracketed_string_of_list sop ps)
-                                                                       (bracketed_string_of_list string_of_value vs)
-                                                       )
-                                             )
-     and _match env pat v work rhs pairs =
-       if !verbose_interpret then
-         Printf.printf "_match %s %s %s ...\n\n" (short_string_of_env env)
-                                                 (sop pat)
-                                                 (string_of_value v);
-       let yes env = succeed env work rhs pairs in
-       let no () = fail pairs in
-       let maybe b = if b then yes env else no () in
-       match tinst pat, v with
-       | PatAny            , _                 
-       | PatUnit           , VUnit             
-       | PatNil            , VList []          -> yes env
-       | PatName   n       , _                 -> yes (env<@+>(n,v))
-       | PatInt    i       , VNum    n         -> maybe (is_int n && num_of_int i =/ n)
-       | PatBit    b       , VBit    b'        -> maybe (b=b')
-       | PatBool   b       , VBool   b'        -> maybe (b=b')
-       | PatChar   c       , VChar   c'        -> maybe (c=c')
-       | PatString ucs     , VList   ucs'      -> maybe (ucs=List.map charv ucs')
-       | PatBra    b       , VBra    b'        -> maybe (pv_of_braket b=b')
-       | PatKet    k       , VKet    k'        -> maybe (pv_of_braket k=k')
-       | PatCons   (ph,pt) , VList   (vh::vt)  -> succeed env (([ph;pt],[vh;VList vt])::work) rhs pairs
-       | PatTuple  ps      , VTuple  vs        -> succeed env ((ps,vs)::work) rhs pairs
-       | _                                     -> no () (* can happen: [] vs ::, :: vs [] *)
-     in
-     fail pairs
- *)
+  let rec fail pairs =
+    match pairs with
+    | []               -> None
+    | (pat,rhs)::pairs -> _match env pat t value [] rhs pairs
+  and succeed env work rhs pairs =
+    match work with
+    | []                         -> if !verbose || !verbose_interpret then
+                                      Printf.printf "matcher succeeds %s\n\n" (short_string_of_env env);
+                                    Some (env,rhs)
+    | ([]      , []            )::work -> succeed env work rhs pairs
+    | (p1::pats, (t1,v1)::tvals)::work -> _match env p1 t1 v1 ((pats,tvals)::work) rhs pairs
+    | (ps      , tvs           )::_    -> raise (Disaster (pos,
+                                                           Printf.sprintf "matcher succeed pats %s values %s"
+                                                                          (bracketed_string_of_list sop ps)
+                                                                          (bracketed_string_of_list (uncurry2 string_of_value) tvs)
+                                                          )
+                                                )
+  and _match env pat t v work rhs pairs =
+    if !verbose_interpret then
+      Printf.printf "_match %s %s %s ...\n\n" (short_string_of_env env)
+                                              (sop pat)
+                                              (string_of_value t v);
+    let yes env = succeed env work rhs pairs in
+    let no () = fail pairs in
+    let maybe b = if b then yes env else no () in
+    match tinst pat with
+    | PatAny            
+    | PatUnit           -> yes env      
+    | PatNil            -> maybe (to_list v=[])
+    | PatName   n       -> yes (env<@+>(n,v))
+    | PatInt    i       -> let n = to_num v in maybe (is_int n && num_of_int i =/ n)
+    | PatBit    b       -> let b' = to_bit v in maybe (b=b')
+    | PatBool   b       -> let b' = to_bool v in maybe (b=b')
+    | PatChar   c       -> let c' = to_uchar v in maybe (c=c')
+    | PatString ucs     -> let ucs' = (Obj.magic v: Uchar.t list) in maybe (ucs=ucs')
+    | PatBra    b       -> let b' = to_bra v in maybe (pv_of_braket b=b')
+    | PatKet    k       -> let k' = to_ket v in maybe (pv_of_braket k=k')
+    | PatCons   (ph,pt) -> (match to_list v with
+                            | vh::vt -> let th = type_of_pattern ph in
+                                        let tt = type_of_pattern pt in
+                                        succeed env (([ph;pt],[(th,vh);(tt,of_list vt)])::work) rhs pairs
+                            | _      -> no ()
+                           )
+    | PatTuple  ps      -> let vs = to_list v in
+                           succeed env ((ps,zip (List.map type_of_pattern ps) vs)::work) rhs pairs
+  in
+  fail pairs
  
 let bmatch env pat t v =
   match matcher pat.pos env [pat,()] t v with

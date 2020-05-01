@@ -35,13 +35,13 @@ open Process
 open Param
 open Step
 open Def
+open Monenv 
 open Value
 
 open Number
 open Snum
 open Vmg
 
-open Monenv (* do this last so we get the weird execution environment mechanism *)
 
 exception Error of sourcepos * string
 
@@ -209,31 +209,6 @@ let compile_builtin (pn,params,p,mon as pdef) =
 
 exception CompileError of sourcepos * string
 
-(* I make heavy use of Obj.magic here. Type vt is a place holder *)
-
-type vt = int (* or so we pretend *)
-
-(* for the moment I'm still using an assoc list as environment *)
-
-let to_bool   : vt -> bool       = Obj.magic
-let to_csnum  : vt -> csnum      = Obj.magic
-let to_fun    : vt -> (vt -> vt) = Obj.magic
-let to_gate   : vt -> gate       = Obj.magic
-let to_list   : vt -> vt list    = Obj.magic
-let to_matrix : vt -> matrix     = Obj.magic
-let to_num    : vt -> num        = Obj.magic
-let to_nv     : vt -> nv         = Obj.magic
-let to_uchar  : vt -> Uchar.t    = Obj.magic
-
-let of_bool   : bool    -> vt = Obj.magic
-let of_csnum  : csnum   -> vt = Obj.magic
-let of_gate   : gate    -> vt = Obj.magic
-let of_list   : vt list -> vt = Obj.magic
-let of_matrix : matrix  -> vt = Obj.magic
-let of_num    : num     -> vt = Obj.magic
-let of_nv     : nv      -> vt = Obj.magic
-let of_qbit   : qbit    -> vt = Obj.magic
-
 (** Because we have nums in values we can't even use equality, I think.
 
     Comparison.  [compare x y] returns 0 if [x] equals [y],
@@ -269,13 +244,13 @@ let rec deepcompare t v1 v2 = (* list everything to be sure I don't make a mista
 
 and listcompare t v1s v2s =
   match v1s, v2s with
-  | v1::v1s, v2::v2s -> (match deepcompare t v1 v2 with
-                         | 0 -> listcompare t v1s v2s
-                         | c -> c
-                        )
-  | []     , []      -> 0
+  | v1::v1s, v2::v2s ->  (match deepcompare t v1 v2 with
+                          | 0 -> listcompare t v1s v2s
+                          | c -> c
+                         )
+  | []     , []      ->  0
   | []     , _       -> -1
-  | _      , []      -> 1
+  | _      , []      ->  1
 
 and tupcompare ts v1s v2s =
   match ts, v1s, v2s with
@@ -291,10 +266,12 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
-  let t = type_of_expr e in
-  let simple e env = (Obj.magic e : vt) in
-  let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type t))) in
+let cconst : 'a -> env -> vt = fun v env -> (Obj.magic v : vt)
+;;
+
+let rec compile_expr : expr -> (env -> vt) = fun e ->
+  let et = type_of_expr e in
+  let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type et))) in
 
   let intc : sourcepos -> string -> vt -> int = fun pos str v -> 
     let n = to_num v in
@@ -308,18 +285,18 @@ let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
   in
   
   match tinst e with
-  | EUnit           -> simple ()
-  | EVar n          -> (fun env -> env <@> n)
-  | ENum num        -> simple num
-  | EBool b         -> simple b
-  | EChar uc        -> simple uc
-  | EString ucs     -> simple ucs
-  | EBit b          -> simple b
-  | EBra b          -> simple b
-  | EKet k          -> simple k
+  | EUnit           -> cconst ()
+  | EVar n          -> fun env -> env <@> n 
+  | ENum num        -> cconst num
+  | EBool b         -> cconst b
+  | EChar uc        -> cconst uc
+  | EString ucs     -> cconst ucs
+  | EBit b          -> cconst b
+  | EBra b          -> cconst b
+  | EKet k          -> cconst k
   | EMinus e        -> (* overloaded *)
       (let f = compile_expr e in
-       match t.inst with
+       match et.inst with
        | Num   -> fun env -> of_num (~-/(to_num (f env)))
        | Sxnum -> fun env -> of_csnum (Snum.cneg (to_csnum (f env)))
        | _     -> can'thappen ()
@@ -330,7 +307,7 @@ let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
       )
   | EDagger e       -> (* overloaded *)
       (let f = compile_expr e in
-       match t.inst with
+       match et.inst with
        | Gate   -> fun env -> of_gate (dagger_g (to_gate (f env)))
        | Matrix -> fun env -> of_matrix (dagger_m (to_matrix (f env)))
        | _      -> can'thappen ()
@@ -338,9 +315,9 @@ let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
   | ETuple es       ->
       (let apply env f = f env in
        let fs = List.map compile_expr es in
-       fun env -> of_list (List.map (apply env) fs)
+       fun env -> of_tuple (List.map (apply env) fs)
       )
-  | ENil        -> simple []
+  | ENil        -> cconst []
   | ECons (e1,e2)   ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
@@ -385,7 +362,7 @@ let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
             | Num   , Num    -> fun env -> of_num ((to_num (f1 env)) */ (to_num (f2 env)))
             | Sxnum , Sxnum  -> fun env -> of_csnum (cprod (to_csnum (f1 env)) (to_csnum (f2 env)))
             | Gate  , Gate   -> fun env -> of_gate (mult_gg (to_gate (f1 env)) (to_gate (f2 env)))
-            | Ket   , Bra    -> fun env -> of_matrix (mult_kb (to_nv (f1 env)) (to_nv (f2 env)))
+            | Ket   , Bra    -> fun env -> of_matrix (mult_kb (to_ket (f1 env)) (to_bra (f2 env)))
             | Matrix, Matrix -> fun env -> of_matrix (mult_mm (to_matrix (f1 env)) (to_matrix (f2 env)))
             | Sxnum , Matrix -> fun env -> of_matrix (mult_nm (to_csnum (f1 env)) (to_matrix (f2 env)))
             | Matrix, Sxnum  -> fun env -> of_matrix (mult_nm (to_csnum (f2 env)) (to_matrix (f1 env)))
@@ -416,15 +393,15 @@ let rec compile_expr : expr -> (vt monenv -> vt) = fun e ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
        let t = type_of_expr e1 in
-       fun env -> of_bool (let c = deepcompare t (f1 env) (f2 env) in
-                           match op with
-                           | Eq  -> c=0
-                           | Neq -> c<>0
-                           | Lt  -> c<0
-                           | Leq -> c<=0
-                           | Geq -> c>=0
-                           | Gt  -> c>0
-                          )
+       let cf = match op with
+                | Eq  -> ((=)0)  <..> Stdlib.compare
+                | Neq -> ((<>)0) <..> Stdlib.compare
+                | Lt  -> ((<)0)  <..> deepcompare t
+                | Leq -> ((<=)0) <..> deepcompare t
+                | Geq -> ((>=)0) <..> deepcompare t
+                | Gt  -> ((>)0)  <..> deepcompare t
+       in
+       fun env -> of_bool (cf (f1 env) (f2 env))
       )
   | EBoolArith (e1,op,e2)   ->
       (let f1 = compile_expr e1 in

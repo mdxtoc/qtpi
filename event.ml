@@ -25,14 +25,16 @@ open Name
 open Listutils
 open Value
 open Vmg
+open Type
 
+type tv = Type._type * Value.vt
 type event =
-  | EVMessage of chan * name * name * value
-  | EVInput of name * value
-  | EVOutput of name * value
-  | EVDispose of name * value
+  | EVMessage of chan * name * name * tv
+  | EVInput of name * tv
+  | EVOutput of name * tv
+  | EVDispose of name * tv
   | EVGate of name * string list * gate * string list
-  | EVMeasure of name * qbit list * gate * value list * string list
+  | EVMeasure of name * qbit list * gate * bool list * string list
   | EVChangeId of name * name list
   
 let soqs = function
@@ -40,23 +42,23 @@ let soqs = function
   | ss  -> Printf.sprintf "(%s)" (String.concat "," ss)
 
 let string_of_event = function
-  | EVMessage (c,pout,pin,v)    -> Printf.sprintf "%s: %s -> %s %s" (short_string_of_value (VChan c))
-                                                                    (string_of_name pout)
-                                                                    (string_of_name pin)
-                                                                    (string_of_value v)
-  | EVInput (pn,v)              -> Printf.sprintf "%s inputs %s" (string_of_name pn) (string_of_value v)
-  | EVOutput (pn,v)             -> Printf.sprintf "%s outputs %s" (string_of_name pn) (string_of_value v)
-  | EVDispose (pn,v)            -> Printf.sprintf "%s disposes %s" (string_of_name pn) (string_of_value v)
-  | EVGate (pn, ss, g, ss')     -> Printf.sprintf "%s %s >> %s; result %s" (string_of_name pn)
-                                                                           (soqs ss)
-                                                                           (string_of_gate g)
-                                                                           (soqs ss')
-  | EVMeasure (pn, qs, g, vs, aqs)  
+  | EVMessage (c,pout,pin,(t,v))    -> Printf.sprintf "%s: %s -> %s %s" (short_string_of_chan t c)
+                                                                        (string_of_name pout)
+                                                                        (string_of_name pin)
+                                                                        (string_of_value t v)
+  | EVInput (pn,(t,v))              -> Printf.sprintf "%s inputs %s" (string_of_name pn) (string_of_value t v)
+  | EVOutput (pn,(t,v))             -> Printf.sprintf "%s outputs %s" (string_of_name pn) (string_of_value t v)
+  | EVDispose (pn,(t,v))            -> Printf.sprintf "%s disposes %s" (string_of_name pn) (string_of_value t v)
+  | EVGate (pn, ss, g, ss')         -> Printf.sprintf "%s %s >> %s; result %s" (string_of_name pn)
+                                                                               (soqs ss)
+                                                                               (string_of_gate g)
+                                                                               (soqs ss')
+  | EVMeasure (pn, qs, g, bs, aqs)  
                                 -> Printf.sprintf "%s: %s -/- %s; result %s%s" 
                                      (string_of_name pn)
                                      (string_of_qbits qs)
                                      (if g=g_I then "" else ("[" ^ string_of_gate g ^ "]"))
-                                     (string_of_multi string_of_value vs)
+                                     (string_of_multi string_of_bit bs)
                                      (if null aqs then "" else " and " ^ soqs aqs)
                                                                            
   | EVChangeId (pn, npns)       -> Printf.sprintf "%s morphs into %s" (string_of_name pn)

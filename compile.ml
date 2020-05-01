@@ -183,7 +183,7 @@ let bind_pdef er env (pn,params,p,mon as pdef) =
     Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
-  env <@+> (tinst pn, VProcess (tinst pn,er, names_of_params params, proc))
+  env <@+> (tinst pn, of_procv (tinst pn, er, names_of_params params, proc))
 
 let compile_builtin (pn,params,p,mon as pdef) =
   if !verbose || !verbose_compile then

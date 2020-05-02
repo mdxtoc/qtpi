@@ -469,7 +469,7 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
       )
   | EMatch  (me,ems)     -> let fe = compile_expr me in
                             let fm = compile_match e.pos string_of_expr compile_expr ems in
-                            fun env -> fm (fe env) env
+                            fun env -> fm env (fe env)
   | ELambda _ (*of pattern list * expr*)
   | EWhere  _ (*of expr * edecl*)
                             -> raise (CompileError(e.pos, Printf.sprintf "can't (yet) compile %s" (string_of_expr e)))
@@ -479,15 +479,60 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
    Modified again to be a compiler
  *)
 
-and compile_match : sourcepos -> ('a -> string) -> ('a -> 'b) -> (pattern * 'a) list -> (vt -> 'b) = 
+and compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> vt)) -> (pattern * 'a) list -> (env -> vt -> vt) = 
                     fun pos string_of_a compile_a pairs ->
-  let dtree = Matchcheck.match_dtree false string_of_expr pairs in
+  
   if !verbose || !verbose_compile then
-    Printf.printf "matcher %s %s\ndtree = %s\n\n -- that's all\n" 
+    (let dtree = Matchcheck.match_dtree false string_of_expr pairs in
+     Printf.printf "matcher %s %s\ndtree (which we're not yet using) = %s\n\n\n" 
                     (string_of_sourcepos pos)
                     (Matchcheck.string_of_rules string_of_a pairs)
-                    (Matchcheck.string_of_dtree string_of_expr dtree);
-  raise (CompileError (pos, "no compile_match yet"))
+                    (Matchcheck.string_of_dtree string_of_expr dtree)
+    );
+  
+  (* this is not a clever way of doing it, but it does avoid the cost of interpretation. I think. *)
+  let rec dopat : pattern -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = fun pat ->
+    match tinst pat with
+    | PatAny            
+    | PatUnit           -> fun yes no env _ -> yes env 
+    | PatNil            -> fun yes no env v -> if to_list v=[] then yes env else no ()
+    | PatName   n       -> fun yes no env v -> yes (env<@+>(n,v))
+    | PatInt    i       -> fun yes no env v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes env else no ()
+    | PatBit    b       -> fun yes no env v -> let b' = to_bit v in if b=b' then yes env else no ()
+    | PatBool   b       -> fun yes no env v -> let b' = to_bool v in if b=b' then yes env else no ()
+    | PatChar   c       -> fun yes no env v -> let c' = to_uchar v in if c=c' then yes env else no ()
+    | PatString ucs     -> fun yes no env v -> let ucs' = to_uchars v in if ucs=ucs' then yes env else no ()
+    | PatBra    b       -> fun yes no env v -> let b' = to_bra v in if nv_of_braket b=b' then yes env else no ()
+    | PatKet    k       -> fun yes no env v -> let k' = to_ket v in if nv_of_braket k=k' then yes env else no ()
+    | PatCons   (ph,pt) -> let ft = dopat pt in
+                           let fh = dopat ph in
+                           (fun yes no env v ->
+                              match to_list v with
+                              | hd::tl -> fh (fun env -> ft yes no env (of_list tl)) no env hd 
+                              | _      -> no ()
+                           )
+    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
+                           let rec dotuple : pattern list -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = 
+                             function         
+                             | p::ps -> let ft = dotuple ps in
+                                        let fh = dopat p in
+                                        fun yes no env v -> let vs = to_list v in 
+                                                            fh (fun env -> ft yes no env (of_list (List.tl vs)))
+                                                               no env (List.hd vs) 
+                             | _     -> fun yes no env _ -> yes env
+                           in
+                           dotuple ps
+  in
+  let mfail = ExecutionError (pos, "match failure") in
+  let rec dopairs : (pattern * 'a) list -> (env -> vt -> vt) = 
+    function
+    | (pat, rhs)::pairs -> let ft = dopairs pairs in
+                           let frhs = compile_a rhs in
+                           let fh = dopat pat in
+                           fun env v -> fh frhs (fun () -> ft env v) env v
+    | []                -> fun env v -> raise mfail
+  in
+  dopairs pairs
    
 (* let bmatch env pat t v =
   match matcher pat.pos env [pat,()] t v with

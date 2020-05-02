@@ -67,25 +67,26 @@ and pdecl = bool * typedname * param list * process   (* bool for recursion:
 
 let name_of_splitspec = name_of_param <.> fst
 
-let procadorn pos process =
-  adorn (match process with 
-         | Terminate
-         | GoOnAs     _
-         | Par        _
-         | GSum       _
-         | PMatch     _
-         | Cond       _         -> pos
-         | WithNew    (_, p) 
-         | WithQbit   (_, _, p) 
-         | WithLet    (_, p) 
-         | WithProc   (_, p)
-         | WithQstep  (_, p)
-         | TestPoint  (_, p)    
-         | JoinQs     (_, _, p) 
-         | SplitQs    (_, _, p)
-         | Iter    (_, _, _, p) -> spdiff pos p.pos
-        )
-        process
+let headpos pos pinst = match pinst with 
+                      | Terminate
+                      | GoOnAs     _
+                      | Par        _
+                      | GSum       _
+                      | PMatch     _
+                      | Cond       _         -> pos
+                      | WithNew    (_, p) 
+                      | WithQbit   (_, _, p) 
+                      | WithLet    (_, p) 
+                      | WithProc   (_, p)
+                      | WithQstep  (_, p)
+                      | TestPoint  (_, p)    
+                      | JoinQs     (_, _, p) 
+                      | SplitQs    (_, _, p)
+                      | Iter    (_, _, _, p) -> spdiff pos p.pos
+
+let procadorn pos pinst = adorn (headpos pos pinst) pinst 
+
+let steppos process = headpos process.pos process.inst
 
 let rec string_of_process proc = 
   match proc.inst with

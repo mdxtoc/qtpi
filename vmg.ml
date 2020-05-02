@@ -657,6 +657,19 @@ let tensor_vv va vb =
   | DenseV  dva        , DenseV  dvb         -> maybe_sparse_v (tensor_dvdv dva dvb)
 
 
+let nv_of_braket bks = 
+  let rec nv (rm,rv as r) =
+    function 
+    | bk::bks -> let (m1,v1) = match bk with
+                           | Braket.BKZero  -> nv_zero
+                           | Braket.BKOne   -> nv_one
+                           | Braket.BKPlus  -> nv_plus
+                           | Braket.BKMinus -> nv_minus
+                 in nv (rprod rm m1, tensor_vv rv v1) bks
+    | []      -> r
+  in 
+  nv nv_1 bks
+
 let tensor_nvnv (mA,vA) (mB,vB) = (rprod mA mB, tensor_vv vA vB)
   
 let tensor_qq (mA,vA as nvA) (mB,vB as nvB) =

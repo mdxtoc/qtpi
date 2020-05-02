@@ -143,6 +143,10 @@ let in_c      = -4
 
 let matcher pos env pairs t value =
   let sop p = "(" ^ string_of_pattern p ^ ")" in
+  if !verbose || !verbose_interpret then
+    Printf.printf "matcher %s %s %s\n\n" (short_string_of_env env)
+                                         (bracketed_string_of_list (sop <.> fst) pairs)
+                                         (string_of_value t value);
   let rec fail pairs =
     match pairs with
     | []               -> None
@@ -178,8 +182,8 @@ let matcher pos env pairs t value =
     | PatBool   b       -> let b' = to_bool v in maybe (b=b')
     | PatChar   c       -> let c' = to_uchar v in maybe (c=c')
     | PatString ucs     -> let ucs' = (Obj.magic v: Uchar.t list) in maybe (ucs=ucs')
-    | PatBra    b       -> let b' = to_bra v in maybe (pv_of_braket b=b')
-    | PatKet    k       -> let k' = to_ket v in maybe (pv_of_braket k=k')
+    | PatBra    b       -> let b' = to_bra v in maybe (nv_of_braket b=b')
+    | PatKet    k       -> let k' = to_ket v in maybe (nv_of_braket k=k')
     | PatCons   (ph,pt) -> (match to_list v with
                             | vh::vt -> let th = type_of_pattern ph in
                                         let tt = type_of_pattern pt in
@@ -219,8 +223,8 @@ let rec evale env e =
        | EChar c             -> VChar c
        | EString cs          -> vlist (List.map vchar cs)
        | EBit b              -> VBit b
-       | EBra b              -> VBra (pv_of_braket b)
-       | EKet k              -> VKet (pv_of_braket k)
+       | EBra b              -> VBra (nv_of_braket b)
+       | EKet k              -> VKet (nv_of_braket k)
        | EMinus e            -> (let v = evale env e in
                                  match v with
                                  | VNum   n   -> VNum (~-/ n)
@@ -979,7 +983,7 @@ let interpret defs =
                         ) 
   in
   (* add built-ins *)
-  let bipdefs = List.map compile_builtin (List.map Parseutils.parse_pdefstring builtins) in
+  let bipdefs = List.map precompile_builtin (List.map Parseutils.parse_pdefstring builtins) in
   let er = ref sysenv in
   let sysenv = globalise (List.fold_left (bind_pdef er) sysenv bipdefs) in
   er := sysenv; 

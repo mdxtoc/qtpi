@@ -99,13 +99,6 @@ let rec is_resource_type t =
                      
   | Process _       -> false
 
-let type_of_pattern p =
-  match !(toptr p) with
-  | Some t -> t
-  | None   -> raise (Disaster (p.pos, Printf.sprintf "(Resource.type_of_pattern) typecheck didn't mark pattern %s"
-                                                        (string_of_pattern p)
-                              )
-                    )
   
 (* *************** phase 1: resource check (rck_...) *************************** *)
 

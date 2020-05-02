@@ -115,22 +115,6 @@ let qcopy (n,v) = (* nobody ought to know about this: I need a .mli for this fil
   | DenseV  v -> n, DenseV (Array.copy v) 
   | SparseV _ -> n,v
 
-let pv_of_braket bks = 
-  let rec pv (rm,rv as r) =
-    function 
-    | bk::bks -> let (m1,v1) = match bk with
-                           | Braket.BKZero  -> nv_zero
-                           | Braket.BKOne   -> nv_one
-                           | Braket.BKPlus  -> nv_plus
-                           | Braket.BKMinus -> nv_minus
-                 in pv (rprod rm m1, tensor_vv rv v1) bks
-    | []      -> r
-  in 
-  pv nv_1 bks
-
-(* this is in the wrong place *)
-let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
-
 (* idx: the index position of q in qs *)
 let idx q qs = 
   let rec f i = function

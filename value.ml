@@ -123,66 +123,72 @@ let short_string_of_qbits = string_of_qbits
 
 let string_of_bit b = if b then "1" else "0"
 
-let to_bit     : vt -> bool       =  Obj.magic
-let to_bool    : vt -> bool       =  Obj.magic
-let to_bra     : vt -> nv         =  Obj.magic
-let to_chan    : vt -> chan       =  Obj.magic
-let to_csnum   : vt -> csnum      =  Obj.magic
-let to_fun     : vt -> (vt -> vt) =  Obj.magic
-let to_gate    : vt -> gate       =  Obj.magic
-let to_ket     : vt -> nv         =  Obj.magic
-let to_list    : vt -> vt list    =  Obj.magic
-let to_matrix  : vt -> matrix     =  Obj.magic
-let to_num     : vt -> num        =  Obj.magic
-let to_nv      : vt -> nv         =  Obj.magic
-let to_procv   : vt -> procv      =  Obj.magic 
-let to_qbit    : vt -> qbit       =  Obj.magic
-let to_qbits   : vt -> qbit list  =  Obj.magic
-let to_uchar   : vt -> Uchar.t    =  Obj.magic
-let to_unit    : vt -> unit       =  Obj.magic
+let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
 
-let of_bit     : bool       -> vt = Obj.magic
-let of_bool    : bool       -> vt = Obj.magic
-let of_bra     : nv         -> vt = Obj.magic
-let of_chan    : chan       -> vt = Obj.magic
-let of_csnum   : csnum      -> vt = Obj.magic
-let of_fun     : (vt -> vt) -> vt = Obj.magic
-let of_gate    : gate       -> vt = Obj.magic
-let of_ket     : nv         -> vt = Obj.magic
-let of_list    : vt list    -> vt = Obj.magic
-let of_matrix  : matrix     -> vt = Obj.magic
-let of_num     : num        -> vt = Obj.magic
-let of_nv      : nv         -> vt = Obj.magic
-let of_procv   : procv      -> vt = Obj.magic
-let of_qbit    : qbit       -> vt = Obj.magic
-let of_qbits   : qbit list  -> vt = Obj.magic
-let of_uchar   : Uchar.t    -> vt = Obj.magic
-let of_tuple   : vt list    -> vt = Obj.magic
-let of_unit    : unit       -> vt = Obj.magic
+(* *************************** conversion functions for the vt trick ********************************** *)
 
-(* convert strings, for the library *)
-let reveal_string : vt -> string = fun v -> let cs = List.map to_uchar (to_list v) in
-                                           Utf8.string_of_uchars cs
-let hide_string : string -> vt = fun s -> of_list (List.map of_uchar (Utf8.uchars_of_string s))
+let to_bit     : vt -> bool         =  Obj.magic
+let to_bool    : vt -> bool         =  Obj.magic
+let to_bra     : vt -> nv           =  Obj.magic
+let to_chan    : vt -> chan         =  Obj.magic
+let to_csnum   : vt -> csnum        =  Obj.magic
+let to_fun     : vt -> (vt -> vt)   =  Obj.magic
+let to_gate    : vt -> gate         =  Obj.magic
+let to_ket     : vt -> nv           =  Obj.magic
+let to_list    : vt -> vt list      =  Obj.magic
+let to_matrix  : vt -> matrix       =  Obj.magic
+let to_num     : vt -> num          =  Obj.magic
+let to_nv      : vt -> nv           =  Obj.magic
+let to_procv   : vt -> procv        =  Obj.magic 
+let to_qbit    : vt -> qbit         =  Obj.magic
+let to_qbits   : vt -> qbit list    =  Obj.magic
+let to_uchar   : vt -> Uchar.t      =  Obj.magic
+let to_uchars  : vt -> Uchar.t list = Obj.magic
+let to_unit    : vt -> unit         =  Obj.magic
+
+let of_bit     : bool         -> vt = Obj.magic
+let of_bool    : bool         -> vt = Obj.magic
+let of_bra     : nv           -> vt = Obj.magic
+let of_chan    : chan         -> vt = Obj.magic
+let of_csnum   : csnum        -> vt = Obj.magic
+let of_fun     : (vt -> vt)   -> vt = Obj.magic
+let of_gate    : gate         -> vt = Obj.magic
+let of_ket     : nv           -> vt = Obj.magic
+let of_list    : vt list      -> vt = Obj.magic
+let of_matrix  : matrix       -> vt = Obj.magic
+let of_num     : num          -> vt = Obj.magic
+let of_nv      : nv           -> vt = Obj.magic
+let of_procv   : procv        -> vt = Obj.magic
+let of_qbit    : qbit         -> vt = Obj.magic
+let of_qbits   : qbit list    -> vt = Obj.magic
+let of_uchar   : Uchar.t      -> vt = Obj.magic
+let of_uchars  : Uchar.t list -> vt = Obj.magic
+let of_tuple   : vt list      -> vt = Obj.magic
+let of_unit    : unit         -> vt = Obj.magic
+
+(* convert strings, for the library. What's hidden is a uchar list (see of_uchars) *)
+let reveal_string : vt -> string = fun v -> let cs = to_uchars v in
+                                            Utf8.string_of_uchars cs
+let hide_string : string -> vt = fun s -> of_uchars (Utf8.uchars_of_string s)
 
 let reveal_qstate = reveal_string
 let hide_qstate = hide_string
 
-(* convert triples, for the library *)
+(* convert pairs and triples, for the library. What's hidden is an n-element list (see of_tuple) *)
 let reveal_pair   : vt -> 'a * 'b = fun v -> let vs = to_list v in 
-                                            (Obj.magic (List.hd vs) :'a), 
-                                            (Obj.magic (List.hd (List.tl vs)) :'b)
+                                             (Obj.magic (List.hd vs) :'a), 
+                                             (Obj.magic (List.hd (List.tl vs)) :'b)
 let hide_pair   : 'a * 'b -> vt = fun (a,b) -> let vs =  [(Obj.magic a :int); (Obj.magic b :int)] in
-                                                of_tuple vs
+                                               of_tuple vs
 
 let reveal_triple : vt -> 'a * 'b * 'c = fun v -> let vs = to_list v in 
-                                        (Obj.magic (List.hd vs) :'a), 
-                                        (Obj.magic (List.hd (List.tl vs)) :'b), 
-                                        (Obj.magic (List.hd (List.tl (List.tl vs))) :'c)
+                                         (Obj.magic (List.hd vs) :'a), 
+                                         (Obj.magic (List.hd (List.tl vs)) :'b), 
+                                         (Obj.magic (List.hd (List.tl (List.tl vs))) :'c)
 let hide_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:int); (Obj.magic b:int); (Obj.magic c:int)] in
-                                                      of_tuple vs
+                                                     of_tuple vs
 
-(* convert integers, for the library *) 
+(* convert integers, for the library. What's hidden is a num *) 
 let hide_int    : int -> vt = fun i -> of_num (num_of_int i) 
 
 (* ********************* string_of_ functions ***************************** *)

@@ -51,16 +51,22 @@ let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
+let tadorn pos topt = adorn pos <.> twrap topt
+
+let ut pos = Some (adorn pos Unit)
+let cut pos = Some (adorn pos (Channel (adorn pos Unit)))
+
 let insert_returns check rc proc =
   let bad pos s = raise (Error (pos, s ^ " not allowed in embedded process")) in
+  let spos = steppos proc in
   let rec cmp proc =
-    let ad = adorn proc.pos in
-    let adio = adorn proc.pos in
-    let ade = tadorn proc.pos in
+    let ad = adorn spos in
+    let adio = adorn spos in
+    let ade = tadorn spos in
     match proc.inst with
-    | Terminate     -> Some (ad (GSum [adio (Write (ade (EVar rc), ade EUnit)), proc]))
-    | GoOnAs _      -> if check then bad proc.pos "process invocation" else None
-    | Par _         -> if check then bad proc.pos "parallel sum" else None
+    | Terminate     -> Some (ad (GSum [adio (Write (ade (cut spos) (EVar rc), ade (ut spos) EUnit)), proc]))
+    | GoOnAs _      -> if check then bad spos "process invocation" else None
+    | Par _         -> if check then bad spos "parallel sum" else None
     | WithNew _     
     | WithQbit _    
     | WithLet _
@@ -86,7 +92,7 @@ let insert_returns check rc proc =
     no Par
  *)
  
-let compile_monbody tpnum proc =
+let precompile_monbody tpnum proc =
   let bad pos s = raise (Error (pos, s ^ " not allowed in monitor process")) in
   let rec check proc =
     match proc.inst with
@@ -105,7 +111,7 @@ let compile_monbody tpnum proc =
     | JoinQs _      -> bad proc.pos "joining qbit collections"
     | SplitQs _     -> bad proc.pos "splitting qbit collection"
     | TestPoint _   -> bad proc.pos "test point"
-    | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in compile_monbody yet"))
+    | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in precompile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
     | WithNew _     
     | WithLet _
@@ -116,50 +122,51 @@ let compile_monbody tpnum proc =
   let rc = chan_name tpnum in
   insert_returns true rc proc
 
-let compile_proc env pn mon proc =
+let precompile_proc env pn mon proc =
   (* if !verbose || !verbose_compile then
-       Printf.printf "compile_proc env=%s\n  pn=%s\n  mon=(%s)\n proc=(%s)\n"
+       Printf.printf "precompile_proc env=%s\n  pn=%s\n  mon=(%s)\n proc=(%s)\n"
                        (string_of_env env)
                        (tinst pn)
                        (string_of_monitor mon)
                        (string_of_process proc); *)
   let construct_callpar pos rc call p =
-    let read = adorn pos (Read (tadorn pos (EVar rc), tadorn pos PatAny)) in
+    let read = adorn pos (Read (tadorn pos (cut pos) (EVar rc), tadorn pos (ut pos) PatAny)) in
     let gsum = adorn pos (GSum [(read, p)]) in
     adorn pos (Par [call; gsum])
   in
-  let rec cmp proc =
-    let ad = adorn proc.pos in
-    let ade = tadorn proc.pos in
-    let adpar = tadorn proc.pos in
-    let adn = tadorn proc.pos in
+  let rec cmp spos proc =
+    let ad = adorn spos in
+    let ade = tadorn spos in
+    let adpar = tadorn spos in
+    let adn = tadorn spos in
     match proc.inst with
-    | TestPoint (tpn, p) -> let p = Process.map cmp p in
+    | TestPoint (tpn, p) -> let p = Process.map (cmp spos) p in
                             let rc = chan_name tpn.inst in
                             let mn = mon_name pn tpn.inst in
-                            let call = ad (GoOnAs (adn mn, [])) in
+                            let tp = Some (adorn spos (Process [])) in
+                            let call = ad (GoOnAs (adn tp mn, [])) in
                             let par = construct_callpar tpn.pos rc call p in
                             let (_, monproc) = _The (find_monel tpn.inst mon) in
-                            let def = ad (WithProc ((false, adn mn, [], compile_monbody tpn.inst monproc), par)) in
-                            let mkchan = ad (WithNew ((false,[adpar rc]), def)) in
+                            let def = ad (WithProc ((false, adn tp mn, [], precompile_monbody tpn.inst monproc), par)) in
+                            let mkchan = ad (WithNew ((false,[adpar (cut spos) rc]), def)) in
                             Some mkchan
     | WithProc  ((brec,pn,params,proc),p) 
-                         -> let p = Process.map cmp p in
-                            let proc = Process.map cmp proc in
+                         -> let p = Process.map (cmp spos) p in
+                            let proc = Process.map (cmp spos) proc in
                             Some (ad (WithProc ((brec,pn,params,proc),p)))
     | Iter (pat, e, ip, p)
-                         -> let p = Process.map cmp p in
+                         -> let p = Process.map (cmp spos) p in
                             let rc = chan_name (short_string_of_sourcepos ip.pos) in
                             let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
                             let xname = "x#" in
                             let cname = "c#" in
-                            let callIter = ad (GoOnAs (adn "Iter#", [e; ade (EVar ipname); ade (EVar rc)])) in
+                            let callIter = ad (GoOnAs (adn None "Iter#", [e; ade None (EVar ipname); ade None (EVar rc)])) in
                             let par = construct_callpar ip.pos rc callIter p in
                             let ip = insert_returns true cname ip in
-                            let ip = Process.map cmp ip in
-                            let ip = ad (WithLet ((pat, ade (EVar xname)),ip)) in
-                            let def = ad (WithProc ((false, adn ipname, [adpar xname; adpar cname], ip), par)) in
-                            let mkchan = ad (WithNew ((false, [adpar rc]), def)) in
+                            let ip = Process.map (cmp spos) ip in
+                            let ip = ad (WithLet ((pat, ade None (EVar xname)),ip)) in
+                            let def = ad (WithProc ((false, adn None ipname, [adpar None xname; adpar None cname], ip), par)) in
+                            let mkchan = ad (WithNew ((false, [adpar None rc]), def)) in
                             Some mkchan
     | Terminate 
     | GoOnAs    _      
@@ -174,20 +181,20 @@ let compile_proc env pn mon proc =
     | GSum      _
     | Par       _        -> None
   in
-  env, Process.map cmp proc
+  env, Process.map (cmp (steppos proc)) proc
 
 (* I think this should be in Interpret, but then I think it should be here, but then ... *)
 let bind_pdef er env (pn,params,p,mon as pdef) =
-  let env, proc = compile_proc env pn mon p in
+  let env, proc = precompile_proc env pn mon p in
   if (!verbose || !verbose_compile) && p<>proc then
-    Printf.printf "Compiling .....\n%s....... =>\n%s\n.........\n\n"
+    Printf.printf "Expanding .....\n%s....... =>\n%s\n.........\n\n"
                     (string_of_pdef pdef)
                     (string_of_process proc);
   env <@+> (tinst pn, of_procv (tinst pn, er, names_of_params params, proc))
 
-let compile_builtin (pn,params,p,mon as pdef) =
+let precompile_builtin (pn,params,p,mon as pdef) =
   if !verbose || !verbose_compile then
-    Printf.printf "compiling built-in %s\n" (string_of_pdef pdef);
+    Printf.printf "precompiling built-in %s\n" (string_of_pdef pdef);
   if not (null mon) then
     raise (Settings.Error (Printf.sprintf "built_in %s has logging sub-processes" (string_of_typedname pn)));
   (* all we do is append a # to the name in recursive calls ... *)
@@ -202,7 +209,7 @@ let compile_builtin (pn,params,p,mon as pdef) =
   in
   let pdef' = (hash pn, params, Process.map cmp p, mon) in
   if !verbose || !verbose_compile then
-    Printf.printf "compiled to %s\n\n" (string_of_pdef pdef');
+    Printf.printf "precompiled to %s\n\n" (string_of_pdef pdef');
   pdef'
 
 (* ************************ compiling typed expressions into functions ************************ *)
@@ -266,7 +273,7 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let cconst : 'a -> env -> vt = fun v env -> (Obj.magic v : vt)
+let cconst : vt -> env -> vt = fun v env -> v
 ;;
 
 let rec compile_expr : expr -> (env -> vt) = fun e ->
@@ -287,15 +294,15 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
   in
   
   match tinst e with
-  | EUnit           -> cconst ()
+  | EUnit           -> cconst (of_unit ())
   | EVar n          -> fun env -> env <@> n 
-  | ENum num        -> cconst num
-  | EBool b         -> cconst b
-  | EChar uc        -> cconst uc
-  | EString ucs     -> cconst ucs
-  | EBit b          -> cconst b
-  | EBra b          -> cconst b
-  | EKet k          -> cconst k
+  | ENum num        -> cconst (of_num num)
+  | EBool b         -> cconst (of_bool b)
+  | EChar uc        -> cconst (of_uchar uc)
+  | EString ucs     -> cconst (of_uchars ucs)
+  | EBit b          -> cconst (of_bit b)
+  | EBra b          -> cconst (of_nv (nv_of_braket b))
+  | EKet k          -> cconst (of_nv (nv_of_braket k))
   | EMinus e        -> (* overloaded *)
       (let f = compile_expr e in
        match et.inst with
@@ -319,7 +326,7 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
        let fs = List.map compile_expr es in
        fun env -> of_tuple (List.map (apply env) fs)
       )
-  | ENil        -> cconst []
+  | ENil        -> cconst (of_list [])
   | ERes w      -> 
       (match et.inst with
        | Fun (t,_) ->
@@ -460,10 +467,38 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                                    )
                   )
       )
-  | EMatch  _ (*of expr * ematch list*)
+  | EMatch  (me,ems)     -> let fe = compile_expr me in
+                            let fm = compile_match e.pos string_of_expr compile_expr ems in
+                            fun env -> fm (fe env) env
   | ELambda _ (*of pattern list * expr*)
   | EWhere  _ (*of expr * edecl*)
                             -> raise (CompileError(e.pos, Printf.sprintf "can't (yet) compile %s" (string_of_expr e)))
+
+(* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
+   Modified a bit, obvs, but really the thing.
+   Modified again to be a compiler
+ *)
+
+and compile_match : sourcepos -> ('a -> string) -> ('a -> 'b) -> (pattern * 'a) list -> (vt -> 'b) = 
+                    fun pos string_of_a compile_a pairs ->
+  let dtree = Matchcheck.match_dtree false string_of_expr pairs in
+  if !verbose || !verbose_compile then
+    Printf.printf "matcher %s %s\ndtree = %s\n\n -- that's all\n" 
+                    (string_of_sourcepos pos)
+                    (Matchcheck.string_of_rules string_of_a pairs)
+                    (Matchcheck.string_of_dtree string_of_expr dtree);
+  raise (CompileError (pos, "no compile_match yet"))
+   
+(* let bmatch env pat t v =
+  match matcher pat.pos env [pat,()] t v with
+  | Some (env,()) -> env
+  | None          -> raise (Disaster (pat.pos,
+                                      Printf.sprintf "bmatch %s %s"
+                                                     (string_of_pattern pat)
+                                                     (string_of_value t v)
+                                     )
+                           ) *)
+  
 
 module CExprH = struct type t = expr 
                        let equal = (==) (* yes, identity, not equality *)

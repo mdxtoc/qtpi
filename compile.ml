@@ -43,7 +43,9 @@ open Snum
 open Vmg
 
 
-exception Error of sourcepos * string
+exception CompileError of sourcepos * string
+exception ExecutionError of sourcepos * string
+
 
 (* ************************ 'compiling' sub-processes ************************ *)
 
@@ -57,7 +59,7 @@ let ut pos = Some (adorn pos Unit)
 let cut pos = Some (adorn pos (Channel (adorn pos Unit)))
 
 let insert_returns check rc proc =
-  let bad pos s = raise (Error (pos, s ^ " not allowed in embedded process")) in
+  let bad pos s = raise (CompileError (pos, s ^ " not allowed in embedded process")) in
   let spos = steppos proc in
   let rec cmp proc =
     let ad = adorn spos in
@@ -93,7 +95,7 @@ let insert_returns check rc proc =
  *)
  
 let precompile_monbody tpnum proc =
-  let bad pos s = raise (Error (pos, s ^ " not allowed in monitor process")) in
+  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
   let rec check proc =
     match proc.inst with
     | Terminate     -> None (* will be done in insert_returns *)
@@ -111,7 +113,7 @@ let precompile_monbody tpnum proc =
     | JoinQs _      -> bad proc.pos "joining qbit collections"
     | SplitQs _     -> bad proc.pos "splitting qbit collection"
     | TestPoint _   -> bad proc.pos "test point"
-    | Iter _        -> raise (Error (proc.pos, "Can't compile Iter in precompile_monbody yet"))
+    | Iter _        -> raise (CompileError (proc.pos, "Can't compile Iter in precompile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
     | WithNew _     
     | WithLet _
@@ -214,8 +216,6 @@ let precompile_builtin (pn,params,p,mon as pdef) =
 
 (* ************************ compiling typed expressions into functions ************************ *)
 
-exception CompileError of sourcepos * string
-
 (** Because we have nums in values we can't even use equality, I think.
 
     Comparison.  [compare x y] returns 0 if [x] equals [y],
@@ -285,12 +285,12 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
   let intc : sourcepos -> string -> vt -> int = fun pos str v -> 
     let n = to_num v in
     if is_int n then int_of_num n
-    else raise (Error (e.pos, Printf.sprintf "%s: %s" str (string_of_num n)))
+    else raise (ExecutionError (e.pos, Printf.sprintf "%s: %s" str (string_of_num n)))
   in
   let nonnegintc : sourcepos -> string -> vt -> int = fun pos str v -> 
     let i = intc pos ("fractional " ^ str) v in
     if i>=0 then i
-    else raise (Error (e.pos, Printf.sprintf "negative %s: %s" str (string_of_int i)))
+    else raise (ExecutionError (e.pos, Printf.sprintf "negative %s: %s" str (string_of_int i)))
   in
   
   match tinst e with
@@ -380,7 +380,7 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
       (let ff = compile_expr fe in
        let af = compile_expr ae in
        (fun env -> try (to_fun (ff env)) (af env)
-                   with LibraryError s -> raise (Error (e.pos, s))
+                   with LibraryError s -> raise (ExecutionError (e.pos, s))
        )
       )
     
@@ -460,7 +460,7 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
       (let f1 = to_list <.> compile_expr e1 in
        let f2 = nonnegintc e2.pos "subscript" <.> compile_expr e2 in
        fun env -> (try List.nth (f1 env) (f2 env)
-                   with _ -> raise (Error (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
+                   with _ -> raise (ExecutionError (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
                                                              (f2 env)
                                                              (List.length (f1 env))
                                           )

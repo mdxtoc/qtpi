@@ -74,7 +74,8 @@ let _ = ((match !Usage.files with
                                                                    (string_of_sourcepos pos)
                                                                    s
                   | Qsim.Error s -> Printf.eprintf "\n\n** quantum simulator error %s\n" s
-                  | Compile.Error   (pos, s) 
+                  | Compile.CompileError   (pos, s) 
+                  | Compile.ExecutionError   (pos, s) 
                   | Expr.Error      (pos, s) 
                   | Type.Error      (pos, s) 
                   | Resource.Error  (pos, s) 

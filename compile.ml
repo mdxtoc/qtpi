@@ -479,7 +479,10 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                                  fun env -> bf env (wf env)
                              | EDFun (fn,pats,_, we) ->
                                  let ff = compile_lambda pats we in
-                                 fun env -> ef (env <@+>(tinst fn,ff env))
+                                 fun env -> let er = ref env in
+                                            let ff' = ff !er in
+                                            er := !er <@+>(tinst fn,ff');
+                                            ef !er
                             ) 
 
 (* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".

@@ -438,13 +438,24 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
        let t = type_of_expr e1 in
-       let cf = match op with
-                | Eq  -> ((=)0)  <..> Stdlib.compare
-                | Neq -> ((<>)0) <..> Stdlib.compare
-                | Lt  -> ((<)0)  <..> deepcompare t
-                | Leq -> ((<=)0) <..> deepcompare t
-                | Geq -> ((>=)0) <..> deepcompare t
-                | Gt  -> ((>)0)  <..> deepcompare t
+       let cf, tricky = match op with
+                        | Eq  -> ((=)0) , false  
+                        | Neq -> ((<>)0), false 
+                        | Lt  -> ((<)0) , true
+                        | Leq -> ((<=)0), true
+                        | Geq -> ((>=)0), true
+                        | Gt  -> ((>)0) , true
+       in
+       let cf = if tricky then 
+                  if is_polytype t then
+                    raise (CompileError (e.pos, (Printf.sprintf "'%s' used with poly-type %s" 
+                                                                      (string_of_compareop op)
+                                                                      (string_of_type et)
+                                                  )
+                                          )
+                           )
+                  else cf <..> deepcompare t
+                else cf <..> Stdlib.compare
        in
        fun env -> of_bool (cf (f1 env) (f2 env))
       )

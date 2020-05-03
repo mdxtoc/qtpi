@@ -950,13 +950,12 @@ let bind_def : env -> def -> env = fun env ->
                            let env = globalise (List.fold_left (bind_pdef er) env pdefs) in
                            er := env;
                            env
-  | Functiondefs fdefs  -> (* let env = globalise env in
-                              let er = ref env in
-                              let bind_fdef env (n, pats, _, expr) = env <@+> bind_fun er (tinst n) pats expr in
-                              let env = globalise (List.fold_left bind_fdef env fdefs) in
-                              er := env;
-                              env
-                            *) Printf.printf "no function defs yet\n"; exit 1
+  | Functiondefs fdefs  -> let env = globalise env in
+                           let er = ref env in
+                           let bind_fdef env (n, pats, _, expr) = env <@+> (tinst n, hide_fun_rec (compile_lambda pats expr) er) in
+                           let env = globalise (List.fold_left bind_fdef env fdefs) in
+                           er := env;
+                           env
   | Letdef (pat, e)     -> (* not recursive, evaluate now *)
                            let v = evale env e in
                            globalise (bmatch env pat (type_of_expr e) v)

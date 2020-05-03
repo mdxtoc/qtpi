@@ -332,31 +332,34 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
        | Fun (t,_) ->
            (match w with
             | ResShow -> 
-                let f = let optf t = match t.inst with
+                let optf t = match t.inst with
                                      | Qbits     -> Some "<qbit>"
                                      | Qstate    -> Some "<qstate>"
                                      | Fun     _ -> Some "<function>"
                                      | Channel _ -> Some "<channel>"
                                      | Process _ -> Some "<process>"
+                                     | Unknown _       
+                                     | Known   _         
+                                     | Poly    _ -> Some (string_of_value t (of_unit ()))
                                      | _         -> None
-                        in
-                        so_value optf t
                 in
+                (match optf t with
+                 | Some s -> warning e.pos (Printf.sprintf "applied to a value of type %s, 'show' can only print \"%s\"" 
+                                                                (string_of_type t) s
+                                           )
+                 | None   -> ()
+                );
+                let f = so_value optf t in
                 fun env -> of_fun (hide_string <.> f)
             | ResCompare ->
-                ((match t.inst with
-                  | Unknown _
-                  | Known _
-                  | Poly _       -> raise (CompileError (e.pos, (Printf.sprintf "'compare' used with poly-type %s" 
-                                                                                    (string_of_type t)
-                                                                )
-                                                        )
-                                         )
-                  | _            -> ()
-                 );
+                if is_polytype t then
+                  raise (CompileError (e.pos, (Printf.sprintf "'compare' used with poly-type %s" 
+                                                                    (string_of_type et)
+                                                )
+                                        )
+                         );
                  let f = deepcompare t in
                  fun env -> of_fun (fun v -> of_fun (fun v' -> hide_int (f v v')))
-                )
            )
        | _         -> raise (Can'tHappen (Printf.sprintf "%s %s" (string_of_expr e) (string_of_type et)))
       )
@@ -470,7 +473,7 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
   | EMatch  (me,ems)     -> let fe = compile_expr me in
                             let fm = compile_match e.pos string_of_expr compile_expr ems in
                             fun env -> fm env (fe env)
-  | ELambda (pats, e)    -> compile_lambda pats e
+  | ELambda (pats, e)    -> hide_fun (compile_lambda pats e)
   | EWhere  (e, ed)      -> let ef = compile_expr e in
                             (match ed.inst with
                              | EDPat (pat,_,we) ->
@@ -478,10 +481,9 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                                  let wf = compile_expr we in
                                  fun env -> bf env (wf env)
                              | EDFun (fn,pats,_, we) ->
-                                 let ff = compile_lambda pats we in
+                                 let ff = hide_fun_rec (compile_lambda pats we) in
                                  fun env -> let er = ref env in
-                                            let ff' = ff !er in
-                                            er := !er <@+> (tinst fn,ff');
+                                            er := !er <@+> (tinst fn, ff er);
                                             ef !er
                             ) 
 
@@ -568,16 +570,19 @@ and compile_bmatch :  pattern -> (env -> vt) -> (env -> vt -> vt) =
                                  )
   in dopat pat contn
 
-(* gives back something which, from an environment, makes a hidden function ... *)  
-and compile_lambda : pattern list -> expr -> (env -> vt) = fun pats expr ->
+(* gives back something which, from an environment, makes a function ... *)  
+and compile_lambda : pattern list -> expr -> (env -> vt -> vt) = fun pats expr ->
   let rec cl : pattern list -> (env -> vt -> vt) =
     function
     | [pat]     -> compile_bmatch pat (compile_expr expr)
-    | pat::pats -> compile_bmatch pat (compile_lambda pats expr) 
+    | pat::pats -> compile_bmatch pat (hide_fun (compile_lambda pats expr)) 
     | []        -> raise (Can'tHappen "compile_lambda []")
   in
-  let f = cl pats in
-  fun env -> of_fun (f env)
+  cl pats
+  
+and hide_fun : (env -> vt -> vt) -> (env ->vt) = fun f env -> of_fun (f env)
+
+and hide_fun_rec : (env -> vt -> vt) -> (env ref -> vt) = fun f er -> of_fun (f !er)
   
 (* some memoising to make the interpreter go .. or maybe the step compiler, I don't know *)
 

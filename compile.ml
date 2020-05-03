@@ -481,14 +481,9 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                                  let ff = compile_lambda pats we in
                                  fun env -> let er = ref env in
                                             let ff' = ff !er in
-                                            er := !er <@+>(tinst fn,ff');
+                                            er := !er <@+> (tinst fn,ff');
                                             ef !er
                             ) 
-
-(* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
-   Modified a bit, obvs, but really the thing.
-   Modified again to be a compiler
- *)
 
 and compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> vt)) -> (pattern * 'a) list -> (env -> vt -> vt) = 
                     fun pos string_of_a compile_a pairs ->

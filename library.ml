@@ -218,13 +218,10 @@ let v_const a b = a
 let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
 let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
 
-(* can't do these ...
-   let v_compare a b = hide_int (Value.deepcompare (a,b))
-   let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
+(* 'compare' is now done in compile_expr *)
 
-   let v_sort compare vs = of_list (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (to_list vs))
-   let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
- *)
+let v_sort compare vs = of_list (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (to_list vs))
+let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
 
 let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> reveal_pair))
 let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> reveal_pair))
@@ -425,20 +422,7 @@ let _ = Interpret.know ("print_string" , "string -> ()"       , of_fun (print_st
 let _ = Interpret.know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
 let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , of_fun print_qbit)    (* yup, that's a qbit argument *)
 
-(* This can't work: 'show' needs a type
-   let _show v = 
-     let optf t = match t.inst with
-                  | Qbits     -> Some "<qbit>"
-                  | Qstate    -> Some "<qstate>"
-                  | Fun     _ -> Some "<function>"
-                  | Channel _ -> Some "<channel>"
-                  | Process _ -> Some "<process>"
-                  | _         -> None
-     in
-     so_value optf v
-
-   let _ = Interpret.know ("show", "'*a -> string", of_fun (hide_string <.> _show))   (* yup, it's a non-classical argument *)
- *)  
+(* 'show' is now done in compile_expr *)  
 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in

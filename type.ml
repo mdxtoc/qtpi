@@ -169,6 +169,37 @@ and possbracket' ifeq supprio subprio substring =
   then Printf.sprintf "(%s)" substring
   else substring
 
+(* we need exists and I don't know what else. Should have had it ages ago *)
+let exists : (_type -> bool) -> _type -> bool = fun p t ->
+  let optp t = if p t then Some () else None in
+  let rec ee : _type -> bool = fun t ->
+    match optp t with
+    | Some _ -> true
+    | _      -> match t.inst with
+                | Unit
+                | Num
+                | Bool
+                | Char
+                | Bit
+                | Sxnum
+                | Qbit    
+                | Qbits    
+                | Qstate
+                | Bra
+                | Ket
+                | Gate                            
+                | Matrix                          
+                | Unknown _          
+                | Known   _                 
+                | Poly    _         -> false  
+                | List    t     
+                | Channel t         -> ee t             
+                | Tuple   ts    
+                | Process ts        -> List.exists ee ts
+                | Fun     (t1,t2)   -> List.exists ee [t1;t2]
+  in
+  ee t
+  
 let rec freetvs t = 
   let rec _freetvs s t = 
     match t.inst with
@@ -411,3 +442,12 @@ let rec is_classical t =
                      
   | Process _       -> true (* yes? *)
 
+(* a service to compilation of 'compare' and 'show' *)
+let is_just_polytype t =
+  match t.inst with
+  | Unknown _       
+  | Known   _         
+  | Poly    _   -> true
+  | _           -> false
+                     
+let is_polytype = exists is_just_polytype

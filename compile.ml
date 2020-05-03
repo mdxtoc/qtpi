@@ -470,9 +470,17 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
   | EMatch  (me,ems)     -> let fe = compile_expr me in
                             let fm = compile_match e.pos string_of_expr compile_expr ems in
                             fun env -> fm env (fe env)
-  | ELambda _ (*of pattern list * expr*)
-  | EWhere  _ (*of expr * edecl*)
-                            -> raise (CompileError(e.pos, Printf.sprintf "can't (yet) compile %s" (string_of_expr e)))
+  | ELambda (pats, e)    -> compile_lambda pats e
+  | EWhere  (e, ed)      -> let ef = compile_expr e in
+                            (match ed.inst with
+                             | EDPat (pat,_,we) ->
+                                 let bf = compile_bmatch pat ef in
+                                 let wf = compile_expr we in
+                                 fun env -> bf env (wf env)
+                             | EDFun (fn,pats,_, we) ->
+                                 let ff = compile_lambda pats we in
+                                 fun env -> ef (env <@+>(tinst fn,ff env))
+                            ) 
 
 (* Sestoft's naive pattern matcher, from "ML pattern match and partial evaluation".
    Modified a bit, obvs, but really the thing.
@@ -534,16 +542,46 @@ and compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> vt)) -> (patte
   in
   dopairs pairs
    
-(* let bmatch env pat t v =
-  match matcher pat.pos env [pat,()] t v with
-  | Some (env,()) -> env
-  | None          -> raise (Disaster (pat.pos,
-                                      Printf.sprintf "bmatch %s %s"
-                                                     (string_of_pattern pat)
-                                                     (string_of_value t v)
-                                     )
-                           ) *)
+(* temptation to do this with compile_match resisted. This is just an environment exercise, no failure possible. *)
+and compile_bmatch :  pattern -> (env -> vt) -> (env -> vt -> vt) = 
+                    fun pat contn ->
+  if !verbose || !verbose_compile then
+    Printf.printf "compile_bmatch %s\n" (string_of_pattern pat);
+  (* this just to avoid repetitive diagnostic printing *)
+  let rec dopat : pattern -> (env -> vt) -> (env -> vt -> vt) = fun pat ->
+    match tinst pat with
+    | PatAny            
+    | PatUnit           -> fun yes env _ -> yes env 
+    | PatName   n       -> fun yes env v -> yes (env<@+>(n,v))
+    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
+                           let rec dotuple : pattern list -> ((env -> vt ) -> env -> vt -> vt) = 
+                             function         
+                             | p::ps -> let ft = dotuple ps in
+                                        let fh = dopat p in
+                                        fun yes env v -> let vs = to_list v in 
+                                                         fh (fun env -> ft yes env (of_list (List.tl vs)))
+                                                            env (List.hd vs) 
+                             | _     -> fun yes env _ -> yes env
+                           in
+                           dotuple ps
+    | _                 -> raise (Can'tHappen (Printf.sprintf "%s: compile_bmatch %s" (string_of_sourcepos pat.pos)
+                                                                                      (string_of_pattern pat)
+                                              )
+                                 )
+  in dopat pat contn
+
+(* gives back something which, from an environment, makes a hidden function ... *)  
+and compile_lambda : pattern list -> expr -> (env -> vt) = fun pats expr ->
+  let rec cl : pattern list -> (env -> vt -> vt) =
+    function
+    | [pat]     -> compile_bmatch pat (compile_expr expr)
+    | pat::pats -> compile_bmatch pat (compile_lambda pats expr) 
+    | []        -> raise (Can'tHappen "compile_lambda []")
+  in
+  let f = cl pats in
+  fun env -> of_fun (f env)
   
+(* some memoising to make the interpreter go .. or maybe the step compiler, I don't know *)
 
 module CExprH = struct type t = expr 
                        let equal = (==) (* yes, identity, not equality *)

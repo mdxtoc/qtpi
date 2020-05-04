@@ -37,6 +37,7 @@ open Pattern
 open Monenv
 open Snum
 open Vmg
+open Vt
 
 exception Disaster of string
 exception Error of string
@@ -77,13 +78,6 @@ let string_of_queue string_of sep q =
  *)
 (* but these do ... *)
 
-(* I make heavy use of Obj.magic at run time. Type vt is a place holder *)
-(* but to make show and compare, from the library, work at all, values come with a type
-   -- which is never looked at
- *)
-
-type vt = int (* oh no it isn't! Oh yes it is! A fake type for run-time values: see compile.ml *)
-
 (* for the moment I'm still using an assoc list as environment *)
 (* one day this will be a vt array *)
 type env = vt monenv (* assoc list, experiment suggests, is more efficient than Map at runtime *)
@@ -110,8 +104,6 @@ and runner = name * process * env
 and rwaiter = name * pattern * process * env
 
 and wwaiter = name * vt * process * env
-
-let string_of_vt : vt -> string = fun _ -> "?<vt>"
 
 let string_of_qbit i = "#" ^ string_of_int i
 
@@ -178,14 +170,14 @@ let hide_qstate = hide_string
 let reveal_pair   : vt -> 'a * 'b = fun v -> let vs = to_list v in 
                                              (Obj.magic (List.hd vs) :'a), 
                                              (Obj.magic (List.hd (List.tl vs)) :'b)
-let hide_pair   : 'a * 'b -> vt = fun (a,b) -> let vs =  [(Obj.magic a :int); (Obj.magic b :int)] in
+let hide_pair   : 'a * 'b -> vt = fun (a,b) -> let vs =  [(Obj.magic a :vt); (Obj.magic b :vt)] in
                                                of_tuple vs
 
 let reveal_triple : vt -> 'a * 'b * 'c = fun v -> let vs = to_list v in 
                                          (Obj.magic (List.hd vs) :'a), 
                                          (Obj.magic (List.hd (List.tl vs)) :'b), 
                                          (Obj.magic (List.hd (List.tl (List.tl vs))) :'c)
-let hide_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:int); (Obj.magic b:int); (Obj.magic c:int)] in
+let hide_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:vt); (Obj.magic b:vt); (Obj.magic c:vt)] in
                                                      of_tuple vs
 
 (* convert integers, for the library. What's hidden is a num *) 

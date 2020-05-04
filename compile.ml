@@ -214,7 +214,6 @@ let precompile_builtin (pn,params,p,mon as pdef) =
     Printf.printf "precompiled to %s\n\n" (string_of_pdef pdef');
   let assoc = Typecheck.typecheck_pdefs [] [pdef'] in
   Typecheck.rewrite_pdef pdef';
-  Printf.printf "precompile_builtin %s made env %s\n" (string_of_pdef pdef) (Typecheck.string_of_typeassoc assoc);
   assoc <@> pname', pdef'
 
 (* ************************ compiling typed expressions into functions ************************ *)

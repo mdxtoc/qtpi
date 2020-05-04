@@ -926,9 +926,9 @@ let builtins = [
   "Iter (xs,P,iterc) =                          \n" ^
   "  match xs .                                 \n" ^
   "  + []    . iterc!() . _0                    \n" ^
-  "  + x::xs . (new untraced callc)             \n" ^
+  "  + x::xs . (new untraced callc : ^())       \n" ^
   "            | P(x,callc)                     \n" ^
-  "            | callc?(_) . Iter(xs,P,iterc)   \n"
+  "            | callc?_ . Iter(xs,P,iterc)     \n"
   ;
   "Par (xs, P) =                                \n" ^
   "  match xs .                                 \n" ^
@@ -976,7 +976,7 @@ let interpret defs =
                         ) 
   in
   (* add built-ins *)
-  let bipdefs = List.map precompile_builtin (List.map Parseutils.parse_pdefstring builtins) in
+  let bipdefs = List.map (snd <.> precompile_builtin) (List.map Parseutils.parse_pdefstring builtins) in
   let er = ref sysenv in
   let sysenv = globalise (List.fold_left (bind_pdef er) sysenv bipdefs) in
   er := sysenv; 

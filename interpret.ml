@@ -42,6 +42,7 @@ open Number
 open Monenv
 open Compile
 
+open Vt
 open Value
 open Snum
 open Vmg

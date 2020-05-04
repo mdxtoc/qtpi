@@ -41,7 +41,7 @@ open Value
 open Number
 open Snum
 open Vmg
-
+open Vt
 
 exception CompileError of sourcepos * string
 exception ExecutionError of sourcepos * string

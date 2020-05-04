@@ -27,7 +27,7 @@ open Value
 open Vmg
 open Type
 
-type tv = Type._type * Value.vt
+type tv = Type._type * Vt.vt
 type event =
   | EVMessage of chan * name * name * tv
   | EVInput of name * tv

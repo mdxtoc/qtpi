@@ -1,3 +1,7 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
 fun ket_of_bits b v = match (b,v) .
                       + (0b0,0b0) . |0> 
                       + (0b0,0b1) . |1> 
@@ -60,10 +64,6 @@ fun split_codebits M w codebits =
   
 fun bit2bool b = b=0b1
 fun bool2bit b = if b then 0b1 else 0b0 
-
-fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
-
-fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
 
 fun read_min_int m s
   = k where k = if j>=m then j 

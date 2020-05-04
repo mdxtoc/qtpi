@@ -1,5 +1,5 @@
 (*
-    Copyright (C) 2018 Richard Bornat
+    Copyright (C) 2018-2020 Richard Bornat
      
         richard@bornat.me.uk
 
@@ -228,30 +228,32 @@ let precompile_builtin (pn,params,p,mon as pdef) =
     only on OCaml 3.12.1 and later versions.
  *)
 
-let rec deepcompare t v1 v2 = (* list everything to be sure I don't make a mistake *)
-  match t.inst with
-  | Unit      -> 0
-  | Num       -> Q.compare (to_num v1) (to_num v2)
-  | Tuple ts  -> tupcompare ts (to_list v1) (to_list v2)
-  | List  t   -> listcompare t (to_list v1) (to_list v2)
-  | Bit       
-  | Bool       
-  | Char
-  | Sxnum
-  | Bra     
-  | Ket       
-  | Matrix    
-  | Gate      -> Stdlib.compare v1 v2
-  | Fun     _ 
-  | Process _  
-  | Channel _  
-  | Qstate   
-  | Qbit
-  | Qbits     
-  | Unknown _
-  | Known   _
-  | Poly    _ -> raise (Can'tHappen (Printf.sprintf "deepcompare type %s" (string_of_type t)))
-
+let rec deepcompare : _type -> vt -> vt -> int = fun t v1 v2 -> 
+  let r = match t.inst with (* list everything to be sure I don't make a mistake *)
+          | Unit      -> 0
+          | Num       -> Q.compare (to_num v1) (to_num v2)
+          | Tuple ts  -> tupcompare ts (to_list v1) (to_list v2)
+          | List  t   -> listcompare t (to_list v1) (to_list v2)
+          | Bit       
+          | Bool       
+          | Char
+          | Sxnum
+          | Bra     
+          | Ket       
+          | Matrix    
+          | Gate      -> Stdlib.compare v1 v2
+          | Fun     _ 
+          | Process _  
+          | Channel _  
+          | Qstate   
+          | Qbit
+          | Qbits     
+          | Unknown _
+          | Known   _
+          | Poly    _ -> raise (Can'tHappen (Printf.sprintf "deepcompare type %s" (string_of_type t)))
+  in
+  r
+  
 and listcompare t v1s v2s =
   match v1s, v2s with
   | v1::v1s, v2::v2s ->  (match deepcompare t v1 v2 with
@@ -298,7 +300,13 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
   
   match tinst e with
   | EUnit           -> cconst (of_unit ())
-  | EVar n          -> fun env -> env <@> n 
+  | EVar n          -> fun env -> (try env <@> n
+                                   with Not_found -> raise (ExecutionError (e.pos, Printf.sprintf "%s not in env %s"
+                                                                                            (string_of_name n)
+                                                                                            (string_of_env env)
+                                                                           )
+                                                           )
+                                  ) 
   | ENum num        -> cconst (of_num num)
   | EBool b         -> cconst (of_bool b)
   | EChar uc        -> cconst (of_uchar uc)
@@ -441,24 +449,24 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
       (let f1 = compile_expr e1 in
        let f2 = compile_expr e2 in
        let t = type_of_expr e1 in
-       let cf, tricky = match op with
-                        | Eq  -> ((=)0) , false  
-                        | Neq -> ((<>)0), false 
-                        | Lt  -> ((<)0) , true
-                        | Leq -> ((<=)0), true
-                        | Geq -> ((>=)0), true
-                        | Gt  -> ((>)0) , true
+       let tricky f = 
+         if is_polytype t then
+           raise (CompileError (e.pos, (Printf.sprintf "'%s' used with poly-type %s->%s->bool" 
+                                                             (string_of_compareop op)
+                                                             (string_of_type (type_of_expr e1))
+                                                             (string_of_type (type_of_expr e2))
+                                         )
+                                 )
+                  )
+         else f <..> deepcompare t
        in
-       let cf = if tricky then 
-                  if is_polytype t then
-                    raise (CompileError (e.pos, (Printf.sprintf "'%s' used with poly-type %s" 
-                                                                      (string_of_compareop op)
-                                                                      (string_of_type et)
-                                                  )
-                                          )
-                           )
-                  else cf <..> deepcompare t
-                else cf <..> Stdlib.compare
+       let cf = match op with
+                | Eq  -> (=)
+                | Neq -> (<>)
+                | Lt  -> tricky ((>)0) 
+                | Leq -> tricky ((>=)0)
+                | Geq -> tricky ((<=)0)
+                | Gt  -> tricky ((<)0) 
        in
        fun env -> of_bool (cf (f1 env) (f2 env))
       )
@@ -594,9 +602,9 @@ and compile_lambda : pattern list -> expr -> (env -> vt -> vt) = fun pats expr -
   in
   cl pats
   
-and hide_fun : (env -> vt -> vt) -> (env ->vt) = fun f env -> of_fun (f env)
+and hide_fun : (env -> vt -> vt) -> env -> vt = fun f env -> of_fun (f env)
 
-and hide_fun_rec : (env -> vt -> vt) -> (env ref -> vt) = fun f er -> of_fun (f !er)
+and hide_fun_rec : (env -> vt -> vt) -> env ref -> vt = fun f er -> of_fun (fun v -> f !er v)
   
 (* some memoising to make the interpreter go .. or maybe the step compiler, I don't know *)
 

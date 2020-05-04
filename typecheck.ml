@@ -1,5 +1,5 @@
 (*
-    Copyright (C) 2018 Richard Bornat
+    Copyright (C) 2018-2020 Richard Bornat
      
         richard@bornat.me.uk
 
@@ -1126,7 +1126,7 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   contn cxt
 
 let make_library_assoc () =
-  let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
+  let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Library.knowns in
   let typ = adorn dummy_spos in
   let typstring = typ (List (typ Char)) in
   let assoc = if assoc <%@?> "dispose" then assoc else assoc <%@+> ("dispose", typ (Channel (typ Qbit))) in

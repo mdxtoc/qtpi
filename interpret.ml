@@ -51,10 +51,6 @@ open Event
 exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
-exception BitOverflow of string
-exception IntOverflow of string
-exception FractionalInt of string
-exception NegInt of string
 
 let (<@>)  env n     = try Monenv.(<@>) env n 
                        with Not_found -> raise (Disaster (dummy_spos, 
@@ -918,14 +914,6 @@ let rec interp env proc =
   addrunner ("System", proc, env);
   step ()
 
-(* Library 'declares' things by adding them to this list: name * type (as string) * value.
-   No more run-time typing, so it's important to get that type right.
- *)
-
-let knowns = (ref [] : (name * string * Value.vt) list ref)
-
-let know dec = knowns := dec :: !knowns
-
 (* these are the built-in pdefs -- with newlines and spaces for offside parsing *)
 
 let builtins = [
@@ -967,7 +955,7 @@ let interpret defs =
                      (* let t = generalise (Parseutils.parse_typestring s) in *)
                      n, v
                    in
-                   List.map f !knowns in
+                   List.map f !Library.knowns in
   (* add standard channels *)
   let definitely_add env (name, c) =
     if env <@?> name then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))

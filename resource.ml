@@ -854,7 +854,7 @@ let resourcecheck defs =
       List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
                                n, r
                ) 
-               !Interpret.knowns 
+               !Library.knowns 
     in
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =

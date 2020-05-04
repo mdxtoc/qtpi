@@ -26,10 +26,23 @@ open Sourcepos
 open Functionutils
 open Listutils
 open Tupleutils
-open Interpret
+open Name
 open Number
+open Vt
 open Value
 open Vmg
+
+exception IntOverflow of string
+exception FractionalInt of string
+exception NegInt of string
+
+(* We 'declare' library things by adding them to this list: name * type (as string) * value.
+   No more run-time typing, so it's important to get that type right.
+ *)
+
+let knowns = (ref [] : (name * string * vt) list ref)
+
+let know dec = knowns := dec :: !knowns
 
 (* should this give an error if n is fractional? The purist in me says yes. 
    The pragmatist says just take the floor and forget it.
@@ -52,39 +65,39 @@ let funv3 f = let f' a b c = to_fun (to_fun (to_fun f a) b) c in
 
 (* ******************** basic gates ********************* *)
 
-let _ = Interpret.know ("I"     , "gate", of_gate g_I)
-let _ = Interpret.know ("X"     , "gate", of_gate g_X)
-let _ = Interpret.know ("Y"     , "gate", of_gate g_Y)
-let _ = Interpret.know ("Z"     , "gate", of_gate g_Z)
+let _ = know ("I"     , "gate", of_gate g_I)
+let _ = know ("X"     , "gate", of_gate g_X)
+let _ = know ("Y"     , "gate", of_gate g_Y)
+let _ = know ("Z"     , "gate", of_gate g_Z)
 
-let _ = Interpret.know ("H"     , "gate", of_gate g_H)
-let _ = Interpret.know ("Rz"    , "gate", of_gate g_Rz)
-let _ = Interpret.know ("Rx"    , "gate", of_gate g_Rx)
+let _ = know ("H"     , "gate", of_gate g_H)
+let _ = know ("Rz"    , "gate", of_gate g_Rz)
+let _ = know ("Rx"    , "gate", of_gate g_Rx)
 
-let _ = Interpret.know ("phi"   , "num -> gate", of_fun (of_gate <.> g_Phi <.> mustbe_intv))
+let _ = know ("phi"   , "num -> gate", of_fun (of_gate <.> g_Phi <.> mustbe_intv))
 
-let _ = Interpret.know ("Cnot"  , "gate", of_gate g_Cnot)
-let _ = Interpret.know ("CNot"  , "gate", of_gate g_Cnot)
-let _ = Interpret.know ("CNOT"  , "gate", of_gate g_Cnot)
-let _ = Interpret.know ("CX"    , "gate", of_gate g_CX)
-let _ = Interpret.know ("CY"    , "gate", of_gate g_CY)
-let _ = Interpret.know ("CZ"    , "gate", of_gate g_CZ)
+let _ = know ("Cnot"  , "gate", of_gate g_Cnot)
+let _ = know ("CNot"  , "gate", of_gate g_Cnot)
+let _ = know ("CNOT"  , "gate", of_gate g_Cnot)
+let _ = know ("CX"    , "gate", of_gate g_CX)
+let _ = know ("CY"    , "gate", of_gate g_CY)
+let _ = know ("CZ"    , "gate", of_gate g_CZ)
 
-let _ = Interpret.know ("Swap"  , "gate", of_gate g_Swap)
-let _ = Interpret.know ("SWAP"  , "gate", of_gate g_Swap)
+let _ = know ("Swap"  , "gate", of_gate g_Swap)
+let _ = know ("SWAP"  , "gate", of_gate g_Swap)
 
-let _ = Interpret.know ("T"     , "gate", of_gate g_Toffoli)
-let _ = Interpret.know ("F"     , "gate", of_gate g_Fredkin)
-let _ = Interpret.know ("Cswap" , "gate", of_gate g_Fredkin)
-let _ = Interpret.know ("CSwap" , "gate", of_gate g_Fredkin)
-let _ = Interpret.know ("CSWAP" , "gate", of_gate g_Fredkin)
+let _ = know ("T"     , "gate", of_gate g_Toffoli)
+let _ = know ("F"     , "gate", of_gate g_Fredkin)
+let _ = know ("Cswap" , "gate", of_gate g_Fredkin)
+let _ = know ("CSwap" , "gate", of_gate g_Fredkin)
+let _ = know ("CSWAP" , "gate", of_gate g_Fredkin)
 
-let _ = Interpret.know ("sx_0"    , "sxnum", of_csnum Snum.c_0)
-let _ = Interpret.know ("sx_1"    , "sxnum", of_csnum Snum.c_1)
-let _ = Interpret.know ("sx_i"    , "sxnum", of_csnum Snum.c_i)
-let _ = Interpret.know ("sx_h"    , "sxnum", of_csnum Snum.c_h)
-let _ = Interpret.know ("sx_f"    , "sxnum", of_csnum Snum.c_f)
-let _ = Interpret.know ("sx_g"    , "sxnum", of_csnum Snum.c_g)
+let _ = know ("sx_0"    , "sxnum", of_csnum Snum.c_0)
+let _ = know ("sx_1"    , "sxnum", of_csnum Snum.c_1)
+let _ = know ("sx_i"    , "sxnum", of_csnum Snum.c_i)
+let _ = know ("sx_h"    , "sxnum", of_csnum Snum.c_h)
+let _ = know ("sx_f"    , "sxnum", of_csnum Snum.c_f)
+let _ = know ("sx_g"    , "sxnum", of_csnum Snum.c_g)
 
 let v_makeC g =
   if gsize g<>z_2 then
@@ -92,7 +105,7 @@ let v_makeC g =
   else
     make_C g
 
-let _ = Interpret.know ("makeC", "gate -> gate", of_fun (of_gate <.> v_makeC <.> to_gate))
+let _ = know ("makeC", "gate -> gate", of_fun (of_gate <.> v_makeC <.> to_gate))
 
 (* ******************** lists ********************* *)
 
@@ -172,40 +185,40 @@ let v_unzip xys = let xs, ys = List.split (List.map reveal_pair (to_list xys)) i
 
 let v_concat xss = of_list (List.concat (List.map to_list (to_list xss)))
 
-let _ = Interpret.know ("length"   , "['a] -> num                        "  , of_fun (hide_int <.> List.length <.> to_list))
+let _ = know ("length"   , "['a] -> num                        "  , of_fun (hide_int <.> List.length <.> to_list))
 
-let _ = Interpret.know ("hd"       , "['a] -> 'a                         "  , of_fun v_hd)
-let _ = Interpret.know ("tl"       , "['a] -> ['a]                    "     , of_fun v_tl)
+let _ = know ("hd"       , "['a] -> 'a                         "  , of_fun v_hd)
+let _ = know ("tl"       , "['a] -> ['a]                    "     , of_fun v_tl)
 
-let _ = Interpret.know ("rev"      , "['a] -> ['a]                    "     , of_fun (of_list <.> List.rev <.> to_list))
-let _ = Interpret.know ("append"   , "['a] -> ['a] -> ['a]         "        , vfun2 v_append)
+let _ = know ("rev"      , "['a] -> ['a]                    "     , of_fun (of_list <.> List.rev <.> to_list))
+let _ = know ("append"   , "['a] -> ['a] -> ['a]         "        , vfun2 v_append)
 
-let _ = Interpret.know ("iter"     , "('a -> ()) -> ['a] -> ()       "      , vfun2 v_iter)
-let _ = Interpret.know ("map"      , "('a -> 'b) -> ['a] -> ['b]      "     , vfun2 v_map)
+let _ = know ("iter"     , "('a -> ()) -> ['a] -> ()       "      , vfun2 v_iter)
+let _ = know ("map"      , "('a -> 'b) -> ['a] -> ['b]      "     , vfun2 v_map)
 
-let _ = Interpret.know ("take"     , "num -> ['a] -> ['a]             "     , vfun2 v_take)
-let _ = Interpret.know ("drop"     , "num -> ['a] -> ['a]             "     , vfun2 v_drop)
+let _ = know ("take"     , "num -> ['a] -> ['a]             "     , vfun2 v_take)
+let _ = know ("drop"     , "num -> ['a] -> ['a]             "     , vfun2 v_drop)
 
-let _ = Interpret.know ("takewhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_takewhile)
-let _ = Interpret.know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_dropwhile)
+let _ = know ("takewhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_takewhile)
+let _ = know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_dropwhile)
 
-let _ = Interpret.know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
-let _ = Interpret.know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , of_fun v_unzip)
+let _ = know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
+let _ = know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , of_fun v_unzip)
 
-let _ = Interpret.know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
-let _ = Interpret.know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
-let _ = Interpret.know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
+let _ = know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
                             , vfun3 (fun xs ys zs -> of_list (List.map hide_triple (mirazip3 (to_list xs) (to_list ys) (to_list zs)))))
 
-let _ = Interpret.know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
+let _ = know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
 
-let _ = Interpret.know ("exists"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_exists)
-let _ = Interpret.know ("forall"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_forall)
+let _ = know ("exists"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_exists)
+let _ = know ("forall"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_forall)
 
-let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> ['b] -> 'a" , vfun3 v_foldl)
-let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> ['a] -> 'b" , vfun3 v_foldr)
+let _ = know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> ['b] -> 'a" , vfun3 v_foldl)
+let _ = know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> ['a] -> 'b" , vfun3 v_foldr)
 
-let _ = Interpret.know ("concat"   , "[['a]] -> ['a]                "       , of_fun v_concat )
+let _ = know ("concat"   , "[['a]] -> ['a]                "       , of_fun v_concat )
 
 let v_tabulate n f =
   let i = mustbe_intv n in
@@ -215,16 +228,16 @@ let v_tabulate n f =
 
 let v_const a b = a
   
-let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
-let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
+let _ = know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
+let _ = know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
 
 (* 'compare' is now done in compile_expr *)
 
 let v_sort compare vs = of_list (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (to_list vs))
-let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
+let _ = know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
 
-let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> reveal_pair))
-let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> reveal_pair))
+let _ = know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> reveal_pair))
+let _ = know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> reveal_pair))
 
 let _zeroes = ref z_0
 let _ones = ref z_1
@@ -235,8 +248,8 @@ let vrandbit () =
     (if b then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
   b
   
-let _ = Interpret.know ("randbit",  "() -> bit"                             , of_fun (of_bit <.> vrandbit <.> to_unit))
-let _ = Interpret.know ("randbits", "num -> [bit]"                          , of_fun v_randbits)
+let _ = know ("randbit",  "() -> bit"                             , of_fun (of_bit <.> vrandbit <.> to_unit))
+let _ = know ("randbits", "num -> [bit]"                          , of_fun v_randbits)
 
 let v_max a b =
   let a = to_num a in
@@ -248,8 +261,8 @@ let v_min a b =
   let b = to_num b in
   of_num (if a</b then a else b)
 
-let _ = Interpret.know ("max", "num -> num -> num", vfun2 v_max)
-let _ = Interpret.know ("min", "num -> num -> num", vfun2 v_min)
+let _ = know ("max", "num -> num -> num", vfun2 v_max)
+let _ = know ("min", "num -> num -> num", vfun2 v_min)
 
 let v_bitand i j = 
   let i = to_num i in
@@ -258,7 +271,7 @@ let v_bitand i j =
   if not (is_int j) then raise (FractionalInt (string_of_num j));
   of_num (num_of_zint (Z.(land) (zint_of_num i) (zint_of_num j)))
 
-let _ = Interpret.know ("bitand", "num -> num -> num", vfun2 v_bitand)
+let _ = know ("bitand", "num -> num -> num", vfun2 v_bitand)
 
 (* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
 
@@ -315,8 +328,8 @@ let v_bits2num bs =
   let zn = Z.of_bits s in
   of_num (num_of_zint zn)
 
-let _ = Interpret.know ("bits2num", "[bit] -> num", of_fun v_bits2num)
-let _ = Interpret.know ("num2bits", "num -> [bit]", of_fun v_num2bits)
+let _ = know ("bits2num", "[bit] -> num", of_fun v_bits2num)
+let _ = know ("num2bits", "num -> [bit]", of_fun v_num2bits)
 
 let v_nth vs n = 
   let i = mustbe_intv n in
@@ -328,16 +341,16 @@ let v_nth vs n =
                         )
           )
 
-let _ = Interpret.know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
+let _ = know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
 
 (* ********************* numbers ************************ *)
 
-let _ = Interpret.know ("floor"  , "num -> num", of_fun (of_num <.> Number.floor <.> to_num))
-let _ = Interpret.know ("ceiling", "num -> num", of_fun (of_num <.> Number.ceiling <.> to_num))
-let _ = Interpret.know ("round"  , "num -> num", of_fun (of_num <.> Number.round <.> to_num))
+let _ = know ("floor"  , "num -> num", of_fun (of_num <.> Number.floor <.> to_num))
+let _ = know ("ceiling", "num -> num", of_fun (of_num <.> Number.ceiling <.> to_num))
+let _ = know ("round"  , "num -> num", of_fun (of_num <.> Number.round <.> to_num))
 
-let _ = Interpret.know ("sqrt"   , "num -> num", of_fun (of_num <.> Q.of_float <.> sqrt <.> Q.to_float <.> to_num))
-let _ = Interpret.know ("pi"     , "num"       , of_num (Q.of_float (Float.pi))) 
+let _ = know ("sqrt"   , "num -> num", of_fun (of_num <.> Q.of_float <.> sqrt <.> Q.to_float <.> to_num))
+let _ = know ("pi"     , "num"       , of_num (Q.of_float (Float.pi))) 
 
 (* ********************* gates, matrices ************************ *)
  
@@ -353,11 +366,11 @@ let v_tabulate_diag_m n f =
   let f = to_fun f in
   of_matrix (init_diag_m (Z.of_int n) (to_csnum <.> f <.> of_num <.> num_of_zint))
  
-let _ = Interpret.know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
-let _ = Interpret.know ("tabulate_diag_m"  , "num -> (num -> sxnum) -> matrix", vfun2 v_tabulate_diag_m)
+let _ = know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
+let _ = know ("tabulate_diag_m"  , "num -> (num -> sxnum) -> matrix", vfun2 v_tabulate_diag_m)
 
-let _ = Interpret.know ("degate"  , "gate -> matrix", of_fun (of_matrix <.> matrix_of_gate <.> to_gate))
-let _ = Interpret.know ("engate"  , "matrix -> gate", of_fun (of_gate <.> Vmg.engate <.> to_matrix))
+let _ = know ("degate"  , "gate -> matrix", of_fun (of_matrix <.> matrix_of_gate <.> to_gate))
+let _ = know ("engate"  , "matrix -> gate", of_fun (of_gate <.> Vmg.engate <.> to_matrix))
 
 let _statistics_m mM =
   let assoc = Vmg.statistics_m (to_matrix mM) in
@@ -367,8 +380,8 @@ let _statistics_snv nv =
   let assoc = Vmg.statistics_nv nv in
   of_list (List.map (fun (v,i) -> hide_pair (of_csnum v, of_num (num_of_zint i))) assoc)
 
-let _ = Interpret.know ("statistics_m", "matrix -> [(sxnum,num)]", of_fun _statistics_m)
-let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statistics_snv <.> to_ket))
+let _ = know ("statistics_m", "matrix -> [(sxnum,num)]", of_fun _statistics_m)
+let _ = know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statistics_snv <.> to_ket))
 
 (* ********************* I/O ************************ *)
 
@@ -376,7 +389,7 @@ let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statist
    input mechanism: if the line they read starts with the prompt then they strip it off. Sorry.
  *)
 
-let rec get_string s = 
+let rec get_string : vt -> string = fun s ->
   flush stdout; 
   let prompt = reveal_string s ^"? " in
   prerr_string prompt; flush stderr; 
@@ -387,12 +400,16 @@ let rec get_string s =
   then String.sub input plength (ilength - plength)
   else input
   
-let rec read_num s = try of_num (num_of_string (get_string s)) with Failure _ 
-                                                                | Invalid_argument _ -> print_endline "pardon?"; read_num s
-let _ = Interpret.know ("read_num", "string -> num"                     , of_fun read_num)
+let rec read_num : vt -> vt = fun s ->
+  try let s = get_string s in
+              of_num (num_of_string s) 
+  with Failure _ 
+     | Invalid_argument _ -> print_endline "pardon?"; read_num s
+
+let _ = know ("read_num", "string -> num"                     , of_fun read_num)
 
 let rec read_string s = hide_string (get_string s) 
-let _ = Interpret.know ("read_string", "string -> string"               , of_fun read_string)
+let _ = know ("read_string", "string -> string"               , of_fun read_string)
 
 let rec read_alternative prompt sep alts =
   let assoc = List.map reveal_pair (to_list alts) in
@@ -404,23 +421,23 @@ let rec read_alternative prompt sep alts =
   try List.assoc s assoc
   with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
 
-let _ = Interpret.know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
+let _ = know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
   
 let read_bool prompt y n = read_alternative prompt (hide_string "/") (of_list [hide_pair (y,of_bool true); hide_pair (n,of_bool false)])
-let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
+let _ = know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
 
 exception Abandon of string
 
 let abandon ss = raise (Abandon (String.concat "" (List.map reveal_string (to_list ss))))
-let _ = Interpret.know ("abandon", "[string] -> '*a", of_fun abandon) (* note classical result type ... *)
+let _ = know ("abandon", "[string] -> '*a", of_fun abandon) (* note classical result type ... *)
 
 
 let print_string s = of_unit (Stdlib.print_string (reveal_string s); flush stdout)
 let print_qbit q   = print_string (hide_string (Qsim.string_of_qval (Qsim.qval (to_qbit q))))  
                                         
-let _ = Interpret.know ("print_string" , "string -> ()"       , of_fun (print_string))
-let _ = Interpret.know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
-let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , of_fun print_qbit)    (* yup, that's a qbit argument *)
+let _ = know ("print_string" , "string -> ()"       , of_fun (print_string))
+let _ = know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
+let _ = know ("print_qbit"   , "qbit -> ()"         , of_fun print_qbit)    (* yup, that's a qbit argument *)
 
 (* 'show' is now done in compile_expr *)  
 
@@ -432,7 +449,7 @@ let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let n = Q.to_float n in
   hide_string (Printf.sprintf "%.*f" k n)
 
-let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   
+let _ = know ("showf", "num -> num -> string", vfun2 _showf)   
   
 (* ********************* memoising, with an s ************************ *)
 
@@ -445,8 +462,8 @@ module OneMap = MyMap.Make (struct type t        = vt
 let _memofun f = OneMap.memofun id (to_fun f)
 let _memorec f = OneMap.memorec id (funv2 f <.> of_fun)
 
-let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
-let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"           , vfun2 _memorec)
+let _ = know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
+let _ = know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"           , vfun2 _memorec)
   
 module TwoMap = MyMap.Make (struct type t        = vt*vt
                                    let compare   = Stdlib.compare (* ok not to be deepcompare *)
@@ -456,7 +473,7 @@ module TwoMap = MyMap.Make (struct type t        = vt*vt
 
 let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
 
-let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"            , vfun3 _memofun2)
+let _ = know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"            , vfun3 _memofun2)
   
 module ThreeMap = MyMap.Make (struct type t        = vt*vt*vt
                                      let compare   = Stdlib.compare (* ok not to be deepcompare *)
@@ -466,7 +483,7 @@ module ThreeMap = MyMap.Make (struct type t        = vt*vt*vt
 
 let _memofun3 f = curry3 (ThreeMap.memofun id (uncurry3 (funv3 f)))
   
-let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
+let _ = know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
 
 (* ********************* special qbit functions ************************ *)
 
@@ -485,5 +502,5 @@ let _qvals qs =
   let qv = Qsim.qval_of_qs qs in
   Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qbit qs) (Qsim.string_of_qval qv) (* oh the qsort ... *)
   
-let _ = Interpret.know ("qval" , "qbit  -> qstate", of_fun (hide_string <.> _qval))       (* yup, that's a qbit argument *)
-let _ = Interpret.know ("qvals", "qbits -> qstate", of_fun (hide_string <.> _qvals))      (* yup, that's a qbits argument *)
+let _ = know ("qval" , "qbit  -> qstate", of_fun (hide_string <.> _qval))       (* yup, that's a qbit argument *)
+let _ = know ("qvals", "qbits -> qstate", of_fun (hide_string <.> _qvals))      (* yup, that's a qbits argument *)

@@ -45,19 +45,19 @@ proc CopyQBits (bvs, qA, qB, bsA, results) =
                           _0
 
 (* filter out masked bits *)
-fun mask_filter (m:''a) (mask:[''a]) (vs:['b]) : ['b]
+fun mask_filter (m:bit) (mask:[bit]) (vs:[bit]) : [bit]
    = vs where _, vs = unzip mvs
         where mvs = filter (λ (me,_) . me=m) (zip mask vs)
 
-fun xor_mask code message 
+fun xor_mask (code:[bit]) message 
   = map (λ (b1,b2) . if b1=b2 then 0b0 else 0b1) (zip code message)
 
 (* pick out the bits that are in the same bases *)
 fun reconcile b1s b2s vs = mask_filter 0b0 (xor_mask b1s b2s) vs
     
-(* select check bits randomly. Use 1/4 probability because it's easy *)
+(* select mask bits randomly. Use 1/4 probability because it's easy *)
 fun cb_choose _ = if (randbit(),randbit()) = (0b1,0b1) then 0b1 else 0b0
-
+                    
 fun split_codebits M w codebits =
   if 5*w+length M <= length codebits then (take (5*w) codebits, drop (5*w) codebits)
                                      else ([]                 , codebits           )
@@ -67,9 +67,9 @@ fun bool2bit b = if b then 0b1 else 0b0
 
 fun read_min_int m s
   = k where k = if j>=m then j 
-                else semicolon (λ _ . print_strings ["pardon? at least "; show m; "\n"])
-                               (λ _ . read_min_int m s)
-                               ()
+                else semicolon (λ x . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ () . read_min_int m s)
+                               j
       where j = read_num s
     
 fun int_sqrt n = i_s 0 n
@@ -81,7 +81,7 @@ fun histo buckets ns
     + n::_ . histo ((n,length pre)::buckets) post
                   where pre = takewhile sameas ns
                   where post = dropwhile sameas ns
-                  where sameas = λ k . k=n (* this is (=n). I need that mechanism, whose name temporarily escapes me *)
+                  where sameas = λ k . k=n (* this is (=n). I need operator comprehensions *)
 
 (* compare doesn't work with polytypes. Sob. *)
 fun histogram fcompare ns = histo [] (sort fcompare ns)

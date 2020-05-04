@@ -83,7 +83,8 @@ fun histo buckets ns
                   where post = dropwhile sameas ns
                   where sameas = λ k . k=n (* this is (=n). I need that mechanism, whose name temporarily escapes me *)
 
-fun histogram ns = histo [] (sort compare ns)
+(* compare doesn't work with polytypes. Sob. *)
+fun histogram fcompare ns = histo [] (sort fcompare ns)
 
 (* this is a histogram of evasions: see SystemAEB.qtp *)
 
@@ -96,7 +97,7 @@ fun histo2 buckets nes
                  where post = dropwhile sameas nes
                  where sameas = λ (k,_) . k=n
 
-fun h2comp (n,e) (n',e') = compare n n'
+fun h2comp (n,e) (n',e') = (compare:num->num->num) n n'
 
 fun histogram2 nes = histo2 [] (sort h2comp nes)
 

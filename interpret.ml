@@ -897,14 +897,19 @@ let rec interp env proc =
                       if !pstep then 
                         show_pstep (short_string_of_process rproc)
                with
-                 | MatchError (pos,s)  -> raise (MatchError (pos,s)) 
-                 | exn                 ->
+                 | CompileError   _ as exn  -> raise exn  
+                 | ExecutionError _ as exn  -> raise exn  
+                 | MatchError     _ as exn  -> raise exn
+                 | exn                      ->
                      Printf.eprintf "interpreter %s sees exception %s\n" (string_of_sourcepos rproc.pos) (Printexc.to_string exn);
                      print_interp_state stderr;
                      raise exn
              )) (* end of match *)
           with 
-          | exn                 ->
+          | CompileError   _ as exn  -> raise exn  
+          | ExecutionError _ as exn  -> raise exn  
+          | MatchError     _ as exn  -> raise exn
+          | exn                      ->
               Printf.eprintf "interpreter step () sees exception %s\n" (Printexc.to_string exn);
               print_interp_state stderr;
               raise exn

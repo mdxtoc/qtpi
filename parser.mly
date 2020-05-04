@@ -462,6 +462,7 @@ tpnum:
   | TPNUM                               {$1}
   
 primary:
+  | LPAR expr COLON typespec RPAR       {adorn (twrap (Some $4) (tinst $2))}
   | LPAR RPAR                           {tadorn EUnit}
   | name                                {tadorn (EVar $1)}
   | RESSHOW                             {tadorn (ERes ResShow)}

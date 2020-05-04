@@ -490,7 +490,10 @@ and assigntype_expr cxt t e =
                   (short_string_of_typecxt cxt)
                   (string_of_type (evaltype t))
                   (string_of_expr e);
-  toptr e := Some t; (* for rewriting later *)
+  (match !(toptr e) with
+   | Some t' -> unifytypes t t'
+   | None    -> toptr e := Some t; (* for rewriting later *)
+  );
   let utaf cxt = uncurry2 (assigntype_expr cxt) in
   try 
     let unary cxt tout tin e = 

@@ -96,7 +96,7 @@ let rec string_of_process proc =
                                             (string_of_list string_of_expr "," es)
   | WithNew ((traced,params),p) 
                           -> Printf.sprintf "(%s %s)%s"
-                                            (if traced then "newuntraced" else "new")
+                                            (if traced then "new" else "newuntraced")
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
   | WithQbit (plural,qs,p) -> Printf.sprintf "(%s %s)%s"

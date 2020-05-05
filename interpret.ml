@@ -529,10 +529,10 @@ let rec interp env proc =
                   | CPMatch (e,pms)    -> 
                       let v = evale env e in
                       let env', proc' = pms env v in
-                      addrunner (pn, proc, env');
+                      addrunner (pn, proc', env');
                       if !pstep then 
                         show_pstep (Printf.sprintf "%s\nchose %s%s" (short_string_of_cprocess rproc)
-                                                                    (short_string_of_cprocess proc)
+                                                                    (short_string_of_cprocess proc')
                                                                     (pstep_env env' env)
                                    )
                   | CPar ps            ->

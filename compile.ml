@@ -43,178 +43,97 @@ open Snum
 open Vmg
 open Vt
 
+open Cprocess
+
 exception CompileError of sourcepos * string
 exception ExecutionError of sourcepos * string
 
+(* ************************ compiling matches into functions ************************ *)
 
-(* ************************ 'compiling' sub-processes ************************ *)
-
-let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum
-
-let chan_name tpnum = "#chan#" ^ tpnum
-
-let tadorn pos topt = adorn pos <.> twrap topt
-
-let ut pos = Some (adorn pos Unit)
-let cut pos = Some (adorn pos (Channel (adorn pos Unit)))
-
-let insert_returns check rc proc =
-  let bad pos s = raise (CompileError (pos, s ^ " not allowed in embedded process")) in
-  let spos = steppos proc in
-  let rec cmp proc =
-    let ad = adorn spos in
-    let adio = adorn spos in
-    let ade = tadorn spos in
-    match proc.inst with
-    | Terminate     -> Some (ad (GSum [adio (Write (ade (cut spos) (EVar rc), ade (ut spos) EUnit)), proc]))
-    | GoOnAs _      -> if check then bad spos "process invocation" else None
-    | Par _         -> if check then bad spos "parallel sum" else None
-    | WithNew _     
-    | WithQbit _    
-    | WithLet _
-    | WithProc _    
-    | WithQstep _ 
-    | JoinQs _
-    | SplitQs _
-    | GSum _
-    | Cond    _
-    | PMatch  _     
-    | TestPoint _   
-    | Iter _        -> None
-  in
-  Process.map cmp proc
-
-(* Here is where we apply restrictions on monitor processes:
-    no Reading   (it's outside the protocol, so no input)
-    no Calling
-    no new qbits (it's outside the protocol, so no quantum stuff)
-    no gating    (ditto)
-    no measuring (ditto)
-    no Testpoint (come along now)
-    no Par
- *)
- 
-let precompile_monbody tpnum proc =
-  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
-  let rec check proc =
-    match proc.inst with
-    | Terminate     -> None (* will be done in insert_returns *)
-    | GSum iops     -> let ciop (iostep, _) = 
-                         match iostep.inst with
-                         | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
-                                             bad iostep.pos "non-classical channel"
-                         | _            -> bad iostep.pos "message receive"
-                       in
-                       List.iter ciop iops; None
-    | GoOnAs _      -> bad proc.pos "process invocation"
-    | WithQbit _    -> bad proc.pos "qbit creation"
-    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
-    | WithProc _    -> bad proc.pos "process definition"
-    | JoinQs _      -> bad proc.pos "joining qbit collections"
-    | SplitQs _     -> bad proc.pos "splitting qbit collection"
-    | TestPoint _   -> bad proc.pos "test point"
-    | Iter _        -> raise (CompileError (proc.pos, "Can't compile Iter in precompile_monbody yet"))
-    | Par _         -> bad proc.pos "parallel sum"
-    | WithNew _     
-    | WithLet _
-    | Cond    _
-    | PMatch  _     -> None
-  in
-  let _ = Process.map check proc in
-  let rc = chan_name tpnum in
-  insert_returns true rc proc
-
-let precompile_proc env pn mon proc =
-  (* if !verbose || !verbose_compile then
-       Printf.printf "precompile_proc env=%s\n  pn=%s\n  mon=(%s)\n proc=(%s)\n"
-                       (string_of_env env)
-                       (tinst pn)
-                       (string_of_monitor mon)
-                       (string_of_process proc); *)
-  let construct_callpar pos rc call p =
-    let read = adorn pos (Read (tadorn pos (cut pos) (EVar rc), tadorn pos (ut pos) PatAny)) in
-    let gsum = adorn pos (GSum [(read, p)]) in
-    adorn pos (Par [call; gsum])
-  in
-  let rec cmp spos proc =
-    let ad = adorn spos in
-    let ade = tadorn spos in
-    let adpar = tadorn spos in
-    let adn = tadorn spos in
-    match proc.inst with
-    | TestPoint (tpn, p) -> let p = Process.map (cmp spos) p in
-                            let rc = chan_name tpn.inst in
-                            let mn = mon_name pn tpn.inst in
-                            let tp = Some (adorn spos (Process [])) in
-                            let call = ad (GoOnAs (adn tp mn, [])) in
-                            let par = construct_callpar tpn.pos rc call p in
-                            let (_, monproc) = _The (find_monel tpn.inst mon) in
-                            let def = ad (WithProc ((false, adn tp mn, [], precompile_monbody tpn.inst monproc), par)) in
-                            let mkchan = ad (WithNew ((false,[adpar (cut spos) rc]), def)) in
-                            Some mkchan
-    | WithProc  ((brec,pn,params,proc),p) 
-                         -> let p = Process.map (cmp spos) p in
-                            let proc = Process.map (cmp spos) proc in
-                            Some (ad (WithProc ((brec,pn,params,proc),p)))
-    | Iter (pat, e, ip, p)
-                         -> let p = Process.map (cmp spos) p in
-                            let rc = chan_name (short_string_of_sourcepos ip.pos) in
-                            let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
-                            let xname = "x#" in
-                            let cname = "c#" in
-                            let callIter = ad (GoOnAs (adn None "Iter#", [e; ade None (EVar ipname); ade None (EVar rc)])) in
-                            let par = construct_callpar ip.pos rc callIter p in
-                            let ip = insert_returns true cname ip in
-                            let ip = Process.map (cmp spos) ip in
-                            let ip = ad (WithLet ((pat, ade None (EVar xname)),ip)) in
-                            let def = ad (WithProc ((false, adn None ipname, [adpar None xname; adpar None cname], ip), par)) in
-                            let mkchan = ad (WithNew ((false, [adpar None rc]), def)) in
-                            Some mkchan
-    | Terminate 
-    | GoOnAs    _      
-    | WithNew   _
-    | WithQbit  _
-    | WithLet   _
-    | WithQstep _
-    | JoinQs    _
-    | SplitQs   _
-    | Cond      _
-    | PMatch    _
-    | GSum      _
-    | Par       _        -> None
-  in
-  env, Process.map (cmp (steppos proc)) proc
-
-(* I think this should be in Interpret, but then I think it should be here, but then ... *)
-let bind_pdef er env (pn,params,p,mon as pdef) =
-  let env, proc = precompile_proc env pn mon p in
-  if (!verbose || !verbose_compile) && p<>proc then
-    Printf.printf "Expanding .....\n%s....... =>\n%s\n.........\n\n"
-                    (string_of_pdef pdef)
-                    (string_of_process proc);
-  env <@+> (tinst pn, of_procv (tinst pn, er, names_of_params params, proc))
-
-let precompile_builtin (pn,params,p,mon as pdef) =
+let rec compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> 'b)) -> (pattern * 'a) list -> (env -> vt -> 'b) = 
+  fun pos string_of_a compile_a pairs ->
+  
   if !verbose || !verbose_compile then
-    Printf.printf "precompiling built-in %s\n" (string_of_pdef pdef);
-  if not (null mon) then
-    raise (Settings.Error (Printf.sprintf "built_in %s has logging sub-processes" (string_of_typedname pn)));
-  (* all we do is append a # to the name in recursive calls ... *)
-  let pname = tinst pn in
-  let pname' = pname ^ "#" in
-  let hash pn = {pn with inst = {pn.inst with tinst = pname'}} in
-  let cmp proc =
-    match proc.inst with
-    | GoOnAs (pn',args) 
-      when tinst pn' = pname -> Some (adorn proc.pos (GoOnAs (hash pn', args)))
-    | _                      -> None
+    (let dtree = Matchcheck.match_dtree false string_of_a pairs in
+     Printf.printf "matcher %s %s\ndtree (which we're not yet using) = %s\n\n\n" 
+                    (string_of_sourcepos pos)
+                    (Matchcheck.string_of_rules string_of_a pairs)
+                    (Matchcheck.string_of_dtree string_of_a dtree)
+    );
+  
+  (* this is not a clever way of doing it, but it does avoid the cost of interpretation. I think. *)
+  let rec dopat : pattern -> ((env -> 'b ) -> (unit -> 'b) -> env -> vt -> 'b) = fun pat ->
+    match tinst pat with
+    | PatAny            
+    | PatUnit           -> fun yes no env _ -> yes env 
+    | PatNil            -> fun yes no env v -> if to_list v=[] then yes env else no ()
+    | PatName   n       -> fun yes no env v -> yes (env<@+>(n,v))
+    | PatInt    i       -> fun yes no env v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes env else no ()
+    | PatBit    b       -> fun yes no env v -> let b' = to_bit v in if b=b' then yes env else no ()
+    | PatBool   b       -> fun yes no env v -> let b' = to_bool v in if b=b' then yes env else no ()
+    | PatChar   c       -> fun yes no env v -> let c' = to_uchar v in if c=c' then yes env else no ()
+    | PatString ucs     -> fun yes no env v -> let ucs' = to_uchars v in if ucs=ucs' then yes env else no ()
+    | PatBra    b       -> fun yes no env v -> let b' = to_bra v in if nv_of_braket b=b' then yes env else no ()
+    | PatKet    k       -> fun yes no env v -> let k' = to_ket v in if nv_of_braket k=k' then yes env else no ()
+    | PatCons   (ph,pt) -> let ft = dopat pt in
+                           let fh = dopat ph in
+                           (fun yes no env v ->
+                              match to_list v with
+                              | hd::tl -> fh (fun env -> ft yes no env (of_list tl)) no env hd 
+                              | _      -> no ()
+                           )
+    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
+                           let rec dotuple : pattern list -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = 
+                             function         
+                             | p::ps -> let ft = dotuple ps in
+                                        let fh = dopat p in
+                                        fun yes no env v -> let vs = to_list v in 
+                                                            fh (fun env -> ft yes no env (of_list (List.tl vs)))
+                                                               no env (List.hd vs) 
+                             | _     -> fun yes no env _ -> yes env
+                           in
+                           dotuple ps
   in
-  let pdef' = (hash pn, params, Process.map cmp p, mon) in
-  if !verbose || !verbose_compile then
-    Printf.printf "precompiled to %s\n\n" (string_of_pdef pdef');
-  let assoc = Typecheck.typecheck_pdefs [] [pdef'] in
-  Typecheck.rewrite_pdef pdef';
-  assoc <@> pname', pdef'
+  let mfail = ExecutionError (pos, "match failure") in
+  let rec dopairs : (pattern * 'a) list -> (env -> vt -> 'b) = 
+    function
+    | (pat, rhs)::pairs -> let ft = dopairs pairs in
+                           let frhs = compile_a rhs in
+                           let fh = dopat pat in
+                           fun env v -> fh frhs (fun () -> ft env v) env v
+    | []                -> fun env v -> raise mfail
+  in
+  dopairs pairs
+;;
+
+(* temptation to do this with compile_match resisted. This is just an environment exercise, no failure possible. *)
+let rec compile_bmatch :  pattern -> (env -> 'b) -> (env -> vt -> 'b) = 
+  fun pat contn ->
+    if !verbose || !verbose_compile then
+      Printf.printf "compile_bmatch %s\n" (string_of_pattern pat);
+    (* this just to avoid repetitive diagnostic printing *)
+    let rec dopat : pattern -> (env -> 'b) -> (env -> vt -> 'b) = fun pat ->
+      match tinst pat with
+      | PatAny            
+      | PatUnit           -> fun yes env _ -> yes env 
+      | PatName   n       -> fun yes env v -> yes (env<@+>(n,v))
+      | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
+                             let rec dotuple : pattern list -> ((env -> 'b ) -> env -> vt -> 'b) = 
+                               function         
+                               | p::ps -> let ft = dotuple ps in
+                                          let fh = dopat p in
+                                          fun yes env v -> let vs = to_list v in 
+                                                           fh (fun env -> ft yes env (of_list (List.tl vs)))
+                                                              env (List.hd vs) 
+                               | _     -> fun yes env _ -> yes env
+                             in
+                             dotuple ps
+      | _                 -> raise (Can'tHappen (Printf.sprintf "%s: compile_bmatch %s" (string_of_sourcepos pat.pos)
+                                                                                        (string_of_pattern pat)
+                                                )
+                                   )
+    in dopat pat contn
+;;
 
 (* ************************ compiling typed expressions into functions ************************ *)
 
@@ -509,89 +428,6 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                                             ef !er
                             ) 
 
-and compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> vt)) -> (pattern * 'a) list -> (env -> vt -> vt) = 
-                    fun pos string_of_a compile_a pairs ->
-  
-  if !verbose || !verbose_compile then
-    (let dtree = Matchcheck.match_dtree false string_of_expr pairs in
-     Printf.printf "matcher %s %s\ndtree (which we're not yet using) = %s\n\n\n" 
-                    (string_of_sourcepos pos)
-                    (Matchcheck.string_of_rules string_of_a pairs)
-                    (Matchcheck.string_of_dtree string_of_expr dtree)
-    );
-  
-  (* this is not a clever way of doing it, but it does avoid the cost of interpretation. I think. *)
-  let rec dopat : pattern -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = fun pat ->
-    match tinst pat with
-    | PatAny            
-    | PatUnit           -> fun yes no env _ -> yes env 
-    | PatNil            -> fun yes no env v -> if to_list v=[] then yes env else no ()
-    | PatName   n       -> fun yes no env v -> yes (env<@+>(n,v))
-    | PatInt    i       -> fun yes no env v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes env else no ()
-    | PatBit    b       -> fun yes no env v -> let b' = to_bit v in if b=b' then yes env else no ()
-    | PatBool   b       -> fun yes no env v -> let b' = to_bool v in if b=b' then yes env else no ()
-    | PatChar   c       -> fun yes no env v -> let c' = to_uchar v in if c=c' then yes env else no ()
-    | PatString ucs     -> fun yes no env v -> let ucs' = to_uchars v in if ucs=ucs' then yes env else no ()
-    | PatBra    b       -> fun yes no env v -> let b' = to_bra v in if nv_of_braket b=b' then yes env else no ()
-    | PatKet    k       -> fun yes no env v -> let k' = to_ket v in if nv_of_braket k=k' then yes env else no ()
-    | PatCons   (ph,pt) -> let ft = dopat pt in
-                           let fh = dopat ph in
-                           (fun yes no env v ->
-                              match to_list v with
-                              | hd::tl -> fh (fun env -> ft yes no env (of_list tl)) no env hd 
-                              | _      -> no ()
-                           )
-    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
-                           let rec dotuple : pattern list -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = 
-                             function         
-                             | p::ps -> let ft = dotuple ps in
-                                        let fh = dopat p in
-                                        fun yes no env v -> let vs = to_list v in 
-                                                            fh (fun env -> ft yes no env (of_list (List.tl vs)))
-                                                               no env (List.hd vs) 
-                             | _     -> fun yes no env _ -> yes env
-                           in
-                           dotuple ps
-  in
-  let mfail = ExecutionError (pos, "match failure") in
-  let rec dopairs : (pattern * 'a) list -> (env -> vt -> vt) = 
-    function
-    | (pat, rhs)::pairs -> let ft = dopairs pairs in
-                           let frhs = compile_a rhs in
-                           let fh = dopat pat in
-                           fun env v -> fh frhs (fun () -> ft env v) env v
-    | []                -> fun env v -> raise mfail
-  in
-  dopairs pairs
-   
-(* temptation to do this with compile_match resisted. This is just an environment exercise, no failure possible. *)
-and compile_bmatch :  pattern -> (env -> vt) -> (env -> vt -> vt) = 
-                    fun pat contn ->
-  if !verbose || !verbose_compile then
-    Printf.printf "compile_bmatch %s\n" (string_of_pattern pat);
-  (* this just to avoid repetitive diagnostic printing *)
-  let rec dopat : pattern -> (env -> vt) -> (env -> vt -> vt) = fun pat ->
-    match tinst pat with
-    | PatAny            
-    | PatUnit           -> fun yes env _ -> yes env 
-    | PatName   n       -> fun yes env v -> yes (env<@+>(n,v))
-    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
-                           let rec dotuple : pattern list -> ((env -> vt ) -> env -> vt -> vt) = 
-                             function         
-                             | p::ps -> let ft = dotuple ps in
-                                        let fh = dopat p in
-                                        fun yes env v -> let vs = to_list v in 
-                                                         fh (fun env -> ft yes env (of_list (List.tl vs)))
-                                                            env (List.hd vs) 
-                             | _     -> fun yes env _ -> yes env
-                           in
-                           dotuple ps
-    | _                 -> raise (Can'tHappen (Printf.sprintf "%s: compile_bmatch %s" (string_of_sourcepos pat.pos)
-                                                                                      (string_of_pattern pat)
-                                              )
-                                 )
-  in dopat pat contn
-
 (* gives back something which, from an environment, makes a function ... *)  
 and compile_lambda : pattern list -> expr -> (env -> vt -> vt) = fun pats expr ->
   let rec cl : pattern list -> (env -> vt -> vt) =
@@ -606,15 +442,177 @@ and hide_fun : (env -> vt -> vt) -> env -> vt = fun f env -> of_fun (f env)
 
 and hide_fun_rec : (env -> vt -> vt) -> env ref -> vt = fun f er -> of_fun (fun v -> f !er v)
   
-(* some memoising to make the interpreter go .. or maybe the step compiler, I don't know *)
+(* ************************ compiling processes ************************ *)
 
-module CExprH = struct type t = expr 
-                       let equal = (==) (* yes, identity, not equality *)
-                       let hash = Hashtbl.hash
-                       let to_string = string_of_expr
-                end
-module CExprHash = MyHash.Make (CExprH)
+let compile_proc : process -> cprocess = fun proc ->
+  raise (CompileError (proc.pos, "no process compilation yet"))
+  
+(* ************************ compiling sub-processes ************************ *)
 
-let compiletab = CExprHash.create 1000
+let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum
 
-let compile_expr = CExprHash.memofun compiletab compile_expr
+let chan_name tpnum = "#chan#" ^ tpnum
+
+let tadorn pos topt = adorn pos <.> twrap topt
+
+let ut pos = Some (adorn pos Unit)
+let cut pos = Some (adorn pos (Channel (adorn pos Unit)))
+
+let insert_returns check rc proc =
+  let bad pos s = raise (CompileError (pos, s ^ " not allowed in embedded process")) in
+  let spos = steppos proc in
+  let rec cmp proc =
+    let ad = adorn spos in
+    let adio = adorn spos in
+    let ade = tadorn spos in
+    match proc.inst with
+    | Terminate     -> Some (ad (GSum [adio (Write (ade (cut spos) (EVar rc), ade (ut spos) EUnit)), proc]))
+    | GoOnAs _      -> if check then bad spos "process invocation" else None
+    | Par _         -> if check then bad spos "parallel sum" else None
+    | WithNew _     
+    | WithQbit _    
+    | WithLet _
+    | WithProc _    
+    | WithQstep _ 
+    | JoinQs _
+    | SplitQs _
+    | GSum _
+    | Cond    _
+    | PMatch  _     
+    | TestPoint _   
+    | Iter _        -> None
+  in
+  Process.map cmp proc
+
+(* Here is where we apply restrictions on monitor processes:
+    no Reading   (it's outside the protocol, so no input)
+    no Calling
+    no new qbits (it's outside the protocol, so no quantum stuff)
+    no gating    (ditto)
+    no measuring (ditto)
+    no Testpoint (come along now)
+    no Par
+ *)
+ 
+let precompile_monbody tpnum proc =
+  let bad pos s = raise (CompileError (pos, s ^ " not allowed in monitor process")) in
+  let rec check proc =
+    match proc.inst with
+    | Terminate     -> None (* will be done in insert_returns *)
+    | GSum iops     -> let ciop (iostep, _) = 
+                         match iostep.inst with
+                         | Write (ce,_) -> if not (Type.is_classical (type_of_expr ce)) then
+                                             bad iostep.pos "non-classical channel"
+                         | _            -> bad iostep.pos "message receive"
+                       in
+                       List.iter ciop iops; None
+    | GoOnAs _      -> bad proc.pos "process invocation"
+    | WithQbit _    -> bad proc.pos "qbit creation"
+    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
+    | WithProc _    -> bad proc.pos "process definition"
+    | JoinQs _      -> bad proc.pos "joining qbit collections"
+    | SplitQs _     -> bad proc.pos "splitting qbit collection"
+    | TestPoint _   -> bad proc.pos "test point"
+    | Iter _        -> raise (CompileError (proc.pos, "Can't compile Iter in precompile_monbody yet"))
+    | Par _         -> bad proc.pos "parallel sum"
+    | WithNew _     
+    | WithLet _
+    | Cond    _
+    | PMatch  _     -> None
+  in
+  let _ = Process.map check proc in
+  let rc = chan_name tpnum in
+  insert_returns true rc proc
+
+let precompile_proc env pn mon proc =
+  (* if !verbose || !verbose_compile then
+       Printf.printf "precompile_proc env=%s\n  pn=%s\n  mon=(%s)\n proc=(%s)\n"
+                       (string_of_env env)
+                       (tinst pn)
+                       (string_of_monitor mon)
+                       (string_of_process proc); *)
+  let construct_callpar pos rc call p =
+    let read = adorn pos (Read (tadorn pos (cut pos) (EVar rc), tadorn pos (ut pos) PatAny)) in
+    let gsum = adorn pos (GSum [(read, p)]) in
+    adorn pos (Par [call; gsum])
+  in
+  let rec cmp spos proc =
+    let ad = adorn spos in
+    let ade = tadorn spos in
+    let adpar = tadorn spos in
+    let adn = tadorn spos in
+    match proc.inst with
+    | TestPoint (tpn, p) -> let p = Process.map (cmp spos) p in
+                            let rc = chan_name tpn.inst in
+                            let mn = mon_name pn tpn.inst in
+                            let tp = Some (adorn spos (Process [])) in
+                            let call = ad (GoOnAs (adn tp mn, [])) in
+                            let par = construct_callpar tpn.pos rc call p in
+                            let (_, monproc) = _The (find_monel tpn.inst mon) in
+                            let def = ad (WithProc ((false, adn tp mn, [], precompile_monbody tpn.inst monproc), par)) in
+                            let mkchan = ad (WithNew ((false,[adpar (cut spos) rc]), def)) in
+                            Some mkchan
+    | WithProc  ((brec,pn,params,proc),p) 
+                         -> let p = Process.map (cmp spos) p in
+                            let proc = Process.map (cmp spos) proc in
+                            Some (ad (WithProc ((brec,pn,params,proc),p)))
+    | Iter (pat, e, ip, p)
+                         -> let p = Process.map (cmp spos) p in
+                            let rc = chan_name (short_string_of_sourcepos ip.pos) in
+                            let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
+                            let xname = "x#" in
+                            let cname = "c#" in
+                            let callIter = ad (GoOnAs (adn None "Iter#", [e; ade None (EVar ipname); ade None (EVar rc)])) in
+                            let par = construct_callpar ip.pos rc callIter p in
+                            let ip = insert_returns true cname ip in
+                            let ip = Process.map (cmp spos) ip in
+                            let ip = ad (WithLet ((pat, ade None (EVar xname)),ip)) in
+                            let def = ad (WithProc ((false, adn None ipname, [adpar None xname; adpar None cname], ip), par)) in
+                            let mkchan = ad (WithNew ((false, [adpar None rc]), def)) in
+                            Some mkchan
+    | Terminate 
+    | GoOnAs    _      
+    | WithNew   _
+    | WithQbit  _
+    | WithLet   _
+    | WithQstep _
+    | JoinQs    _
+    | SplitQs   _
+    | Cond      _
+    | PMatch    _
+    | GSum      _
+    | Par       _        -> None
+  in
+  env, Process.map (cmp (steppos proc)) proc
+
+(* I think this should be in Interpret, but then I think it should be here, but then ... *)
+let bind_pdef er env (pn,params,p,mon as pdef) =
+  let env, proc = precompile_proc env pn mon p in
+  if (!verbose || !verbose_compile) && p<>proc then
+    Printf.printf "Expanding .....\n%s....... =>\n%s\n.........\n\n"
+                    (string_of_pdef pdef)
+                    (string_of_process proc);
+  env <@+> (tinst pn, of_procv (tinst pn, er, names_of_params params, compile_proc proc))
+
+let precompile_builtin (pn,params,p,mon as pdef) =
+  if !verbose || !verbose_compile then
+    Printf.printf "precompiling built-in %s\n" (string_of_pdef pdef);
+  if not (null mon) then
+    raise (Settings.Error (Printf.sprintf "built_in %s has logging sub-processes" (string_of_typedname pn)));
+  (* all we do is append a # to the name in recursive calls ... *)
+  let pname = tinst pn in
+  let pname' = pname ^ "#" in
+  let hash pn = {pn with inst = {pn.inst with tinst = pname'}} in
+  let cmp proc =
+    match proc.inst with
+    | GoOnAs (pn',args) 
+      when tinst pn' = pname -> Some (adorn proc.pos (GoOnAs (hash pn', args)))
+    | _                      -> None
+  in
+  let pdef' = (hash pn, params, Process.map cmp p, mon) in
+  if !verbose || !verbose_compile then
+    Printf.printf "precompiled to %s\n\n" (string_of_pdef pdef');
+  let assoc = Typecheck.typecheck_pdefs [] [pdef'] in
+  Typecheck.rewrite_pdef pdef';
+  assoc <@> pname', pdef'
+

@@ -87,7 +87,7 @@ let procadorn pos pinst = adorn (cheadpos pos pinst) pinst
 
 let csteppos cprocess = cheadpos cprocess.pos cprocess.inst
 
-let rec string_of_cprocess proc = 
+let rec so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
   | CGoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
@@ -97,49 +97,49 @@ let rec string_of_cprocess proc =
                           -> Printf.sprintf "(%s %s)%s"
                                             (if traced then "newuntraced" else "new")
                                             (commasep (List.map string_of_param params))
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CWithQbit (plural,qs,p) -> Printf.sprintf "(%s %s)%s"
                                             (if plural then "newqs" else "newq")
                                             (commasep (List.map string_of_cqspec qs))
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CWithLet (lsc,p)       -> Printf.sprintf "(let %s)%s"
                                             (string_of_cletspec lsc)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CWithProc (cpdecl,p)    -> Printf.sprintf "(proc %s)%s"
                                             (string_of_cpdecl cpdecl)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CWithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_cqstep q)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CJoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s)%s"
                                             (string_of_list string_of_typedname "," qs)
                                             (string_of_param q)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CSplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s)%s"
                                             (string_of_typedname q)
                                             (string_of_list string_of_csplitspec "," qs)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CTestPoint (n,p)       -> Printf.sprintf "⁁%s %s"
                                             (string_of_name n.inst)
-                                            (trailing_sop p)
+                                            (trailing_csop p)
   | CIter (pat, e, proc, p)
                           -> Printf.sprintf "[%s<-%s:%s] . %s"
                                             (string_of_cpattern pat)
                                             (string_of_cexpr e)
-                                            (string_of_cprocess proc)
-                                            (trailing_sop p)
-  | CGSum [g]              -> string_of_pair string_of_ciostep string_of_cprocess "." g
-  | CGSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep string_of_cprocess ".") gs)
-  | CPar  [p]              -> string_of_cprocess p
-  | CPar  ps               -> "| " ^ String.concat " | " (List.map string_of_cprocess ps)
+                                            (so_cp proc)
+                                            (trailing_csop p)
+  | CGSum [g]              -> string_of_pair string_of_ciostep so_cp "." g
+  | CGSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep so_cp ".") gs)
+  | CPar  [p]              -> so_cp p
+  | CPar  ps               -> "| " ^ String.concat " | " (List.map so_cp ps)
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_cexpr e)
-                                            (string_of_cprocess p1)
-                                            (string_of_cprocess p2)
+                                            (so_cp p1)
+                                            (so_cp p2)
   | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_cexpr e) (string_of_cpattern pms)
 
-and trailing_sop p =
-  let s = string_of_cprocess p in
+and trailing_csop p =
+  let s = so_cp p in
   match p.inst with
   | CGSum   [_]
   | CPar    [_] -> s
@@ -147,7 +147,7 @@ and trailing_sop p =
   | CPar    _   -> "(" ^ s ^ ")"
   | _          -> s        
 
-and short_string_of_cprocess proc = 
+and short_so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
   | CGoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
@@ -155,7 +155,7 @@ and short_string_of_cprocess proc =
                                             (string_of_list string_of_cexpr "," es)
   | CWithNew ((traced,params),p)    
                           -> Printf.sprintf "(%s %s) ..."
-                                            (if traced then "newuntraced" else "new")
+                                            (if traced then "new" else "newuntraced")
                                             (commasep (List.map string_of_param params))
   | CWithQbit (plural,xs,p) -> Printf.sprintf "(%s %s) ..."
                                             (if plural then "newqs" else "newq")
@@ -181,12 +181,12 @@ and short_string_of_cprocess proc =
   | CGSum [i,p]            -> Printf.sprintf "%s. .." (string_of_ciostep i) 
   | CGSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_ciostep g) in
                              "+ " ^ String.concat " <+> " (List.map sf gs)
-  | CPar  [p]              -> short_string_of_cprocess p 
-  | CPar  ps               -> "| " ^ String.concat " | " (List.map short_string_of_cprocess ps) 
+  | CPar  [p]              -> short_so_cp p 
+  | CPar  ps               -> "| " ^ String.concat " | " (List.map short_so_cp ps) 
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_cexpr e)
-                                            (short_string_of_cprocess p1)
-                                            (short_string_of_cprocess p2)
+                                            (short_so_cp p1)
+                                            (short_so_cp p2)
   | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_cexpr e) (short_string_of_cpattern pms)
 
 and string_of_cqspec (p, eopt) =
@@ -218,163 +218,22 @@ and string_of_cpdecl (recb, pn, params, proc) =
                      | Some t -> Printf.sprintf "(%s:%s)" (string_of_name (tinst pn)) (string_of_type t)
                     )
                     (string_of_params params)
-                    (string_of_cprocess proc)
+                    (so_cp proc)
   else
     Printf.sprintf "%s%s = tau(%s).%s"
                     (string_of_name (tinst pn))
                     (match !(toptr pn) with None -> "" | Some t -> ":" ^ string_of_type t)
                     (string_of_params params)
-                    (string_of_cprocess proc)
+                    (so_cp proc)
   
 (* 
    and string_of_cprocmatch (pat,proc) =
-     Printf.sprintf "%s.%s" (string_of_cpattern pat) (trailing_sop proc)
+     Printf.sprintf "%s.%s" (string_of_cpattern pat) (trailing_csop proc)
   
    and short_string_of_cprocmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_cpattern pat)
  *)
 
-(* I hope I don't need any of this ...
-   (* I wish OCaml didn't force this ... *)
-   let _GoOnAs n es    = CGoOnAs (n,es)
-   let _WithNew bpars p = CWithNew (bpars,p)
-   let _WithQbit b qs p  = CWithQbit (b,qs,p)
-   let _WithLet l p    = CWithLet (l,p)
-   let _WithProc pd p  = CWithProc (pd,p)
-   let _WithQstep q p  = CWithQstep (q,p)  
-   let _JoinQs qs q p  = CJoinQs (qs,q,p)
-   let _SplitQs q qs p = CSplitQs (q,qs,p)
-   let _TestPoint ni p = CTestPoint (ni,p)
-   let _Iter pat e proc p = CIter (pat,e,proc,p)
-   let _Cond e p1 p2   = CCond (e,p1,p2)
-   let _PMatch e pms   = CPMatch (e,pms)
-   let _GSum iops      = CGSum iops
-   let _Par ps         = CPar ps
+let string_of_cprocess proc = Printf.sprintf "%s: %s" (string_of_sourcepos (csteppos proc)) (so_cp proc)
 
-   (* traversing a cprocess and modifying it: None if no change, Some f' if it changes. 
-      Here optf gives two results: Some r means r is the answer; None means recurse.
-      (The original, in Arsenic, from which this is copied had three answers:
-       Some (Some r) meant r is the answer; Some None meant ignore this node; None meant recurse.)
-    *)
-
-   let optmap optf proc =
-     let take1 c x = Some {proc with inst = c x} in
-     let take2 c (p1,p2) = Some {proc with inst = c p1 p2} in
-     let rec trav proc =
-       match optf proc with
-       | Some result -> Some result
-       | _           -> match proc.inst with 
-                        | CTerminate
-                        | CGoOnAs     _          -> None
-                        | CWithNew  (bps, p)     -> trav p &~~ take1 (_WithNew bps)
-                        | CWithQbit (b, qs, p)   -> trav p &~~ take1 (_WithQbit b qs)
-                        | CWithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
-                        | CWithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
-                        | CWithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)
-                        | CJoinQs (qs, q, p)    -> trav p &~~ take1 (_JoinQs qs q)
-                        | CSplitQs (q, qs, p)   -> trav p &~~ take1 (_SplitQs q qs)
-                        | CTestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
-                        | CIter (pat,e,proc,p) -> trav2 proc p &~~ take2 (fun proc p -> CIter(pat,e,proc,p))
-                        | CCond (e, p1, p2)     -> trav2 p1 p2 &~~ take2 (_Cond e)
-                        | CPMatch (e, pms)      -> Optionutils.optmap_any (fun (pat,p) -> trav p &~~ (_Some <.> (fun p -> pat,p))) pms 
-                                                  &~~ take1 (_PMatch e)
-                        | CGSum iops            -> Optionutils.optmap_any (fun (io,p) -> trav p &~~ (_Some <.> (fun p -> io,p))) iops 
-                                                  &~~ take1 _GSum          
-                        | CPar procs            -> Optionutils.optmap_any trav procs &~~ take1 _Par
-       and trav2 p1 p2 = optionpair_either trav p1 trav p2
-       in
-       trav proc
-    
-   let map optf = optmap optf ||~ id
-
-   let rec frees proc =
-     let paramset params = NameSet.of_list (names_of_params params) in
-     let nsu = NameSet.union in
-     let nsd = NameSet.diff in
-     let nsus = List.fold_left nsu NameSet.empty in
-     let free_es = nsus <.> List.map Expr.frees in
-     match proc.inst with
-     | CTerminate               -> NameSet.empty
-     | CGoOnAs (pn, es)         -> NameSet.add (tinst pn) (free_es es)
-     | CWithNew ((_,pars), p)   -> NameSet.diff (frees p) (paramset pars)
-     | CWithQbit (_,qspecs, p)  -> let qs, optes = List.split qspecs in
-                                  let qset = paramset qs in
-                                  let ff_opte set = function
-                                    | Some e -> nsu set (Expr.frees e) 
-                                    | None   -> set
-                                  in
-                                  nsus [List.fold_left ff_opte NameSet.empty optes; nsd (frees p) qset]
-     | CWithLet ((pat, e), p) -> nsu (Expr.frees e) (nsd (frees p) (Pattern.frees pat))
-     | CWithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
-                                let pdfrees = nsd (frees proc) (paramset params) in
-                                if brec then
-                                  NameSet.remove (tinst pn) (NameSet.union pdfrees (frees p))
-                                else
-                                  nsd pdfrees (NameSet.remove (tinst pn) (frees p))
-     | CWithQstep (cqstep,p)   -> (match cqstep.inst with
-                                 | CMeasure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
-                                                               let bset = match optbe with
-                                                                          | Some be -> nsu qset (Expr.frees be)
-                                                                          | None    -> qset
-                                                               in
-                                                               nsu bset (nsd (frees p) (Pattern.frees pat))
-                                 | CThrough (_, qes, ge)     -> nsu (free_es (ge::qes)) (frees p)
-                                )
-     | CJoinQs (qs,q,p)       -> let qset = paramset qs in
-                                nsu qset (NameSet.remove (name_of_param q) (frees p)) 
-     | CSplitQs (q,qs,p)      -> NameSet.add (name_of_typedname q) 
-                                            (List.fold_left (fun set -> (revargs NameSet.remove) set <.> name_of_csplitspec) (frees p) qs)
-     | CTestPoint (tpn,p)     -> (* tpn not included *) frees p
-     | CIter (pat,e,proc,p)   -> let pset = nsd (frees proc) (Pattern.frees pat) in
-                                nsus [pset; Expr.frees e; frees p]
-     | CCond (e, p1, p2)      -> nsus [Expr.frees e; frees p1; frees p2]
-     | CPMatch (e, pps)       -> let frees_pp (pat, proc) = nsd (frees proc) (Pattern.frees pat) in
-                                nsu (Expr.frees e) (nsus (List.map frees_pp pps))
-     | CGSum iops             -> let frees_iop (ciostep, p) =
-                                  let pset = frees p in
-                                  match ciostep.inst with
-                                  | CRead (e, pat)  -> nsu (Expr.frees e) (nsd pset (Pattern.frees pat))
-                                  | CWrite (ce, ve) -> nsu pset (free_es [ce;ve])
-                                in
-                                nsus (List.map frees_iop iops)
-     | CPar ps                -> nsus (List.map frees ps)
-
-   (* fold (left) over a cprocess. optp x p delivers Some x' when it knows, None when it doesn't. *)
-
-   let optfold (optp: 'a -> cprocess -> 'a option) x =
-     let rec ofold x p =
-       optp x p |~~ (fun () -> 
-         match p.inst with
-           | CTerminate 
-           | CGoOnAs      _          -> None
-           | CWithNew   (_,p) 
-           | CWithQbit  (_,_,p)
-           | CWithLet   (_,p)
-           | CWithProc  (_,p)          (* note we don't go into cpdecl *) 
-           | CWithQstep (_,p)
-           | CTestPoint (_,p)        
-           | CJoinQs    (_,_,p)      
-           | CSplitQs   (_,_,p)      -> ofold x p
-           | CIter      (_,_,proc,p) -> Optionutils.optfold ofold x [proc;p]
-           | CCond      (e,p1,p2)    -> Optionutils.optfold ofold x [p1;p2]
-           | CPMatch    (e,pms)      -> Optionutils.optfold ofold x (List.map snd pms)
-           | CGSum      iops         -> Optionutils.optfold ofold x (List.map snd iops)
-           | CPar       ps           -> Optionutils.optfold ofold x ps
-       )
-     in
-     ofold x 
-
-   let fold optp x p = (revargs (optfold optp) p ||~ id) x
-
-   (* find all the monitor processes inserted in a cprocess -- as (lab,pos) for convenience of typechecker *)
-   let called_mons proc =
-     let rec find_lps tps =
-       let rec tpn tps p =
-         match p.inst with
-         | CTestPoint (lab, p) -> Some (find_lps ((lab.inst,lab.pos)::tps) p) (* includes position *)
-         | _                  -> None
-       in
-       fold tpn tps
-     in
-     find_lps [] proc
- *)
+let short_string_of_cprocess proc = Printf.sprintf "%s: %s" (string_of_sourcepos (csteppos proc)) (short_so_cp proc)
 

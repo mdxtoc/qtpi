@@ -253,8 +253,8 @@ and so_chan optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq}
 and short_so_chan optf t {cname=i} =
     string_of_int i
     
-and so_env optf env =
-  "{" ^ string_of_monenv "=" (* (so_value optf) *) string_of_vt env  ^ "}"
+and so_env optf (env:env) =
+  "{" ^ string_of_monenv "" (* (so_value optf) *) (fun _ -> "") env  ^ "}"
 
 and short_so_env optf = so_env optf (* <.> (Monenv.filterg (function 
                                                         | _, VFun     _ 

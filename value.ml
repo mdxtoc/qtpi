@@ -32,7 +32,8 @@ open Type
 open Braket
 open Number
 open Name
-open Process
+open Cbasics
+open Cprocess
 open Pattern
 open Monenv
 open Snum
@@ -74,7 +75,7 @@ let string_of_queue string_of sep q =
      | VTuple of value list
      | VList of value list
      | VFun of (value -> value)        (* with the environment baked in for closures *)
-     | VProcess of name * env ref * name list * process
+     | VProcess of name * env ref * name list * cprocess
  *)
 (* but these do ... *)
 
@@ -87,7 +88,7 @@ type env = vt monenv (* assoc list, experiment suggests, is more efficient than 
  *)
 type qbit = int
 
-type procv = name * env ref * name list * process
+type procv = name * env ref * name list * cprocess
 
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
    to communicate is withdrawn from all guards by setting the shared boolean to false.
@@ -99,11 +100,11 @@ type chan = {cname: int; traced: bool; stream: vt Queue.t; wwaiters: (wwaiter*gs
 
 and gsum_info = (bool * chan list) ref
 
-and runner = name * process * env
+and runner = name * cprocess * env
 
-and rwaiter = name * pattern * process * env
+and rwaiter = name * env cpattern * cprocess * env
 
-and wwaiter = name * vt * process * env
+and wwaiter = name * vt * cprocess * env
 
 let string_of_qbit i = "#" ^ string_of_int i
 
@@ -217,7 +218,7 @@ let rec so_value optf t v =
                                   Printf.sprintf "procv %s .. (%s) %s"
                                                       (string_of_name n)
                                                       (string_of_list string_of_name "," ns)
-                                                      (Process.string_of_process p)
+                                                      (string_of_cprocess p)
                | Fun _         
                | Unknown _
                | Known _
@@ -265,28 +266,28 @@ and short_so_env optf = so_env optf (* <.> (Monenv.filterg (function
 and so_runner optf (n, proc, env) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
-                 (short_string_of_process proc)
+                 (short_string_of_cprocess proc)
                  (short_so_env optf env)
                  
 and so_rwaiter optf ((n, pat, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
-                 (string_of_pattern pat)
-                 (short_string_of_process proc)
+                 (string_of_cpattern pat)
+                 (short_string_of_cprocess proc)
                  (short_so_env optf env)
                  (if fst !gsir then "" else "[dead]")
                  
 and short_so_rwaiter optf ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
-                 (string_of_pattern pat)
+                 (string_of_cpattern pat)
                  (if fst !gsir then "" else "[dead]")
                  
 and so_wwaiter optf t ((n, v, proc, env),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (so_value optf t v)
-                 (short_string_of_process proc)
+                 (short_string_of_cprocess proc)
                  (short_so_env optf env)
                  (if fst !gsir then "" else "[dead]")
                  

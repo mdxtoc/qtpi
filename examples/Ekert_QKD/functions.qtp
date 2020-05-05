@@ -26,7 +26,7 @@ fun int_sqrt n = i_s 0 n where i_s k n = if k*k>=n then k else i_s (k+1) n
 
 fun abs i = if i<0 then -i else i
 
-fun check verbose bs bs' vs vs' ij
+fun check verbose (bs:[num]) bs' (vs:[bit]) vs' (ij:(num,num))
    = nsigmas<5 where _ = print_strings if verbose then ["combine "; show bbvvs; ";\n"; show vv_ijs; 
                                                         ";\nij="; show ij; " size="; show size; " ndiff="; show ndiff; 
                                                         " expected="; showf 2 expected; " nsigmas="; showf 2 nsigmas; "\n\n"]

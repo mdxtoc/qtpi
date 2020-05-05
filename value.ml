@@ -254,7 +254,7 @@ and short_so_chan optf t {cname=i} =
     string_of_int i
     
 and so_env optf (env:env) =
-  "{" ^ string_of_monenv "" (* (so_value optf) *) (fun _ -> "") env  ^ "}"
+  "{" ^ string_of_list (string_of_name <.> fst) ";" env  ^ "}"
 
 and short_so_env optf = so_env optf (* <.> (Monenv.filterg (function 
                                                         | _, VFun     _ 
@@ -336,4 +336,10 @@ let short_string_of_chan = short_so_chan doptf
 
 let string_of_runner = so_runner doptf
 let string_of_runnerqueue = so_runnerqueue doptf
+
+let string_of_procv (n, er, ns, cproc) = Printf.sprintf "(%s, ref(%s), %s, %s)"
+                                                            (string_of_name n)
+                                                            (string_of_env !er)
+                                                            (bracketed_string_of_list string_of_name ns)
+                                                            (short_string_of_cprocess cproc)
 

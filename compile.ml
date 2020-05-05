@@ -25,15 +25,19 @@ open Settings
 open Functionutils
 open Optionutils
 open Listutils
+open Tupleutils
 open Sourcepos
 open Instance
 open Type
 open Name
 open Expr
 open Pattern
+open Cbasics
 open Process
+open Cprocess
 open Param
 open Step
+open Cstep
 open Def
 open Monenv 
 open Value
@@ -43,67 +47,66 @@ open Snum
 open Vmg
 open Vt
 
-open Cprocess
 
 exception CompileError of sourcepos * string
 exception ExecutionError of sourcepos * string
 
 (* ************************ compiling matches into functions ************************ *)
 
-let rec compile_match : sourcepos -> ('a -> string) -> ('a -> (env -> 'b)) -> (pattern * 'a) list -> (env -> vt -> 'b) = 
+let rec compile_match : sourcepos -> ('a -> string) -> ('a -> env -> 'b) -> (pattern * 'a) list -> (env -> vt -> 'b) = 
   fun pos string_of_a compile_a pairs ->
   
-  if !verbose || !verbose_compile then
-    (let dtree = Matchcheck.match_dtree false string_of_a pairs in
-     Printf.printf "matcher %s %s\ndtree (which we're not yet using) = %s\n\n\n" 
-                    (string_of_sourcepos pos)
-                    (Matchcheck.string_of_rules string_of_a pairs)
-                    (Matchcheck.string_of_dtree string_of_a dtree)
-    );
+    if !verbose || !verbose_compile then
+      (let dtree = Matchcheck.match_dtree false string_of_a pairs in
+       Printf.printf "matcher %s %s\ndtree (which we're not yet using) = %s\n\n\n" 
+                      (string_of_sourcepos pos)
+                      (Matchcheck.string_of_rules string_of_a pairs)
+                      (Matchcheck.string_of_dtree string_of_a dtree)
+      ); 
   
-  (* this is not a clever way of doing it, but it does avoid the cost of interpretation. I think. *)
-  let rec dopat : pattern -> ((env -> 'b ) -> (unit -> 'b) -> env -> vt -> 'b) = fun pat ->
-    match tinst pat with
-    | PatAny            
-    | PatUnit           -> fun yes no env _ -> yes env 
-    | PatNil            -> fun yes no env v -> if to_list v=[] then yes env else no ()
-    | PatName   n       -> fun yes no env v -> yes (env<@+>(n,v))
-    | PatInt    i       -> fun yes no env v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes env else no ()
-    | PatBit    b       -> fun yes no env v -> let b' = to_bit v in if b=b' then yes env else no ()
-    | PatBool   b       -> fun yes no env v -> let b' = to_bool v in if b=b' then yes env else no ()
-    | PatChar   c       -> fun yes no env v -> let c' = to_uchar v in if c=c' then yes env else no ()
-    | PatString ucs     -> fun yes no env v -> let ucs' = to_uchars v in if ucs=ucs' then yes env else no ()
-    | PatBra    b       -> fun yes no env v -> let b' = to_bra v in if nv_of_braket b=b' then yes env else no ()
-    | PatKet    k       -> fun yes no env v -> let k' = to_ket v in if nv_of_braket k=k' then yes env else no ()
-    | PatCons   (ph,pt) -> let ft = dopat pt in
-                           let fh = dopat ph in
-                           (fun yes no env v ->
-                              match to_list v with
-                              | hd::tl -> fh (fun env -> ft yes no env (of_list tl)) no env hd 
-                              | _      -> no ()
-                           )
-    | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
-                           let rec dotuple : pattern list -> ((env -> vt ) -> (unit -> vt) -> env -> vt -> vt) = 
-                             function         
-                             | p::ps -> let ft = dotuple ps in
-                                        let fh = dopat p in
-                                        fun yes no env v -> let vs = to_list v in 
-                                                            fh (fun env -> ft yes no env (of_list (List.tl vs)))
-                                                               no env (List.hd vs) 
-                             | _     -> fun yes no env _ -> yes env
-                           in
-                           dotuple ps
-  in
-  let mfail = ExecutionError (pos, "match failure") in
-  let rec dopairs : (pattern * 'a) list -> (env -> vt -> 'b) = 
-    function
-    | (pat, rhs)::pairs -> let ft = dopairs pairs in
-                           let frhs = compile_a rhs in
-                           let fh = dopat pat in
-                           fun env v -> fh frhs (fun () -> ft env v) env v
-    | []                -> fun env v -> raise mfail
-  in
-  dopairs pairs
+   (* this is not a clever way of doing it, but it does avoid the cost of interpretation. I think that's a cost. *)
+   let rec dopat : pattern -> ((env -> 'b ) -> (unit -> 'b) -> env -> vt -> 'b) = fun pat ->
+     match tinst pat with
+     | PatAny            
+     | PatUnit           -> fun yes no env _ -> yes env 
+     | PatNil            -> fun yes no env v -> if to_list v=[] then yes env else no ()
+     | PatName   n       -> fun yes no env v -> yes (env<@+>(n,v))
+     | PatInt    i       -> fun yes no env v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes env else no ()
+     | PatBit    b       -> fun yes no env v -> let b' = to_bit v in if b=b' then yes env else no ()
+     | PatBool   b       -> fun yes no env v -> let b' = to_bool v in if b=b' then yes env else no ()
+     | PatChar   c       -> fun yes no env v -> let c' = to_uchar v in if c=c' then yes env else no ()
+     | PatString ucs     -> fun yes no env v -> let ucs' = to_uchars v in if ucs=ucs' then yes env else no ()
+     | PatBra    b       -> fun yes no env v -> let b' = to_bra v in if nv_of_braket b=b' then yes env else no ()
+     | PatKet    k       -> fun yes no env v -> let k' = to_ket v in if nv_of_braket k=k' then yes env else no ()
+     | PatCons   (ph,pt) -> let ft = dopat pt in
+                            let fh = dopat ph in
+                            (fun yes no env v ->
+                               match to_list v with
+                               | hd::tl -> fh (fun env -> ft yes no env (of_list tl)) no env hd 
+                               | _      -> no ()
+                            )
+     | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
+                            let rec dotuple : pattern list -> ((env -> 'b ) -> (unit -> 'b) -> env -> vt -> 'b) = 
+                              function         
+                              | p::ps -> let ft = dotuple ps in
+                                         let fh = dopat p in
+                                         fun yes no env v -> let vs = to_list v in 
+                                                             fh (fun env -> ft yes no env (of_list (List.tl vs)))
+                                                                no env (List.hd vs) 
+                              | _     -> fun yes no env _ -> yes env
+                            in
+                            dotuple ps
+   in
+   let mfail = ExecutionError (pos, "match failure") in
+   let rec dopairs : (pattern * 'a) list -> (env -> vt -> 'b) = 
+     function
+     | (pat, rhs)::pairs -> let ft = dopairs pairs in
+                            let frhs = compile_a rhs in
+                            let fh = dopat pat in
+                            fun env v -> fh frhs (fun () -> ft env v) env v
+     | []                -> fun env v -> raise mfail
+   in
+   dopairs pairs
 ;;
 
 (* temptation to do this with compile_match resisted. This is just an environment exercise, no failure possible. *)
@@ -444,9 +447,63 @@ and hide_fun_rec : (env -> vt -> vt) -> env ref -> vt = fun f er -> of_fun (fun 
   
 (* ************************ compiling processes ************************ *)
 
-let compile_proc : process -> cprocess = fun proc ->
-  raise (CompileError (proc.pos, "no process compilation yet"))
+let env_cpat pat = compile_bmatch pat Functionutils.id
+
+let cexpr_opt eopt = eopt &~~ (_Some <.> compile_expr)
+
+let rec compile_proc : process -> cprocess = fun proc ->
+  let adorn = adorn proc.pos in
+  match proc.inst with
+  | Terminate           -> adorn CTerminate
+  | GoOnAs (pn, es)     -> adorn (CGoOnAs (pn, List.map compile_expr es))             (* GoOnAs: homage to Laski *)
+  | WithNew (bps, contn) 
+                        -> adorn (CWithNew (bps, compile_proc contn))
+  | WithQbit (plural, qspecs, contn)
+                        -> adorn (CWithQbit (plural, List.map compile_qspec qspecs, compile_proc contn))
+  | WithLet (lsc, contn) 
+                        -> adorn (CWithLet (compile_letspec lsc, compile_proc contn))
+  | WithProc ((brec,pn',params,proc'),contn)
+                        -> adorn (CWithProc ((brec,pn',params,compile_proc proc'), compile_proc contn))
+  | WithQstep (qstep, contn)
+                        -> adorn (CWithQstep (compile_qstep qstep, compile_proc contn))
+  | JoinQs (ns, p, contn)
+                        -> adorn (CJoinQs (ns, p, compile_proc contn))
+  | SplitQs (n, splitspecs, contn)
+                        -> adorn (CSplitQs (n, List.map compile_splitspec splitspecs, compile_proc contn))
+  | TestPoint _         -> raise (CompileError (steppos proc, "TestPoint not precompiled"))
+  | Iter _              -> raise (CompileError (steppos proc, "Iter not precompiled"))
+  | Cond (e, proct, procf)
+                        -> adorn (CCond (compile_expr e, compile_proc proct, compile_proc procf))
+  | PMatch (e, pms)     -> let compile_pm contn =
+                             let ccontn = compile_proc contn in
+                             fun env -> env, ccontn
+                           in 
+                           let fcpm = compile_match (steppos proc) string_of_process compile_pm pms in
+                           adorn (CPMatch (compile_expr e, fcpm))
+  | GSum ioprocs        -> adorn (CGSum (List.map compile_ioproc ioprocs))
+  | Par procs           -> adorn (CPar (List.map compile_proc procs))
   
+and compile_qspec (p, eopt) = p, cexpr_opt eopt
+
+and compile_letspec (pat, e) = env_cpat pat, compile_expr e
+
+and compile_qstep qstep =
+  let adorn = adorn qstep.pos in
+  match qstep.inst with
+  | Measure (plural, qe, geopt, pat)    ->
+      adorn (CMeasure (plural, compile_expr qe, cexpr_opt geopt, env_cpat pat))
+  | Through (plural, qes, ge)           ->
+      adorn (CThrough (plural, List.map compile_expr qes, compile_expr ge))
+
+and compile_splitspec (p, eopt) = p, cexpr_opt eopt
+
+and compile_ioproc (iostep, contn) =
+  let ccontn = compile_proc contn in
+  let adorn = adorn iostep.pos in
+  match iostep.inst with
+  | Read (ce,pat)   -> adorn (CRead (compile_expr ce, type_of_pattern pat, env_cpat pat)), ccontn
+  | Write (ce,e)    -> adorn (CWrite (compile_expr ce, type_of_expr e, compile_expr e)), ccontn
+
 (* ************************ compiling sub-processes ************************ *)
 
 let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum

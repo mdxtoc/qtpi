@@ -39,8 +39,8 @@ and ciostumble =
 type cqstep = cqstumble instance
 
 and cqstumble =
-  | CMeasure of bool * cexpr * cexpr option * env cpattern  (* plural, qbit, basis gate, cpattern (restricted: see parser) *)
-  | CThrough of bool * cexpr list * cexpr              (* plural, qbits, gate *)
+  | CMeasure of bool * cexpr * cexpr option * env cpattern  (* plural, qbit, basis gate, cpattern *)
+  | CThrough of bool * cexpr list * cexpr                   (* plural, qbits, gate *)
   
 let string_of_ciostep ciostep =
   match ciostep.inst with

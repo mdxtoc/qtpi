@@ -357,16 +357,17 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
                  | Some s -> warning e.pos (Printf.sprintf "applied to a value of type %s, 'show' can only print \"%s\"" 
                                                                 (string_of_type t) s
                                            )
-                 | None   -> ()
+                 | None   -> if is_polytype t then
+                                warning e.pos (Printf.sprintf "'show' used with poly-type %s"  (string_of_type et))
                 );
+                
                 let f = so_value optf t in
                 fun env -> of_fun (hide_string <.> f)
             | ResCompare ->
                 if is_polytype t then
-                  raise (CompileError (e.pos, (Printf.sprintf "'compare' used with poly-type %s" 
+                  raise (CompileError (e.pos, Printf.sprintf "'compare' used with poly-type %s" 
                                                                     (string_of_type et)
-                                                )
-                                        )
+                                      )
                          );
                  let f = deepcompare t in
                  fun env -> of_fun (fun v -> of_fun (fun v' -> hide_int (f v v')))

@@ -231,7 +231,7 @@ let rec interp env proc =
             pq_excite runners;
             let pn, rproc, env = runner in
             let show_pstep s =
-                 Printf.printf "%s: %s" pn s;
+                 Printf.printf "%s %s: %s %s" (string_of_sourcepos (csteppos rproc)) pn s (string_of_env env);
                  let _ = read_line () in
                  ()
             in
@@ -519,8 +519,8 @@ let rec interp env proc =
                       let pq = Ipq.create (List.length ioprocs) in
                       List.iter (pq_push pq) ioprocs;
                       try_iosteps [] pq
-                  | CTestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not compiled"))
-                  | CIter _ -> raise (Error (proc.pos, "Iter not compiled"))
+                  | CTestPoint (n, p)  -> raise (Error (n.pos, "TestPoint not precompiled"))
+                  | CIter _ -> raise (Error (proc.pos, "Iter not precompiled"))
                   | CCond (e, p1, p2)  ->
                       let bv = to_bool (evale env e) in
                       addrunner (pn, (if bv then p1 else p2), env);

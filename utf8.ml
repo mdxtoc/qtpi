@@ -129,7 +129,9 @@ let uchars_of_string: utf8string -> uchar list = fun str ->
   gen []
 
 let string_of_uchars: uchar list -> utf8string = fun ucs ->
-  String.concat "" (List.map string_of_uchar ucs)
+    let b = Buffer.create (List.length ucs + 10)
+    in  List.iter (put_unicode_char b) ucs;
+        Buffer.contents b
   
 let unescaped uc = 
   try Uchar.of_char (match Uchar.to_char uc with

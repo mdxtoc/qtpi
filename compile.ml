@@ -348,7 +348,16 @@ let rec compile_expr : expr -> (env -> vt) = fun e ->
            )
        | Div        -> fun env -> of_num (to_num (f1 env) // to_num (f2 env))
        | Power      -> fun env -> of_num (to_num (f1 env) **/ intc e2.pos "fractional power" (f2 env))
-       | Mod        -> fun env -> of_num (to_num (f1 env) **/ intc e2.pos "fractional mod" (f2 env))
+       | Mod        -> fun env -> let n1 = to_num (f1 env) in
+                                  let n2 = to_num (f2 env) in
+                                  if is_int n1 && is_int n2 then
+                                    of_num (rem n1 n2)
+                                  else 
+                                    raise (ExecutionError (e.pos, Printf.sprintf "fractional remainder %s %s" 
+                                                                                    (string_of_num n1)
+                                                                                    (string_of_num n2)
+                                                          )
+                                          )
        | TensorProd -> (* overloaded *)
            (match (type_of_expr e1).inst with
             | Gate   -> fun env -> of_gate (tensor_gg (to_gate (f1 env)) (to_gate (f2 env)))

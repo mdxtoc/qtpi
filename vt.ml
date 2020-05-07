@@ -29,3 +29,5 @@
 type vt = int (* but this is hidden by vt.mli *)
 
 let string_of_vt : vt -> string = fun _ -> "?<runtime value>"
+
+type rtenv = vt array

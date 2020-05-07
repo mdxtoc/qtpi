@@ -24,3 +24,5 @@
 type vt (* and that's all I'm saying about it *)
 
 val string_of_vt : vt -> string (* "?<runtime value>" *)
+
+type rtenv = vt array

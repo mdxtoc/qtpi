@@ -56,39 +56,13 @@ let string_of_queue string_of sep q =
   let vs = queue_elements q in
   "{" ^ string_of_list string_of sep vs ^ "}"
 
-(* this type doesn't exist any more 
-   type value =
-     | VUnit
-     | VBit of bool
-     | VNum of num
-     | VBool of bool
-     | VSxnum of csnum
-     | VChar of Uchar.t
-     | VBra of nv
-     | VKet of nv
-     | VMatrix of matrix
-     | VGate of gate
-     | VQbit of qbit
-     | VQbits of qbit list
-     | VQstate of string
-     | VChan of chan
-     | VTuple of value list
-     | VList of value list
-     | VFun of (value -> value)        (* with the environment baked in for closures *)
-     | VProcess of name * env ref * name list * cprocess
- *)
-(* but these do ... *)
-
-(* for the moment I'm still using an assoc list as environment *)
-(* one day this will be a vt array *)
-type env = vt monenv (* assoc list, experiment suggests, is more efficient than Map at runtime *)
 
 (* at present I can't think of how to deal with singleton qbits and qbit collections than to have two kinds of value. 
    One is an int, the other an int list
  *)
 type qbit = int
 
-type procv = name * env ref * name list * cprocess
+type procv = name * (vt list -> rtenv * cprocess)           (* name is for the scheduler *)
 
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
    to communicate is withdrawn from all guards by setting the shared boolean to false.
@@ -100,11 +74,11 @@ type chan = {cname: int; traced: bool; stream: vt Queue.t; wwaiters: (wwaiter*gs
 
 and gsum_info = (bool * chan list) ref
 
-and runner = name * cprocess * env
+and runner = name * cprocess * rtenv
 
-and rwaiter = name * env cpattern * cprocess * env
+and rwaiter = name * rtenv cpattern * cprocess * rtenv
 
-and wwaiter = name * vt * cprocess * env
+and wwaiter = name * vt * cprocess * rtenv
 
 let string_of_qbit i = "#" ^ string_of_int i
 
@@ -213,12 +187,8 @@ let rec so_value optf t v =
                | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (so_value optf t) (to_list v)
-               | Process ts    -> (* don't print the env: it will be an infinite recursion *)
-                                  let n, env, ns, p = to_procv v in
-                                  Printf.sprintf "procv %s .. (%s) %s"
-                                                      (string_of_name n)
-                                                      (string_of_list string_of_name "," ns)
-                                                      (string_of_cprocess p)
+               | Process ts    -> let n, f = to_procv v in
+                                  Printf.sprintf "procv (%s,<fun>)" (string_of_name n)
                | Fun _         
                | Unknown _
                | Known _
@@ -235,10 +205,8 @@ and short_so_value optf t v =
                                   "Chan " ^ short_so_chan optf t c ^ if c.traced then "" else "(untraced)"
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (short_so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (short_so_value optf t) (to_list v)
-               | Process ts    -> let n, env, ns, p = to_procv v in
-                                  Printf.sprintf "procv %s .. (%s)"
-                                                      (string_of_name n)
-                                                      (string_of_list string_of_name "," ns)
+               | Process ts    -> let n, f = to_procv v in
+                                  Printf.sprintf "procv (%s,<fun>)" (string_of_name n)
                | _             -> so_value optf t v
               )
   
@@ -253,45 +221,39 @@ and so_chan optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq}
 and short_so_chan optf t {cname=i} =
     string_of_int i
     
-and so_env optf (env:env) =
-  "{" ^ string_of_list (string_of_name <.> fst) ";" env  ^ "}"
+and so_env optf (rtenv:rtenv) = "{<rtenv>}"
 
-and short_so_env optf = so_env optf (* <.> (Monenv.filterg (function 
-                                                        | _, VFun     _ 
-                                                        | _, VProcess _ -> false
-                                                        | _             -> true
-                                                        )
-                                         ) *)
+and short_so_env optf = so_env optf 
   
-and so_runner optf (n, proc, env) =
+and so_runner optf (n, proc, rtenv) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_name n)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf env)
+                 (short_so_env optf rtenv)
                  
-and so_rwaiter optf ((n, pat, proc, env),gsir) = 
+and so_rwaiter optf ((n, pat, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (string_of_cpattern pat)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf env)
+                 (short_so_env optf rtenv)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_so_rwaiter optf ((n, pat, proc, env),gsir) = (* infinite loop if we print the environment *)
+and short_so_rwaiter optf ((n, pat, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (string_of_cpattern pat)
                  (if fst !gsir then "" else "[dead]")
                  
-and so_wwaiter optf t ((n, v, proc, env),gsir) = 
+and so_wwaiter optf t ((n, v, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_name n)
                  (so_value optf t v)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf env)
+                 (short_so_env optf rtenv)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_so_wwaiter optf t ((n, v, proc, env),gsir) = (* infinite loop if we print the environment *)
+and short_so_wwaiter optf t ((n, v, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_name n)
                  (so_value optf t v)
@@ -337,9 +299,7 @@ let short_string_of_chan = short_so_chan doptf
 let string_of_runner = so_runner doptf
 let string_of_runnerqueue = so_runnerqueue doptf
 
-let string_of_procv (n, er, ns, cproc) = Printf.sprintf "(%s, ref(%s), %s, %s)"
-                                                            (string_of_name n)
-                                                            (string_of_env !er)
-                                                            (bracketed_string_of_list string_of_name ns)
-                                                            (short_string_of_cprocess cproc)
+let string_of_procv (n, envf, cproc) = Printf.sprintf "(%s, <fun>, %s)"
+                                                          (string_of_name n)
+                                                          (short_string_of_cprocess cproc)
 

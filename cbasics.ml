@@ -23,13 +23,11 @@
 
 open Vt
 
-type env = vt Monenv.monenv
-
-type cexpr = env -> vt
+type cexpr = rtenv -> vt
 
 let string_of_cexpr : cexpr -> string = fun _ -> "<cexpr>"
 
-type 'a cpattern = env -> vt -> 'a
+type 'a cpattern = rtenv -> vt -> 'a
 
 let string_of_cpattern : 'a cpattern -> string = fun _ -> "<cpattern>"
 let short_string_of_cpattern : 'a cpattern -> string = fun _ -> "<cpattern>"

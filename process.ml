@@ -88,6 +88,8 @@ let procadorn pos pinst = adorn (headpos pos pinst) pinst
 
 let steppos process = headpos process.pos process.inst
 
+let pos_of_pdecl (_,pn,ps,proc) = Sourcepos.sp_of_sps [pn.pos; pos_of_params ps; proc.pos]
+
 let rec string_of_process proc = 
   match proc.inst with
   | Terminate             -> "_0"

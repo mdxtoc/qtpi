@@ -56,3 +56,5 @@ let type_of_param p = try type_of_typedinstance p
 let types_of_params ps = List.map type_of_param ps
 
 let param_of_binding pos (n,t) = adorn pos {toptr = ref(Some t); tinst = n}
+
+let pos_of_params ps = Sourcepos.sp_of_sps (List.map (fun p -> p.pos) ps)

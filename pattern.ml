@@ -152,3 +152,5 @@ let names_of_pats pats =
 
 let type_of_pattern p = try type_of_typedinstance p
                         with _ -> raise (Error (p.pos, Printf.sprintf "(Pattern.type_of_pattern) typecheck didn't mark %s" (string_of_pattern p)))
+
+let pos_of_patterns pats = Sourcepos.sp_of_sps (List.map (fun pat -> pat.pos) pats)

@@ -372,3 +372,7 @@ let frees = frees_fun (fun nset s -> NameSet.diff s nset)
                       (fun n _ s -> NameSet.add n s)
                       NameSet.union
                       NameSet.empty
+
+let frees_lambda pats e = 
+  let s = frees e in
+  NameSet.diff s (names_of_pats pats)

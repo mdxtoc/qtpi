@@ -88,11 +88,7 @@ let spos_of_spos2 pos1 pos2 =
     | (startpos,_), (_,endpos) -> (startpos, endpos)
 
 let sp_of_sps sps = 
-  let rec enclosing spos = function
-    | []      -> spos
-    | sp::sps -> enclosing (spos_of_spos2 spos sp) sps
-  in
-  enclosing dummy_spos sps
+  List.fold_left spos_of_spos2 dummy_spos sps
 
 let spdiff pos1 pos2 =
   match pos1, pos2 with

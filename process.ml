@@ -338,6 +338,12 @@ let rec frees proc =
                              nsus (List.map frees_iop iops)
   | Par ps                -> nsus (List.map frees ps)
 
+let pdecl_frees (brec,pn,params,proc) =
+  let procfrees = frees proc in
+  let names = List.map name_of_param params in
+  let r = Name.subtractnames names procfrees in
+  if brec then Name.subtractname (tinst pn) r else r
+  
 (* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't. *)
 
 let optfold (optp: 'a -> process -> 'a option) x =

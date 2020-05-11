@@ -1249,6 +1249,14 @@ let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let global_assoc = make_library_assoc () in
         let global_assoc = List.fold_left typecheck_def global_assoc defs in
+        (* we check that the environment contains System as a process with a null parameter list *)
+        (try let t = global_assoc<@>"System" in
+             match t.inst with
+             | Process []   -> ()
+             | Process _    -> raise (Error (t.pos, "starting process System must have null parameter list"))
+             | _            -> raise (Error (t.pos, Printf.sprintf "System value is type %s, not a process" (string_of_type t)))
+         with Not_found -> raise (Error (dummy_spos, "no process called System"))
+        );
         List.iter rewrite_def defs;
         if !verbose then 
           (Printf.printf "typechecked\n\ncxt =[\n]%s\n\ndefs=\n%s\n\n" 

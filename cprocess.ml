@@ -30,6 +30,7 @@ open Sourcepos
 open Instance
 open Name
 open Type
+open Vt
 open Cbasics
 open Cstep
 open Param
@@ -38,31 +39,26 @@ type cprocess = cprocnode instance
 
 and cprocnode =
   | CTerminate
-  | CGoOnAs of typedname * cexpr list             (* GoOnAs: homage to Laski *)
-  | CWithNew of (bool * param list) * cprocess    (* bool is traced *)
-  | CWithQbit of bool * cqspec list * cprocess     (* false: newq; true: newqs *)
+  | CGoOnAs of int * cexpr list                                 (* GoOnAs: homage to Laski *)
+  | CWithNew of (bool * int list) * cprocess                    (* bool is traced *)
+  | CWithQbit of bool * cqspec list * cprocess                  (* false: newq; true: newqs *)
   | CWithLet of cletspec * cprocess
-  | CWithProc of cpdecl * cprocess
+  | CWithProc of int * cpdecl * cprocess
   | CWithQstep of cqstep * cprocess
-  | CJoinQs of typedname list * param * cprocess
-  | CSplitQs of typedname * csplitspec list * cprocess
-  | CTestPoint of name instance * cprocess        (* not typedname in this case ... *)
-  | CIter of env cpattern * cexpr * cprocess * cprocess  (* [ pat<-cexpr:cprocess].cprocess *)
+  | CJoinQs of int list * int * cprocess
+  | CSplitQs of int * csplitspec list * cprocess
   | CCond of cexpr * cprocess * cprocess
-  | CPMatch of cexpr * (env * cprocess) cpattern
+  | CPMatch of cexpr * (rtenv * cprocess) cpattern
   | CGSum of (ciostep * cprocess) list
   | CPar of cprocess list
 
-and cqspec = param * cexpr option
+and cqspec = int * cexpr option
 
-and cletspec = env cpattern * cexpr
+and cletspec = rtenv cpattern * cexpr
 
-and csplitspec = param * cexpr option
+and csplitspec = int * cexpr option
 
-and cpdecl = bool * typedname * param list * cprocess   (* bool for recursion:
-                                                                   false -- proc pn = tau(params).proc 
-                                                                   true  -- proc pn(params) = proc
-                                                       *)
+and cpdecl = name * (rtenv -> vt list -> rtenv * cprocess)     (* name is for scheduler *)
 
 let name_of_csplitspec csplitspec = name_of_param (fst csplitspec)
 
@@ -76,12 +72,10 @@ let cheadpos pos pinst = match pinst with
                          | CWithNew    (_, p) 
                          | CWithQbit   (_, _, p) 
                          | CWithLet    (_, p) 
-                         | CWithProc   (_, p)
+                         | CWithProc   (_, _, p)
                          | CWithQstep  (_, p)
-                         | CTestPoint  (_, p)    
                          | CJoinQs     (_, _, p) 
-                         | CSplitQs    (_, _, p)
-                         | CIter    (_, _, _, p) -> spdiff pos p.pos
+                         | CSplitQs    (_, _, p) -> spdiff pos p.pos
 
 let procadorn pos pinst = adorn (cheadpos pos pinst) pinst 
 
@@ -90,43 +84,33 @@ let csteppos cprocess = cheadpos cprocess.pos cprocess.inst
 let rec so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
-  | CGoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
-                                            (string_of_name (tinst pn))
-                                            (string_of_list string_of_cexpr "," es)
-  | CWithNew ((traced,params),p) 
-                          -> Printf.sprintf "(%s %s)%s"
+  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_cexpr "," es)
+  | CWithNew ((traced,is),p) 
+                          -> Printf.sprintf "(%s %s).%s"
                                             (if traced then "newuntraced" else "new")
-                                            (commasep (List.map string_of_param params))
+                                            (commasep (List.map string_of_int is))
                                             (trailing_csop p)
-  | CWithQbit (plural,qs,p) -> Printf.sprintf "(%s %s)%s"
+  | CWithQbit (plural,qs,p) -> Printf.sprintf "(%s %s).%s"
                                             (if plural then "newqs" else "newq")
                                             (commasep (List.map string_of_cqspec qs))
                                             (trailing_csop p)
-  | CWithLet (lsc,p)       -> Printf.sprintf "(let %s)%s"
+  | CWithLet (lsc,p)       -> Printf.sprintf "(let %s).%s"
                                             (string_of_cletspec lsc)
                                             (trailing_csop p)
-  | CWithProc (cpdecl,p)    -> Printf.sprintf "(proc %s)%s"
+  | CWithProc (i,cpdecl,p)  -> Printf.sprintf "(withproc %d,%s).%s"
+                                            i
                                             (string_of_cpdecl cpdecl)
                                             (trailing_csop p)
   | CWithQstep (q,p)       -> Printf.sprintf "%s.%s"
                                             (string_of_cqstep q)
                                             (trailing_csop p)
-  | CJoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s)%s"
-                                            (string_of_list string_of_typedname "," qs)
-                                            (string_of_param q)
+  | CJoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s).%s"
+                                            (string_of_list string_of_int "," qs)
+                                            (string_of_int q)
                                             (trailing_csop p)
-  | CSplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s)%s"
-                                            (string_of_typedname q)
+  | CSplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s).%s"
+                                            (string_of_int q)
                                             (string_of_list string_of_csplitspec "," qs)
-                                            (trailing_csop p)
-  | CTestPoint (n,p)       -> Printf.sprintf "⁁%s %s"
-                                            (string_of_name n.inst)
-                                            (trailing_csop p)
-  | CIter (pat, e, proc, p)
-                          -> Printf.sprintf "[%s<-%s:%s] . %s"
-                                            (string_of_cpattern pat)
-                                            (string_of_cexpr e)
-                                            (so_cp proc)
                                             (trailing_csop p)
   | CGSum [g]              -> string_of_pair string_of_ciostep so_cp "." g
   | CGSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep so_cp ".") gs)
@@ -150,34 +134,27 @@ and trailing_csop p =
 and short_so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
-  | CGoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
-                                            (string_of_name (tinst pn))
-                                            (string_of_list string_of_cexpr "," es)
-  | CWithNew ((traced,params),p)    
+  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_cexpr "," es)
+  | CWithNew ((traced,is),p)    
                           -> Printf.sprintf "(%s %s) ..."
                                             (if traced then "new" else "newuntraced")
-                                            (commasep (List.map string_of_param params))
+                                            (commasep (List.map string_of_int is))
   | CWithQbit (plural,xs,p) -> Printf.sprintf "(%s %s) ..."
                                             (if plural then "newqs" else "newq")
                                             (commasep (List.map string_of_cqspec xs))
   | CWithLet (lsc,p)       -> Printf.sprintf "(let %s) ..."
                                             (string_of_cletspec lsc)
-  | CWithProc (cpdecl,p)    -> Printf.sprintf "(proc %s) ..."
-                                            (string_of_cpdecl cpdecl)
+  | CWithProc (i,cpdecl,p)    -> Printf.sprintf "(withproc %d %s). ..."
+                                            i
+                                            (short_string_of_cpdecl cpdecl)
   | CWithQstep (q,p)       -> Printf.sprintf "%s. ..."
                                             (string_of_cqstep q)
   | CJoinQs    (qs,q,p)    -> Printf.sprintf "(joinqs %s→%s) ..."
-                                            (string_of_list string_of_param "," qs)
-                                            (string_of_param q)
+                                            (string_of_list string_of_int "," qs)
+                                            (string_of_int q)
   | CSplitQs   (q,qs,p)    -> Printf.sprintf "(splitqs %s→%s) ..."
-                                            (string_of_typedname q)
+                                            (string_of_int q)
                                             (string_of_list string_of_csplitspec "," qs)
-  | CTestPoint (n,p)       -> Printf.sprintf "⁁%s ..."
-                                            (string_of_name n.inst)
-  | CIter (pat, e, proc, p)
-                          -> Printf.sprintf "[%s<-%s:..] . .."
-                                            (string_of_cpattern pat)
-                                            (string_of_cexpr e)
   | CGSum [i,p]            -> Printf.sprintf "%s. .." (string_of_ciostep i) 
   | CGSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_ciostep g) in
                              "+ " ^ String.concat " <+> " (List.map sf gs)
@@ -189,9 +166,9 @@ and short_so_cp proc =
                                             (short_so_cp p2)
   | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_cexpr e) (short_string_of_cpattern pms)
 
-and string_of_cqspec (p, eopt) =
+and string_of_cqspec (i, eopt) =
   Printf.sprintf "%s%s" 
-                 (string_of_param p)
+                 (string_of_int i)
                  (match eopt with
                   | None      -> ""
                   | Some bve  -> Printf.sprintf "=%s" (string_of_cexpr bve)
@@ -202,37 +179,19 @@ and string_of_cletspec (pat,e) =
   				 (string_of_cpattern pat)
   				 (string_of_cexpr e)
   				 
-and string_of_csplitspec (p, eopt) =
+and string_of_csplitspec (i, eopt) =
   Printf.sprintf "%s%s" 
-                 (string_of_param p)
+                 (string_of_int i)
                  (match eopt with
                   | None    -> ""
                   | Some e  -> Printf.sprintf "(%s)" (string_of_cexpr e)
                  )
 
-and string_of_cpdecl (recb, pn, params, proc) =
-  if recb then
-    Printf.sprintf "%s(%s) = %s"
-                    (match !(toptr pn) with 
-                     | None -> tinst pn 
-                     | Some t -> Printf.sprintf "(%s:%s)" (string_of_name (tinst pn)) (string_of_type t)
-                    )
-                    (string_of_params params)
-                    (so_cp proc)
-  else
-    Printf.sprintf "%s%s = tau(%s).%s"
-                    (string_of_name (tinst pn))
-                    (match !(toptr pn) with None -> "" | Some t -> ":" ^ string_of_type t)
-                    (string_of_params params)
-                    (so_cp proc)
+and string_of_cpdecl (name, f) =
+  Printf.sprintf "(%s,<fun>)" (string_of_name name)
   
-(* 
-   and string_of_cprocmatch (pat,proc) =
-     Printf.sprintf "%s.%s" (string_of_cpattern pat) (trailing_csop proc)
+and short_string_of_cpdecl (name, f) = string_of_cpdecl (name, f)
   
-   and short_string_of_cprocmatch (pat, _) = Printf.sprintf "%s. ..." (string_of_cpattern pat)
- *)
-
 let string_of_cprocess proc = Printf.sprintf "%s: %s" (string_of_sourcepos (csteppos proc)) (so_cp proc)
 
 let short_string_of_cprocess proc = Printf.sprintf "%s: %s" (string_of_sourcepos (csteppos proc)) (short_so_cp proc)

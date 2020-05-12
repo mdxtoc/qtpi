@@ -813,13 +813,16 @@ let precompile_proc ctenv pn mon proc =
                             let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
                             let xname = "x#" in
                             let cname = "c#" in
-                            let callIter = ad (GoOnAs (adn None "Iter#", [e; ade None (EVar ipname); ade None (EVar rc)])) in
+                            let xtype = type_of_pattern pat in
+                            let ctype = _The (cut spos) in
+                            let iptype = adorn spos (Process [xtype;ctype]) in
+                            let callIter = ad (GoOnAs (adn None "Iter#", [e; ade (Some iptype) (EVar ipname); ade (Some ctype) (EVar rc)])) in
                             let par = construct_callpar ip.pos rc callIter p in
                             let ip = insert_returns true cname ip in
                             let ip = Process.map (cmp spos) ip in
-                            let ip = ad (WithLet ((pat, ade None (EVar xname)),ip)) in
-                            let def = ad (WithProc ((false, adn None ipname, [adpar None xname; adpar None cname], ip), par)) in
-                            let mkchan = ad (WithNew ((false, [adpar None rc]), def)) in
+                            let ip = ad (WithLet ((pat, ade (Some xtype) (EVar xname)),ip)) in
+                            let def = ad (WithProc ((false, adn (Some iptype) ipname, [adpar (Some xtype) xname; adpar (Some ctype) cname], ip), par)) in
+                            let mkchan = ad (WithNew ((false, [adpar (Some ctype) rc]), def)) in
                             Some mkchan
     | Terminate 
     | GoOnAs    _      

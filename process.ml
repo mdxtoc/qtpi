@@ -287,10 +287,12 @@ let optmap optf proc =
     
 let map optf = optmap optf ||~ id
 
+let paramset params = NameSet.of_list (names_of_params params)
+
 let rec frees proc =
-  let paramset params = NameSet.of_list (names_of_params params) in
   let nsu = NameSet.union in
   let nsd = NameSet.diff in
+  let nsr = NameSet.remove in
   let nsus = List.fold_left nsu NameSet.empty in
   let free_es = nsus <.> List.map Expr.frees in
   match proc.inst with
@@ -306,11 +308,11 @@ let rec frees proc =
                                nsus [List.fold_left ff_opte NameSet.empty optes; nsd (frees p) qset]
   | WithLet ((pat, e), p) -> nsu (Expr.frees e) (nsd (frees p) (Pattern.frees pat))
   | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
-                             let pdfrees = nsd (frees proc) (paramset params) in
+                             let pdfrees = pdecl_frees pd in
                              if brec then
-                               NameSet.remove (tinst pn) (NameSet.union pdfrees (frees p))
+                               nsr (tinst pn) (nsu pdfrees (frees p))
                              else
-                               nsd pdfrees (NameSet.remove (tinst pn) (frees p))
+                               nsu pdfrees (nsr (tinst pn) (frees p))
   | WithQstep (qstep,p)   -> (match qstep.inst with
                               | Measure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
                                                             let bset = match optbe with
@@ -339,10 +341,9 @@ let rec frees proc =
                              nsus (List.map frees_iop iops)
   | Par ps                -> nsus (List.map frees ps)
 
-let pdecl_frees (brec,pn,params,proc) =
-  let procfrees = frees proc in
-  let names = List.map name_of_param params in
-  Name.subtractnames names procfrees 
+and pdecl_frees (brec,pn,params,proc) =
+  NameSet.diff (frees proc) (paramset params)
+  
   
 (* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't. *)
 

@@ -518,7 +518,7 @@ and compile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> vt -> 
         | []        -> raise (Can'tHappen "compile_fun.cl")
     in
     let frees = NameSet.elements (Expr.frees_lambda pats expr) in
-    let ctenvl = List.length frees, frees in
+    let ctenvl = add_ctnames empty_ctenv frees in
     let ctenvl, lf = cl ctenvl pats in (* we need the tidemark *)
     let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
     let mkenv rtenv = 

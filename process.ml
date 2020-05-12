@@ -71,9 +71,10 @@ let headpos pos pinst = match pinst with
                         | Terminate
                         | GoOnAs     _
                         | Par        _
-                        | GSum       _
                         | PMatch     _
                         | Cond       _         -> pos
+                        | GSum       [(_,p)]   -> spdiff pos p.pos
+                        | GSum       _         -> pos
                         | WithNew    (_, p) 
                         | WithQbit   (_, _, p) 
                         | WithLet    (_, p) 
@@ -132,7 +133,7 @@ let rec string_of_process proc =
                                             (string_of_process proc)
                                             (trailing_sop p)
   | GSum [g]              -> string_of_pair string_of_iostep string_of_process "." g
-  | GSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
+  | GSum gs               -> "<+> " ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
   | Par  [p]              -> string_of_process p
   | Par  ps               -> "| " ^ String.concat " | " (List.map string_of_process ps)
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"

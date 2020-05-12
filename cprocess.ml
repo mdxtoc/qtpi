@@ -66,9 +66,10 @@ let cheadpos pos pinst = match pinst with
                          | CTerminate
                          | CGoOnAs     _
                          | CPar        _
-                         | CGSum       _
                          | CPMatch     _
                          | CCond       _         -> pos
+                         | CGSum       [(_,p)]   -> spdiff pos p.pos
+                         | CGSum       _         -> pos
                          | CWithNew    (_, p) 
                          | CWithQbit   (_, _, p) 
                          | CWithLet    (_, p) 
@@ -113,7 +114,7 @@ let rec so_cp proc =
                                             (string_of_list string_of_csplitspec "," qs)
                                             (trailing_csop p)
   | CGSum [g]              -> string_of_pair string_of_ciostep so_cp "." g
-  | CGSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep so_cp ".") gs)
+  | CGSum gs               -> "<+> " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep so_cp ".") gs)
   | CPar  [p]              -> so_cp p
   | CPar  ps               -> "| " ^ String.concat " | " (List.map so_cp ps)
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
@@ -157,7 +158,7 @@ and short_so_cp proc =
                                             (string_of_list string_of_csplitspec "," qs)
   | CGSum [i,p]            -> Printf.sprintf "%s. .." (string_of_ciostep i) 
   | CGSum gs               -> let sf (g,p) = Printf.sprintf "%s. .." (string_of_ciostep g) in
-                             "+ " ^ String.concat " <+> " (List.map sf gs)
+                             "<+> " ^ String.concat " <+> " (List.map sf gs)
   | CPar  [p]              -> short_so_cp p 
   | CPar  ps               -> "| " ^ String.concat " | " (List.map short_so_cp ps) 
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"

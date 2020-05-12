@@ -177,7 +177,7 @@ let rec compile_match : sourcepos -> ('a -> string) ->
 let rec compile_bmatch :  ctenv -> pattern -> ctenv * ((rtenv -> 'b) -> (rtenv -> vt -> 'b)) = 
   fun ctenv pat ->
     if !verbose || !verbose_compile then
-      Printf.printf "compile_bmatch %s\n" (string_of_pattern pat);
+      Printf.printf "compile_bmatch %s %s %s\n" (string_of_sourcepos pat.pos) (string_of_ctenv ctenv) (string_of_pattern pat);
     (* this just to avoid repetitive diagnostic printing *)
     let rec dopat : ctenv -> pattern -> ctenv * ((rtenv -> 'b) -> (rtenv -> vt -> 'b)) = fun ctenv pat ->
       match tinst pat with
@@ -272,7 +272,7 @@ let cconst : vt -> rtenv -> vt = fun v rtenv -> v
 (* does compile_expr do proper tidemarking? I believe so. *)
 let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
   if !verbose || !verbose_compile then
-    (Printf.printf "compile_expr %s %s\n" (string_of_ctenv ctenv) (string_of_expr e); flush_all());
+    (Printf.printf "compile_expr %s %s %s\n" (string_of_sourcepos e.pos) (string_of_ctenv ctenv) (string_of_expr e); flush_all());
   
   let et = type_of_expr e in
   let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type et))) in
@@ -646,6 +646,11 @@ and compile_ioproc ctenv (iostep, contn) =
                        tidemark ctenv ctenvc, (adorn (CWrite (cf, type_of_expr e, ef)), ccontn)
 
 and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return ctenv, because it doesn't bind or evaluate *)
+  if !verbose || !verbose_compile then
+    (Printf.printf "compile_pdecl %s %s %s\n" (string_of_sourcepos pos)
+                                              (string_of_ctenv ctenv)
+                                              (string_of_pdecl pdecl)
+    );
   let frees = NameSet.elements (pdecl_frees pdecl) in
   let ctenvp = add_ctnames (add_ctnames empty_ctenv frees) (List.map name_of_param params) in
   let ctenvp, cproc = compile_proc ctenvp proc in
@@ -654,7 +659,10 @@ and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return c
   let nums = tabulate (List.length params) (fun i -> i+offset) in
   let envsize = fst ctenvp in
   let envf = fun rtenv vs -> let rtenv' = rtenv_init pos envsize frees ctenvg rtenv in
+                             Printf.printf "ctenvp = %s; nums = %s; vs = %s\n" (string_of_ctenv ctenvp) (bracketed_string_of_list string_of_int nums) (bracketed_string_of_list string_of_vt vs);
+                             flush_all ();
                              List.iter (fun (i,v) -> rtenv'.(i+offset) <- v) (List.combine nums vs);
+                             Printf.printf "ok\n"; flush_all ();
                              rtenv', cproc
   in
   tinst pn, envf

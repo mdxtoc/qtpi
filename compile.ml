@@ -520,12 +520,7 @@ and compile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> vt -> 
     let frees = NameSet.elements (Expr.frees_lambda pats expr) in
     let ctenvl = add_ctnames empty_ctenv frees in
     let ctenvl, lf = cl ctenvl pats in (* we need the tidemark *)
-    let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
-    let mkenv rtenv = 
-      let rtenv' = Array.make (fst ctenvl) (of_unit ()) in
-      List.iter (fun (i',i) -> rtenv'.(i') <- rtenv.(i)) pairs;
-      rtenv'
-    in
+    let mkenv = rtenv_init pos (fst ctenvl) frees ctenv in
     fun rtenv v -> let rtenv' = mkenv rtenv in lf rtenv' v (* delay the new-environment creation, for the sake of recursive functions *)
 
 and hide_fun : (rtenv -> vt -> vt) -> (rtenv -> vt) = Obj.magic

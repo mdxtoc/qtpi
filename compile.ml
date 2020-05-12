@@ -652,12 +652,22 @@ and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return c
   let ctenvg = if brec then ctenv<+>tinst pn else ctenv in
   let offset = List.length frees in
   let nums = tabulate (List.length params) (fun i -> i+offset) in
-  let envsize = fst ctenvp in
-  let envf = fun rtenv vs -> let rtenv' = rtenv_init pos envsize frees ctenvg rtenv in
-                             Printf.printf "ctenvp = %s; nums = %s; vs = %s\n" (string_of_ctenv ctenvp) (bracketed_string_of_list string_of_int nums) (bracketed_string_of_list string_of_vt vs);
-                             flush_all ();
-                             List.iter (fun (i,v) -> rtenv'.(i+offset) <- v) (List.combine nums vs);
-                             Printf.printf "ok\n"; flush_all ();
+  let mkenv = rtenv_init pos (fst ctenvp) frees ctenvg in
+  let envf = fun rtenv vs -> let rtenv' = mkenv rtenv in
+                             if !verbose|| !verbose_interpret then
+                               (Printf.printf "ctenvp = %s; nums = %s; vs = %s\n" (string_of_ctenv ctenvp) 
+                                                                                  (bracketed_string_of_list string_of_int nums) 
+                                                                                  (bracketed_string_of_list string_of_vt vs);
+                                flush_all ()
+                               );
+                             List.iter (fun (i,v) -> if !verbose || !verbose_interpret then
+                                                       (Printf.printf "pdecl initialises %d(%s)\n" i (ctenvp<-?>(pos,i));
+                                                        flush_all ()
+                                                       );
+                                                     rtenv'.(i) <- v
+                                       ) 
+                                       (List.combine nums vs);
+                             if !verbose|| !verbose_interpret then (Printf.printf "ok\n"; flush_all ());
                              rtenv', cproc
   in
   tinst pn, envf

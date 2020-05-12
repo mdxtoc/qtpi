@@ -53,12 +53,14 @@ exception ExecutionError of sourcepos * string
 
 type ctenv = int * name list    (* int is maxextent of environment *)
 
+let string_of_ctenv = bracketed_string_of_pair string_of_int (bracketed_string_of_list string_of_name)
+
+let empty_ctenv = (0,[])
+
 let (<+>) ctenv name =
   let n, names = ctenv in
   max n (List.length names + 1), name::names
   
-let string_of_ctenv = bracketed_string_of_pair string_of_int (bracketed_string_of_list string_of_name)
-
 let (<?>) (n, names as ctenv) (pos,name) = 
   let tail = dropwhile ((<>)name) names in
   match tail with
@@ -70,6 +72,8 @@ let (<+?>) ctenv name =
   ctenv, ctenv<?>(dummy_spos,name)
   
 let tidemark (n,names) (n',_) = max n n', names
+
+let add_ctnames = List.fold_left (<+>)
 
 type 'a rtfun = rtenv -> 'a
 type 'a rtpatfun = rtenv -> vt -> 'a
@@ -91,7 +95,7 @@ let tidemark_f : (ctenv -> 'x -> ctenv * 'r) -> ctenv -> 'x -> ctenv * 'r =
     tidemark ctenv ctenv', r
     
 let rtenv_init pos n frees ctenv =
-  let ctenvl = (n,frees) in
+  let ctenvl = add_ctnames (n,[]) frees in
   let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
   fun rtenv -> 
     let rtenv' = Array.make n (of_unit ()) in
@@ -643,12 +647,13 @@ and compile_ioproc ctenv (iostep, contn) =
 
 and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return ctenv, because it doesn't bind or evaluate *)
   let frees = NameSet.elements (pdecl_frees pdecl) in
-  let names = frees @ List.map name_of_param params in
-  let ctenvp, cproc = compile_proc (List.length names, names) proc in
+  let ctenvp = add_ctnames (add_ctnames empty_ctenv frees) (List.map name_of_param params) in
+  let ctenvp, cproc = compile_proc ctenvp proc in
   let ctenvg = if brec then ctenv<+>tinst pn else ctenv in
   let offset = List.length frees in
   let nums = tabulate (List.length params) (fun i -> i+offset) in
-  let envf = fun rtenv vs -> let rtenv' = rtenv_init pos (fst ctenvp) frees ctenvg rtenv in
+  let envsize = fst ctenvp in
+  let envf = fun rtenv vs -> let rtenv' = rtenv_init pos envsize frees ctenvg rtenv in
                              List.iter (fun (i,v) -> rtenv'.(i+offset) <- v) (List.combine nums vs);
                              rtenv', cproc
   in

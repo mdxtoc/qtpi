@@ -551,7 +551,7 @@ type compdef =
 type defassoc = ctenv * compdef list
 
 (* by chance, pdefs and fdefs are the same size ... *)
-let add_ctnames ctenv = List.fold_left (fun ctenv (n,_,_,_) -> ctenv<+>tinst n) ctenv
+let add_defnames ctenv = add_ctnames ctenv <.> List.map (fun (n,_,_,_) -> tinst n)
 
 (* I think this should be in Compile, but then I think it should be here, but then ... 
    Because these pdefs are recursive (and mutually-recursive in a pdef group) we don't
@@ -575,9 +575,9 @@ let compile_fdef ctenv (n, pats, _, expr as fdef) =
   
 let compile_def : defassoc -> def -> defassoc = fun (ctenv, ds) ->
   function
-  | Processdefs pdefs   -> let ctenv = add_ctnames ctenv pdefs in
+  | Processdefs pdefs   -> let ctenv = add_defnames ctenv pdefs in
                            ctenv, List.fold_left (fun ds pdef -> compile_pdef ctenv pdef :: ds) ds pdefs
-  | Functiondefs fdefs  -> let ctenv = add_ctnames ctenv fdefs in
+  | Functiondefs fdefs  -> let ctenv = add_defnames ctenv fdefs in
                            ctenv, List.fold_left (fun ds fdef -> compile_fdef ctenv fdef :: ds) ds fdefs
   | Letdef (pat, e)     -> let ctenv, fe = compile_expr ctenv e in
                            let ctenv, fpat = env_cpat ctenv pat in
@@ -592,7 +592,7 @@ let interpret defs =
       let ctenv, i = ctenv<+?>n in
       ctenv, CDlib (i,v)::ds
     in
-    List.fold_left f ((0,[]),[]) !Library.knowns 
+    List.fold_left f (empty_ctenv,[]) !Library.knowns 
   in
   (* add standard channels *)
   let definitely_add (ctenv,ds) (name, c) =
@@ -609,7 +609,7 @@ let interpret defs =
   in
   (* add built-ins *)
   let bipdefs = List.map (snd <.> precompile_builtin) (List.map Parseutils.parse_pdefstring builtins) in
-  let ctenv = add_ctnames ctenv bipdefs in
+  let ctenv = add_defnames ctenv bipdefs in
   let ds = List.fold_left (fun ds def -> compile_pdef ctenv def::ds) ds bipdefs in
   (* bind definitions in order *)
   let ctenv,ds = List.fold_left compile_def (ctenv,ds) defs in

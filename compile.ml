@@ -588,7 +588,8 @@ let rec compile_proc : ctenv -> process -> ctenv * cprocess = fun ctenv proc ->
                            let ctenvc, ccontn = compile_proc ctenvl contn in
                            tidemark ctenv ctenvc, adorn (CWithLet (clsc, ccontn))
   | WithProc ((brec,pn',params,proc' as pdecl),contn)
-                        -> let cpdecl = compile_pdecl (steppos proc) ctenv pdecl in
+                        -> let ctenvp = if brec then ctenv<+>tinst pn' else ctenv in
+                           let cpdecl = compile_pdecl (steppos proc) ctenvp pdecl in
                            let ctenvc, ccontn = compile_proc (ctenv<+>tinst pn') contn in
                            tidemark ctenv ctenvc, adorn (CWithProc (ctenvc<?>(steppos proc,tinst pn'), cpdecl, ccontn))
   | WithQstep (qstep, contn)
@@ -675,10 +676,9 @@ and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return c
   let frees = NameSet.elements (pdecl_frees pdecl) in
   let ctenvp = add_ctnames (add_ctnames empty_ctenv frees) (List.map name_of_param params) in
   let ctenvp, cproc = compile_proc ctenvp proc in
-  let ctenvg = if brec then ctenv<+>tinst pn else ctenv in
   let offset = List.length frees in
   let nums = tabulate (List.length params) (fun i -> i+offset) in
-  let mkenv = rtenv_init pos (fst ctenvp) frees ctenvg in
+  let mkenv = rtenv_init pos (fst ctenvp) frees ctenv in
   let envf = fun rtenv vs -> let rtenv' = mkenv rtenv in
                              if !verbose|| !verbose_interpret then
                                (Printf.printf "ctenvp = %s; nums = %s; vs = %s\n" (string_of_ctenv ctenvp) 

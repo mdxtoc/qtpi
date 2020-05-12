@@ -115,22 +115,6 @@ let qcopy (n,v) = (* nobody ought to know about this: I need a .mli for this fil
   | DenseV  v -> n, DenseV (Array.copy v) 
   | SparseV _ -> n,v
 
-let pv_of_braket bks = 
-  let rec pv (rm,rv as r) =
-    function 
-    | bk::bks -> let (m1,v1) = match bk with
-                           | Braket.BKZero  -> nv_zero
-                           | Braket.BKOne   -> nv_one
-                           | Braket.BKPlus  -> nv_plus
-                           | Braket.BKMinus -> nv_minus
-                 in pv (rprod rm m1, tensor_vv rv v1) bks
-    | []      -> r
-  in 
-  pv nv_1 bks
-
-(* this is in the wrong place *)
-let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
-
 (* idx: the index position of q in qs *)
 let idx q qs = 
   let rec f i = function
@@ -279,7 +263,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
   let qbitcount = ref 0 in
   let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
   let qlimbo = ref [] in (* for disposed entangled bits *)
-  let newqbits pn n vopt : qbit list =
+  let newqbits pn vopt : qbit list =
     let single () =
       let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
                let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in
@@ -324,24 +308,23 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
                 | Some (_,v) -> 
                     try log_2 (vsize v) 
                     with Invalid_argument _ ->  
-                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s %s"
-                                      (string_of_zint (vsize v)) pn n
+                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s"
+                                      (string_of_zint (vsize v)) pn
                                       (string_of_option string_of_ket vopt)
                                    )
                             )
 
     in 
     let qs, qv = match qsize with
-                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s %s" pn n (string_of_option string_of_ket vopt)))
+                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s" pn (string_of_option string_of_ket vopt)))
                  | _ -> let qs, vs = Listutils.unzip (Listutils.tabulate qsize (fun _ -> single())) in
                         let qv = qs, List.hd vs in
                         List.iter (fun q -> Hashtbl.add qstate q qv) qs;
                         qs, qv
     in
     if !verbose || !verbose_qsim then
-        Printf.printf "%s newqbits %s (%s) -> %s; now %s|->%s\n"
+        Printf.printf "%s newqbits %s %s; now %s|->%s\n"
                       (Name.string_of_name pn)
-                      (Name.string_of_name n)
                       (string_of_option (string_of_ket) vopt)
                       (string_of_qbits qs)
                       (string_of_qbits qs)

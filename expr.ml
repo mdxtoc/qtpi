@@ -65,6 +65,7 @@ and enode =
   | ESub of expr * expr
   | ELambda of pattern list * expr
   | EWhere of expr * edecl
+  | ERes of resword                       (* the Turner hack: see "the special function 'show'" in the Miranda manual *)
 
 and arithop =
   | Plus
@@ -98,6 +99,10 @@ and edeclnode =
   | EDPat of pattern * _type option * expr
   | EDFun of typedname * pattern list * _type option ref * expr 
 
+and resword =
+  | ResShow
+  | ResCompare
+  
 let rec is_nilterminated e =
   match tinst e with
   | ENil        -> true
@@ -144,6 +149,7 @@ let rec exprprio e =
   match tinst e with 
   | EUnit                   
   | ENil
+  | ERes        _   
   | EVar        _   
   | ENum        _
   | EBool       _
@@ -179,6 +185,7 @@ let rec string_of_primary e =
   match tinst e with
   | EUnit           -> "()"
   | ENil            -> "[]"
+  | ERes w          -> (match w with ResShow -> "show" | ResCompare -> "compare")
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBra b          -> string_of_braconst b
@@ -225,6 +232,7 @@ and string_of_expr e =
   match tinst e with 
   | EUnit       
   | ENil
+  | ERes        _
   | EVar        _
   | EBit        _
   | EBra        _
@@ -315,6 +323,7 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       match tinst e with
       | EVar        n          -> s_add n e s
       | EUnit  
+      | ERes        _
       | ENum        _ 
       | EBool       _ 
       | EChar       _ 
@@ -363,3 +372,7 @@ let frees = frees_fun (fun nset s -> NameSet.diff s nset)
                       (fun n _ s -> NameSet.add n s)
                       NameSet.union
                       NameSet.empty
+
+let frees_lambda pats e = 
+  let s = frees e in
+  NameSet.diff s (names_of_pats pats)

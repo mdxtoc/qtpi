@@ -34,6 +34,8 @@ let mirazip xs ys =
   in
   mz [] xs ys
 
+let mirazip2 = mirazip
+
 let mirazip3 xs ys zs = 
   let rec mz rs xs ys zs =
     match xs,ys,zs with

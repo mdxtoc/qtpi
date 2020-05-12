@@ -214,16 +214,16 @@ let staticmatch con termd =
 
 (* rhs and pattern things have to be instances. Luckily expr and process each is an instance *)
 
-let matchcheck_pats string_of_rhs rules = 
+let string_of_rules string_of_rhs rules = "[" ^  string_of_list (string_of_pair string_of_pattern string_of_rhs ".") " <+> " rules ^ "]"
 
-  let string_of_rules rules = "[" ^  string_of_list (string_of_pair string_of_pattern string_of_rhs ".") " <+> " rules ^ "]" in
+let match_dtree warn string_of_rhs rules = 
   
   let sps = List.map (fun rule -> (fst rule).pos) rules in
   let patspos = sp_of_sps sps in
   
   let successes = Hashtbl.create (List.length rules) in         (* a sourcepos-indexed record of successes in the tree *)
   
-  let show_fail dsc =
+  let warn_fail dsc =
     let neginfo neg negs =
       let several words =
         Printf.sprintf "%s which is %s %s" 
@@ -235,7 +235,7 @@ let matchcheck_pats string_of_rhs rules =
       | CCons       -> "an empty list"
       | CNil        -> "a non-empty list"
       | CUnit            
-      | CTuple      -> raise (Can'tHappen (Printf.sprintf "show_fail (%s) -- first Neg element?" 
+      | CTuple      -> raise (Can'tHappen (Printf.sprintf "warn_fail (%s) -- first Neg element?" 
                                                           (string_of_termd dsc)
                                           )
                              )
@@ -313,9 +313,9 @@ let matchcheck_pats string_of_rhs rules =
     if !verbose then
       Printf.printf "fail %s %s\n"
                     (string_of_termd dsc) 
-                    (string_of_rules rules);
+                    (string_of_rules string_of_rhs rules);
     match rules with
-    | []               -> show_fail dsc;
+    | []               -> if warn then warn_fail dsc;
                           Failure
     | (pat,rhs)::rules -> _match pat Obj dsc [] [] rhs rules
   
@@ -325,7 +325,7 @@ let matchcheck_pats string_of_rhs rules =
                     (string_of_cxt cxt) 
                     (string_of_work work) 
                     (string_of_rhs rhs) 
-                    (string_of_rules rules);
+                    (string_of_rules string_of_rhs rules);
     match work with
     | []      -> Hashtbl.add successes rhs.pos true;
                  Success rhs 
@@ -347,7 +347,7 @@ let matchcheck_pats string_of_rhs rules =
                     (string_of_cxt cxt) 
                     (string_of_work work) 
                     (string_of_rhs rhs) 
-                    (string_of_rules rules);
+                    (string_of_rules string_of_rhs rules);
     let casopt = match tinst pat with
                  | PatAny
                  | PatName   _      -> None
@@ -384,23 +384,25 @@ let matchcheck_pats string_of_rhs rules =
         | Maybe  -> IfEq (obj, con, succeed' (), fail' (addneg dsc con))
   in 
   if !verbose then
-    Printf.printf "\nmatchcheck_pats %s\n" (string_of_rules rules);
+    Printf.printf "\nmatch_dtree %s\n" (string_of_rules string_of_rhs rules);
   let dtree = fail (Neg []) rules in
   if !verbose then 
-    Printf.printf "\nmatchcheck_pats %s %s => %s\n\n" 
+    Printf.printf "\nmatch_dtree %s %s => %s\n\n" 
                   (string_of_sourcepos patspos)
-                  (string_of_rules rules)
+                  (string_of_rules string_of_rhs rules)
                   (string_of_dtree string_of_rhs dtree);
   let redundancy (pat,rhs) = if Hashtbl.mem successes rhs.pos then ()
                              else warning pat.pos "this pattern is redundant (can never match)"
   in
-  List.iter redundancy rules
+  if warn then List.iter redundancy rules;
+  dtree
 
 let rec matchcheck_expr e =
   if !verbose then 
     Printf.printf "\nmatchcheck_expr %s\n" (string_of_expr e);
   match tinst e with
   | EUnit
+  | ERes        _
   | EVar        _
   | ENum        _
   | EBool       _
@@ -416,7 +418,7 @@ let rec matchcheck_expr e =
   | ETuple      es          -> List.iter matchcheck_expr es
   | ECond       (ce,e1,e2)  -> matchcheck_expr ce; matchcheck_expr e1; matchcheck_expr e2
   | EMatch      (e,ems)     -> matchcheck_expr e; 
-                               matchcheck_pats string_of_expr ems;
+                               ignore (match_dtree true string_of_expr ems);
                                List.iter (matchcheck_expr <.> snd) ems
   | EArith      (e1,_,e2)
   | ECompare    (e1,_,e2)
@@ -464,7 +466,7 @@ let rec matchcheck_proc mon proc =
                             -> matchcheck_proc mon p; matchcheck_expr e; matchcheck_proc mon proc
   | Cond      (e,p1,p2)     -> matchcheck_expr e; matchcheck_proc mon p1; matchcheck_proc mon p2 
   | PMatch    (e,pms)       -> matchcheck_expr e; 
-                               matchcheck_pats short_string_of_process pms;
+                               ignore (match_dtree true short_string_of_process pms);
                                List.iter (matchcheck_proc mon <.> snd) pms
   | GSum      iops          -> let matchcheck_iop (iostep, proc) =
                                  (match iostep.inst with

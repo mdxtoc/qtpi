@@ -28,8 +28,10 @@ open Name
 open Type
 
 (* parameter types get rewritten in typechecking, because we need fully typed
- * processes for resourcing
+ * processes for resourcing (and compiling, and interpreting, and ...)
  *)
+ 
+exception Error of sourcepos * string
 
 type param = typedname 
 
@@ -48,4 +50,11 @@ let typeref_of_param p = toptr p
 
 let typerefs_of_params ps = List.map typeref_of_param ps
 
+let type_of_param p = try type_of_typedinstance p
+                      with _ -> raise (Error (p.pos, Printf.sprintf "(Param.type_of_param) typecheck didn't mark %s" (string_of_param p)))
+
+let types_of_params ps = List.map type_of_param ps
+
 let param_of_binding pos (n,t) = adorn pos {toptr = ref(Some t); tinst = n}
+
+let pos_of_params ps = Sourcepos.sp_of_sps (List.map (fun p -> p.pos) ps)

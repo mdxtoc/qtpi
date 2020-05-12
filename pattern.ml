@@ -32,6 +32,8 @@ open Type
 open Braket
 open Printpriority
 
+exception Error of sourcepos * string
+
 type pattern = pnode typedinstance
 
 and pnode =
@@ -147,3 +149,8 @@ let frees = names_of_pattern
   
 let names_of_pats pats = 
   List.fold_left NameSet.union NameSet.empty (List.map names_of_pattern pats) 
+
+let type_of_pattern p = try type_of_typedinstance p
+                        with _ -> raise (Error (p.pos, Printf.sprintf "(Pattern.type_of_pattern) typecheck didn't mark %s" (string_of_pattern p)))
+
+let pos_of_patterns pats = Sourcepos.sp_of_sps (List.map (fun pat -> pat.pos) pats)

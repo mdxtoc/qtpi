@@ -84,3 +84,6 @@ and short_string_of_monitor mon =
   
 let find_monel n mon_assoc =
   List.assoc_opt n mon_assoc
+  
+let pos_of_fdef (f,pats,_,e) = Sourcepos.sp_of_sps [f.pos; Pattern.pos_of_patterns pats; e.pos]
+

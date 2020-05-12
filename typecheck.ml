@@ -1,5 +1,5 @@
 (*
-    Copyright (C) 2018 Richard Bornat
+    Copyright (C) 2018-2020 Richard Bornat
      
         richard@bornat.me.uk
 
@@ -111,6 +111,7 @@ let rec rewrite_expr e =
        match tinst e with
        | EUnit
        | ENil
+       | ERes        _
        | EVar        _
        | ENum        _
        | EBool       _
@@ -489,7 +490,10 @@ and assigntype_expr cxt t e =
                   (short_string_of_typecxt cxt)
                   (string_of_type (evaltype t))
                   (string_of_expr e);
-  toptr e := Some t; (* for rewriting later *)
+  (match !(toptr e) with
+   | Some t' -> unifytypes t t'
+   | None    -> toptr e := Some t; (* for rewriting later *)
+  );
   let utaf cxt = uncurry2 (assigntype_expr cxt) in
   try 
     let unary cxt tout tin e = 
@@ -533,6 +537,17 @@ and assigntype_expr cxt t e =
      match tinst e with
      | EUnit                -> unifytypes t (adorn_x e Unit)
      | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
+     | ERes w               -> (let ft = 
+                                  match w with
+                                  | ResShow    -> adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char))))
+                                  | ResCompare -> let ct = neweqtv e.pos in
+                                                  adorn_x e (Fun (ct,
+                                                                  adorn_x e (Fun (ct, adorn_x e Num))
+                                                                 )
+                                                            )
+                                in
+                                unifytypes t ft
+                               )
      | ENum i               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Bit              -> if i=/zero||i=/one then ()
@@ -1111,7 +1126,7 @@ and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
   contn cxt
 
 let make_library_assoc () =
-  let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Interpret.knowns in
+  let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Library.knowns in
   let typ = adorn dummy_spos in
   let typstring = typ (List (typ Char)) in
   let assoc = if assoc <%@?> "dispose" then assoc else assoc <%@+> ("dispose", typ (Channel (typ Qbit))) in
@@ -1234,6 +1249,14 @@ let typecheck defs =
   try push_verbose !verbose_typecheck (fun () ->
         let global_assoc = make_library_assoc () in
         let global_assoc = List.fold_left typecheck_def global_assoc defs in
+        (* we check that the environment contains System as a process with a null parameter list *)
+        (try let t = global_assoc<@>"System" in
+             match t.inst with
+             | Process []   -> ()
+             | Process _    -> raise (Error (t.pos, "starting process System must have null parameter list"))
+             | _            -> raise (Error (t.pos, Printf.sprintf "System value is type %s, not a process" (string_of_type t)))
+         with Not_found -> raise (Error (dummy_spos, "no process called System"))
+        );
         List.iter rewrite_def defs;
         if !verbose then 
           (Printf.printf "typechecked\n\ncxt =[\n]%s\n\ndefs=\n%s\n\n" 

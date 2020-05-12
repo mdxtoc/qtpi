@@ -51,6 +51,6 @@ Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
               show nShort;         " short codebits; ";
               "average check bits "; showf 2 (listsum ncAs/k); 
               " minimum check bits "; show (listmin ncAs); "\n";
-              "histogram of check-bit lengths "; show (histogram ncAs); "\n"
+              "histogram of check-bit lengths "; show (histogram (compare : num->num->num) ncAs); "\n"
              ] 
        . _0 

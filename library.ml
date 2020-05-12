@@ -26,65 +26,78 @@ open Sourcepos
 open Functionutils
 open Listutils
 open Tupleutils
-open Interpret
+open Name
 open Number
+open Vt
 open Value
 open Vmg
+
+exception IntOverflow of string
+exception FractionalInt of string
+exception NegInt of string
+
+(* We 'declare' library things by adding them to this list: name * type (as string) * value.
+   No more run-time typing, so it's important to get that type right.
+ *)
+
+let knowns = (ref [] : (name * string * vt) list ref)
+
+let know dec = knowns := dec :: !knowns
 
 (* should this give an error if n is fractional? The purist in me says yes. 
    The pragmatist says just take the floor and forget it.
  *)
 let mustbe_intv v = 
-  let n = numv v in
+  let n = to_num v in
   (*if is_int n then*) 
-    try int_of_num n with Z.Overflow -> raise (IntOverflow (string_of_value v))
+    try int_of_num n with Z.Overflow -> raise (IntOverflow (string_of_num n))
   (*else raise (FractionalInt (string_of_value v))*)
 
 (* ******************** built-in functions ********************* *)
 
-let vfun2 f = vfun (fun a -> vfun (fun b -> f a b))
-let vfun3 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> f a b c)))
-let vfun4 f = vfun (fun a -> vfun (fun b -> vfun (fun c -> vfun (fun d -> f a b c d))))
+let vfun2 f = of_fun (fun a -> of_fun (fun b -> f a b))
+let vfun3 f = of_fun (fun a -> of_fun (fun b -> of_fun (fun c -> f a b c)))
+let vfun4 f = of_fun (fun a -> of_fun (fun b -> of_fun (fun c -> of_fun (fun d -> f a b c d))))
 
-let funv2 f = funv <.> funv f
-let funv3 f = let f' a b c = funv (funv (funv f a) b) c in
+let funv2 f = to_fun <.> to_fun f
+let funv3 f = let f' a b c = to_fun (to_fun (to_fun f a) b) c in
               f'
 
 (* ******************** basic gates ********************* *)
 
-let _ = Interpret.know ("I"     , "gate", vgate g_I)
-let _ = Interpret.know ("X"     , "gate", vgate g_X)
-let _ = Interpret.know ("Y"     , "gate", vgate g_Y)
-let _ = Interpret.know ("Z"     , "gate", vgate g_Z)
+let _ = know ("I"     , "gate", of_gate g_I)
+let _ = know ("X"     , "gate", of_gate g_X)
+let _ = know ("Y"     , "gate", of_gate g_Y)
+let _ = know ("Z"     , "gate", of_gate g_Z)
 
-let _ = Interpret.know ("H"     , "gate", vgate g_H)
-let _ = Interpret.know ("Rz"    , "gate", vgate g_Rz)
-let _ = Interpret.know ("Rx"    , "gate", vgate g_Rx)
+let _ = know ("H"     , "gate", of_gate g_H)
+let _ = know ("Rz"    , "gate", of_gate g_Rz)
+let _ = know ("Rx"    , "gate", of_gate g_Rx)
 
-let _ = Interpret.know ("phi"   , "num -> gate", vfun (vgate <.> g_Phi <.> mustbe_intv))
+let _ = know ("phi"   , "num -> gate", of_fun (of_gate <.> g_Phi <.> mustbe_intv))
 
-let _ = Interpret.know ("Cnot"  , "gate", vgate g_Cnot)
-let _ = Interpret.know ("CNot"  , "gate", vgate g_Cnot)
-let _ = Interpret.know ("CNOT"  , "gate", vgate g_Cnot)
-let _ = Interpret.know ("CX"    , "gate", vgate g_CX)
-let _ = Interpret.know ("CY"    , "gate", vgate g_CY)
-let _ = Interpret.know ("CZ"    , "gate", vgate g_CZ)
+let _ = know ("Cnot"  , "gate", of_gate g_Cnot)
+let _ = know ("CNot"  , "gate", of_gate g_Cnot)
+let _ = know ("CNOT"  , "gate", of_gate g_Cnot)
+let _ = know ("CX"    , "gate", of_gate g_CX)
+let _ = know ("CY"    , "gate", of_gate g_CY)
+let _ = know ("CZ"    , "gate", of_gate g_CZ)
 
-let _ = Interpret.know ("Swap"  , "gate", vgate g_Swap)
-let _ = Interpret.know ("SWAP"  , "gate", vgate g_Swap)
+let _ = know ("Swap"  , "gate", of_gate g_Swap)
+let _ = know ("SWAP"  , "gate", of_gate g_Swap)
 
-let _ = Interpret.know ("T"     , "gate", vgate g_Toffoli)
-let _ = Interpret.know ("F"     , "gate", vgate g_Fredkin)
-let _ = Interpret.know ("Cswap" , "gate", vgate g_Fredkin)
-let _ = Interpret.know ("CSwap" , "gate", vgate g_Fredkin)
-let _ = Interpret.know ("CSWAP" , "gate", vgate g_Fredkin)
+let _ = know ("T"     , "gate", of_gate g_Toffoli)
+let _ = know ("F"     , "gate", of_gate g_Fredkin)
+let _ = know ("Cswap" , "gate", of_gate g_Fredkin)
+let _ = know ("CSwap" , "gate", of_gate g_Fredkin)
+let _ = know ("CSWAP" , "gate", of_gate g_Fredkin)
 
-let _ = Interpret.know ("sx_0"    , "sxnum", vsxnum Snum.c_0)
-let _ = Interpret.know ("sx_1"    , "sxnum", vsxnum Snum.c_1)
-let _ = Interpret.know ("sx_i"    , "sxnum", vsxnum Snum.c_i)
-let _ = Interpret.know ("sx_h"    , "sxnum", vsxnum Snum.c_h)
-let _ = Interpret.know ("sx_f"    , "sxnum", vsxnum Snum.c_f)
-let _ = Interpret.know ("sx_g"    , "sxnum", vsxnum Snum.c_g)
+let _ = know ("sx_0"    , "sxnum", of_csnum Snum.c_0)
+let _ = know ("sx_1"    , "sxnum", of_csnum Snum.c_1)
+let _ = know ("sx_i"    , "sxnum", of_csnum Snum.c_i)
+let _ = know ("sx_h"    , "sxnum", of_csnum Snum.c_h)
+let _ = know ("sx_f"    , "sxnum", of_csnum Snum.c_f)
+let _ = know ("sx_g"    , "sxnum", of_csnum Snum.c_g)
 
 let v_makeC g =
   if gsize g<>z_2 then
@@ -92,147 +105,139 @@ let v_makeC g =
   else
     make_C g
 
-let _ = Interpret.know ("makeC", "gate -> gate", vfun (vgate <.> v_makeC <.> gatev))
+let _ = know ("makeC", "gate -> gate", of_fun (of_gate <.> v_makeC <.> to_gate))
 
 (* ******************** lists ********************* *)
 
 let v_hd vs =
-  let vs = listv vs in
+  let vs = to_list vs in
   try List.hd vs with _ -> raise (LibraryError "hd []")
 
 let v_tl vs =
-  let vs = listv vs in
-  try vlist (List.tl vs) with _ -> raise (LibraryError "tl []")
+  let vs = to_list vs in
+  try of_list (List.tl vs) with _ -> raise (LibraryError "tl []")
   
 let v_append xs ys =
-  let xs = listv xs in
-  let ys = listv ys in
-  vlist (List.append xs ys)
+  let xs = to_list xs in
+  let ys = to_list ys in
+  of_list (List.append xs ys)
   
 let v_fxs cf vf v2cf f xs =
-  let f = funv f in
-  let xs = listv xs in
+  let f = to_fun f in
+  let xs = to_list xs in
   vf (cf (v2cf <.> f) xs)
 ;;
 
-let v_iter = v_fxs List.iter vunit ignore
+let v_iter = v_fxs List.iter of_unit ignore
 
-let v_map = v_fxs List.map vlist id
+let v_map = v_fxs List.map of_list id
 
-let v_filter = v_fxs List.filter vlist boolv
+let v_filter = v_fxs List.filter of_list to_bool
 
-let v_exists = v_fxs List.exists vbool boolv
+let v_exists = v_fxs List.exists of_bool to_bool
 
-let v_forall = v_fxs List.for_all vbool boolv
+let v_forall = v_fxs List.for_all of_bool to_bool
 
 let v_foldl f a xs = 
   let f = funv2 f in
-  let xs = listv xs in
+  let xs = to_list xs in
   List.fold_left f a xs
   
 let v_foldr f a xs = 
   let f = funv2 f in
-  let xs = listv xs in
+  let xs = to_list xs in
   List.fold_right f xs a
 
 let v_take n xs =
   let i = mustbe_intv n in
-  let xs = listv xs in
-  vlist (Listutils.take i xs)
+  let xs = to_list xs in
+  of_list (Listutils.take i xs)
   
 let v_takewhile p xs =
-  let p = boolv <.> funv p in
-  let xs = listv xs in
-  vlist (Listutils.takewhile p xs)
+  let p = to_bool <.> to_fun p in
+  let xs = to_list xs in
+  of_list (Listutils.takewhile p xs)
   
 let v_drop n xs =
   let i = mustbe_intv n in
-  let xs = listv xs in
-  vlist (Listutils.drop i xs)
+  let xs = to_list xs in
+  of_list (Listutils.drop i xs)
 
 let rec v_dropwhile p xs =
-  let p = boolv <.> funv p in
-  let xs = listv xs in
-  vlist (Listutils.dropwhile p xs)
+  let p = to_bool <.> to_fun p in
+  let xs = to_list xs in
+  of_list (Listutils.dropwhile p xs)
 
 let v_randbits n =
   let i = mustbe_intv n in
   let rec randbits i =
     if i=0 then [] 
     else (let b = Random.bool () in
-          vbit b::randbits (i-1)
+          of_bit b::randbits (i-1)
          ) 
   in
-  vlist (randbits i)
+  of_list (randbits i)
 
-let v_zip xs ys = try vlist (List.map vpair (List.combine (listv xs) (listv ys))) 
-                  with Invalid_argument _ -> raise (LibraryError (Printf.sprintf "zip (%d %d) %s %s"
-                                                                                 (List.length (listv xs))
-                                                                                 (List.length (listv ys))
-                                                                                 (bracketed_string_of_list string_of_value (listv xs))
-                                                                                 (bracketed_string_of_list string_of_value (listv ys))
-                                                          )
-                                                   )
+let v_zip xs ys = of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys))) 
 
-let v_unzip xys = let xs, ys = List.split (List.map pairv (listv xys)) in
-                  vpair (vlist xs, vlist ys)
+let v_unzip xys = let xs, ys = List.split (List.map reveal_pair (to_list xys)) in
+                  hide_pair (of_list xs, of_list ys)
 
-let v_concat xss = vlist (List.concat (List.map listv (listv xss)))
+let v_concat xss = of_list (List.concat (List.map to_list (to_list xss)))
 
-let _ = Interpret.know ("length"   , "['a] -> num                        "  , vfun (vint <.> List.length <.> listv))
+let _ = know ("length"   , "['a] -> num                        "  , of_fun (hide_int <.> List.length <.> to_list))
 
-let _ = Interpret.know ("hd"       , "['a] -> 'a                         "  , vfun v_hd)
-let _ = Interpret.know ("tl"       , "['a] -> ['a]                    "     , vfun v_tl)
+let _ = know ("hd"       , "['a] -> 'a                         "  , of_fun v_hd)
+let _ = know ("tl"       , "['a] -> ['a]                    "     , of_fun v_tl)
 
-let _ = Interpret.know ("rev"      , "['a] -> ['a]                    "     , vfun (vlist <.> List.rev <.> listv))
-let _ = Interpret.know ("append"   , "['a] -> ['a] -> ['a]         "        , vfun2 v_append)
+let _ = know ("rev"      , "['a] -> ['a]                    "     , of_fun (of_list <.> List.rev <.> to_list))
+let _ = know ("append"   , "['a] -> ['a] -> ['a]         "        , vfun2 v_append)
 
-let _ = Interpret.know ("iter"     , "('a -> ()) -> ['a] -> ()       "      , vfun2 v_iter)
-let _ = Interpret.know ("map"      , "('a -> 'b) -> ['a] -> ['b]      "     , vfun2 v_map)
+let _ = know ("iter"     , "('a -> ()) -> ['a] -> ()       "      , vfun2 v_iter)
+let _ = know ("map"      , "('a -> 'b) -> ['a] -> ['b]      "     , vfun2 v_map)
 
-let _ = Interpret.know ("take"     , "num -> ['a] -> ['a]             "     , vfun2 v_take)
-let _ = Interpret.know ("drop"     , "num -> ['a] -> ['a]             "     , vfun2 v_drop)
+let _ = know ("take"     , "num -> ['a] -> ['a]             "     , vfun2 v_take)
+let _ = know ("drop"     , "num -> ['a] -> ['a]             "     , vfun2 v_drop)
 
-let _ = Interpret.know ("takewhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_takewhile)
-let _ = Interpret.know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_dropwhile)
+let _ = know ("takewhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_takewhile)
+let _ = know ("dropwhile", "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_dropwhile)
 
-let _ = Interpret.know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
-let _ = Interpret.know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , vfun v_unzip)
+let _ = know ("zip"      , "['a] -> ['b] -> [('a,'b)]    "        , vfun2 v_zip)
+let _ = know ("unzip"    , "[('a,'b)] -> (['a], ['b])     "       , of_fun v_unzip)
 
-let _ = Interpret.know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
-let _ = Interpret.know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> vlist (List.map vpair (mirazip (listv xs) (listv ys)))))
-let _ = Interpret.know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
-                            , vfun3 (fun xs ys zs -> vlist (List.map vtriple (mirazip3 (listv xs) (listv ys) (listv zs)))))
+let _ = know ("mzip"     , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = know ("mzip2"    , "['a] -> ['b] -> [('a,'b)]    ", vfun2 (fun xs ys -> of_list (List.map hide_pair (mirazip (to_list xs) (to_list ys)))))
+let _ = know ("mzip3"    , "['a] -> ['b] -> ['c] -> [('a,'b,'c)]    "
+                            , vfun3 (fun xs ys zs -> of_list (List.map hide_triple (mirazip3 (to_list xs) (to_list ys) (to_list zs)))))
 
-let _ = Interpret.know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
+let _ = know ("filter"   , "('a -> bool) -> ['a] -> ['a]    "     , vfun2 v_filter)
 
-let _ = Interpret.know ("exists"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_exists)
-let _ = Interpret.know ("forall"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_forall)
+let _ = know ("exists"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_exists)
+let _ = know ("forall"   , "('a -> bool) -> ['a] -> bool       "  , vfun2 v_forall)
 
-let _ = Interpret.know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> ['b] -> 'a" , vfun3 v_foldl)
-let _ = Interpret.know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> ['a] -> 'b" , vfun3 v_foldr)
+let _ = know ("foldl"    , "('a -> 'b -> 'a) -> 'a -> ['b] -> 'a" , vfun3 v_foldl)
+let _ = know ("foldr"    , "('a -> 'b -> 'b) -> 'b -> ['a] -> 'b" , vfun3 v_foldr)
 
-let _ = Interpret.know ("concat"   , "[['a]] -> ['a]                "       , vfun v_concat )
+let _ = know ("concat"   , "[['a]] -> ['a]                "       , of_fun v_concat )
 
 let v_tabulate n f =
   let i = mustbe_intv n in
-  let f = funv f in
-  let a = Array.init i (f <.> vint) in
-  vlist (Array.to_list a)
+  let f = to_fun f in
+  let a = Array.init i (f <.> hide_int) in
+  of_list (Array.to_list a)
 
 let v_const a b = a
   
-let _ = Interpret.know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
-let _ = Interpret.know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
+let _ = know ("tabulate", "num -> (num -> 'a) -> ['a]"            , vfun2 v_tabulate)
+let _ = know ("const"   , "'a -> '*b -> 'a"                       , vfun2 v_const)
 
-let v_compare a b = vint (Interpret.deepcompare (a,b))
-let _ = Interpret.know ("compare" , "'a -> 'a -> num", vfun2 v_compare)
+(* 'compare' is now done in compile_expr *)
 
-let v_sort compare vs = vlist (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (listv vs))
-let _ = Interpret.know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
+let v_sort compare vs = of_list (List.sort (fun a b -> mustbe_intv ((funv2 compare) a b)) (to_list vs))
+let _ = know ("sort"    , "(''a -> ''a -> num) -> [''a] -> [''a]" , vfun2 v_sort)
 
-let _ = Interpret.know ("fst"     , "('a,'b) -> 'a"                         , vfun (Stdlib.fst <.> pairv))
-let _ = Interpret.know ("snd"     , "('a,'b) -> 'b"                         , vfun (Stdlib.snd <.> pairv))
+let _ = know ("fst"     , "('a,'b) -> 'a"                         , of_fun (Stdlib.fst <.> reveal_pair))
+let _ = know ("snd"     , "('a,'b) -> 'b"                         , of_fun (Stdlib.snd <.> reveal_pair))
 
 let _zeroes = ref z_0
 let _ones = ref z_1
@@ -243,51 +248,51 @@ let vrandbit () =
     (if b then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
   b
   
-let _ = Interpret.know ("randbit",  "() -> bit"                             , vfun (vbit <.> vrandbit <.> unitv))
-let _ = Interpret.know ("randbits", "num -> [bit]"                          , vfun v_randbits)
+let _ = know ("randbit",  "() -> bit"                             , of_fun (of_bit <.> vrandbit <.> to_unit))
+let _ = know ("randbits", "num -> [bit]"                          , of_fun v_randbits)
 
 let v_max a b =
-  let a = numv a in
-  let b = numv b in
-  VNum (if a>/b then a else b)
+  let a = to_num a in
+  let b = to_num b in
+  of_num (if a>/b then a else b)
   
 let v_min a b =
-  let a = numv a in
-  let b = numv b in
-  VNum (if a</b then a else b)
+  let a = to_num a in
+  let b = to_num b in
+  of_num (if a</b then a else b)
 
-let _ = Interpret.know ("max", "num -> num -> num", vfun2 v_max)
-let _ = Interpret.know ("min", "num -> num -> num", vfun2 v_min)
+let _ = know ("max", "num -> num -> num", vfun2 v_max)
+let _ = know ("min", "num -> num -> num", vfun2 v_min)
 
 let v_bitand i j = 
-  let i = numv i in
-  let j = numv j in
+  let i = to_num i in
+  let j = to_num j in
   if not (is_int i) then raise (FractionalInt (string_of_num i));
   if not (is_int j) then raise (FractionalInt (string_of_num j));
-  VNum (num_of_zint (Z.(land) (zint_of_num i) (zint_of_num j)))
+  of_num (num_of_zint (Z.(land) (zint_of_num i) (zint_of_num j)))
 
-let _ = Interpret.know ("bitand", "num -> num -> num", vfun2 v_bitand)
+let _ = know ("bitand", "num -> num -> num", vfun2 v_bitand)
 
 (* these have to be here because of subtyping bit<=int, damn it, and perhaps for efficiency *)
 
 (* let v_bits2num bits = 
-     let zi = List.fold_left (fun sum b -> Z.(shift_left sum 1 + if bitv b then one else zero)) Z.zero (listv bits) in
-     vnum (num_of_zint zi)
+     let zi = List.fold_left (fun sum b -> Z.(shift_left sum 1 + if to_bool b then one else zero)) Z.zero (to_list bits) in
+     of_num (num_of_zint zi)
   
    let v_num2bits n = let rec num2bits bs zi = 
                         let q,b = Z.div_rem zi ztwo in
-                        let b = vbit Z.(equal b one) in
+                        let b = of_bit Z.(equal b one) in
                         if not Z.(equal q zero) then num2bits (b::bs) q else List.rev (b::bs)
                       in
-                      let n = numv n in
+                      let n = to_num n in
                       if not (is_int n) then raise (FractionalInt (string_of_num n));
                       if not (n>=/zero) then raise (IntOverflow (string_of_num n));
-                      vlist (num2bits [] (zint_of_num n))
+                      of_list (num2bits [] (zint_of_num n))
  *)
 
 (* little-endian: least-significant bit first *)
 let v_num2bits n =
-  let n = numv n in
+  let n = to_num n in
   if not (is_int n) then raise (FractionalInt (string_of_num n));
   if Q.sign n < 0 then raise (NegInt (string_of_num n));
   let s = Z.to_bits (Q.num n) in
@@ -295,51 +300,57 @@ let v_num2bits n =
   let ncs = String.length s - 1 in
   for i = 0 to ncs do cs := Char.code s.[i] :: !cs done; (* big-endian: first byte last in !cs *)
   let rec char2bits k bs byte =
-    let b = vbit ((byte land 1) = 1) in
+    let b = of_bit ((byte land 1) = 1) in
     let byte = byte lsr 1 in
     if byte=k then List.rev (b::bs) else char2bits k (b::bs) byte
   in
   let rec cs2bits bits = function
     | [byte]      -> List.concat (List.rev (char2bits 0 [] byte::bits))
     | byte::bytes -> cs2bits (char2bits 1 [] (byte+256)::bits) bytes
-    | []          -> [vbit false]
+    | []          -> [of_bit false]
   in
-  vlist (cs2bits [] (List.rev (dropwhile (fun byte -> byte=0) !cs)))
+  of_list (cs2bits [] (List.rev (dropwhile (fun byte -> byte=0) !cs)))
 
 (* also little-endian, to match v_num2bits *)
 let v_bits2num bs =
   let rec bytevalue bs = (* little-endian *)
     let rec bv byte = function (* big-endian *)
       | []    -> byte
-      | b::bs -> bv ((byte lsl 1)+(if bitv b then 1 else 0)) bs
+      | b::bs -> bv ((byte lsl 1)+(if to_bool b then 1 else 0)) bs
     in bv 0 (List.rev bs)
   in
   let rec listvalue bytes = function (* little-endian *)
     | [] -> List.rev bytes 
     | bs -> listvalue (bytevalue (take 8 bs)::bytes) (drop 8 bs) 
   in
-  let a = Array.of_list (listvalue [] (listv bs)) in
+  let a = Array.of_list (listvalue [] (to_list bs)) in
   let s = String.init (Array.length a) (fun i -> Char.chr a.(i)) in
   let zn = Z.of_bits s in
-  vnum (num_of_zint zn)
+  of_num (num_of_zint zn)
 
-let _ = Interpret.know ("bits2num", "[bit] -> num", vfun v_bits2num)
-let _ = Interpret.know ("num2bits", "num -> [bit]", vfun v_num2bits)
+let _ = know ("bits2num", "[bit] -> num", of_fun v_bits2num)
+let _ = know ("num2bits", "num -> [bit]", of_fun v_num2bits)
 
 let v_nth vs n = 
   let i = mustbe_intv n in
-  try List.nth (listv vs) i
-  with Failure _ -> raise (LibraryError (Printf.sprintf "nth %s %s" (string_of_value vs) (string_of_int i)))
-let _ = Interpret.know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
+  try List.nth (to_list vs) i
+  with Failure _ -> 
+    raise (LibraryError (Printf.sprintf "nth %s, list length %s" 
+                            (string_of_int i)
+                            (string_of_int (List.length (to_list vs)))
+                        )
+          )
+
+let _ = know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
 
 (* ********************* numbers ************************ *)
 
-let _ = Interpret.know ("floor"  , "num -> num", vfun (vnum <.> Number.floor <.> numv))
-let _ = Interpret.know ("ceiling", "num -> num", vfun (vnum <.> Number.ceiling <.> numv))
-let _ = Interpret.know ("round"  , "num -> num", vfun (vnum <.> Number.round <.> numv))
+let _ = know ("floor"  , "num -> num", of_fun (of_num <.> Number.floor <.> to_num))
+let _ = know ("ceiling", "num -> num", of_fun (of_num <.> Number.ceiling <.> to_num))
+let _ = know ("round"  , "num -> num", of_fun (of_num <.> Number.round <.> to_num))
 
-let _ = Interpret.know ("sqrt"   , "num -> num", vfun (vnum <.> Q.of_float <.> sqrt <.> Q.to_float <.> numv))
-let _ = Interpret.know ("pi"     , "num"       , vnum (Q.of_float (Float.pi))) 
+let _ = know ("sqrt"   , "num -> num", of_fun (of_num <.> Q.of_float <.> sqrt <.> Q.to_float <.> to_num))
+let _ = know ("pi"     , "num"       , of_num (Q.of_float (Float.pi))) 
 
 (* ********************* gates, matrices ************************ *)
  
@@ -347,30 +358,30 @@ let v_tabulate_m m n f =
   let m = mustbe_intv m in
   let n = mustbe_intv n in
   let f = funv2 f in
-  let ff i j = sxnumv (f ((vnum <.> num_of_int) i) ((vnum <.> num_of_int) j)) in
-  vmatrix(maybe_sparse_m (init_dm m n ff))
+  let ff i j = to_csnum (f ((of_num <.> num_of_int) i) ((of_num <.> num_of_int) j)) in
+  of_matrix (maybe_sparse_m (init_dm m n ff))
  
 let v_tabulate_diag_m n f =
   let n = mustbe_intv n in
-  let f = funv f in
-  vmatrix (init_diag_m (Z.of_int n) (sxnumv <.> f <.> vnum <.> num_of_zint))
+  let f = to_fun f in
+  of_matrix (init_diag_m (Z.of_int n) (to_csnum <.> f <.> of_num <.> num_of_zint))
  
-let _ = Interpret.know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
-let _ = Interpret.know ("tabulate_diag_m"  , "num -> (num -> sxnum) -> matrix", vfun2 v_tabulate_diag_m)
+let _ = know ("tabulate_m"  , "num -> num -> (num -> num -> sxnum) -> matrix", vfun3 v_tabulate_m)
+let _ = know ("tabulate_diag_m"  , "num -> (num -> sxnum) -> matrix", vfun2 v_tabulate_diag_m)
 
-let _ = Interpret.know ("degate"  , "gate -> matrix", vfun (vmatrix <.> matrix_of_gate <.> gatev))
-let _ = Interpret.know ("engate"  , "matrix -> gate", vfun (vgate <.> Vmg.engate <.> matrixv))
+let _ = know ("degate"  , "gate -> matrix", of_fun (of_matrix <.> matrix_of_gate <.> to_gate))
+let _ = know ("engate"  , "matrix -> gate", of_fun (of_gate <.> Vmg.engate <.> to_matrix))
 
 let _statistics_m mM =
-  let assoc = Vmg.statistics_m (matrixv mM) in
-  vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_zint i))) assoc)
+  let assoc = Vmg.statistics_m (to_matrix mM) in
+  of_list (List.map (fun (v,i) -> hide_pair (of_csnum v, of_num (num_of_zint i))) assoc)
 
 let _statistics_snv nv =
   let assoc = Vmg.statistics_nv nv in
-  vlist (List.map (fun (v,i) -> vpair (vsxnum v, vnum (num_of_zint i))) assoc)
+  of_list (List.map (fun (v,i) -> hide_pair (of_csnum v, of_num (num_of_zint i))) assoc)
 
-let _ = Interpret.know ("statistics_m", "matrix -> [(sxnum,num)]", vfun _statistics_m)
-let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", vfun (_statistics_snv <.> ketv))
+let _ = know ("statistics_m", "matrix -> [(sxnum,num)]", of_fun _statistics_m)
+let _ = know ("statistics_k", "ket -> [(sxnum,num)]", of_fun (_statistics_snv <.> to_ket))
 
 (* ********************* I/O ************************ *)
 
@@ -378,9 +389,9 @@ let _ = Interpret.know ("statistics_k", "ket -> [(sxnum,num)]", vfun (_statistic
    input mechanism: if the line they read starts with the prompt then they strip it off. Sorry.
  *)
 
-let rec get_string s = 
+let rec get_string : vt -> string = fun s ->
   flush stdout; 
-  let prompt = stringv s ^"? " in
+  let prompt = reveal_string s ^"? " in
   prerr_string prompt; flush stderr; 
   let input = Stdlib.read_line () in
   let plength = String.length prompt in
@@ -389,101 +400,95 @@ let rec get_string s =
   then String.sub input plength (ilength - plength)
   else input
   
-let rec read_num s = try VNum (num_of_string (get_string s)) with Failure _ 
-                                                                | Invalid_argument _ -> print_endline "pardon?"; read_num s
-let _ = Interpret.know ("read_num", "string -> num"                     , vfun read_num)
+let rec read_num : vt -> vt = fun s ->
+  try let s = get_string s in
+              of_num (num_of_string s) 
+  with Failure _ 
+     | Invalid_argument _ -> print_endline "pardon?"; read_num s
 
-let rec read_string s = vstring (get_string s) 
-let _ = Interpret.know ("read_string", "string -> string"               , vfun read_string)
+let _ = know ("read_num", "string -> num"                     , of_fun read_num)
+
+let rec read_string s = hide_string (get_string s) 
+let _ = know ("read_string", "string -> string"               , of_fun read_string)
 
 let rec read_alternative prompt sep alts =
-  let assoc = List.map pairv (listv alts) in
+  let assoc = List.map reveal_pair (to_list alts) in
   let promptstring = Printf.sprintf "%s (%s)" 
-                                    (stringv prompt) 
-                                    (String.concat (stringv sep) (List.map (stringv <.> fst) assoc)) 
+                                    (reveal_string prompt) 
+                                    (String.concat (reveal_string sep) (List.map (reveal_string <.> fst) assoc)) 
   in
-  let s = read_string (vstring promptstring) in
+  let s = read_string (hide_string promptstring) in
   try List.assoc s assoc
   with Not_found -> print_endline "pardon?"; read_alternative prompt sep alts
 
-let _ = Interpret.know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
+let _ = know ("read_alternative", "string -> string -> [(string,'a)] -> 'a", vfun3 read_alternative)
   
-let read_bool prompt y n = read_alternative prompt (vstring "/") (vlist [vpair (y,vbool true); vpair (n,vbool false)])
-let _ = Interpret.know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
+let read_bool prompt y n = read_alternative prompt (hide_string "/") (of_list [hide_pair (y,of_bool true); hide_pair (n,of_bool false)])
+let _ = know ("read_bool", "string -> string -> string -> bool", vfun3 read_bool)
 
 exception Abandon of string
 
-let abandon ss = raise (Abandon (String.concat "" (List.map stringv (listv ss))))
-let _ = Interpret.know ("abandon", "[string] -> '*a", vfun abandon) (* note classical result type ... *)
+let abandon ss = raise (Abandon (String.concat "" (List.map reveal_string (to_list ss))))
+let _ = know ("abandon", "[string] -> '*a", of_fun abandon) (* note classical result type ... *)
 
 
-let print_string s = vunit (Stdlib.print_string (stringv s); flush stdout)
-let print_qbit q   = print_string (vstring (Qsim.string_of_qval (Qsim.qval (qbitv q))))  
+let print_string s = of_unit (Stdlib.print_string (reveal_string s); flush stdout)
+let print_qbit q   = print_string (hide_string (Qsim.string_of_qval (Qsim.qval (to_qbit q))))  
                                         
-let _ = Interpret.know ("print_string" , "string -> ()"       , vfun (print_string))
-let _ = Interpret.know ("print_strings", "[string] -> ()"     , vfun (v_iter (vfun print_string)))
-let _ = Interpret.know ("print_qbit"   , "qbit -> ()"         , vfun print_qbit)    (* yup, that's a qbit argument *)
+let _ = know ("print_string" , "string -> ()"       , of_fun (print_string))
+let _ = know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
+let _ = know ("print_qbit"   , "qbit -> ()"         , of_fun print_qbit)    (* yup, that's a qbit argument *)
 
-let _show v = 
-  let optf = function VQbits   _  -> Some "<qbit>"
-             |        VQstate _  -> Some "<qstate>"
-             |        VFun    _  -> Some "<function>"
-             |        VChan    _ -> Some "<channel>"
-             |        VProcess _ -> Some "<process>"
-             |        _          -> None
-  in
-  so_value optf v
-  
-let _ = Interpret.know ("show", "'*a -> string", vfun (vstring <.> _show))   (* yup, it's a non-classical argument *)
+(* 'show' is now done in compile_expr *)  
 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in
-  let n = numv n in
+  let n = to_num n in
   let r = (pow num_10 (-k)) */ half in
   let n = if Q.sign n < 0 then n-/r else n+/r in
   let n = Q.to_float n in
-  vstring (Printf.sprintf "%.*f" k n)
+  hide_string (Printf.sprintf "%.*f" k n)
 
-let _ = Interpret.know ("showf", "num -> num -> string", vfun2 _showf)   
+let _ = know ("showf", "num -> num -> string", vfun2 _showf)   
   
 (* ********************* memoising, with an s ************************ *)
 
-module OneMap = MyMap.Make (struct type t        = value
-                                   let compare   = Stdlib.compare (* ok not to be deepcompare *)
-                                   let to_string = string_of_value
+module OneMap = MyMap.Make (struct type t        = vt
+                                   let compare   = Stdlib.compare (* can't be anything else *)
+                                   let to_string = reveal_string
                             end
                            )
 
-let _memofun f = OneMap.memofun id (funv f)
-let _memorec f = OneMap.memorec id (funv2 f <.> vfun)
+let _memofun f = OneMap.memofun id (to_fun f)
+let _memorec f = OneMap.memorec id (funv2 f <.> of_fun)
 
-let _ = Interpret.know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
-let _ = Interpret.know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"           , vfun2 _memorec)
+let _ = know ("memofun", "('a -> 'b) -> 'a -> 'b", vfun2 _memofun)
+let _ = know ("memorec", "(('a -> 'b) -> 'a -> 'b) -> 'a -> 'b"           , vfun2 _memorec)
   
-module TwoMap = MyMap.Make (struct type t        = value*value
+module TwoMap = MyMap.Make (struct type t        = vt*vt
                                    let compare   = Stdlib.compare (* ok not to be deepcompare *)
-                                   let to_string = string_of_pair string_of_value string_of_value " " 
+                                   let to_string = bracketed_string_of_pair reveal_string reveal_string
                             end
                            )
 
 let _memofun2 f = curry2 (TwoMap.memofun id (uncurry2 (funv2 f)))
 
-let _ = Interpret.know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"            , vfun3 _memofun2)
+let _ = know ("memofun2", "('a -> 'b -> 'c) -> 'a -> 'b -> 'c"            , vfun3 _memofun2)
   
-module ThreeMap = MyMap.Make (struct type t        = value*value*value
+module ThreeMap = MyMap.Make (struct type t        = vt*vt*vt
                                      let compare   = Stdlib.compare (* ok not to be deepcompare *)
-                                     let to_string = string_of_triple string_of_value string_of_value string_of_value " " 
+                                     let to_string = bracketed_string_of_triple reveal_string reveal_string reveal_string
                               end
                              )
 
 let _memofun3 f = curry3 (ThreeMap.memofun id (uncurry3 (funv3 f)))
   
-let _ = Interpret.know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
+let _ = know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
 
 (* ********************* special qbit functions ************************ *)
 
 let _qval q =
-  let q = qbitv q in
+  let q = to_qbit q in
   let qs,v = Qsim.qval q in
   let qs',v' = Qsim.make_first qs v (Qsim.idx q qs) in
   let printit q qv = Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort qv)) in
@@ -493,9 +498,9 @@ let _qval q =
   
 
 let _qvals qs =
-  let qs = qbitsv qs in
+  let qs = to_qbits qs in
   let qv = Qsim.qval_of_qs qs in
   Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qbit qs) (Qsim.string_of_qval qv) (* oh the qsort ... *)
   
-let _ = Interpret.know ("qval" , "qbit  -> qstate", vfun (vqstate <.> _qval))       (* yup, that's a qbit argument *)
-let _ = Interpret.know ("qvals", "qbits -> qstate", vfun (vqstate <.> _qvals))      (* yup, that's a qbits argument *)
+let _ = know ("qval" , "qbit  -> qstate", of_fun (hide_string <.> _qval))       (* yup, that's a qbit argument *)
+let _ = know ("qvals", "qbits -> qstate", of_fun (hide_string <.> _qvals))      (* yup, that's a qbits argument *)

@@ -67,25 +67,29 @@ and pdecl = bool * typedname * param list * process   (* bool for recursion:
 
 let name_of_splitspec = name_of_param <.> fst
 
-let procadorn pos process =
-  adorn (match process with 
-         | Terminate
-         | GoOnAs     _
-         | Par        _
-         | GSum       _
-         | PMatch     _
-         | Cond       _         -> pos
-         | WithNew    (_, p) 
-         | WithQbit   (_, _, p) 
-         | WithLet    (_, p) 
-         | WithProc   (_, p)
-         | WithQstep  (_, p)
-         | TestPoint  (_, p)    
-         | JoinQs     (_, _, p) 
-         | SplitQs    (_, _, p)
-         | Iter    (_, _, _, p) -> spdiff pos p.pos
-        )
-        process
+let headpos pos pinst = match pinst with 
+                        | Terminate
+                        | GoOnAs     _
+                        | Par        _
+                        | PMatch     _
+                        | Cond       _         -> pos
+                        | GSum       [(_,p)]   -> spdiff pos p.pos
+                        | GSum       _         -> pos
+                        | WithNew    (_, p) 
+                        | WithQbit   (_, _, p) 
+                        | WithLet    (_, p) 
+                        | WithProc   (_, p)
+                        | WithQstep  (_, p)
+                        | TestPoint  (_, p)    
+                        | JoinQs     (_, _, p) 
+                        | SplitQs    (_, _, p)
+                        | Iter    (_, _, _, p) -> spdiff pos p.pos
+
+let procadorn pos pinst = adorn (headpos pos pinst) pinst 
+
+let steppos process = headpos process.pos process.inst
+
+let pos_of_pdecl (_,pn,ps,proc) = Sourcepos.sp_of_sps [pn.pos; pos_of_params ps; proc.pos]
 
 let rec string_of_process proc = 
   match proc.inst with
@@ -95,7 +99,7 @@ let rec string_of_process proc =
                                             (string_of_list string_of_expr "," es)
   | WithNew ((traced,params),p) 
                           -> Printf.sprintf "(%s %s)%s"
-                                            (if traced then "newuntraced" else "new")
+                                            (if traced then "new" else "newuntraced")
                                             (commasep (List.map string_of_param params))
                                             (trailing_sop p)
   | WithQbit (plural,qs,p) -> Printf.sprintf "(%s %s)%s"
@@ -129,7 +133,7 @@ let rec string_of_process proc =
                                             (string_of_process proc)
                                             (trailing_sop p)
   | GSum [g]              -> string_of_pair string_of_iostep string_of_process "." g
-  | GSum gs               -> "+ " ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
+  | GSum gs               -> "<+> " ^ String.concat " <+> " (List.map (string_of_pair string_of_iostep string_of_process ".") gs)
   | Par  [p]              -> string_of_process p
   | Par  ps               -> "| " ^ String.concat " | " (List.map string_of_process ps)
   | Cond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
@@ -283,10 +287,12 @@ let optmap optf proc =
     
 let map optf = optmap optf ||~ id
 
+let paramset params = NameSet.of_list (names_of_params params)
+
 let rec frees proc =
-  let paramset params = NameSet.of_list (names_of_params params) in
   let nsu = NameSet.union in
   let nsd = NameSet.diff in
+  let nsr = NameSet.remove in
   let nsus = List.fold_left nsu NameSet.empty in
   let free_es = nsus <.> List.map Expr.frees in
   match proc.inst with
@@ -302,11 +308,11 @@ let rec frees proc =
                                nsus [List.fold_left ff_opte NameSet.empty optes; nsd (frees p) qset]
   | WithLet ((pat, e), p) -> nsu (Expr.frees e) (nsd (frees p) (Pattern.frees pat))
   | WithProc (pd, p)      -> let (brec, pn, params, proc) = pd in
-                             let pdfrees = nsd (frees proc) (paramset params) in
+                             let pdfrees = pdecl_frees pd in
                              if brec then
-                               NameSet.remove (tinst pn) (NameSet.union pdfrees (frees p))
+                               nsr (tinst pn) (nsu pdfrees (frees p))
                              else
-                               nsd pdfrees (NameSet.remove (tinst pn) (frees p))
+                               nsu pdfrees (nsr (tinst pn) (frees p))
   | WithQstep (qstep,p)   -> (match qstep.inst with
                               | Measure (_,qe,optbe,pat) -> let qset = Expr.frees qe in
                                                             let bset = match optbe with
@@ -335,6 +341,10 @@ let rec frees proc =
                              nsus (List.map frees_iop iops)
   | Par ps                -> nsus (List.map frees ps)
 
+and pdecl_frees (brec,pn,params,proc) =
+  NameSet.diff (frees proc) (paramset params)
+  
+  
 (* fold (left) over a process. optp x p delivers Some x' when it knows, None when it doesn't. *)
 
 let optfold (optp: 'a -> process -> 'a option) x =

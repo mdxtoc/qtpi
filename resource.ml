@@ -99,13 +99,6 @@ let rec is_resource_type t =
                      
   | Process _       -> false
 
-let type_of_pattern p =
-  match !(toptr p) with
-  | Some t -> t
-  | None   -> raise (Disaster (p.pos, Printf.sprintf "(Resource.type_of_pattern) typecheck didn't mark pattern %s"
-                                                        (string_of_pattern p)
-                              )
-                    )
   
 (* *************** phase 1: resource check (rck_...) *************************** *)
 
@@ -404,6 +397,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       match tinst e with
       | EUnit 
       | ENil
+      | ERes        _
       | ENum        _              
       | EBool       _
       | EChar       _
@@ -738,6 +732,7 @@ let frees = Expr.frees_fun ne_filter
 let rec ffv_expr expr =
   match tinst expr with
   | EUnit
+  | ERes       _
   | EVar       _
   | ENum       _
   | EBool      _
@@ -859,7 +854,7 @@ let resourcecheck defs =
       List.map (fun (n,t,_) -> let _, r = resource_of_type (dummy_spos, "library_"^n) State.empty (Parseutils.parse_typestring t) in
                                n, r
                ) 
-               !Interpret.knowns 
+               !Library.knowns 
     in
     let env = NameMap.of_assoc knownassoc in
     let do_def env def =

@@ -64,13 +64,17 @@ let (<+>) ctenv name =
 let (<?>) (n, names as ctenv) (pos,name) = 
   let tail = dropwhile ((<>)name) names in
   match tail with
-  | [] -> raise (CompileError (pos, Printf.sprintf ("%s not in ctenv %s") (string_of_name name) (string_of_ctenv ctenv)))
+  | [] -> raise (CompileError (pos, Printf.sprintf "%s not in ctenv %s" (string_of_name name) (string_of_ctenv ctenv)))
   | _  -> List.length tail - 1
 
 let (<+?>) ctenv name =
   let ctenv = ctenv<+> name in
   ctenv, ctenv<?>(dummy_spos,name)
-  
+
+(* reverse lookup *)
+let (<-?>) (_,names as ctenv) (pos,i) =
+  try List.nth (List.rev names) i
+  with _ -> raise (CompileError (pos, Printf.sprintf "%s<-?>%d" (string_of_ctenv ctenv) i))
 let tidemark (n,names) (n',_) = max n n', names
 
 let add_ctnames = List.fold_left (<+>)
@@ -99,7 +103,13 @@ let rtenv_init pos n frees ctenv =
   let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
   fun rtenv -> 
     let rtenv' = Array.make n (of_unit ()) in
-    List.iter (fun (i',i) -> rtenv'.(i') <- rtenv.(i)) pairs;
+    List.iter (fun (i',i) -> if !verbose || !verbose_interpret then
+                               (Printf.printf "%s: rtenv_init initialises %d(%s) with %d(%s)\n" (string_of_sourcepos pos)
+                                                                                                i' (ctenvl<-?>(pos,i'))
+                                                                                                i (ctenv<-?>(pos,i));
+                                flush_all ()
+                               );
+                             rtenv'.(i') <- rtenv.(i)) pairs;
     rtenv'
 
 (* ************************ compiling matches into functions ************************ *)
@@ -129,7 +139,12 @@ let rec compile_match : sourcepos -> ('a -> string) ->
      | PatNil            -> ctenv, fun yes no rtenv v -> if to_list v=[] then yes rtenv else no ()
      | PatName   n       -> let ctenv = ctenv<+>n in
                             let i = ctenv<?>(pat.pos, n) in
-                            ctenv, fun yes no rtenv v -> rtenv.(i)<-v; yes rtenv
+                            ctenv, fun yes no rtenv v -> if !verbose || !verbose_interpret then 
+                                                           (Printf.printf "%s: match pattern initialises %d(%s)\n" (string_of_sourcepos pat.pos)
+                                                                                                                   i (string_of_name n);
+                                                            flush_all ()
+                                                           );
+                                                         rtenv.(i)<-v; yes rtenv
      | PatInt    i       -> ctenv, fun yes no rtenv v -> let n = to_num v in if is_int n && num_of_int i =/ n then yes rtenv else no ()
      | PatBit    b       -> ctenv, fun yes no rtenv v -> let b' = to_bit v in if b=b' then yes rtenv else no ()
      | PatBool   b       -> ctenv, fun yes no rtenv v -> let b' = to_bool v in if b=b' then yes rtenv else no ()
@@ -185,7 +200,12 @@ let rec compile_bmatch :  ctenv -> pattern -> ctenv * ((rtenv -> 'b) -> (rtenv -
       | PatUnit           -> ctenv, fun yes rtenv _ -> yes rtenv 
       | PatName   n       -> let ctenv = ctenv<+>n in
                              let i = ctenv<?>(pat.pos,n) in
-                             ctenv, fun yes rtenv v -> rtenv.(i)<-v; yes rtenv
+                             ctenv, fun yes rtenv v -> if !verbose || !verbose_interpret then 
+                                                           (Printf.printf "%s: bmatch pattern initialises %d(%s)\n" (string_of_sourcepos pat.pos)
+                                                                                                                    i (string_of_name n);
+                                                            flush_all ()
+                                                           );
+                                                         rtenv.(i)<-v; yes rtenv
       | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
                              let rec dotuple : ctenv -> pattern list -> ctenv * ((rtenv -> 'b ) -> rtenv -> vt -> 'b) = 
                                fun ctenv -> 
@@ -496,7 +516,13 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                                  let ff = compile_fun we.pos ctenvw pats we in
                                  let ctenve, ef = compile_expr ctenvw be in
                                  let i = ctenvw<?>(ed.pos,tinst fn) in
-                                 tidemark ctenv ctenve, fun rtenv -> rtenv.(i)<-of_fun (ff rtenv); ef rtenv
+                                 tidemark ctenv ctenve, 
+                                   fun rtenv -> if !verbose || !verbose_interpret then 
+                                                  (Printf.printf "%s: EDFun initialises %d(%s)\n" (string_of_sourcepos ed.pos)
+                                                                                                  i (string_of_name (tinst fn));
+                                                   flush_all ()
+                                                  );
+                                                rtenv.(i)<-of_fun (ff rtenv); ef rtenv
                             )
 
 and compile_exprs ctenv es = compile_multi (tidemark_f compile_expr) ctenv es (* tidemarking belt and braces *)

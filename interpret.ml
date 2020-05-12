@@ -263,7 +263,13 @@ let rec interp rtenv procstart =
                             ); *)
                step ()
            | CWithNew ((traced, is), contn) ->
-               List.iter (fun i -> rtenv.(i) <- newchan traced) is;
+               List.iter (fun i -> if !verbose || !verbose_interpret then 
+                                     (Printf.printf "%s: CWithNew initialises channel at %d\n" (string_of_sourcepos (csteppos rproc))
+                                                                                               i;
+                                      flush_all ()
+                                     );
+                                   rtenv.(i) <- newchan traced
+                          ) is;
                (* if !pstep then 
                  show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps))); *)
                microstep rtenv contn
@@ -271,6 +277,11 @@ let rec interp rtenv procstart =
                let ket_eval fopt = fopt &~~ fun kf -> Some (to_ket (kf rtenv)) in
                List.iter (fun (i,fopt) -> let kopt = ket_eval fopt in
                                           let qs = newqbits pn kopt in
+                                          if !verbose || !verbose_interpret then 
+                                            (Printf.printf "%s: CWithQbit initialises qbit(s) at %d\n" (string_of_sourcepos (csteppos rproc))
+                                                                                                      i;
+                                             flush_all ()
+                                            );
                                           rtenv.(i) <- if plural then of_qbits qs else of_qbit (List.hd qs)
                          ) 
                          qss; 
@@ -284,6 +295,11 @@ let rec interp rtenv procstart =
                  show_pstep (Printf.sprintf "(let %s)" (string_of_cletspec (pat,e))); *)
                microstep rtenv contn
            | CWithProc (i,(n,procf), contn) ->
+               if !verbose || !verbose_interpret then 
+                 (Printf.printf "%s: CWithProc initialises process at %d\n" (string_of_sourcepos (csteppos rproc))
+                                                                            i;
+                  flush_all ()
+                 );
                rtenv.(i) <- of_procv (n,procf rtenv); 
                microstep rtenv contn
            | CWithQstep (qstep, contn) ->
@@ -326,6 +342,11 @@ let rec interp rtenv procstart =
            | CJoinQs (qns, qp, contn) ->
                let do_qn qn = to_qbits (rtenv.(qn)) in
                let qs = List.concat (List.map do_qn qns) in
+               if !verbose || !verbose_interpret then 
+                 (Printf.printf "%s: CJoinQs initialises qbits at %d\n" (string_of_sourcepos (csteppos rproc))
+                                                                            qp;
+                  flush_all ()
+                 );
                rtenv.(qp) <- of_qbits qs;
                (* if !pstep then
                  show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) 
@@ -363,6 +384,11 @@ let rec interp rtenv procstart =
                  if k>List.length qvs then 
                    raise (Disaster (rproc.pos, "taken too many in carve"));
                  let qvs1, qvs = take k qvs, drop k qvs in
+                 if !verbose || !verbose_interpret then 
+                   (Printf.printf "%s: CSplitQs.spare initialises qbits at %d\n" (string_of_sourcepos (csteppos rproc))
+                                                                              qp;
+                    flush_all ()
+                   );
                  rtenv.(qp) <- of_qbits qvs1;
                  qvs
                in
@@ -618,10 +644,22 @@ let interpret defs =
   (* now make an rtenv out of it ... *)
   let rtenv = Array.make (fst ctenv) (of_unit ()) in
   List.iter (function 
-             | CDproc (i,(name,envf)) -> rtenv.(i) <- of_procv (name, envf rtenv)
-             | CDfun  (i,envf)        -> rtenv.(i) <- of_fun (envf rtenv)
+             | CDproc (i,(name,envf)) -> if !verbose || !verbose_interpret then 
+                                           (Printf.printf "CDproc initialises process at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
+                                            flush_all ()
+                                           );
+                                         rtenv.(i) <- of_procv (name, envf rtenv)
+             | CDfun  (i,envf)        -> if !verbose || !verbose_interpret then 
+                                           (Printf.printf "CDfun initialises function at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
+                                            flush_all ()
+                                           );
+                                         rtenv.(i) <- of_fun (envf rtenv)
              | CDlet  (cexpr,patf)    -> let v = cexpr rtenv in ignore (patf rtenv v)
-             | CDlib  (i,v)           -> rtenv.(i) <- v
+             | CDlib  (i,v)           -> if !verbose || !verbose_interpret then 
+                                           (Printf.printf "CDlib initialises something at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
+                                            flush_all ()
+                                           );
+                                         rtenv.(i) <- v
             )
             (List.rev ds);
   (* typecheck has ensured that System exists and has a null parameter list *)

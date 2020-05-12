@@ -148,7 +148,7 @@ let stepcount = ref 0
 
 let evale rtenv e = e rtenv
 
-let rec interp rtenv proc =
+let rec interp rtenv procstart =
   Qsim.init ();
   let chancount = ref 0 in
   let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
@@ -244,7 +244,7 @@ let rec interp rtenv proc =
          let rec microstep rtenv rproc =
            stepcount := !stepcount+1;
            if !verbose || !verbose_interpret then
-             (Printf.printf "microstep %s\n" (short_string_of_cprocess rproc); flush_all ());
+             (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) pn (short_string_of_cprocess rproc); flush_all ());
            match rproc.inst with
            | CTerminate           -> deleteproc pn; (* if !pstep then show_pstep "_0"; *) step ()
            | CGoOnAs (i, es) -> 
@@ -453,23 +453,23 @@ let rec interp rtenv proc =
                      match iostep.inst with
                      | CRead (ce,tpat,pat) -> let c = to_chan (evale rtenv ce) in
                                         (match canread iostep.pos c tpat pat with
-                                         | Some rtenv' -> addrunner (pn, proc, rtenv')(* ;
+                                         | Some rtenv' -> addrunner (pn, contn, rtenv')(* ;
                                                         if !pstep then 
                                                           show_pstep (Printf.sprintf "%s%s\n" (string_of_ciostep iostep) 
                                                                                               (pstep_env env env')
                                                                      ) *)
-                                         | None      -> try_iosteps ((c, Grw (pn, pat, proc, rtenv))::gsum) pq
+                                         | None      -> try_iosteps ((c, Grw (pn, pat, contn, rtenv))::gsum) pq
                                         )
                      | CWrite (ce,te,e)  -> let c = to_chan (evale rtenv ce) in
                                         let v = evale rtenv e in
                                         if canwrite iostep.pos c te v then 
-                                          (addrunner (pn, proc, rtenv)(* ;
+                                          (addrunner (pn, contn, rtenv)(* ;
                                            if !pstep then 
                                              show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_ciostep iostep) 
                                                                                          (string_of_value te v)
                                                         ) *)
                                           )
-                                        else try_iosteps ((c, Gww (pn, v, proc, rtenv))::gsum) pq
+                                        else try_iosteps ((c, Gww (pn, v, contn, rtenv))::gsum) pq
                  with Ipq.Empty ->
                  let cs = List.map fst gsum in
                  let gsir = ref (true, cs) in
@@ -520,7 +520,7 @@ let rec interp rtenv proc =
          microstep rtenv rproc
        ) (* end of else *)
   in
-  addrunner ("System", proc, rtenv);
+  addrunner ("System", procstart, rtenv);
   step ()
 
 (* ************************************* compiling definitions ************************************* *)

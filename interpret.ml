@@ -205,9 +205,10 @@ let rec interp rtenv procstart =
                           (string_of_stuck_chans ())
                           (String.concat "\n " (strings_of_qsystem ()))
          else 
-         if !pstep then
-           Printf.printf "all done\n%s\n" (string_of_stepcount ())
-         else 
+         (* if !pstep then
+              Printf.printf "all done\n%s\n" (string_of_stepcount ())
+            else 
+          *)
            Printf.printf "\n%s\n" (string_of_stepcount ());
          if !traceevents then
            (Printf.printf "\nEvent Trace:\n\n";

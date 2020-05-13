@@ -58,7 +58,7 @@ let measuredestroys = ref true
 
 let memoise = ref true
 
-let pstep = ref false
+(* let pstep = ref false *)
 
 let resourcecheck = ref true
 

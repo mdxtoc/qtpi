@@ -60,8 +60,8 @@ let opts = Arg.align
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
-              ("-pstep"     , Arg.Set pstep, 
-					" step through protocol execution");
+              (* ("-pstep"     , Arg.Set pstep, 
+					" step through protocol execution"); *)
               ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
               ("-stepcount"  , Arg.Set showstepcount, 

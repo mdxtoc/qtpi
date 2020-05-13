@@ -146,3 +146,11 @@ let unescaped uc =
 let escaped uc = 
   try Char.escaped (Uchar.to_char uc) with _ -> string_of_uchar uc
 
+let print_uchar uc =
+  let ui = Uchar.to_int uc in
+  if 0<=ui && ui<=0x007f then
+    print_char (Char.unsafe_chr ui)
+  else
+    print_string (string_of_uchar uc)
+    
+let print_uchars = List.iter print_uchar

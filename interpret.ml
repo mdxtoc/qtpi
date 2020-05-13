@@ -169,16 +169,33 @@ let rec interp rtenv procstart =
     let chan = mkchan c b in
     of_chan chan 
   in
-  let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
   let runners = Ipq.create (10) in (* 10 is a guess *)
-  let rec addrunner (pn,proc,rtenv as runner) = 
+  (* the newprocname mechanism is very poor. Its enough, in the presence of bugs it has 
+     to be said, to stop the clock.
+   *)
+  let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
+  let findnewprocname name = 
+    let rec adn i =
+      let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
+      try let _ = Hashtbl.find procnames n in adn (i+1)
+      with Not_found -> n
+    in 
+    adn 0
+  in
+  let deleteprocname n = Hashtbl.remove procnames n in
+  let rec addrunner novel (pn,proc,rtenv as runner) = 
+    if !verbose || !verbose_interpret then
+      (Printf.printf "addrunner %B (%s,%s,_)\n" novel pn (short_string_of_cprocess proc); 
+       flush_all ()
+      );
     match proc.inst with
     | CGoOnAs (i,efs) ->    (* don't schedule a GoOnAs: schedule its target *)
         let vs = List.map (fun ef -> ef rtenv) efs in
         let pv = rtenv.(i) in
         let (n, envf) = to_procv pv in
         let rtenv', proc' = envf vs in
-        let gpn' = addnewproc n in
+        if not novel then deleteprocname pn;
+        let gpn' = findnewprocname n in
         if !traceId then trace (EVChangeId (pn, [gpn']));
         (* if !pstep then
           show_pstep (Printf.sprintf "%s(%s)" 
@@ -189,18 +206,11 @@ let rec interp rtenv procstart =
           (Printf.printf "rescheduling %s => %s\n" (short_string_of_cprocess proc) (short_string_of_cprocess proc'); 
            flush_all ()
           );
-        addrunner (gpn', proc', rtenv')
+        addrunner true (gpn', proc', rtenv')
     | _             ->
-        pq_push runners runner       
-  and addnewproc name = 
-    let rec adn i =
-      let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
-      try let _ = Hashtbl.find procnames n in adn (i+1)
-      with Not_found -> Hashtbl.add procnames n (); n
-    in 
-    adn 0
+        pq_push runners runner;
+        if novel then Hashtbl.add procnames pn ()
   in
-  let deleteproc n = Hashtbl.remove procnames n in
   let print_interp_state outstream =
     output_string outstream (Printf.sprintf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
                                             (string_of_runnerqueue ";\n  " runners)
@@ -267,8 +277,8 @@ let rec interp rtenv procstart =
            if !verbose || !verbose_interpret then
              (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) pn (short_string_of_cprocess rproc); flush_all ());
            match rproc.inst with
-           | CTerminate           -> deleteproc pn; (* if !pstep then show_pstep "_0"; *) step ()
-           | CGoOnAs (i, es)      -> deleteproc pn; addrunner (pn, rproc, rtenv); step ()     (* addrunner will add the target process *)
+           | CTerminate           -> deleteprocname pn; (* if !pstep then show_pstep "_0"; *) step ()
+           | CGoOnAs (i, es)      -> addrunner false (pn, rproc, rtenv); step ()     (* addrunner will delete pn and add the target process *)
            | CWithNew ((traced, is), contn) ->
                List.iter (fun i -> if !verbose || !verbose_interpret then 
                                      (Printf.printf "%s: CWithNew initialises channel at %d\n" (string_of_sourcepos (csteppos rproc))
@@ -439,7 +449,7 @@ let rec interp rtenv procstart =
                      gsir := false, [];
                      withdraw chans;
                      pq_excite c.wwaiters;
-                     addrunner (pn', proc', env');
+                     addrunner false (pn', proc', env');
                      if !traceevents && c.traced then trace (EVMessage (c, pn', pn, (tpat,v')));
                      do_match v'
                  with Ipq.Empty -> None
@@ -475,7 +485,7 @@ let rec interp rtenv procstart =
                      withdraw chans;
                      pq_excite c.rwaiters;
                      let env'' = pat' env' v in
-                     addrunner (pn', proc', env'');
+                     addrunner false (pn', proc', env'');
                      if !traceevents && c.traced then trace (EVMessage (c, pn, pn', (t,v)));
                      true
                  with Ipq.Empty -> 
@@ -494,7 +504,7 @@ let rec interp rtenv procstart =
                        if c.cname<:z_0 then (* it's a built-in channel, with no process contention -- don't reschedule *)
                          Some(contn, rtenv')
                        else
-                         (addrunner (pn, contn, rtenv'); None)
+                         (addrunner false (pn, contn, rtenv'); None)
                      in
                      match iostep.inst with
                      | CRead (_,tpat,pat) -> 
@@ -552,10 +562,10 @@ let rec interp rtenv procstart =
                             ) *)
                microstep rtenv proc'
            | CPar ps            ->
-               deleteproc pn;
+               deleteprocname pn;
                let npns = 
-                 List.fold_left  (fun ns (i,proc) -> let n = addnewproc (pn ^ "." ^ string_of_int i) in
-                                                     addrunner (n, proc, rtenv);
+                 List.fold_left  (fun ns (i,proc) -> let n = findnewprocname (pn ^ "." ^ string_of_int i) in
+                                                     addrunner true (n, proc, rtenv);
                                                      n::ns
                                  ) 
                                  []
@@ -569,7 +579,7 @@ let rec interp rtenv procstart =
          microstep rtenv rproc
        ) (* end of else *)
   in
-  addrunner ("System", procstart, rtenv);
+  addrunner true ("System", procstart, rtenv);
   step ()
 
 (* ************************************* compiling definitions ************************************* *)

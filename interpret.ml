@@ -171,8 +171,28 @@ let rec interp rtenv procstart =
   in
   let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
   let runners = Ipq.create (10) in (* 10 is a guess *)
-  let addrunner runner = pq_push runners runner in
-  let addnewproc name = 
+  let rec addrunner (pn,proc,rtenv as runner) = 
+    match proc.inst with
+    | CGoOnAs (i,efs) ->    (* don't schedule a GoOnAs: schedule its target *)
+        let vs = List.map (fun ef -> ef rtenv) efs in
+        let pv = rtenv.(i) in
+        let (n, envf) = to_procv pv in
+        let rtenv', proc' = envf vs in
+        let gpn' = addnewproc n in
+        if !traceId then trace (EVChangeId (pn, [gpn']));
+        (* if !pstep then
+          show_pstep (Printf.sprintf "%s(%s)" 
+                                     (tinst gpn) 
+                                     (string_of_list string_of_vt "," vs)
+                     ); *)
+        if !verbose || !verbose_interpret then
+          (Printf.printf "rescheduling %s => %s\n" (short_string_of_cprocess proc) (short_string_of_cprocess proc'); 
+           flush_all ()
+          );
+        addrunner (gpn', proc', rtenv')
+    | _             ->
+        pq_push runners runner       
+  and addnewproc name = 
     let rec adn i =
       let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
       try let _ = Hashtbl.find procnames n in adn (i+1)
@@ -248,21 +268,7 @@ let rec interp rtenv procstart =
              (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) pn (short_string_of_cprocess rproc); flush_all ());
            match rproc.inst with
            | CTerminate           -> deleteproc pn; (* if !pstep then show_pstep "_0"; *) step ()
-           | CGoOnAs (i, es) -> 
-               let vs = List.map (evale rtenv) es in
-               let pv = rtenv.(i) in
-               let (n, envf) = to_procv pv in
-               let rtenv', proc = envf vs in
-               deleteproc pn;
-               let gpn' = addnewproc n in
-               addrunner (gpn', proc, rtenv');                      
-               if !traceId then trace (EVChangeId (pn, [gpn']));
-               (* if !pstep then
-                 show_pstep (Printf.sprintf "%s(%s)" 
-                                            (tinst gpn) 
-                                            (string_of_list string_of_vt "," vs)
-                            ); *)
-               step ()
+           | CGoOnAs (i, es)      -> deleteproc pn; addrunner (pn, rproc, rtenv); step ()     (* addrunner will add the target process *)
            | CWithNew ((traced, is), contn) ->
                List.iter (fun i -> if !verbose || !verbose_interpret then 
                                      (Printf.printf "%s: CWithNew initialises channel at %d\n" (string_of_sourcepos (csteppos rproc))

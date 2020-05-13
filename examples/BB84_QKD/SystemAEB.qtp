@@ -87,8 +87,8 @@ proc
                 "; minimum check bits (Alice/Eve) "; show (listmin ncAs); 
                 "; average check bits (Eve/Bob) "  ; showf 2 (listsum ncBs/k); 
                 "; minimum check bits (Eve/Bob) "  ; show (listmin ncBs); "\n";
-                "histogram of check-bit lengths (Alice/Eve) "; show (histogram ncAs); "\n";
-                "histogram of check-bit lengths (Eve/Bob) "; show (histogram ncBs); "\n";
-                "histogram of evasions "; show (histogram2 (zip ncAs evasions)); "\n"
+                "histogram of check-bit lengths (Alice/Eve) "; show (histogram (compare : num->num->num) ncAs); "\n";
+                "histogram of check-bit lengths (Eve/Bob) "; show (histogram (compare : num->num->num) ncBs); "\n";
+                "histogram of evasions "; show (histogram2 (compare : num->num->num) (zip ncAs evasions)); "\n"
                ] 
          . _0 

@@ -97,9 +97,9 @@ fun histo2 buckets nes
                  where post = dropwhile sameas nes
                  where sameas = λ (k,_) . k=n
 
-fun h2comp (n,e) (n',e') = (compare:num->num->num) n n'
+fun h2comp comp (n,e) (n',e') = comp n n'
 
-fun histogram2 nes = histo2 [] (sort h2comp nes)
+fun histogram2 comp nes = histo2 [] (sort (h2comp comp) nes)
 
 fun listsum ns = foldl (λ (sum:num) n . sum+n) 0 ns
 

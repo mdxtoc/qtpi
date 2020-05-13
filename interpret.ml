@@ -442,9 +442,9 @@ let rec interp rtenv procstart =
                     )
                  else
                  if c.cname = out_c then
-                   (let ss = List.map reveal_string (to_list v) in
-                    List.iter print_string ss; flush stdout; 
-                    if !traceIO then trace (EVOutput (pn, (t, hide_string (String.concat "" ss))));
+                   (let ss = (Obj.magic v : Uchar.t list list) in
+                    List.iter Utf8.print_uchars ss; flush stdout; 
+                    if !traceIO then trace (EVOutput (pn, (t, hide_string (String.concat "" (List.map Utf8.string_of_uchars ss)))));
                     true
                    )
                  else

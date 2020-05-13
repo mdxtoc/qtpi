@@ -119,10 +119,10 @@ let rec boyd pq =
 ;; (* to give boyd a polytype *)
 
 (* predefined channels *)
-let dispose_c = -1
-let out_c     = -2
-let outq_c    = -3
-let in_c      = -4
+let dispose_c = Z.(-z_1)
+let out_c     = Z.(-z_2)
+let outq_c    = Z.(-z_3)
+let in_c      = Z.(-z_4)
 
 (* ******************** the interpreter proper ************************* *)
 
@@ -133,8 +133,8 @@ let mkchan c traced = {cname=c; traced= traced;
                       }
 
 module OrderedChan = struct type t = chan 
-                            let compare c1 c2 = Stdlib.compare c1.cname c2.cname
-                            let to_string c = string_of_int c.cname
+                            let compare c1 c2 = Z.compare c1.cname c2.cname
+                            let to_string c = string_of_zint c.cname
                      end
 module ChanSet = MySet.Make (OrderedChan)
 
@@ -144,13 +144,13 @@ let pq_push pq = Ipq.push pq (Random.bits ())
 
 let pq_excite pq = Ipq.excite (fun i -> i/2) pq
 
-let stepcount = ref 0
+let stepcount = ref z_0
 
 let evale rtenv e = e rtenv
 
 let rec interp rtenv procstart =
   Qsim.init ();
-  let chancount = ref 0 in
+  let chancount = ref z_0 in
   let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
   let string_of_stuck_chans () = ChanSet.to_string !stuck_chans in
   let remember_chan c = stuck_chans := ChanSet.add c !stuck_chans in
@@ -165,7 +165,7 @@ let rec interp rtenv procstart =
   in
   let newchan b = 
     let c = !chancount in 
-    chancount := !chancount+1; 
+    chancount := Z.(!chancount+z_1); 
     let chan = mkchan c b in
     of_chan chan 
   in
@@ -193,7 +193,7 @@ let rec interp rtenv procstart =
       if Ipq.is_empty runners then 
         (let string_of_stepcount () =
            if !Settings.showstepcount then
-             Printf.sprintf "%d interpreter steps" !stepcount
+             Printf.sprintf "%s interpreter steps" (string_of_zint !stepcount)
            else ""
          in
          if !verbose || !verbose_interpret || !verbose_qsim || !show_final ||
@@ -243,7 +243,7 @@ let rec interp rtenv procstart =
             in 
            *)
          let rec microstep rtenv rproc =
-           stepcount := !stepcount+1;
+           stepcount := Z.(!stepcount+one);
            if !verbose || !verbose_interpret then
              (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) pn (short_string_of_cprocess rproc); flush_all ());
            match rproc.inst with
@@ -485,7 +485,7 @@ let rec interp rtenv procstart =
                let rec try_iosteps gsum pq = 
                  try let (c,(iostep,contn)) = Ipq.pop pq in
                      let go_on rtenv' =
-                       if c.cname<0 then (* it's a built-in channel, with no process contention -- don't reschedule *)
+                       if c.cname<:z_0 then (* it's a built-in channel, with no process contention -- don't reschedule *)
                          Some(contn, rtenv')
                        else
                          (addrunner (pn, contn, rtenv'); None)

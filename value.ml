@@ -70,7 +70,7 @@ type procv = name * (vt list -> rtenv * cprocess)           (* name is for the s
    The space leak is because we keep a set stuck_chans (a set?) for diagnostic printing purposes.
  *)
  
-type chan = {cname: int; traced: bool; stream: vt Queue.t; wwaiters: (wwaiter*gsum_info) Ipq.pq; rwaiters: (rwaiter*gsum_info) Ipq.pq}
+type chan = {cname: zint; traced: bool; stream: vt Queue.t; wwaiters: (wwaiter*gsum_info) Ipq.pq; rwaiters: (rwaiter*gsum_info) Ipq.pq}
 
 and gsum_info = (bool * chan list) ref
 
@@ -211,15 +211,15 @@ and short_so_value optf t v =
               )
   
 and so_chan optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq} =
-    Printf.sprintf "%d%s = vs:{%s} rs:{%s} ws:{%s}"
-                   i
+    Printf.sprintf "%s %s = vs:{%s} rs:{%s} ws:{%s}"
+                   (string_of_zint i)
                    (if traced then "" else "(untraced)")
                    (string_of_queue (so_value optf t) "; " vs)
                    (string_of_pqueue (short_so_rwaiter optf) "; " rq)
                    (string_of_pqueue (short_so_wwaiter optf t) "; " wq)
 
 and short_so_chan optf t {cname=i} =
-    string_of_int i
+    string_of_zint i
     
 and so_env optf (rtenv:rtenv) = "{<rtenv>}"
 

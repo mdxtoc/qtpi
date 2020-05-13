@@ -403,6 +403,13 @@ let rec interp rtenv procstart =
                             ) *)
                microstep rtenv contn
            | CGSum ioprocs      -> 
+               let eioprocs = List.map (fun (iostep, _ as ioproc) ->
+                                        match iostep.inst with
+                                        | CRead (cf,_,_)  -> to_chan (cf rtenv), ioproc
+                                        | CWrite (cf,_,_) -> to_chan (cf rtenv), ioproc
+                                       )
+                                       ioprocs
+               in
                let withdraw chans = List.iter maybe_forget_chan chans in (* kill the space leak! *)
                let canread pos c tpat patf =
                  let can'tread s = raise (Error (pos, "cannot read from " ^ s ^ " channel (this should be a type error -- sorry)")) in
@@ -466,54 +473,63 @@ let rec interp rtenv procstart =
                      if !traceevents && c.traced then trace (EVMessage (c, pn, pn', (t,v)));
                      true
                  with Ipq.Empty -> 
-                 if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
-                    !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
-                 then
-                   (Queue.push v c.stream;
-                    remember_chan c;
-                    true
-                   )
-                 else false
+                     if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
+                        !Settings.chanbuf_limit>Queue.length c.stream (* buffer not full *)
+                     then
+                       (Queue.push v c.stream;
+                        remember_chan c;
+                        true
+                       )
+                     else false
                in
                let rec try_iosteps gsum pq = 
-                 try let (iostep,contn) = Ipq.pop pq in
+                 try let (c,(iostep,contn)) = Ipq.pop pq in
+                     let go_on rtenv' =
+                       if c.cname<0 then (* it's a built-in channel, with no process contention -- don't reschedule *)
+                         Some(contn, rtenv')
+                       else
+                         (addrunner (pn, contn, rtenv'); None)
+                     in
                      match iostep.inst with
-                     | CRead (ce,tpat,pat) -> let c = to_chan (evale rtenv ce) in
-                                        (match canread iostep.pos c tpat pat with
-                                         | Some rtenv' -> addrunner (pn, contn, rtenv')(* ;
-                                                        if !pstep then 
-                                                          show_pstep (Printf.sprintf "%s%s\n" (string_of_ciostep iostep) 
-                                                                                              (pstep_env env env')
-                                                                     ) *)
-                                         | None      -> try_iosteps ((c, Grw (pn, pat, contn, rtenv))::gsum) pq
-                                        )
-                     | CWrite (ce,te,e)  -> let c = to_chan (evale rtenv ce) in
-                                        let v = evale rtenv e in
-                                        if canwrite iostep.pos c te v then 
-                                          (addrunner (pn, contn, rtenv)(* ;
+                     | CRead (_,tpat,pat) -> 
+                         (match canread iostep.pos c tpat pat with
+                          | Some rtenv' -> go_on rtenv' (* ;
                                            if !pstep then 
-                                             show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_ciostep iostep) 
-                                                                                         (string_of_value te v)
+                                             show_pstep (Printf.sprintf "%s%s\n" (string_of_ciostep iostep) 
+                                                                                 (pstep_env env env')
                                                         ) *)
-                                          )
-                                        else try_iosteps ((c, Gww (pn, v, contn, rtenv))::gsum) pq
+                          | None        -> try_iosteps ((c, Grw (pn, pat, contn, rtenv))::gsum) pq
+                         )
+                     | CWrite (_,te,ef)  -> 
+                         let v = ef rtenv in
+                         if canwrite iostep.pos c te v then 
+                           (go_on rtenv (* ;
+                            if !pstep then 
+                              show_pstep (Printf.sprintf "%s\n  sends %s" (string_of_ciostep iostep) 
+                                                                          (string_of_value te v)
+                                         ) *)
+                           )
+                         else try_iosteps ((c, Gww (pn, v, contn, rtenv))::gsum) pq
                  with Ipq.Empty ->
-                 let cs = List.map fst gsum in
-                 let gsir = ref (true, cs) in
-                 let add_waiter = function
-                   | c, Grw rw -> pq_push c.rwaiters (rw,gsir);
-                                  remember_chan c
-                   | c, Gww ww -> pq_push c.wwaiters (ww,gsir);
-                                  remember_chan c
-                 in
-                 List.iter add_waiter gsum(* ;
-                 if !pstep then 
-                   show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_cprocess rproc)) *)
+                     let cs = List.map fst gsum in
+                     let gsir = ref (true, cs) in
+                     let add_waiter = function
+                       | c, Grw rw -> pq_push c.rwaiters (rw,gsir);
+                                      remember_chan c
+                       | c, Gww ww -> pq_push c.wwaiters (ww,gsir);
+                                      remember_chan c
+                     in
+                     List.iter add_waiter gsum; 
+                     (* if !pstep then 
+                       show_pstep (Printf.sprintf "%s\n  blocks" (short_string_of_cprocess rproc)) *)
+                     None
                in
-               let pq = Ipq.create (List.length ioprocs) in
-               List.iter (pq_push pq) ioprocs;
-               try_iosteps [] pq;
-               step ()
+               let pq = Ipq.create (List.length eioprocs) in
+               List.iter (pq_push pq) eioprocs;
+               (match try_iosteps [] pq with    (* this to get tail recursion *)
+                | Some (contn, rtenv') -> microstep rtenv' contn
+                | None                 -> step ()
+               )
            | CCond (e, p1, p2)  ->
                let bv = to_bool (evale rtenv e) in
                let contn = if bv then p1 else p2 in

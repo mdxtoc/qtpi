@@ -43,7 +43,7 @@ exception Error of string
 
 let parse_string entry string =
   let lexbuf = Sedlexing.from_gen (Utf8.from_string string) in
-  Sedlexing.set_filename lexbuf "";
+  Sedlexing.set_filename lexbuf (Printf.sprintf "(string %s)" (String.escaped string));
   Sedlexing.set_position lexbuf {Lexing.pos_fname=""; Lexing.pos_lnum=1; Lexing.pos_bol=0; Lexing.pos_cnum=0};
   try
     parser entry lexbuf

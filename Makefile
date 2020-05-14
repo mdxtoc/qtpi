@@ -5,7 +5,7 @@ Qtpi : *.ml *.mly
 	ocamlbuild -use-ocamlfind qtpi.native
 
 Qtpip : *.ml *.mly
-	ocamlbuild -use-ocamlfind -tag debug -tag profile qtpi.native
+	ocamlbuild -use-ocamlfind -tag debug qtpi.native
 
 clean :
 	rm -fr _build *.native

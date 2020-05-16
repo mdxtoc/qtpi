@@ -623,7 +623,12 @@ let rec compile_proc : ctenv -> process -> ctenv * cprocess = fun ctenv proc ->
   | GSum ioprocs        -> let ctenv, cioprocs = compile_multi (tidemark_f compile_ioproc) ctenv ioprocs in
                            ctenv, adorn (CGSum cioprocs)
   | Par procs           -> let ctenv, cprocs = compile_multi (tidemark_f compile_proc) ctenv procs in
-                           ctenv, adorn (CPar cprocs)
+                           let isCGoOnAs cp = match cp.inst with CGoOnAs _ -> true | _ -> false in
+                           let contns = List.filter (not <.> isCGoOnAs) cprocs in
+                           ctenv, (match contns with
+                                   | [contn] -> adorn (CSpawn (List.filter isCGoOnAs cprocs, contn))
+                                   | _       -> adorn (CPar cprocs)
+                                  )
   
 and compile_qspec ctenv (p, eopt) = 
   let ctenv, ef = match eopt with

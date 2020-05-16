@@ -51,6 +51,7 @@ and cprocnode =
   | CPMatch of cexpr * (rtenv * cprocess) cpattern
   | CGSum of (ciostep * cprocess) list
   | CPar of cprocess list
+  | CSpawn of cprocess list * cprocess                          (* CPar when all but one are CGoOnAs *)
 
 and cqspec = int * cexpr option
 
@@ -66,6 +67,7 @@ let cheadpos pos pinst = match pinst with
                          | CTerminate
                          | CGoOnAs     _
                          | CPar        _
+                         | CSpawn      _
                          | CPMatch     _
                          | CCond       _         -> pos
                          | CGSum       [(_,p)]   -> spdiff pos p.pos
@@ -117,6 +119,7 @@ let rec so_cp proc =
   | CGSum gs               -> "<+> " ^ String.concat " <+> " (List.map (string_of_pair string_of_ciostep so_cp ".") gs)
   | CPar  [p]              -> so_cp p
   | CPar  ps               -> "| " ^ String.concat " | " (List.map so_cp ps)
+  | CSpawn (ps,p)          -> so_cp (adorn proc.pos (CPar(p::ps)))
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_cexpr e)
                                             (so_cp p1)
@@ -129,8 +132,9 @@ and trailing_csop p =
   | CGSum   [_]
   | CPar    [_] -> s
   | CGSum   _
-  | CPar    _   -> "(" ^ s ^ ")"
-  | _          -> s        
+  | CPar    _   
+  | CSpawn  _   -> "(" ^ s ^ ")"
+  | _           -> s        
 
 and short_so_cp proc = 
   match proc.inst with
@@ -161,6 +165,7 @@ and short_so_cp proc =
                              "<+> " ^ String.concat " <+> " (List.map sf gs)
   | CPar  [p]              -> short_so_cp p 
   | CPar  ps               -> "| " ^ String.concat " | " (List.map short_so_cp ps) 
+  | CSpawn (ps,p)          -> short_so_cp (adorn proc.pos (CPar(p::ps)))
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
                                             (string_of_cexpr e)
                                             (short_so_cp p1)

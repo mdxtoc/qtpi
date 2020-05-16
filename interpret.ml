@@ -53,62 +53,6 @@ exception Error of sourcepos * string
 exception MatchError of sourcepos * string
 exception Disaster of sourcepos * string
 
-(* I think I can do without this comfort blanket
-   let miseval s v = raise (Error (dummy_spos, Printf.sprintf "%s (%s)" s (string_of_value v)))
-
-   let unitv   = function VUnit           -> ()     | v -> miseval "unitv"    v
-   let bitv    = function VBit    b       -> b      | v -> miseval "bitv"     v
-   let numv    = function VNum    n       -> n      | v -> miseval "numv"     v
-   let boolv   = function VBool   b       -> b      | v -> miseval "boolv"    v
-   let charv   = function VChar   c       -> c      | v -> miseval "charv"    v
-   let sxnumv  = function VSxnum  n       -> n      | v -> miseval "sxnumv"   v
-   (* let stringv = function VString s       -> s      | v -> miseval "stringv"  v *)
-   let stringv = function VList   vs      -> let cs = List.map charv vs in
-                                             Utf8.string_of_uchars cs
-                                                    | v -> miseval "stringv"  v
-   let brav    = function VBra    b       -> b      | v -> miseval "brav"     v
-   let ketv    = function VKet    k       -> k      | v -> miseval "ketv"     v
-   let matrixv = function VMatrix m       -> m      | v -> miseval "matrixv"  v
-   let gatev   = function VGate   g       -> g      | v -> miseval "gatev"    v
-   let chanv   = function VChan   c       -> c      | v -> miseval "chanv"    v
-   let qbitv   = function VQbit   q       -> q      | v -> miseval "qbitv"    v
-   let qbitsv  = function VQbits  qs      -> qs     | v -> miseval "qbitsv"    v
-   let qstatev = function VQstate s       -> s      | v -> miseval "qstatev"  v
-   let pairv   = function VTuple  [e1;e2] -> e1, e2 | v -> miseval "pairv"    v
-   let listv   = function VList   vs      -> vs     | v -> miseval "listv"    v
-   let funv    = function VFun    f       -> f      | v -> miseval "funv"     v
-
-   let vunit   ()      = VUnit
-   let vbit    b       = VBit    b
-   let vint    i       = VNum    (num_of_int i)              (* int -> value *)
-   let vnum    n       = VNum    n
-   let vbool   b       = VBool   b
-   let vchar   c       = VChar   c
-   let vsxnum  n       = VSxnum  n
-   (* let vstring s       = VString s *)
-   let vstring s       = VList (List.map vchar (Utf8.uchars_of_string s))
-   let vbra    b       = VBra    b
-   let vket    k       = VKet    k
-   let vmatrix m       = VMatrix m
-   let vgate   g       = VGate   g
-   let vchan   c       = VChan   c
-   let vqbit   q       = VQbit   q
-   let vqbits  qs      = VQbits  qs
-   let vqstate s       = VQstate s
-   let vpair   (a,b)   = VTuple  [a;b]
-   let vtriple (a,b,c) = VTuple  [a;b;c]
-   let vlist   vs      = VList   vs
-   let vfun    f       = VFun    f
-
-   let mistyped pos thing v shouldbe =
-     raise (Error (pos, Printf.sprintf "** Disaster: %s is %s, not %s" 
-                                       thing 
-                                       (string_of_value v)
-                                       shouldbe
-                  )
-           )
- *)     
- 
 (* bring out your dead: a nasty space leak plugged *)
 let rec boyd pq = 
   try let _, gsir = Ipq.first pq in
@@ -574,6 +518,10 @@ let rec interp rtenv procstart =
                if !traceId then trace (EVChangeId (pn, List.rev npns));
                (* if !pstep then 
                  show_pstep (short_string_of_cprocess rproc) *)
+               step ()
+           | CSpawn (ps, contn) ->
+               List.iter (fun p -> addrunner true (pn, p, rtenv)) ps;   (* true == don't delete me from hashtab *)
+               addrunner false (pn, contn, rtenv);                      (* false, when not GoOnAs, means no new hashtab entry *)
                step ()
          in
          microstep rtenv rproc

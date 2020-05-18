@@ -62,7 +62,7 @@ let string_of_queue string_of sep q =
  *)
 type qbit = int
 
-type procv = name * (vt list -> rtenv * cprocess)           (* name is for the scheduler *)
+type procv = vt list -> procname * rtenv * cprocess             (* procname is for tracing *)
 
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
    to communicate is withdrawn from all guards by setting the shared boolean to false.
@@ -74,11 +74,11 @@ type chan = {cname: zint; traced: bool; stream: vt Queue.t; wwaiters: (wwaiter*g
 
 and gsum_info = (bool * chan list) ref
 
-and runner = name * cprocess * rtenv
+and runner = procname * cprocess * rtenv
 
-and rwaiter = name * rtenv cpattern * cprocess * rtenv
+and rwaiter = procname * rtenv cpattern * cprocess * rtenv
 
-and wwaiter = name * vt * cprocess * rtenv
+and wwaiter = procname * vt * cprocess * rtenv
 
 let string_of_qbit i = "#" ^ string_of_int i
 
@@ -89,8 +89,6 @@ let string_of_qbits = bracketed_string_of_list string_of_qbit
 let short_string_of_qbits = string_of_qbits
 
 let string_of_bit b = if b then "1" else "0"
-
-let queue_elements queue = Queue.fold (fun es e -> e::es) [] queue
 
 (* *************************** conversion functions for the vt trick ********************************** *)
 
@@ -187,8 +185,7 @@ let rec so_value optf t v =
                | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (so_value optf t) (to_list v)
-               | Process ts    -> let n, f = to_procv v in
-                                  Printf.sprintf "procv (%s,<fun>)" (string_of_name n)
+               | Process _    
                | Fun _         
                | Unknown _
                | Known _
@@ -205,8 +202,6 @@ and short_so_value optf t v =
                                   "Chan " ^ short_so_chan optf t c ^ if c.traced then "" else "(untraced)"
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (short_so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (short_so_value optf t) (to_list v)
-               | Process ts    -> let n, f = to_procv v in
-                                  Printf.sprintf "procv (%s,<fun>)" (string_of_name n)
                | _             -> so_value optf t v
               )
   
@@ -227,13 +222,13 @@ and short_so_env optf = so_env optf
   
 and so_runner optf (n, proc, rtenv) =
   Printf.sprintf "%s = (%s) %s" 
-                 (string_of_name n)
+                 (string_of_procname n)
                  (short_string_of_cprocess proc)
                  (short_so_env optf rtenv)
                  
 and so_rwaiter optf ((n, pat, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
-                 (string_of_name n)
+                 (string_of_procname n)
                  (string_of_cpattern pat)
                  (short_string_of_cprocess proc)
                  (short_so_env optf rtenv)
@@ -241,13 +236,13 @@ and so_rwaiter optf ((n, pat, proc, rtenv),gsir) =
                  
 and short_so_rwaiter optf ((n, pat, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
-                 (string_of_name n)
+                 (string_of_procname n)
                  (string_of_cpattern pat)
                  (if fst !gsir then "" else "[dead]")
                  
 and so_wwaiter optf t ((n, v, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
-                 (string_of_name n)
+                 (string_of_procname n)
                  (so_value optf t v)
                  (short_string_of_cprocess proc)
                  (short_so_env optf rtenv)
@@ -255,7 +250,7 @@ and so_wwaiter optf t ((n, v, proc, rtenv),gsir) =
                  
 and short_so_wwaiter optf t ((n, v, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
-                 (string_of_name n)
+                 (string_of_procname n)
                  (so_value optf t v)
                  (if fst !gsir then "" else "[dead]")
                  
@@ -296,8 +291,8 @@ let short_string_of_env = short_so_env doptf
 let string_of_chan = so_chan doptf
 let short_string_of_chan = short_so_chan doptf 
 
-let string_of_runner = so_runner doptf
-let string_of_runnerqueue = so_runnerqueue doptf
+let string_of_runner r = so_runner doptf r
+let string_of_runnerqueue rq = so_runnerqueue doptf rq
 
 let string_of_procv (n, envf, cproc) = Printf.sprintf "(%s, <fun>, %s)"
                                                           (string_of_name n)

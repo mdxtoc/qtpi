@@ -92,7 +92,7 @@ let stepcount = ref z_0
 
 let evale rtenv e = e rtenv
 
-let rec interp rtenv procstart =
+let rec interp pn rtenv procstart =
   Qsim.init ();
   let chancount = ref z_0 in
   let stuck_chans = ref ChanSet.empty in (* no more space leak: this is for stuck channels *)
@@ -114,33 +114,27 @@ let rec interp rtenv procstart =
     of_chan chan 
   in
   let runners = Ipq.create (10) in (* 10 is a guess *)
-  (* the newprocname mechanism is very poor. Its enough, in the presence of bugs it has 
-     to be said, to stop the clock.
-   *)
-  let (procnames: (name,unit) Hashtbl.t) = Hashtbl.create 100 in    
-  let findnewprocname name = 
-    let rec adn i =
-      let n = if i=0 then name else name ^ "(" ^ string_of_int i ^")" in
-      try let _ = Hashtbl.find procnames n in adn (i+1)
-      with Not_found -> n
-    in 
-    adn 0
+  let addactive (_,r) = 
+    let active, invoked = !r in
+    r:= active+1, invoked
   in
-  let deleteprocname n = Hashtbl.remove procnames n in
+  let deleteactive (_,r) = 
+    let active, invoked = !r in
+    r:= active-1, invoked
+  in
   let rec addrunner novel (pn,proc,rtenv as runner) = 
     if !verbose || !verbose_interpret then
-      (Printf.printf "addrunner %B (%s,%s,_)\n" novel pn (short_string_of_cprocess proc); 
+      (Printf.printf "addrunner %B (%s,%s,_)\n" novel (fst pn) (short_string_of_cprocess proc); 
        flush_all ()
       );
     match proc.inst with
     | CGoOnAs (i,efs) ->    (* don't schedule a GoOnAs: schedule its target *)
         let vs = List.map (fun ef -> ef rtenv) efs in
         let pv = rtenv.(i) in
-        let (n, envf) = to_procv pv in
-        let rtenv', proc' = envf vs in
-        if not novel then deleteprocname pn;
-        let gpn' = findnewprocname n in
-        if !traceId then trace (EVChangeId (pn, [gpn']));
+        let envf = to_procv pv in
+        if not novel then deleteactive pn;
+        let pn', rtenv', proc' = envf vs in (* which will give it an activity count, etc. So the recursive call has to be not novel ... *)
+        if !traceId then trace (EVChangeId (fst pn, [fst pn']));
         (* if !pstep then
           show_pstep (Printf.sprintf "%s(%s)" 
                                      (tinst gpn) 
@@ -150,10 +144,10 @@ let rec interp rtenv procstart =
           (Printf.printf "rescheduling %s => %s\n" (short_string_of_cprocess proc) (short_string_of_cprocess proc'); 
            flush_all ()
           );
-        addrunner true (gpn', proc', rtenv')
+        addrunner false (pn', proc', rtenv')
     | _             ->
         pq_push runners runner;
-        if novel then Hashtbl.add procnames pn ()
+        if novel then addactive pn          (* so novel must be true only in Par, I think *)
   in
   let print_interp_state outstream =
     output_string outstream (Printf.sprintf "interpret\n runners=[\n  %s\n]\n channels=%s\n %s\n\n"
@@ -219,9 +213,9 @@ let rec interp rtenv procstart =
          let rec microstep rtenv rproc =
            stepcount := Z.(!stepcount+one);
            if !verbose || !verbose_interpret then
-             (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) pn (short_string_of_cprocess rproc); flush_all ());
+             (Printf.printf "microstep (env size %d) %s %s\n" (Array.length rtenv) (string_of_procname pn) (short_string_of_cprocess rproc); flush_all ());
            match rproc.inst with
-           | CTerminate           -> deleteprocname pn; (* if !pstep then show_pstep "_0"; *) step ()
+           | CTerminate           -> deleteactive pn; (* if !pstep then show_pstep "_0"; *) step ()
            | CGoOnAs (i, es)      -> addrunner false (pn, rproc, rtenv); step ()     (* addrunner will delete pn and add the target process *)
            | CWithNew ((traced, is), contn) ->
                List.iter (fun i -> if !verbose || !verbose_interpret then 
@@ -237,7 +231,7 @@ let rec interp rtenv procstart =
            | CWithQbit (plural, qss, contn) -> 
                let ket_eval fopt = fopt &~~ fun kf -> Some (to_ket (kf rtenv)) in
                List.iter (fun (i,fopt) -> let kopt = ket_eval fopt in
-                                          let qs = newqbits pn kopt in
+                                          let qs = newqbits (name_of_procname pn) kopt in
                                           if !verbose || !verbose_interpret then 
                                             (Printf.printf "%s: CWithQbit initialises qbit(s) at %d\n" (string_of_sourcepos (csteppos rproc))
                                                                                                       i;
@@ -261,7 +255,7 @@ let rec interp rtenv procstart =
                                                                             i;
                   flush_all ()
                  );
-               rtenv.(i) <- of_procv (n,procf rtenv); 
+               rtenv.(i) <- of_procv (procf rtenv); 
                microstep rtenv contn
            | CWithQstep (qstep, contn) ->
                (let qeval plural e = (if plural then to_qbits else (fun v -> [to_qbit v])) (evale rtenv e) in
@@ -280,8 +274,8 @@ let rec interp rtenv procstart =
                         qs
                     in
                     let gv = ((to_gate <.> evale rtenv) ||~~ g_I) gopt in
-                    let bs = List.map (fun q -> qmeasure disposed pn gv q = 1) qs in
-                    if !traceevents then trace (EVMeasure (pn, qs, gv, bs, tev aqs));
+                    let bs = List.map (fun q -> qmeasure disposed (name_of_procname pn) gv q = 1) qs in
+                    if !traceevents then trace (EVMeasure (name_of_procname pn, qs, gv, bs, tev aqs));
                     let vs = List.map of_bit bs in
                     let rtenv = patf rtenv (if plural then of_list vs else List.hd vs) in
                     (* if !pstep then 
@@ -294,8 +288,8 @@ let rec interp rtenv procstart =
                     let qs = List.concat (List.map (qeval plural) es) in
                     let g = to_gate (evale rtenv g) in
                     let qvs = if !traceevents then tev qs else [] in
-                    ugstep pn qs g;
-                    if !traceevents then trace (EVGate (pn, qvs, g, tev qs));
+                    ugstep (name_of_procname pn) qs g;
+                    if !traceevents then trace (EVGate (name_of_procname pn, qvs, g, tev qs));
                     (* if !pstep then 
                       show_pstep (Printf.sprintf "%s\n%s" (string_of_cqstep qstep) (pstep_state env)); *)
                     microstep rtenv contn
@@ -380,7 +374,7 @@ let rec interp rtenv procstart =
                      else
                      if c.cname = in_c then 
                        (let v = hide_string (read_line ()) in
-                        if !traceIO then trace (EVInput (pn, (tpat,v)));
+                        if !traceIO then trace (EVInput (name_of_procname pn, (tpat,v)));
                         do_match v
                        )
                      else
@@ -394,7 +388,7 @@ let rec interp rtenv procstart =
                      withdraw chans;
                      pq_excite c.wwaiters;
                      addrunner false (pn', proc', env');
-                     if !traceevents && c.traced then trace (EVMessage (c, pn', pn, (tpat,v')));
+                     if !traceevents && c.traced then trace (EVMessage (c, name_of_procname pn', name_of_procname pn, (tpat,v')));
                      do_match v'
                  with Ipq.Empty -> None
                in
@@ -403,22 +397,22 @@ let rec interp rtenv procstart =
                  if c.cname = in_c then can'twrite "input"
                  else
                  if c.cname = dispose_c then 
-                    (disposeqbits pn [to_qbit v]; 
-                     if !traceevents then trace (EVDispose (pn,(t,v)));
+                    (disposeqbits (name_of_procname pn) [to_qbit v]; 
+                     if !traceevents then trace (EVDispose (name_of_procname pn,(t,v)));
                      true
                     )
                  else
                  if c.cname = out_c then
                    (let ss = (Obj.magic v : Uchar.t list list) in
                     List.iter Utf8.print_uchars ss; flush stdout; 
-                    if !traceIO then trace (EVOutput (pn, (t, hide_string (String.concat "" (List.map Utf8.string_of_uchars ss)))));
+                    if !traceIO then trace (EVOutput (name_of_procname pn, (t, hide_string (String.concat "" (List.map Utf8.string_of_uchars ss)))));
                     true
                    )
                  else
                  if c.cname = outq_c then
                    (let s = to_uchars v in
                     Utf8.print_uchars s; flush stdout; 
-                    if !traceIO then trace (EVOutput (pn, (t,v)));
+                    if !traceIO then trace (EVOutput (name_of_procname pn, (t,v)));
                     true
                    )
                  else
@@ -430,7 +424,7 @@ let rec interp rtenv procstart =
                      pq_excite c.rwaiters;
                      let env'' = pat' env' v in
                      addrunner false (pn', proc', env'');
-                     if !traceevents && c.traced then trace (EVMessage (c, pn, pn', (t,v)));
+                     if !traceevents && c.traced then trace (EVMessage (c, name_of_procname pn, name_of_procname pn', (t,v)));
                      true
                  with Ipq.Empty -> 
                      if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)
@@ -506,16 +500,16 @@ let rec interp rtenv procstart =
                             ) *)
                microstep rtenv proc'
            | CPar ps            ->
-               deleteprocname pn;
+               deleteactive pn;
                let npns = 
-                 List.fold_left  (fun ns (i,proc) -> let n = findnewprocname (pn ^ "." ^ string_of_int i) in
+                 List.fold_left  (fun ns (i,proc) -> let n = name_of_procname pn ^ "." ^ string_of_int i, ref_of_procname pn in
                                                      addrunner true (n, proc, rtenv);
-                                                     n::ns
+                                                     name_of_procname n::ns
                                  ) 
                                  []
                                  (numbered ps)
                in
-               if !traceId then trace (EVChangeId (pn, List.rev npns));
+               if !traceId then trace (EVChangeId (name_of_procname pn, List.rev npns));
                (* if !pstep then 
                  show_pstep (short_string_of_cprocess rproc) *)
                step ()
@@ -527,7 +521,7 @@ let rec interp rtenv procstart =
          microstep rtenv rproc
        ) (* end of else *)
   in
-  addrunner true ("System", procstart, rtenv);
+  addrunner false (pn, procstart, rtenv);
   step ()
 
 (* ************************************* compiling definitions ************************************* *)
@@ -572,7 +566,7 @@ let compile_pdef ctenv (pn,params,p,mon as pdef) =
                     (Process.string_of_process proc);
   let i = ctenv<?>(pn.pos,tinst pn) in
   let pdecl = (true,pn,params,proc) in
-  let cpdecl = compile_pdecl (Process.pos_of_pdecl pdecl) ctenv pdecl in
+  let cpdecl = compile_pdecl (Process.pos_of_pdecl pdecl) "" ctenv pdecl in
   CDproc (i,cpdecl)
 
 let compile_fdef ctenv (n, pats, _, expr as fdef) =
@@ -626,10 +620,10 @@ let interpret defs =
   let rtenv = Array.make (fst ctenv) (of_unit ()) in
   List.iter (function 
              | CDproc (i,(name,envf)) -> if !verbose || !verbose_interpret then 
-                                           (Printf.printf "CDproc initialises process at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
+                                           (Printf.printf "CDproc initialises process %s at %d(%s)\n" name i (ctenv<-?>(dummy_spos,i));
                                             flush_all ()
                                            );
-                                         rtenv.(i) <- of_procv (name, envf rtenv)
+                                         rtenv.(i) <- of_procv (envf rtenv)
              | CDfun  (i,envf)        -> if !verbose || !verbose_interpret then 
                                            (Printf.printf "CDfun initialises function at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
                                             flush_all ()
@@ -644,7 +638,7 @@ let interpret defs =
             )
             (List.rev ds);
   (* typecheck has ensured that System exists and has a null parameter list *)
-  let (_,sys_f) = to_procv (rtenv.(ctenv<?>(dummy_spos,"System"))) in 
-  let rtenv, sys_proc = sys_f [] in 
+  let sys_f = to_procv (rtenv.(ctenv<?>(dummy_spos,"System"))) in 
+  let pn, rtenv, sys_proc = sys_f [] in 
   flush_all(); 
-  interp rtenv sys_proc
+  interp pn rtenv sys_proc

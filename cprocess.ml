@@ -59,7 +59,16 @@ and cletspec = rtenv cpattern * cexpr
 
 and csplitspec = int * cexpr option
 
-and cpdecl = name * (rtenv -> vt list -> rtenv * cprocess)     (* name is for scheduler *)
+and cpdecl = name * (rtenv -> vt list -> procname * rtenv * cprocess)   (* name is for diagnostics, procname for tracing *)
+
+and procname = name * (int * int) ref                           (* activity count, invocation count -- for computing process name in tracing *)
+
+let name_of_procname : procname -> name = fst
+let ref_of_procname : procname -> (int * int) ref = snd
+
+let string_of_procname (n,_) = string_of_name n
+
+let long_string_of_procname (n,r) = Printf.sprintf "%s%s" (string_of_name n) (bracketed_string_of_pair string_of_int string_of_int !r)
 
 let name_of_csplitspec csplitspec = name_of_param (fst csplitspec)
 

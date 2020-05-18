@@ -563,7 +563,7 @@ let cexpr_opt ctenv eopt =
   | Some e -> let ctenv, ef = compile_expr ctenv e in
               ctenv, Some ef
 
-let rec compile_proc : ctenv -> process -> ctenv * cprocess = fun ctenv proc ->
+let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn ctenv proc ->
   let adorn = adorn proc.pos in
   match proc.inst with
   | Terminate           -> ctenv, adorn CTerminate
@@ -577,52 +577,52 @@ let rec compile_proc : ctenv -> process -> ctenv * cprocess = fun ctenv proc ->
                              ctenv, ctenv<?>(param.pos,name)
                            in
                            let ctenvps, is = compile_multi compile_p ctenv ps in (* no tidemarking! *)
-                           let ctenvc, ccontn = compile_proc ctenvps contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvps contn in
                            tidemark ctenv ctenvc, adorn (CWithNew ((b,is), ccontn))
   | WithQbit (plural, qspecs, contn)
                         -> let ctenvqs, cqspecs = compile_multi compile_qspec ctenv qspecs in (* no tidemarking! *)
-                           let ctenvc, ccontn = compile_proc ctenvqs contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvqs contn in
                            tidemark ctenv ctenvc, adorn (CWithQbit (plural, cqspecs, ccontn))
   | WithLet (lsc, contn) 
                         -> let ctenvl, clsc = compile_letspec ctenv lsc in
-                           let ctenvc, ccontn = compile_proc ctenvl contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvl contn in
                            tidemark ctenv ctenvc, adorn (CWithLet (clsc, ccontn))
   | WithProc ((brec,pn',params,proc' as pdecl),contn)
                         -> let ctenvp = if brec then ctenv<+>tinst pn' else ctenv in
-                           let cpdecl = compile_pdecl (steppos proc) ctenvp pdecl in
-                           let ctenvc, ccontn = compile_proc (ctenv<+>tinst pn') contn in
+                           let cpdecl = compile_pdecl (steppos proc) pn ctenvp pdecl in
+                           let ctenvc, ccontn = compile_proc pn (ctenv<+>tinst pn') contn in
                            tidemark ctenv ctenvc, adorn (CWithProc (ctenvc<?>(steppos proc,tinst pn'), cpdecl, ccontn))
   | WithQstep (qstep, contn)
                         -> let ctenvq, cqstep = compile_qstep ctenv qstep in
-                           let ctenvc, ccontn = compile_proc ctenvq contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvq contn in
                            tidemark ctenv ctenvc, adorn (CWithQstep (cqstep, ccontn))
   | JoinQs (ns, p, contn)
                         -> let is = List.map (fun n -> ctenv<?>(n.pos,tinst n)) ns in
                            let ctenvp = ctenv<+>name_of_param p in 
-                           let ctenvc, ccontn = compile_proc ctenvp contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvp contn in
                            tidemark ctenv ctenvc, adorn (CJoinQs (is, ctenv<?>(p.pos,name_of_param p), ccontn))
   | SplitQs (n, splitspecs, contn)
                         -> let i = ctenv<?>(n.pos,tinst n) in
                            let ctenvss, csplitspecs = compile_multi compile_splitspec ctenv splitspecs in (* no tidemarking! *)
-                           let ctenvc, ccontn = compile_proc ctenvss contn in
+                           let ctenvc, ccontn = compile_proc pn ctenvss contn in
                            tidemark ctenv ctenvc, adorn (CSplitQs (i, csplitspecs, ccontn))
   | TestPoint _         -> raise (CompileError (steppos proc, "TestPoint not precompiled"))
   | Iter _              -> raise (CompileError (steppos proc, "Iter not precompiled"))
   | Cond (e, proct, procf)
                         -> let ctenv, ef = compile_expr ctenv e in
-                           let ctenv, cproct = (tidemark_f compile_proc) ctenv proct in
-                           let ctenvc, cprocf = (tidemark_f compile_proc) ctenv procf in
+                           let ctenv, cproct = (tidemark_f (compile_proc pn)) ctenv proct in
+                           let ctenvc, cprocf = (tidemark_f (compile_proc pn)) ctenv procf in
                            tidemark ctenv ctenvc, adorn (CCond (ef, cproct, cprocf))
   | PMatch (e, pms)     -> let compile_pm ctenv contn =
-                             let ctenv, ccontn = compile_proc ctenv contn in
+                             let ctenv, ccontn = compile_proc pn ctenv contn in
                              ctenv, fun rtenv -> rtenv, ccontn
                            in 
                            let ctenv, fcpm = compile_match (steppos proc) string_of_process (tidemark_f compile_pm) ctenv pms in
                            let ctenvc, ef = compile_expr ctenv e in
                            tidemark ctenv ctenvc, adorn (CPMatch (ef, fcpm))
-  | GSum ioprocs        -> let ctenv, cioprocs = compile_multi (tidemark_f compile_ioproc) ctenv ioprocs in
+  | GSum ioprocs        -> let ctenv, cioprocs = compile_multi (tidemark_f (compile_ioproc pn)) ctenv ioprocs in
                            ctenv, adorn (CGSum cioprocs)
-  | Par procs           -> let ctenv, cprocs = compile_multi (tidemark_f compile_proc) ctenv procs in
+  | Par procs           -> let ctenv, cprocs = compile_multi (tidemark_f (compile_proc pn)) ctenv procs in
                            let isCGoOnAs cp = match cp.inst with CGoOnAs _ -> true | _ -> false in
                            let contns = List.filter (not <.> isCGoOnAs) cprocs in
                            ctenv, (match contns with
@@ -660,30 +660,39 @@ and compile_splitspec ctenv (p, eopt) =
   let ctenv, efopt = cexpr_opt ctenv eopt in
   ctenv, (ctenv<?>(p.pos,name_of_param p), efopt)
 
-and compile_ioproc ctenv (iostep, contn) =
+and compile_ioproc pn ctenv (iostep, contn) =
   let adorn = adorn iostep.pos in
   match iostep.inst with
   | Read (ce,pat)   -> let ctenv, cf = compile_expr ctenv ce in
                        let ctenvp, pf = env_cpat ctenv pat in
-                       let ctenvc, ccontn = compile_proc ctenvp contn in
+                       let ctenvc, ccontn = compile_proc pn ctenvp contn in
                        tidemark ctenv ctenvc, (adorn (CRead (cf, type_of_pattern pat, pf)), ccontn)
   | Write (ce,e)    -> let ctenv, cf = compile_expr ctenv ce in
                        let ctenv, ef = compile_expr ctenv e in
-                       let ctenvc, ccontn = compile_proc ctenv contn in
+                       let ctenvc, ccontn = compile_proc pn ctenv contn in
                        tidemark ctenv ctenvc, (adorn (CWrite (cf, type_of_expr e, ef)), ccontn)
 
-and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return ctenv, because it doesn't bind or evaluate *)
+and compile_pdecl pos prefix ctenv (brec,pn,params,proc as pdecl) = (* doesn't return ctenv, because it doesn't bind or evaluate *)
   if !verbose || !verbose_compile then
-    (Printf.printf "compile_pdecl %s %s %s\n" (string_of_sourcepos pos)
+    (Printf.printf "compile_pdecl %s \"%s\" %s %s\n" (string_of_sourcepos pos)
+                                              prefix
                                               (string_of_ctenv ctenv)
                                               (string_of_pdecl pdecl)
     );
+  let pn = if prefix="" then (tinst pn) else prefix ^ "_" ^ (tinst pn) in             (* e.g. Alice_⁁1 *)
   let frees = NameSet.elements (pdecl_frees pdecl) in
   let ctenvp = add_ctnames (add_ctnames empty_ctenv frees) (List.map name_of_param params) in
-  let ctenvp, cproc = compile_proc ctenvp proc in
+  let ctenvp, cproc = compile_proc pn ctenvp proc in
   let offset = List.length frees in
   let nums = tabulate (List.length params) (fun i -> i+offset) in
   let mkenv = rtenv_init pos (fst ctenvp) frees ctenv in
+  let airef = ref (0,0) in
+  let newpn () = 
+    match !airef with
+    | 0,0 -> airef := 1,0; pn                                       (* Alice for separate invocation *)
+    | a,i -> airef := a+1,i+1; pn ^ "(" ^ string_of_int (i+1) ^ ")"   (* e.g. Alice(2) for simultaneous invocation *)   
+    
+  in
   let envf = fun rtenv vs -> let rtenv' = mkenv rtenv in
                              if !verbose|| !verbose_interpret then
                                (Printf.printf "ctenvp = %s; nums = %s; vs = %s\n" (string_of_ctenv ctenvp) 
@@ -699,9 +708,9 @@ and compile_pdecl pos ctenv (brec,pn,params,proc as pdecl) = (* doesn't return c
                                        ) 
                                        (List.combine nums vs);
                              if !verbose|| !verbose_interpret then (Printf.printf "ok\n"; flush_all ());
-                             rtenv', cproc
+                             (newpn(),airef), rtenv', cproc
   in
-  tinst pn, envf
+  pn, envf
   
 (* ************************ precompiling sub-processes ************************ *)
 

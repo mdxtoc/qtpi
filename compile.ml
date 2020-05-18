@@ -714,7 +714,7 @@ and compile_pdecl pos prefix ctenv (brec,pn,params,proc as pdecl) = (* doesn't r
   
 (* ************************ precompiling sub-processes ************************ *)
 
-let mon_name pn tpnum = "#mon#" ^ tinst pn ^ "#" ^ tpnum
+let mon_name pn tpnum = "⁁" ^ tpnum
 
 let chan_name tpnum = "#chan#" ^ tpnum
 
@@ -824,7 +824,7 @@ let precompile_proc ctenv pn mon proc =
     | Iter (pat, e, ip, p)
                          -> let p = Process.map (cmp spos) p in
                             let rc = chan_name (short_string_of_sourcepos ip.pos) in
-                            let ipname = "#proc#" ^ (short_string_of_sourcepos ip.pos) in
+                            let ipname = short_string_of_sourcepos ip.pos in
                             let xname = "x#" in
                             let cname = "c#" in
                             let xtype = type_of_pattern pat in

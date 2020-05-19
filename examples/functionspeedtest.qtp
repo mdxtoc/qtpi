@@ -16,10 +16,10 @@ fun min_qbits k (s:num) cmin
     where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
     where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
     
-fun calc n M w nSigma cMin = if n=0 then 0 else calc (n-1) M w nSigma cMin * min_qbits (length M + 5*w) nSigma cMin
+fun calc n k nSigma cMin = if n=0 then 0 else calc (n-1) (q+k-q) nSigma cMin where q = min_qbits k nSigma cMin
 
 proc Calc (n, M, w, cMin, nSigma) =
-  (let k = calc n M w nSigma cMin)
+  (let k = calc n (length M + 5*w) nSigma cMin)
   . _0
   
 proc System() = (let n = read_min_int 1 "length of message")

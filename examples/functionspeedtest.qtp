@@ -1,0 +1,31 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
+fun read_min_int m s
+  = k where k = if j>=m then j 
+                else semicolon (λ x . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ () . read_min_int m s)
+                               j
+      where j = read_num s
+    
+fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
+
+fun min_qbits k (s:num) cmin
+  = ceiling (max (rootn*rootn) (rootnmin*rootnmin))
+    where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
+    where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
+    
+fun calc n M w nSigma cMin = if n=0 then 0 else calc (n-1) M w nSigma cMin * min_qbits (length M + 5*w) nSigma cMin
+
+proc Calc (n, M, w, cMin, nSigma) =
+  (let k = calc n M w nSigma cMin)
+  . _0
+  
+proc System() = (let n = read_min_int 1 "length of message")
+                (let w = read_min_int 0 "length of a hash key")
+                (let cMin = read_min_int 0 "minimum number of checkbits")
+                (let nSigma = read_min_int 0 "number of sigmas")
+                (let k = read_min_int 1 "number of calculations")
+                (let M = randbits n)
+                Calc (k, M, w, cMin, nSigma)

@@ -286,11 +286,11 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let cconst : vt -> rtenv -> vt = fun v rtenv -> v
+let cconst : vt -> cexpr = fun v rtenv contn -> contn v
 ;;
 
 (* does compile_expr do proper tidemarking? I believe so. *)
-let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
+let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
   if !verbose || !verbose_compile then
     (Printf.printf "compile_expr %s %s %s\n" (string_of_sourcepos e.pos) (string_of_ctenv ctenv) (string_of_expr e); flush_all());
   
@@ -311,7 +311,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
   match tinst e with
   | EUnit           -> ctenv, cconst (of_unit ())
   | EVar n          -> let i = ctenv<?>(e.pos, n) in
-                       ctenv, fun rtenv -> rtenv.(i) 
+                       ctenv, fun rtenv contn -> contn rtenv.(i) 
   | ENum num        -> ctenv, cconst (of_num num)
   | EBool b         -> ctenv, cconst (of_bool b)
   | EChar uc        -> ctenv, cconst (of_uchar uc)
@@ -322,24 +322,24 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
   | EMinus e        -> (* overloaded *)
       (let ctenv, f = compile_expr ctenv e in
        match et.inst with
-       | Num   -> ctenv, fun rtenv -> of_num (~-/(to_num (f rtenv)))
-       | Sxnum -> ctenv, fun rtenv -> of_csnum (Snum.cneg (to_csnum (f rtenv)))
+       | Num   -> ctenv, fun rtenv contn -> contn (of_num (~-/(to_num (f rtenv))))
+       | Sxnum -> ctenv, fun rtenv contn -> contn (of_csnum (Snum.cneg (to_csnum (f rtenv))))
        | _     -> can'thappen ()
       )
   | ENot e          ->
       let ctenv, f = compile_expr ctenv e in
-      ctenv, fun rtenv -> of_bool (not (to_bool (f rtenv)))
+      ctenv, fun rtenv contn -> contn (of_bool (not (to_bool (f rtenv))))
   | EDagger e       -> (* overloaded *)
       (let ctenv, f = compile_expr ctenv e in
        match et.inst with
-       | Gate   -> ctenv, fun rtenv -> of_gate (dagger_g (to_gate (f rtenv)))
-       | Matrix -> ctenv, fun rtenv -> of_matrix (dagger_m (to_matrix (f rtenv)))
+       | Gate   -> ctenv, fun rtenv contn -> contn (of_gate (dagger_g (to_gate (f rtenv))))
+       | Matrix -> ctenv, fun rtenv contn -> contn (of_matrix (dagger_m (to_matrix (f rtenv))))
        | _      -> can'thappen ()
       )
   | ETuple es       ->
       let revapply rtenv f = f rtenv in
       let ctenv, fs = compile_exprs ctenv es in
-      ctenv, fun rtenv -> of_tuple (List.map (revapply rtenv) fs)
+      ctenv, fun rtenv contn -> contn (of_tuple (List.rev (List.fold_left (fun vs f -> revapply rtenv) fs)))
   | ENil        -> ctenv, cconst (of_list [])
   | ERes w      -> 
       (match et.inst with

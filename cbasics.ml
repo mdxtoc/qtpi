@@ -23,7 +23,9 @@
 
 open Vt
 
-type cexpr = rtenv -> vt
+type cexpr = rtenv -> (vt -> unit) -> unit
+
+type cfun = vt -> (vt -> unit) -> unit
 
 let string_of_cexpr : cexpr -> string = fun _ -> "<cexpr>"
 

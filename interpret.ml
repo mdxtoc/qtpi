@@ -546,7 +546,7 @@ let builtins = [
 type compdef = 
   | CDproc of int * cpdecl
   | CDfun  of int * (rtenv -> vt -> vt)
-  | CDlet  of cexpr * rtenv cpattern
+  | CDlet  of kexpr * rtenv cpattern
   | CDlib  of int * vt
 
 type defassoc = ctenv * compdef list
@@ -580,7 +580,7 @@ let compile_def : defassoc -> def -> defassoc = fun (ctenv, ds) ->
                            ctenv, List.fold_left (fun ds pdef -> compile_pdef ctenv pdef :: ds) ds pdefs
   | Functiondefs fdefs  -> let ctenv = add_defnames ctenv fdefs in
                            ctenv, List.fold_left (fun ds fdef -> compile_fdef ctenv fdef :: ds) ds fdefs
-  | Letdef (pat, e)     -> let ctenv, fe = compile_expr ctenv e in
+  | Letdef (pat, e)     -> let ctenv, fe = kompile_expr ctenv e in
                            let ctenv, fpat = env_cpat ctenv pat in
                            ctenv, CDlet (fe, fpat)::ds
 
@@ -629,7 +629,7 @@ let interpret defs =
                                             flush_all ()
                                            );
                                          rtenv.(i) <- of_fun (envf rtenv)
-             | CDlet  (cexpr,patf)    -> let v = cexpr rtenv in ignore (patf rtenv v)
+             | CDlet  (kexpr,patf)    -> let v = kexpr rtenv in ignore (patf rtenv v)
              | CDlib  (i,v)           -> if !verbose || !verbose_interpret then 
                                            (Printf.printf "CDlib initialises something at %d(%s)\n" i (ctenv<-?>(dummy_spos,i));
                                             flush_all ()

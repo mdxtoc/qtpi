@@ -34,34 +34,34 @@ open Param
 type ciostep = ciostumble instance
 
 and ciostumble = (* type needed for tracing. Sorry *)
-  | CRead of cexpr * _type * rtenv cpattern
-  | CWrite of cexpr * _type * cexpr                                     (* argument cexpr can, of course, be a tuple *)
+  | CRead of kexpr * _type * rtenv cpattern
+  | CWrite of kexpr * _type * kexpr                                     (* argument kexpr can, of course, be a tuple *)
   
 type cqstep = cqstumble instance
 
 and cqstumble =
-  | CMeasure of bool * cexpr * cexpr option * rtenv cpattern    (* plural, qbit, basis gate, cpattern *)
-  | CThrough of bool * cexpr list * cexpr                       (* plural, qbits, gate *)
+  | CMeasure of bool * kexpr * kexpr option * rtenv cpattern    (* plural, qbit, basis gate, cpattern *)
+  | CThrough of bool * kexpr list * kexpr                       (* plural, qbits, gate *)
   
 let string_of_ciostep ciostep =
   match ciostep.inst with
   | CRead (ce,tpat,pat)         -> Printf.sprintf "%s?(%s:%s)"
-                                          (string_of_cexpr ce)
+                                          (string_of_kexpr ce)
                                           (string_of_cpattern pat)
                                           (string_of_type tpat)
   | CWrite (ce,te,e)            -> Printf.sprintf "%s!(%s:%s)"
-                                          (string_of_cexpr ce)
-                                          (string_of_cexpr e)
+                                          (string_of_kexpr ce)
+                                          (string_of_kexpr e)
                                           (string_of_type te)
 
 let string_of_cqstep cqstep =
   match cqstep.inst with
   | CMeasure (plural,e,gopt,p)   -> Printf.sprintf "%s%s%s(%s)"
-                                          (string_of_cexpr e)
+                                          (string_of_kexpr e)
                                           (if plural then "-//-" else "-/-")
-                                          (((fun g -> "[" ^ string_of_cexpr g ^ "]") ||~~ "") gopt)
+                                          (((fun g -> "[" ^ string_of_kexpr g ^ "]") ||~~ "") gopt)
                                           (string_of_cpattern p)
   | CThrough (plural,es,ge)      -> Printf.sprintf "%s%s%s"
-                                          (commasep (List.map string_of_cexpr es))
+                                          (commasep (List.map string_of_kexpr es))
                                           (if plural then ">>>" else ">>")
-                                          (string_of_cexpr ge)
+                                          (string_of_kexpr ge)

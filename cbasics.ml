@@ -23,11 +23,11 @@
 
 open Vt
 
-type cexpr = rtenv -> (vt -> unit) -> unit
+type kexpr = rtenv -> (vt -> unit) -> unit
 
-type cfun = vt -> (vt -> unit) -> unit
+type kfun = vt -> (vt -> unit) -> unit
 
-let string_of_cexpr : cexpr -> string = fun _ -> "<cexpr>"
+let string_of_kexpr : kexpr -> string = fun _ -> "<kexpr>"
 
 type 'a cpattern = rtenv -> vt -> 'a
 

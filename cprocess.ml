@@ -39,7 +39,7 @@ type cprocess = cprocnode instance
 
 and cprocnode =
   | CTerminate
-  | CGoOnAs of int * cexpr list                                 (* GoOnAs: homage to Laski *)
+  | CGoOnAs of int * kexpr list                                 (* GoOnAs: homage to Laski *)
   | CWithNew of (bool * int list) * cprocess                    (* bool is traced *)
   | CWithQbit of bool * cqspec list * cprocess                  (* false: newq; true: newqs *)
   | CWithLet of cletspec * cprocess
@@ -47,17 +47,17 @@ and cprocnode =
   | CWithQstep of cqstep * cprocess
   | CJoinQs of int list * int * cprocess
   | CSplitQs of int * csplitspec list * cprocess
-  | CCond of cexpr * cprocess * cprocess
-  | CPMatch of cexpr * (rtenv * cprocess) cpattern
+  | CCond of kexpr * cprocess * cprocess
+  | CPMatch of kexpr * (rtenv * cprocess) cpattern
   | CGSum of (ciostep * cprocess) list
   | CPar of cprocess list
   | CSpawn of cprocess list * cprocess                          (* CPar when all but one are CGoOnAs *)
 
-and cqspec = int * cexpr option
+and cqspec = int * kexpr option
 
-and cletspec = rtenv cpattern * cexpr
+and cletspec = rtenv cpattern * kexpr
 
-and csplitspec = int * cexpr option
+and csplitspec = int * kexpr option
 
 and cpdecl = name * (rtenv -> vt list -> procname * rtenv * cprocess)   (* name is for diagnostics, procname for tracing *)
 
@@ -96,7 +96,7 @@ let csteppos cprocess = cheadpos cprocess.pos cprocess.inst
 let rec so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
-  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_cexpr "," es)
+  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_kexpr "," es)
   | CWithNew ((traced,is),p) 
                           -> Printf.sprintf "(%s %s).%s"
                                             (if traced then "newuntraced" else "new")
@@ -130,10 +130,10 @@ let rec so_cp proc =
   | CPar  ps               -> "| " ^ String.concat " | " (List.map so_cp ps)
   | CSpawn (ps,p)          -> so_cp (adorn proc.pos (CPar(p::ps)))
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
-                                            (string_of_cexpr e)
+                                            (string_of_kexpr e)
                                             (so_cp p1)
                                             (so_cp p2)
-  | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_cexpr e) (string_of_cpattern pms)
+  | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_kexpr e) (string_of_cpattern pms)
 
 and trailing_csop p =
   let s = so_cp p in
@@ -148,7 +148,7 @@ and trailing_csop p =
 and short_so_cp proc = 
   match proc.inst with
   | CTerminate             -> "_0"
-  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_cexpr "," es)
+  | CGoOnAs (i,es)         -> Printf.sprintf "%d(%s)" i (string_of_list string_of_kexpr "," es)
   | CWithNew ((traced,is),p)    
                           -> Printf.sprintf "(%s %s) ..."
                                             (if traced then "new" else "newuntraced")
@@ -176,30 +176,30 @@ and short_so_cp proc =
   | CPar  ps               -> "| " ^ String.concat " | " (List.map short_so_cp ps) 
   | CSpawn (ps,p)          -> short_so_cp (adorn proc.pos (CPar(p::ps)))
   | CCond (e,p1,p2)        -> Printf.sprintf "if %s then %s else %s fi"
-                                            (string_of_cexpr e)
+                                            (string_of_kexpr e)
                                             (short_so_cp p1)
                                             (short_so_cp p2)
-  | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_cexpr e) (short_string_of_cpattern pms)
+  | CPMatch (e,pms)        -> Printf.sprintf "(match %s.%s)" (string_of_kexpr e) (short_string_of_cpattern pms)
 
 and string_of_cqspec (i, eopt) =
   Printf.sprintf "%s%s" 
                  (string_of_int i)
                  (match eopt with
                   | None      -> ""
-                  | Some bve  -> Printf.sprintf "=%s" (string_of_cexpr bve)
+                  | Some bve  -> Printf.sprintf "=%s" (string_of_kexpr bve)
                  )
 
 and string_of_cletspec (pat,e) =
   Printf.sprintf "%s=%s"
   				 (string_of_cpattern pat)
-  				 (string_of_cexpr e)
+  				 (string_of_kexpr e)
   				 
 and string_of_csplitspec (i, eopt) =
   Printf.sprintf "%s%s" 
                  (string_of_int i)
                  (match eopt with
                   | None    -> ""
-                  | Some e  -> Printf.sprintf "(%s)" (string_of_cexpr e)
+                  | Some e  -> Printf.sprintf "(%s)" (string_of_kexpr e)
                  )
 
 and string_of_cpdecl (name, f) =

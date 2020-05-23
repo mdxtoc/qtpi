@@ -212,7 +212,7 @@ let rec compile_bmatch :  ctenv -> pattern -> ctenv * ((rtenv -> 'b) -> (rtenv -
                                                                                                                     i (string_of_name n);
                                                             flush_all ()
                                                            );
-                                                         rtenv.(i)<-v; yes rtenv
+                                                         rtenv.(i)<-v; (yes[@tailcall]) rtenv
       | PatTuple  ps      -> (* the hidden value of a tuple is a vt list *)
                              let rec dotuple : ctenv -> pattern list -> ctenv * ((rtenv -> 'b ) -> rtenv -> vt -> 'b) = 
                                fun ctenv -> 
@@ -220,9 +220,9 @@ let rec compile_bmatch :  ctenv -> pattern -> ctenv * ((rtenv -> 'b) -> (rtenv -
                                  | p::ps -> let ctenv, fh = dopat ctenv p in
                                             let ctenv, ft = dotuple ctenv ps in
                                             ctenv, fun yes rtenv v -> let vs = to_list v in 
-                                                                      fh (fun rtenv -> ft yes rtenv (of_list (List.tl vs)))
-                                                                         rtenv (List.hd vs) 
-                                 | _     -> ctenv, fun yes rtenv _ -> yes rtenv
+                                                                      (fh[@tailcall]) (fun rtenv -> (ft[@tailcall]) yes rtenv (of_list (List.tl vs)))
+                                                                                      rtenv (List.hd vs) 
+                                 | _     -> ctenv, fun yes rtenv _ -> (yes[@tailcall]) rtenv
                              in
                              dotuple ctenv ps
       | _                 -> raise (Can'tHappen (Printf.sprintf "%s: compile_bmatch %s" (string_of_sourcepos pat.pos)
@@ -293,10 +293,10 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let kconst : vt -> kexpr = fun v rtenv contn -> contn v
+let kconst : vt -> kexpr = fun v rtenv contn -> (contn[@tailcall]) v
 
 let kbinop (f1:kexpr) (op:'a->'b->'c) (f2:kexpr) (tc1:vt->'a) (tc2:vt->'b) (oc0:'c->vt) (rtenv:rtenv) (contn:vt->unit) =
-  f1 rtenv (fun f1v -> f2 rtenv (fun f2v -> contn (oc0 (op (tc1 f1v) (tc2 f2v)))))
+  f1 rtenv (fun f1v -> f2 rtenv (fun f2v -> (contn[@tailcall]) (oc0 (op (tc1 f1v) (tc2 f2v)))))
 ;;
 
 (* does kompile_expr do proper tidemarking? I believe so. *)
@@ -321,7 +321,7 @@ let rec kompile_expr : ctenv -> expr -> ctenv * kexpr = fun ctenv e ->
   match tinst e with
   | EUnit           -> ctenv, kconst (of_unit ())
   | EVar n          -> let i = ctenv<?>(e.pos, n) in
-                       ctenv, fun rtenv contn -> contn rtenv.(i) 
+                       ctenv, fun rtenv contn -> (contn[@tailcall]) rtenv.(i) 
   | ENum num        -> ctenv, kconst (of_num num)
   | EBool b         -> ctenv, kconst (of_bool b)
   | EChar uc        -> ctenv, kconst (of_uchar uc)
@@ -332,7 +332,7 @@ let rec kompile_expr : ctenv -> expr -> ctenv * kexpr = fun ctenv e ->
   | EMinus e        -> (* overloaded *)
       (let ctenv, f = kompile_expr ctenv e in
        match et.inst with
-       | Num   -> ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_num (~-/(to_num v))))
+       | Num   -> ctenv, fun rtenv contn -> f rtenv (fun v -> (contn[@tailcall]) (of_num (~-/(to_num v))))
        | Sxnum -> ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_csnum (Snum.cneg (to_csnum v))))
        | _     -> can'thappen ()
       )
@@ -403,8 +403,8 @@ let rec kompile_expr : ctenv -> expr -> ctenv * kexpr = fun ctenv e ->
   | EJux (fe,ae)        ->
       let ctenv, ff = kompile_expr ctenv fe in
       let ctenv, af = kompile_expr ctenv ae in
-      ctenv, (fun rtenv contn -> try ff rtenv (fun fv -> af rtenv (fun av -> (to_fun fv) av contn))
-                                 with LibraryError s -> raise (ExecutionError (e.pos, s))
+      ctenv, (fun rtenv contn -> (*try*) (ff[@tailcall]) rtenv (fun fv -> af rtenv (fun av -> (to_fun fv) av contn))
+                                 (*with LibraryError s -> raise (ExecutionError (e.pos, s))*)
              )
     
   | EArith (e1,op,e2)  ->

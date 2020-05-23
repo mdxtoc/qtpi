@@ -139,3 +139,20 @@ let rec prepend pres posts =
   match pres with
   | pre::pres -> prepend pres (pre::posts)
   | []        -> posts
+
+(* ************** stuff to do with continuation-passing style ********************* *)
+
+let rec kfold_left : ('a -> 'b -> ('a -> 'c) -> 'c) -> 'a -> 'b list -> ('a -> 'c) -> 'c =
+  fun kf acc xs contn ->
+    match xs with
+    | x::xs -> kf acc x (fun acc -> kfold_left kf acc xs contn)
+    | []    -> contn acc
+
+let krev : 'a list -> ('a list -> 'b) -> 'b =
+  fun xs contn -> kfold_left (fun rxs x contn -> contn (x::rxs)) [] xs contn
+
+let kmap : ('a -> ('b -> 'c) -> 'c) -> 'a list -> ('b list -> 'c) -> 'c =
+  fun kf xs contn ->
+    let kff ys x contn = kf x (fun y -> contn (y::ys)) in
+    kfold_left kff [] xs (fun ys -> krev ys contn)
+    

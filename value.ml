@@ -156,6 +156,20 @@ let hide_triple : 'a * 'b *'c -> vt = fun (a,b,c) -> let vs = [(Obj.magic a:vt);
 (* convert integers, for the library. What's hidden is a num *) 
 let hide_int    : int -> vt = fun i -> of_num (num_of_int i) 
 
+(* convert OCaml functions <-> qtpi functions *)
+
+let qtpfun : (vt->vt)             -> vt = fun f -> of_fun (fun a contn -> contn (f a))
+let qtpfun2: (vt->vt->vt)         -> vt = fun f -> of_fun (fun a contn -> contn (of_fun (fun b contn -> contn (f a b))))
+let qtpfun3: (vt->vt->vt->vt)     -> vt = fun f -> of_fun (fun a contn -> contn (of_fun (fun b contn -> contn (of_fun (fun c contn -> contn (f a b c))))))
+let qtpfun4: (vt->vt->vt->vt->vt) -> vt = fun f -> of_fun (fun a contn -> contn (of_fun (fun b contn -> contn (of_fun (fun c contn -> contn (of_fun (fun d contn -> contn (f a b c d))))))))
+
+let camlfun : vt -> (vt->vt)             = fun f x       -> let rr = ref (of_unit ()) in (to_fun f) x (fun r -> rr:=r); !rr
+let camlfun2: vt -> (vt->vt->vt)         = fun f x y     -> camlfun (camlfun f x) y
+let camlfun3: vt -> (vt->vt->vt->vt)     = fun f x y z   -> camlfun (camlfun (camlfun f x) y) z
+let camlfun4: vt -> (vt->vt->vt->vt->vt) = fun f x y z a -> camlfun (camlfun (camlfun (camlfun f x) y) z) a
+
+
+
 (* ********************* string_of_ functions ***************************** *)
 
 let string_of_pqueue stringof sep pq = 

@@ -112,6 +112,13 @@ let rtenv_init pos n frees ctenv =
                              rtenv'.(i') <- rtenv.(i)) pairs;
     rtenv'
 
+let eval_multi rtenv efs contn = kfold_left (fun vs f contn -> f rtenv (fun v -> contn (v::vs))) [] efs (contn <.> List.rev)
+
+let opt_eval rtenv efopt tcf contn = (* tcf: type-conversion function *)
+  match efopt with
+  | None    -> contn None
+  | Some ef -> ef rtenv (fun v -> contn (Some (tcf v)))
+
 (* ************************ compiling matches into functions ************************ *)
 
 (* compile_match works with right-hand sides. It gives you back a tide-marked version of the ctenv you gave it *)
@@ -286,16 +293,19 @@ and tupcompare ts v1s v2s =
                                                   )
                                      )
 
-let cconst : vt -> cexpr = fun v rtenv contn -> contn v
+let kconst : vt -> kexpr = fun v rtenv contn -> contn v
+
+let kbinop (f1:kexpr) (op:'a->'b->'c) (f2:kexpr) (tc1:vt->'a) (tc2:vt->'b) (oc0:'c->vt) (rtenv:rtenv) (contn:vt->unit) =
+  f1 rtenv (fun f1v -> f2 rtenv (fun f2v -> contn (oc0 (op (tc1 f1v) (tc2 f2v)))))
 ;;
 
-(* does compile_expr do proper tidemarking? I believe so. *)
-let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
+(* does kompile_expr do proper tidemarking? I believe so. *)
+let rec kompile_expr : ctenv -> expr -> ctenv * kexpr = fun ctenv e ->
   if !verbose || !verbose_compile then
-    (Printf.printf "compile_expr %s %s %s\n" (string_of_sourcepos e.pos) (string_of_ctenv ctenv) (string_of_expr e); flush_all());
+    (Printf.printf "kompile_expr %s %s %s\n" (string_of_sourcepos e.pos) (string_of_ctenv ctenv) (string_of_expr e); flush_all());
   
   let et = type_of_expr e in
-  let can'thappen () = raise (Can'tHappen (Printf.sprintf "compile_expr %s type %s" (string_of_expr e) (string_of_type et))) in
+  let can'thappen () = raise (Can'tHappen (Printf.sprintf "kompile_expr %s type %s" (string_of_expr e) (string_of_type et))) in
 
   let intc : sourcepos -> string -> vt -> int = fun pos str v -> 
     let n = to_num v in
@@ -309,38 +319,37 @@ let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
   in
   
   match tinst e with
-  | EUnit           -> ctenv, cconst (of_unit ())
+  | EUnit           -> ctenv, kconst (of_unit ())
   | EVar n          -> let i = ctenv<?>(e.pos, n) in
                        ctenv, fun rtenv contn -> contn rtenv.(i) 
-  | ENum num        -> ctenv, cconst (of_num num)
-  | EBool b         -> ctenv, cconst (of_bool b)
-  | EChar uc        -> ctenv, cconst (of_uchar uc)
-  | EString ucs     -> ctenv, cconst (of_uchars ucs)
-  | EBit b          -> ctenv, cconst (of_bit b)
-  | EBra b          -> ctenv, cconst (of_nv (nv_of_braket b))
-  | EKet k          -> ctenv, cconst (of_nv (nv_of_braket k))
+  | ENum num        -> ctenv, kconst (of_num num)
+  | EBool b         -> ctenv, kconst (of_bool b)
+  | EChar uc        -> ctenv, kconst (of_uchar uc)
+  | EString ucs     -> ctenv, kconst (of_uchars ucs)
+  | EBit b          -> ctenv, kconst (of_bit b)
+  | EBra b          -> ctenv, kconst (of_nv (nv_of_braket b))
+  | EKet k          -> ctenv, kconst (of_nv (nv_of_braket k))
   | EMinus e        -> (* overloaded *)
-      (let ctenv, f = compile_expr ctenv e in
+      (let ctenv, f = kompile_expr ctenv e in
        match et.inst with
-       | Num   -> ctenv, fun rtenv contn -> contn (of_num (~-/(to_num (f rtenv))))
-       | Sxnum -> ctenv, fun rtenv contn -> contn (of_csnum (Snum.cneg (to_csnum (f rtenv))))
+       | Num   -> ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_num (~-/(to_num v))))
+       | Sxnum -> ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_csnum (Snum.cneg (to_csnum v))))
        | _     -> can'thappen ()
       )
   | ENot e          ->
-      let ctenv, f = compile_expr ctenv e in
-      ctenv, fun rtenv contn -> contn (of_bool (not (to_bool (f rtenv))))
+      let ctenv, f = kompile_expr ctenv e in
+      ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_bool (not (to_bool v))))
   | EDagger e       -> (* overloaded *)
-      (let ctenv, f = compile_expr ctenv e in
+      (let ctenv, f = kompile_expr ctenv e in
        match et.inst with
-       | Gate   -> ctenv, fun rtenv contn -> contn (of_gate (dagger_g (to_gate (f rtenv))))
-       | Matrix -> ctenv, fun rtenv contn -> contn (of_matrix (dagger_m (to_matrix (f rtenv))))
+       | Gate   -> ctenv, fun rtenv contn -> f rtenv (fun v -> contn (of_gate (dagger_g (to_gate v))))
+       | Matrix -> ctenv, fun rtenv contn -> f rtenv (fun v ->  contn (of_matrix (dagger_m (to_matrix v))))
        | _      -> can'thappen ()
       )
   | ETuple es       ->
-      let revapply rtenv f = f rtenv in
-      let ctenv, fs = compile_exprs ctenv es in
-      ctenv, fun rtenv contn -> contn (of_tuple (List.rev (List.fold_left (fun vs f -> revapply rtenv) fs)))
-  | ENil        -> ctenv, cconst (of_list [])
+      let ctenv, efs = compile_exprs ctenv es in
+      ctenv, fun rtenv contn -> eval_multi rtenv efs (contn <.> of_tuple)
+  | ENil        -> ctenv, kconst (of_list [])
   | ERes w      -> 
       (match et.inst with
        | Fun (t,_) ->
@@ -366,7 +375,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
                 );
                 
                 let f = so_value optf t in
-                ctenv, fun rtenv -> of_fun (hide_string <.> f)
+                ctenv, kconst (qtpfun (hide_string <.> f))
             | ResCompare ->
                 if is_polytype t then
                   raise (CompileError (e.pos, Printf.sprintf "'compare' used with poly-type %s" 
@@ -374,89 +383,85 @@ let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
                                       )
                          );
                  let f = deepcompare t in
-                 ctenv, fun rtenv -> of_fun (fun v -> of_fun (fun v' -> hide_int (f v v')))
+                 ctenv, kconst (qtpfun2 (hide_int <..> f))
            )
        | _         -> raise (Can'tHappen (Printf.sprintf "%s %s" (string_of_expr e) (string_of_type et)))
       )
   | ECons (e1,e2)   ->
-      let ctenv, f1 = compile_expr ctenv e1 in
-      let ctenv, f2 = compile_expr ctenv e2 in
-      ctenv, fun rtenv -> of_list (f1 rtenv :: (to_list (f2 rtenv)))
+      let ctenv, f1 = kompile_expr ctenv e1 in
+      let ctenv, f2 = kompile_expr ctenv e2 in
+      ctenv, fun rtenv contn -> f1 rtenv (fun hdv -> f2 rtenv (fun tlv -> contn (of_list (hdv::to_list tlv))))
   | EAppend (e1,e2)     ->
-      let ctenv, f1 = compile_expr ctenv e1 in
-      let ctenv, f2 = compile_expr ctenv e2 in
-      ctenv, fun rtenv -> of_list (List.append (to_list (f1 rtenv)) (to_list (f2 rtenv)))
+      let ctenv, f1 = kompile_expr ctenv e1 in
+      let ctenv, f2 = kompile_expr ctenv e2 in
+      ctenv, fun rtenv contn -> f1 rtenv (fun x1sv -> f2 rtenv (fun x2sv -> contn (of_list (List.append (to_list x1sv) (to_list x2sv)))))
   | ECond (ce,te,ee)    ->
-      let ctenv, cf = compile_expr ctenv ce in
-      let ctenv, tf = compile_expr ctenv te in
-      let ctenv, ef = compile_expr ctenv ee in
-      ctenv, fun rtenv -> (if (to_bool (cf rtenv)) then tf else ef) rtenv
+      let ctenv, cf = kompile_expr ctenv ce in
+      let ctenv, tf = kompile_expr ctenv te in
+      let ctenv, ef = kompile_expr ctenv ee in
+      ctenv, fun rtenv contn -> cf rtenv (fun v -> (if (to_bool v) then tf else ef) rtenv contn)
   | EJux (fe,ae)        ->
-      let ctenv, ff = compile_expr ctenv fe in
-      let ctenv, af = compile_expr ctenv ae in
-      ctenv, (fun rtenv -> try (to_fun (ff rtenv)) (af rtenv)
-                           with LibraryError s -> raise (ExecutionError (e.pos, s))
+      let ctenv, ff = kompile_expr ctenv fe in
+      let ctenv, af = kompile_expr ctenv ae in
+      ctenv, (fun rtenv contn -> try ff rtenv (fun fv -> af rtenv (fun av -> (to_fun fv) av contn))
+                                 with LibraryError s -> raise (ExecutionError (e.pos, s))
              )
     
   | EArith (e1,op,e2)  ->
-      let ctenv, f1 = compile_expr ctenv e1 in
-      let ctenv, f2 = compile_expr ctenv e2 in
+      let ctenv, f1 = kompile_expr ctenv e1 in
+      let ctenv, f2 = kompile_expr ctenv e2 in
       ctenv, (match op with
               | Plus            
               | Minus      ->
                   (match (type_of_expr e1).inst with
-                   | Num    -> let f = if op=Plus then (+/) else (-/) in
-                               fun rtenv -> of_num (f (to_num (f1 rtenv)) (to_num (f2 rtenv)))
-                   | Matrix -> let f = if op=Plus then add_mm else sub_mm in
-                               fun rtenv -> of_matrix (f (to_matrix (f1 rtenv)) (to_matrix (f2 rtenv)))
-                   | Sxnum  -> let f = if op=Plus then Snum.csum else Snum.cdiff in
-                               fun rtenv -> of_csnum (f (to_csnum (f1 rtenv)) (to_csnum (f2 rtenv)))
+                   | Num    -> kbinop f1 (if op=Plus then (+/) else (-/)) f2 to_num to_num of_num
+                   | Matrix -> kbinop f1 (if op=Plus then add_mm else sub_mm) f2 to_matrix to_matrix of_matrix
+                   | Sxnum  -> kbinop f1 (if op=Plus then Snum.csum else Snum.cdiff) f2 to_csnum to_csnum of_csnum
                    | _      -> can'thappen ()
                   )
               | Times      ->
                   (match (type_of_expr e1).inst, (type_of_expr e2).inst with
-                   | Num   , Num    -> fun rtenv -> of_num ((to_num (f1 rtenv)) */ (to_num (f2 rtenv)))
-                   | Sxnum , Sxnum  -> fun rtenv -> of_csnum (cprod (to_csnum (f1 rtenv)) (to_csnum (f2 rtenv)))
-                   | Gate  , Gate   -> fun rtenv -> of_gate (mult_gg (to_gate (f1 rtenv)) (to_gate (f2 rtenv)))
-                   | Ket   , Bra    -> fun rtenv -> of_matrix (mult_kb (to_ket (f1 rtenv)) (to_bra (f2 rtenv)))
-                   | Matrix, Matrix -> fun rtenv -> of_matrix (mult_mm (to_matrix (f1 rtenv)) (to_matrix (f2 rtenv)))
-                   | Sxnum , Matrix -> fun rtenv -> of_matrix (mult_nm (to_csnum (f1 rtenv)) (to_matrix (f2 rtenv)))
-                   | Matrix, Sxnum  -> fun rtenv -> of_matrix (mult_nm (to_csnum (f2 rtenv)) (to_matrix (f1 rtenv)))
-                   | _                         -> can'thappen()
+                   | Num   , Num    -> kbinop f1 ( */ ) f2 to_num to_num of_num
+                   | Sxnum , Sxnum  -> kbinop f1 cprod f2 to_csnum to_csnum of_csnum 
+                   | Gate  , Gate   -> kbinop f1 mult_gg f2 to_gate to_gate of_gate
+                   | Ket   , Bra    -> kbinop f1 mult_kb f2 to_ket to_bra of_matrix 
+                   | Matrix, Matrix -> kbinop f1 mult_mm f2 to_matrix to_matrix of_matrix
+                   | Sxnum , Matrix -> kbinop f1 mult_nm f2 to_csnum to_matrix of_matrix 
+                   | Matrix, Sxnum  -> kbinop f1 (revargs mult_nm) f2 to_matrix to_csnum of_matrix
+                   | _              -> can'thappen()
                   )
-              | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv))
-              | Power      -> fun rtenv -> of_num (to_num (f1 rtenv) **/ intc e2.pos "fractional power" (f2 rtenv))
-              | Mod        -> fun rtenv -> let n1 = to_num (f1 rtenv) in
-                                         let n2 = to_num (f2 rtenv) in
-                                         if is_int n1 && is_int n2 then
-                                           of_num (rem n1 n2)
-                                         else 
-                                           raise (ExecutionError (e.pos, Printf.sprintf "fractional remainder %s %s" 
-                                                                                           (string_of_num n1)
-                                                                                           (string_of_num n2)
-                                                                 )
-                                                 )
+              | Div        -> kbinop f1 (//) f2 to_num to_num of_num
+              | Power      -> kbinop f1 ( **/ ) f2 to_num (intc e2.pos "fractional power") of_num
+              | Mod        -> kbinop f1 (fun n1 n2 ->
+                                           if is_int n1 && is_int n2 then Number.rem n1 n2
+                                           else 
+                                             raise (ExecutionError (e.pos, Printf.sprintf "fractional remainder %s %s" 
+                                                                                             (string_of_num n1)
+                                                                                             (string_of_num n2)
+                                                                   )
+                                                   )
+                                        ) f2 to_num to_num of_num 
               | TensorProd -> (* overloaded *)
                   (match (type_of_expr e1).inst with
-                   | Gate   -> fun rtenv -> of_gate (tensor_gg (to_gate (f1 rtenv)) (to_gate (f2 rtenv)))
+                   | Gate   -> kbinop f1 tensor_gg f2 to_gate to_gate of_gate
                    | Bra  
-                   | Ket    -> fun rtenv -> of_nv (tensor_nvnv (to_nv (f1 rtenv)) (to_nv (f2 rtenv)))
-                   | Matrix -> fun rtenv -> of_matrix (tensor_mm (to_matrix (f1 rtenv)) (to_matrix (f2 rtenv)))
+                   | Ket    -> kbinop f1 tensor_nvnv f2 to_nv to_nv of_nv 
+                   | Matrix -> kbinop f1 tensor_mm f2 to_matrix to_matrix of_matrix
                    | _      -> can'thappen()
                   )
               | TensorPower ->
                   (let powc = nonnegintc e2.pos "tensor-power exponent" in
                    match (type_of_expr e1).inst with
-                   | Gate   -> fun rtenv -> of_gate (tensorpow_g (to_gate (f1 rtenv)) (powc (f2 rtenv)))
+                   | Gate   -> kbinop f1 tensorpow_g f2 to_gate powc of_gate 
                    | Bra    
-                   | Ket    -> fun rtenv -> of_nv (tensorpow_nv (to_nv (f1 rtenv)) (powc (f2 rtenv)))
-                   | Matrix -> fun rtenv -> of_matrix (tensorpow_m (to_matrix (f1 rtenv)) (powc (f2 rtenv)))
+                   | Ket    -> kbinop f1 tensorpow_nv f2 to_nv powc of_nv 
+                   | Matrix -> kbinop f1 tensorpow_m f2 to_matrix powc of_matrix
                    | _      -> can'thappen()
                   )
               )
   | ECompare (e1,op,e2) ->
-      let ctenv, f1 = compile_expr ctenv e1 in
-      let ctenv, f2 = compile_expr ctenv e2 in
+      let ctenv, f1 = kompile_expr ctenv e1 in
+      let ctenv, f2 = kompile_expr ctenv e2 in
       let t = type_of_expr e1 in
       let tricky f = 
         if is_polytype t then
@@ -477,44 +482,43 @@ let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
                | Geq -> tricky ((<=)0)
                | Gt  -> tricky ((<)0) 
       in
-      ctenv, fun rtenv -> of_bool (cf (f1 rtenv) (f2 rtenv))
+      ctenv, kbinop f1 cf f2 id id of_bool
   | EBoolArith (e1,op,e2)   ->
-      let ctenv, f1 = compile_expr ctenv e1 in
-      let ctenv, f2 = compile_expr ctenv e2 in
-      let f = match op with
-              | And       -> (&&)
-              | Or        -> (||)
-              | Implies   -> (fun b1 b2 -> (not b1) || b2)
-              | Iff       -> (=)
+      let ctenv, f1 = kompile_expr ctenv e1 in
+      let ctenv, f2 = kompile_expr ctenv e2 in
+      let opf = match op with
+                | And       -> (&&)
+                | Or        -> (||)
+                | Implies   -> (fun b1 b2 -> (not b1) || b2)
+                | Iff       -> (=)
       in
-      ctenv, fun rtenv -> of_bool (f (to_bool (f1 rtenv)) (to_bool (f2 rtenv)))
+      ctenv, kbinop f1 opf f2 to_bool to_bool of_bool
   | ESub (e1,e2)            ->
-       let ctenv, f1 = compile_expr ctenv e1 in
-       let ctenv, f2 = compile_expr ctenv e2 in 
-       ctenv, fun rtenv -> let qs = to_list (f1 rtenv) in
-                           let i = nonnegintc e2.pos "subscript" (f2 rtenv) in
-                           (try List.nth qs i 
-                            with _ -> raise (ExecutionError (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
-                                                                      i
-                                                                      (List.length qs)
-                                                   )
-                                            )
-                           )
-  | EMatch  (me,ems)     -> let ctenv, ef = compile_expr ctenv me in
-                            let ctenv', fm = compile_match e.pos string_of_expr compile_expr ctenv ems in
-                            tidemark ctenv ctenv', fun rtenv -> fm rtenv (ef rtenv)
-  | ELambda (pats, le)   -> let f = compile_fun e.pos ctenv pats le in
-                            ctenv, hide_fun f
+       let ctenv, f1 = kompile_expr ctenv e1 in
+       let ctenv, f2 = kompile_expr ctenv e2 in 
+       let subf qs i = try List.nth qs i 
+                       with _ -> raise (ExecutionError (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
+                                                                 i
+                                                                 (List.length qs)
+                                              )
+                                       )
+       in
+       ctenv, kbinop f1 subf f2 to_qbits (nonnegintc e2.pos "subscript") of_qbit                           
+  | EMatch  (me,ems)     -> let ctenv, ef = kompile_expr ctenv me in
+                            let ctenv', mf = compile_match e.pos string_of_expr kompile_expr ctenv ems in
+                            tidemark ctenv ctenv', fun rtenv contn -> ef rtenv (fun v -> mf rtenv v contn)
+  | ELambda (pats, le)   -> let f = kompile_fun e.pos ctenv pats le in
+                            ctenv, fun rtenv contn -> contn (of_fun (f rtenv))
   | EWhere  (be, ed)     -> (match ed.inst with
                              | EDPat (pat,_,we) ->
-                                 let ctenv, wef = compile_expr ctenv we in
+                                 let ctenv, wef = kompile_expr ctenv we in
                                  let ctenvp, pf = compile_bmatch ctenv pat in
-                                 let ctenve, ef = compile_expr ctenvp be in
-                                 tidemark ctenv ctenve, fun rtenv -> pf ef rtenv (wef rtenv)
+                                 let ctenve, bef = kompile_expr ctenvp be in
+                                 tidemark ctenv ctenve, fun rtenv contn -> wef rtenv (fun wv -> pf bef rtenv wv contn)
                              | EDFun (fn,pats,_, we) ->
                                  let ctenvw = ctenv<+>tinst fn in
-                                 let ff = compile_fun we.pos ctenvw pats we in
-                                 let ctenve, ef = compile_expr ctenvw be in
+                                 let ff = kompile_fun we.pos ctenvw pats we in
+                                 let ctenve, ef = kompile_expr ctenvw be in
                                  let i = ctenvw<?>(ed.pos,tinst fn) in
                                  tidemark ctenv ctenve, 
                                    fun rtenv -> if !verbose || !verbose_interpret then 
@@ -525,23 +529,23 @@ let rec compile_expr : ctenv -> expr -> ctenv * cexpr = fun ctenv e ->
                                                 rtenv.(i)<-of_fun (ff rtenv); ef rtenv
                             )
 
-and compile_exprs ctenv es = compile_multi (tidemark_f compile_expr) ctenv es (* tidemarking belt and braces *)
+and compile_exprs ctenv es = compile_multi (tidemark_f kompile_expr) ctenv es (* tidemarking belt and braces *)
 
-(* compile_fun gives back something which, from an environment, makes a function ... 
+(* kompile_fun gives back something which, from an environment, makes a function ... 
    It sorts out all its own ctenv stuff.
  *)  
-and compile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> vt -> vt) = 
+and kompile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> kfun) = 
   fun pos ctenv pats expr ->
-    let rec cl : ctenv -> pattern list -> ctenv * (rtenv -> vt -> vt) =
+    let rec cl : ctenv -> pattern list -> ctenv * (rtenv -> kfun) =
       fun ctenv ->
         function
         | [pat]     -> let ctenvp, pf = compile_bmatch ctenv pat in
-                       let ctenve, ef = compile_expr ctenvp expr in
+                       let ctenve, ef = kompile_expr ctenvp expr in
                        tidemark ctenv ctenve, pf ef
         | pat::pats -> let ctenvp, pf = compile_bmatch ctenv pat in
                        let ctenvt, ff = cl ctenvp pats in
-                       tidemark ctenv ctenvt, pf (hide_fun ff) 
-        | []        -> raise (Can'tHappen "compile_fun.cl")
+                       tidemark ctenv ctenvt, pf (fun rtenv contn -> contn (of_fun (ff rtenv)))
+        | []        -> raise (Can'tHappen "kompile_fun.cl")
     in
     let frees = NameSet.elements (Expr.frees_lambda pats expr) in
     let ctenvl = add_ctnames empty_ctenv frees in
@@ -549,7 +553,7 @@ and compile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> vt -> 
     let mkenv = rtenv_init pos (fst ctenvl) frees ctenv in
     fun rtenv v -> let rtenv' = mkenv rtenv in lf rtenv' v (* delay the new-environment creation, for the sake of recursive functions *)
 
-and hide_fun : (rtenv -> vt -> vt) -> (rtenv -> vt) = Obj.magic
+and hide_fun : (rtenv -> kfun) -> (rtenv -> kexpr) = Obj.magic
   
 (* ************************ compiling processes ************************ *)
 
@@ -560,7 +564,7 @@ let env_cpat ctenv pat =
 let cexpr_opt ctenv eopt = 
   match eopt with
   | None   -> ctenv, None
-  | Some e -> let ctenv, ef = compile_expr ctenv e in
+  | Some e -> let ctenv, ef = kompile_expr ctenv e in
               ctenv, Some ef
 
 let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn ctenv proc ->
@@ -609,7 +613,7 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
   | TestPoint _         -> raise (CompileError (steppos proc, "TestPoint not precompiled"))
   | Iter _              -> raise (CompileError (steppos proc, "Iter not precompiled"))
   | Cond (e, proct, procf)
-                        -> let ctenv, ef = compile_expr ctenv e in
+                        -> let ctenv, ef = kompile_expr ctenv e in
                            let ctenv, cproct = (tidemark_f (compile_proc pn)) ctenv proct in
                            let ctenvc, cprocf = (tidemark_f (compile_proc pn)) ctenv procf in
                            tidemark ctenv ctenvc, adorn (CCond (ef, cproct, cprocf))
@@ -618,7 +622,7 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
                              ctenv, fun rtenv -> rtenv, ccontn
                            in 
                            let ctenv, fcpm = compile_match (steppos proc) string_of_process (tidemark_f compile_pm) ctenv pms in
-                           let ctenvc, ef = compile_expr ctenv e in
+                           let ctenvc, ef = kompile_expr ctenv e in
                            tidemark ctenv ctenvc, adorn (CPMatch (ef, fcpm))
   | GSum ioprocs        -> let ctenv, cioprocs = compile_multi (tidemark_f (compile_ioproc pn)) ctenv ioprocs in
                            ctenv, adorn (CGSum cioprocs)
@@ -632,14 +636,14 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
   
 and compile_qspec ctenv (p, eopt) = 
   let ctenv, ef = match eopt with
-                  | Some e -> let ctenv, fe = compile_expr ctenv e in
+                  | Some e -> let ctenv, fe = kompile_expr ctenv e in
                               ctenv<+>name_of_param p, Some fe
                   | None   -> ctenv<+>name_of_param p, None
   in
   ctenv, (ctenv<?>(p.pos, name_of_param p), ef)
 
 and compile_letspec ctenv (pat, e) = 
-  let ctenv, ef = compile_expr ctenv e in
+  let ctenv, ef = kompile_expr ctenv e in
   let ctenv, envf = env_cpat ctenv pat in 
   ctenv, (envf,ef)
 
@@ -647,13 +651,13 @@ and compile_qstep ctenv qstep =
   let adorn = adorn qstep.pos in
   match qstep.inst with
   | Measure (plural, qe, geopt, pat)    ->
-      let ctenv, qf = compile_expr ctenv qe in
+      let ctenv, qf = kompile_expr ctenv qe in
       let ctenv, gfopt = cexpr_opt ctenv geopt in
       let ctenv, pf = env_cpat ctenv pat in
       ctenv, adorn (CMeasure (plural, qf, gfopt, pf))
   | Through (plural, qes, ge)           ->
-      let ctenv, qfs = compile_multi (tidemark_f compile_expr) ctenv qes in
-      let ctenv, gf = compile_expr ctenv ge in
+      let ctenv, qfs = compile_multi (tidemark_f kompile_expr) ctenv qes in
+      let ctenv, gf = kompile_expr ctenv ge in
       ctenv, adorn (CThrough (plural, qfs, gf))
 
 and compile_splitspec ctenv (p, eopt) = 
@@ -663,12 +667,12 @@ and compile_splitspec ctenv (p, eopt) =
 and compile_ioproc pn ctenv (iostep, contn) =
   let adorn = adorn iostep.pos in
   match iostep.inst with
-  | Read (ce,pat)   -> let ctenv, cf = compile_expr ctenv ce in
+  | Read (ce,pat)   -> let ctenv, cf = kompile_expr ctenv ce in
                        let ctenvp, pf = env_cpat ctenv pat in
                        let ctenvc, ccontn = compile_proc pn ctenvp contn in
                        tidemark ctenv ctenvc, (adorn (CRead (cf, type_of_pattern pat, pf)), ccontn)
-  | Write (ce,e)    -> let ctenv, cf = compile_expr ctenv ce in
-                       let ctenv, ef = compile_expr ctenv e in
+  | Write (ce,e)    -> let ctenv, cf = kompile_expr ctenv ce in
+                       let ctenv, ef = kompile_expr ctenv e in
                        let ctenvc, ccontn = compile_proc pn ctenv contn in
                        tidemark ctenv ctenvc, (adorn (CWrite (cf, type_of_expr e, ef)), ccontn)
 

@@ -587,24 +587,32 @@ cropped up all the time, so *h*\*\*i, where 0\<=i, became an amplitude constant,
 and the normal form of an amplitude was a sum of possibly-negated products of
 amplitude constants, though the OCaml type didn't enforce this. 
 
-\\begin{verbatim}
+ 
 
-  type prob = P_0 \| P_1 \| P_f \| P_g  \| P_h of int 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+type prob = 
+  | P_0
+  | P_1
+  | P_f              
+  | P_g 
+  | P_h of int              
+  | Psymb of int * bool * float     (* k, false=a_k, true=b_k, 
+                                       random r s.t. 0<=r<=1.0 *)
+  | Pneg of prob
+  | Pprod of prob list              (* associative *)
+  | Psum of prob list               (* associative *)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            \| Psymb of int \* bool \* float 
-
-            \| Pneg of prob \| Pprod of prob list \| Psum of prob list
-
-\\end{verbatim}
+ 
 
 I implemented a naive formula simplifier, doing at first very simple stuff like
-\$h\^{i}\\times{}h\^{j}=h\^{i+j}\$, but rapidly becoming more complicated over
-time. One problem is that, for example, \\verb!P_h(1)!, \\verb!Pprod[P_h(1)]!
-and \\verb!Psum[Pprod[P_h(1)]]! are all ways of writing \$h\$. The product
-simplifier dealt with \$ff=h\^{2}+h\^{3}\$, \$gg=h\^{2}-h\^{3}\$ and
-\$fg=h\^{3}\$. The sum simplifier dealt with \$x-x=0\$, with powers of \$h\$,
-with \$aa+bb=1\$, with \$fh+fh-f=g\$, and with sums of several identical
-products.
+(*h*\*\**i*) \* (*h*\*\*j) = *h*\*\*(*i*+*j*), but rapidly becoming more
+complicated over time. One problem is that, for example, `P_h(1)`,
+`Pprod[P_h(1)]` and `Psum[Pprod[P_h(1)]]` are all ways of writing *h*. The
+product simplifier dealt with *f*\**f*=*h*\*\*2+*h*\*\*3,
+*g*\**g*=*h*\*\*2-*h*\*\*3 and *f*\**g*=*h*\*\*3. The sum simplifier dealt with
+X-X=0\$, with powers of *h*, with *a*\*\*2+*b*\*\*2=1, with
+*f*\**h*+*f*\**h*-*f*=*g*\$, and with sums of several identical products.
 
 And so it remained for some time, complicated but working. I memoised the sum
 and product operations, which can invoke lengthy simplification, and things got
@@ -613,34 +621,35 @@ amplitudes I did so, and found that memoising the complex sum and product
 operations made no useful difference: the action was all in the symbolic real
 arithmetic. 
 
-\\subsection{Simpler, faster, more expressive, not so easy to use}
-
-When I began to work with sparse matrices, confluence became a problem: to
+When I began to work with sparse matrices, non-confluence became a problem: to
 identify the most-common element in a matrix of symbolic numbers, it was
-necessary to simplify always to the same formula rather than an equivalent
-formula. I already dealt with \$h\^j-h\^{j+2} = h\^{j+2}\$; I saw that I had
-also to deal with \$h\^j+h\^{j+2} = h\^{j-2}-h\^{j+2}\$, and the simplifier was
-already too complicated. So I devised a new type:
+necessary to simplify always to the same formula rather than a
+numerically-equivalent formula. I already dealt with *h*\*\*j-*h*\*\*(j+2) =*
+h*\*\*(j+2); I saw that I had also to deal with *h*\*\*j+*h*\*\*(j+2) =
+*h*\*\*(j-2)-*h*\*\*(j+2), and the simplifier was already too complicated. So I
+devised a new type:
 
-\\begin{verbatim}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+type s_el = 
+  | S_f              
+  | S_g 
+  | S_symb of s_symb         
 
-type s_el = S_f \| S_g \| S_symb of s_symb 
+and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
 
-and sprod = bool \* int \* s_el list  
+and sprod = bool * int * s_el list  (* true if neg, power of h, elements *)
 
-and snum = sprod list               
+and snum = sprod list               (* a sum *) 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-\\end{verbatim}
-
-where in \\verb!sprod! the boolean is a sign and the int is a power of \$h\$. I
-relaxed the restriction on powers of \$h\$ to allow 0 and negative powers, which
+I relaxed the restriction on powers of *h* to allow 0 and negative powers, which
 enabled integers. The simplifier got more straightforward, as did sum and
 product. The drawback, if any, was that there were no simple constants: 0 is
-\\verb![]! (an empty sum) and 1 is \\verb![(false,0,[])]! (a singleton sum of a
-trivial product). But I got over that, because it was easier to program an
-almost-confluent simplifier. Non-confluence in the simplifier has to do with
-with complex conjugates of symbolic amplitudes (\\verb!s_symb!) and is difficult
-to provoke; I'll deal with it one day.
+`[]` and 1 is `[(false,0,[])]` (a singleton sum of a trivial product). But I got
+over that, because it was easier to program an almost-confluent simplifier.
+Non-confluence in the simplifier has to do with with complex conjugates of
+symbolic amplitudes (`s_symb`) and is difficult to provoke; I'll deal with it
+one day.
 
 Real arithmetic is memoised, as before; complex arithmetic is not, but complex
 numbers are interned (looked up in a hash table to give a unique
@@ -653,18 +662,7 @@ couldn't optimise the dot product, or at least I couldn't do it as well as in
 the zero case. Then I realised that if I allowed negative powers of my constant
 *h* (*h* = 1/sqrt(2), remember) then I could efficiently implement
 multiplication of a symbolic number by a zint. That speeded up the dot product,
-but not as much as I'd hoped. Still, I can do larger Grover examples now.
-
-### What a lot of effort
-
-It was a lot of work. I felt quite heroic, at the end of each of the stages.
-
- 
-
-Part 1a
-=======
-
- 
+but not as much as I'd hoped.
 
 Sparse matrices and Grover
 --------------------------
@@ -682,7 +680,7 @@ speeded it up a lot, which made the initialisation delay more annoying still.
 
 The first problem was the multiplication `(|+>⊗⊗n)*(<+|⊗⊗n)`. I hadn't optimised
 the function that did the work: given that both sides are very extremely sparse
-(only zero values in either vector), it should have been easy. Eventually I
+(mostly zero values in either vector), it should have been easy. Eventually I
 worked it out.
 
 The second problem was the *engate* function. It has to check that its argument

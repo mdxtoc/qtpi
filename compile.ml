@@ -604,12 +604,13 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
                         -> let is = List.map (fun n -> ctenv<?>(n.pos,tinst n)) ns in
                            let ctenvp = ctenv<+>name_of_param p in 
                            let ctenvc, ccontn = compile_proc pn ctenvp contn in
-                           tidemark ctenv ctenvc, adorn (CJoinQs (is, ctenv<?>(p.pos,name_of_param p), ccontn))
+                           tidemark ctenv ctenvc, adorn (CJoinQs (is, ctenvp<?>(p.pos,name_of_param p), ccontn))
   | SplitQs (n, splitspecs, contn)
                         -> let i = ctenv<?>(n.pos,tinst n) in
                            let ctenvss, csplitspecs = compile_multi compile_splitspec ctenv splitspecs in (* no tidemarking! *)
                            let ctenvc, ccontn = compile_proc pn ctenvss contn in
                            tidemark ctenv ctenvc, adorn (CSplitQs (i, csplitspecs, ccontn))
+                           
   | TestPoint _         -> raise (CompileError (steppos proc, "TestPoint not precompiled"))
   | Iter _              -> raise (CompileError (steppos proc, "Iter not precompiled"))
   | Cond (e, proct, procf)
@@ -662,7 +663,8 @@ and compile_qstep ctenv qstep =
 
 and compile_splitspec ctenv (p, eopt) = 
   let ctenv, efopt = cexpr_opt ctenv eopt in
-  ctenv, (ctenv<?>(p.pos,name_of_param p), efopt)
+  let ctenvp = ctenv<+>name_of_param p in
+  ctenvp, (ctenvp<?>(p.pos,name_of_param p), efopt)
 
 and compile_ioproc pn ctenv (iostep, contn) =
   let adorn = adorn iostep.pos in

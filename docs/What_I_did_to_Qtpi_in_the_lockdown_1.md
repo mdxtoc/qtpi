@@ -1,5 +1,7 @@
 ---
-title: What I did to Qtpi in the Lockdown (parts 1 and 1a)
+title: |-
+  What I did to Qtpi in the Lockdown   
+  (innovating, speeding up, prettifying, rationalising)
 ---
 
  
@@ -23,15 +25,15 @@ Background
 
  
 
-I'm 75, so I'm seriously locked down. It's about seven weeks since I started,
-and my main distraction so far has been hacking Qtpi. I've done several things:
-unicoding, introduced some new types; overloading operators, qbit collections,
-iteration, and sparse vectors and matrices.
+I'm 75, so I've been seriously locked down since the end of February. My main
+distraction so far has been hacking Qtpi. I've done several things: unicoding,
+introduced some new types; overloading operators, qbit collections, iteration,
+and sparse vectors and matrices.
 
  
 
-Unicoding
----------
+Unicoding (prettifying)
+-----------------------
 
  
 
@@ -48,8 +50,8 @@ equivalents are still available.
 | dagger                | †       |               |
 | lambda                | λ       | `lam`         |
 | process insertion     | ⁁       | `/^`          |
-| repeat                | 𝄆      | `|:`          |
-| end repeat (optional) | 𝄇      | `:|`          |
+| repeat                | 𝄆      | `||:`         |
+| end repeat (optional) | 𝄇      | `:||`         |
 | measure               | ⌢̸       | `-/-`         |
 | multi-measure         | ⌢⃫       | \-//-         |
 | not                   | ¬       | `not`         |
@@ -59,9 +61,9 @@ equivalents are still available.
 
  
 
-In place of the postfix † operator (dagger -- conjugate transpose) you can use
-the `dagger_m` function. There's no equivalent of the infix ↓ (subscript --
-extract element of qbit collection).
+In place of the postfix '†' operator (dagger -- conjugate transpose) you can use
+the `dagger_m` function. There's no  functional equivalent of the infix '↓'
+(subscript -- extract element of qbit collection).
 
 To make all this work I had to remake the lexer so that it could be processed by
 OCaml's *sedlex*. I couldn't use the *menhir* parser because it's LR(1), so my
@@ -70,29 +72,31 @@ OCaml's *menhirlib* to interface the lexer to my *ocamlyacc*-generated parser.
 
  
 
-New types: sxnum, bra, ket, matrix
-----------------------------------
+New types: sxnum, bra, ket, matrix (rationalising)
+--------------------------------------------------
 
  
 
-Qtpi's calculator uses symbolic numbers: originally symbolic reals, now symbolic
-complex numbers. There is now a type sxnum of symbolic complex numbers.
+Qtpi's calculator uses symbolic numbers: originally symbolic reals, for a long
+time now symbolic complex numbers. There is now a type *sxnum* of symbolic
+complex numbers.
 
 It is possible to initialise a qbit with a declaration such as `(newq q=|0>)`;
-the constant after the `=` used to be a `basisv` type, which had no other use.
-There is now a type `bra`, and also a type `ket`.
+the constant '`|0>`' after the `=` used to be of a *basisv* type, and had no use
+outside the `newq` declaration. There is now a type *bra*, and also a type
+*ket*;'`|0>`' is a *ket*.
 
-The type `matrix` joins the type `gate`. Gates are square matrices, sized
-2\*\**n* for some *n*, and unitary (*m*\**m*†=I⊗..⊗n).
+The type *matrix* joins the type *gate*. Gates are square matrices, sized
+2\*\**n* for some *n*, and unitary (*m*\**m*† = I⊗⊗*n *for the same *n*).
 
  
 
-| type   | constants                              |
-|--------|----------------------------------------|
-| sxnum  | `sx_0`, `sx_1`, `sx_h`, `sx_f`, `sx_g` |
-| bra    | `|`[`01+-`]+`>`                        |
-| ket    | `<`[`01+-`]+\|                         |
-| matrix |                                        |
+| type   | constants                                            |
+|--------|------------------------------------------------------|
+| sxnum  | `sx_0`, `sx_1`, `sx_h`, `sx_f`, `sx_g`               |
+| ket    | `|`[`01+-`]+`>` -- e.g. `|0>`, `|01>`, `|+>`, `|++>` |
+| bra    | `<`[`01+-`]+\| -- e.g. `<0|`, `<01|`, `<+|`, `<++|`  |
+| matrix |                                                      |
 
  
 
@@ -175,14 +179,13 @@ entries, each 2\*\*(-3)), multiplies it by 2 (sx_1 is a symbolic complex number
 respresenting 1) to give a matrix of 2\*\*3 by 2\*\*3 entries entries, each
 2\*\*(-2). Then subtracts the diagonal matrix `I⊗I⊗I`, leaving a matrix which is
 2\*\*(-2) everywhere, except on the diagonal where it is 2\*\*(-2)-1. Then the
-*engate* library function checks that it is a square matrix, size 2\*\**n* for
-some *n*, and unitary (*m*\**n*`†`=I⊗..⊗I), and type-converts it to a gate. The
-*degate* library function is necessary to type-convert `I⊗I⊗I` from a gate to a
-matrix.
+*engate* library function checks that it is a square matrix, size 2\*\*3, and
+unitary (*m*\*(*m*`†)`=I⊗⊗3), and type-converts it to a gate. The *degate*
+library function is necessary to type-convert `I⊗I⊗I` from a gate to a matrix.
 
 The *groverU* function uses the library function `tabulate_m` to construct the
 oracle matrix, which is a 2\*\*3 diagonal matrix of 1s, except that at the
-'answer' position it's -1. *engate* checks that it's a proper gate.
+'answer' position it's -1. Once again, *engate* checks that it's a proper gate.
 
 Qtpi had until this point used a Hindley-Milner type-assignment algorithm, and
 it was very rarely necessary to insert explicit types. It's still rarely
@@ -207,8 +210,8 @@ overloading of various operators:
 
  
 
-Qbit collections
-----------------
+Qbit collections (innovating)
+-----------------------------
 
  
 
@@ -329,10 +332,11 @@ proc System () =
 
  
 
-The repeat sign 𝄆 (`|:` in ASCII) comes before a description of the values of
-`(a,b,c)` which parameterise the subprocess that follows ':'. Output is provided
-on each run of that subprocess by the sub-subprocesses labelled 1 and 2 that are
-inserted where the insertion carets specify.
+The repeat sign 𝄆 (`||:` in ASCII) comes before a description of the values of
+`(a,b,c)` which parameterise the subprocess that follows ':' -- from `newq qA`
+to the first (indented) `_0`, and the indentation is significant. Output is
+provided on each run of that subprocess by the sub-sub-processes labelled 1 and
+2 that are inserted where the insertion carets specify.
 
 For the resource-checking (no cloning, no sharing, no use after measurement) to
 work, the repeated (sub)process can't be a named process invocation. Indeed the
@@ -386,14 +390,14 @@ operation WState_PowerOfTwo_Reference (qs : Qubit[]) : Unit is Adj {
  
 
 What if I could index a qbit collection? Well, why not? If the only thing you
-are permitted to do is to gate an element of a collection (measuring an element
-in resource terms would measure the lot), nothing can go wrong. This example
-only gates. I have repetition already, and I invented `collectionE↓indexE` as a
-syntax for indexing. I needed also to be able to join and split collections:
-`(joinqs c1, c2 → c)` uses up collections `c1` and `c2` -- so they can't be used
-again -- and makes a new collection `c`; `(splitqs c → c1(N), c2)` uses up
-collection `c` and makes `c1` and `c2`; `c1` gets the first `N` elements of `c`
-and `c2` gets the rest. It goes very nicely:
+are permitted to do to a collection is to gate its elements or measure the whole
+thing, nothing can go wrong. This example only gates. I have invented repetition
+already, and I invented `collectionE↓indexE` as a syntax for indexing. I needed
+also to be able to join and split collections: `(joinqs c1, c2 → c)` uses up
+collections `c1` and `c2` -- so they can't be used again -- and makes a new
+collection `c`; `(splitqs c → c1(N), c2)` uses up collection `c` and makes `c1`
+and `c2`; `c1` gets the first `N` elements of `c` and `c2` gets the rest. It
+goes very nicely:
 
  
 
@@ -454,69 +458,202 @@ repository](https://github.com/microsoft/QuantumKatas/blob/master/Superposition/
 
  
 
-Sparse vectors and matrices
----------------------------
+Sparse vectors and matrices (speeding up)
+=========================================
 
  
 
 All this language ingenuity is all very well (I think so, anyway), but a bit of
 experience with the Grover and W examples showed that they ran slowly (Grover)
-and/or ran out of space (W, and possibly Grover). The problem, a bit of
-experiment with diagnostic switches such as -verbose qsim and -verbose qcalc
-showed me, is tensoring of very large matrices and multiplication of large
-matrices and large vectors. But in many cases -- in all the cases I was looking
-at -- these matrices were very repetitive. For example, the groverG matrix is
-almost all *h*\*\**n* for some *n* (where *h*=1/*sqrt*(2), and the matrices and
-vectors used in the W example are almost all zeros.
+and/or ran out of space (W, and possibly Grover if I gave it enough time). The
+problem, as a bit of experiment with diagnostic switches such as `-verbose qsim`
+and `-verbose qcalc` showed me, is tensoring of large matrices and
+multiplication of large matrices and large vectors. But in many cases -- in all
+the cases I was looking at -- these matrices were very repetitive. For example,
+the groverG matrix is almost all *h*\*\**n* for some *n* (where *h*=1/*sqrt*(2),
+and the matrices and vectors used in the W example are almost all zeros.
 
-### Sparsity with zeros
+Sparsity with zeros
+-------------------
 
 I made it possible (easy to say, but it took me quite some time) to have sparse
-vectors and matrices where the missing entries were all zeros. One very useful
-sparse matrix is I⊗⊗*n*, and I gave it special treatment: it's represented as an
-OCaml function. That meant that steps like `anc,q0s↓i,q1s↓i>>F` in the W example
-don't generate a large matrix representation: it's constant space. And since the
-state of the qbits is also mostly zeros, the space problem goes away. (I've also
-functionalised H⊗⊗*n*, which is useful when measuring in the diagonal basis, but
-I haven't exploited it yet.)
+vectors and matrices where the missing entries were all zeros. That's fairly
+straightforward and standard, and it saves a great deal of space. I chose the
+compressed-row representation where a sparse matrix is a vector of rows; each
+row is a list of (*int,value*) pairs where the *int* is a colum number and the
+*value* is the value in that column; zero values are omitted.
 
-But it's very tempting to try to optimise the dot product operation that's at
-the heart of a gating step: the vector which represents the state of all the
-qbits, size *2\*\*n,* where *n* is the number of qbits we're dealing with, is
-multiplied by the matrix F⊗(I⊗⊗(*n*-3)), which means forming the dot product of
-each row of the matrix with the vector, each dot product about 2*n*
-multiplications, but most delivering 0. But we have a sparse vector
-representation of the state: if we look at the columns of the matrix we can see
-which rows are non-zero in at least one of the positions at which the state is
-non-zero. It's easy to do that, given a functional representation of the matrix,
-and it speeds up the gating operation no end.
+But OCaml (my implementation language) is mostly functional, and some matrices
+are so sparse they can be represented by functions. One very useful sparse
+matrix is I⊗⊗*n*, and I gave it special treatment: it's represented as an OCaml
+function.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+let func_I (n:int) = 
+  Z.(let nrc = z_1 lsl n in
+     let rcf i = [(i,c_1)] in
+     FuncM ((Printf.sprintf "I⊗⊗%d" n), nrc, nrc, 
+            (fun i j -> if i=j then c_1 else c_0), 
+            Some (c_0,rcf, rcf)
+           )
+    )
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ 
+
+\-- the matrix identifies itself, gives row and column sizes (each an OCaml Z
+integer `nrc`), an addressing function, and sparse value with compressed-row and
+compressed-column functions.
+
+Gating steps like `anc,q0s↓i,q1s↓i>>F` in the W example have to be converted
+into multiplications by matrices which include tensor products of the `F` matrix
+with `I⊗⊗n`. Using a functional representation of `I⊗⊗n` avoids a large matrix
+representation -- indeed it's constant space. And since the state of the qbits
+is also mostly zeros, and therefore represented by a compressed-column vector,
+the space problem is mostly conquered.
+
+(I've also functionalised H⊗⊗*n*, which is useful when measuring in the diagonal
+basis, but I haven't exploited it yet.)
+
+Then it's very tempting to try to optimise the dot product operation that's at
+the heart of a gating step in the W algorithm. Consider the `anc,q0s↓i,q1s↓i>>F`
+step: the vector which represents the state of all the qbits, size *2\*\*n,*
+where *n* is the number of qbits we're dealing with, is multiplied by the matrix
+F⊗(I⊗⊗(*n*-3)), which means forming the dot product of each row of the matrix
+with the vector, each dot product about 2\*\**n* multiplications, but most of
+those products delivering 0. Given a sparse representation of matrix and vector,
+if we look at the columns of the matrix we can see which rows are non-zero in at
+least one of the positions at which the state is non-zero -- and given a
+functional representation of the matrix we don't have to form those columns as a
+data structure. Rows which have at lease one non-zero matching column deserve a
+multiplication. That speeds up the gating operation no end.
 
 Before the dot product optimisation qtpi could just about do W 16; following the
 optimisation it could do W 16 and W 32 really quickly and of course I tried W 64
 ... which crashed.
 
-### Addressing with large integers
+Addressing with large integers
+------------------------------
 
 The problem with the W algorithm and 64 qbits is that the matrix must be 2\^64
 square, but OCaml uses 63-bit integers. My sparse tensor algorithm went wrong,
 because division and remaindering by large numbers doesn't work. But no matter:
 OCaml has a Z module that represents arbitrarily large integers. It was a slog
-to go over to zint addressing of matrices, but it worked. I could do W 64, W
+to go over to *zint* addressing of matrices, but it worked. I could do W 64, W
 128, ... all the way to W 1024, which is a bit more than a real quantum computer
-will be able to do for a decade or two. It will do more, but I got bored and the
-execution times got a bit long.
+will be able to do for a decade or two. Qtpi will no doubt do more, but I got
+bored and the execution times got a bit long.
 
-### Sparsity with non-zero values
+Sparsity with non-zero values
+-----------------------------
 
-To save space in the Grover example, I had to allow sparse matrices in which the
-gaps are non-zero. This, too, was a slog, and it made little difference at first
-because the Grover matrices weren't very big -- large examples take too much
-time -- and because I couldn't optimise the dot product, or at least I couldn't
-do it as well as in the zero case. Then I realised that if I allowed negative
-powers of my constant *h* (1/*sqrt*(2), remember) then I could efficiently
-implement multiplication of a symbolic number by a zint. That speeded up the dot
-product, but not as much as I'd hoped. Still, I can do larger Grover examples
-now.
+To save space in the Grover example, I had to represent sparse matrices in which
+the gaps are non-zero. That meant reconsidering the number-representing
+mechanism.
+
+### Symbolic number representation
+
+Qtpi works with symbolic numbers, mostly based on the constant *h*
+(-1/*sqrt*(2)). Since I haven't described it anywhere else, I'm describing it
+here.
+
+Qtpi began as an attempt to help me understand simple quantum-mechanical
+protocols, specifically teleportation [@Bennett. et al., 1993] and Quantum Key
+Distribution [@Bennett, Brassard et al., 1984]. I found the calculations in my
+guidebook Rieffel and Polak [@An introduction to quantum computing for
+non-physicists, 2000] difficult to reproduce with pencil and paper, and I
+expected that a calculator could help. I also wanted to explore the statistical
+properties of the BB84 QKD protocol by running large examples.
+
+I chose to implement a symbolic calculator because I didn't want to deal with
+numerical-analysis problems like rounding errors. The single-qubit state `|+>`,
+for example, can be thought of as a column vector
+\<\<1/*sqrt*(2),1/*sqrt*(2)\>\>, or 1/*sqrt*(2)`|0>`+1/*sqrt*(2)`|1>`, and
+1/*sqrt*(2) is irrational. It seemed to be used a lot, as it has to do with the
+Hadamard gate and rotation by \&pi;/4. State vectors in quantum mechanics
+contain probability *amplitudes*, which are squared to give probabilities, and
+to begin with my amplitudes were real rather than complex numbers, just because
+Rieffel and Polak seemed to work with reals. Amplitude constants, then, were 1,
+0 and *h *(note that *h* has nothing to do with Planck's constant $$\hbar$$).
+Later I added *f*=*sqrt*((1+*h*)/2) and g=*sqrt*((1-*h*)/2) , which have to do
+with rotations of \&pi;/8 and 3\&pi;/8, which I needed for the E92 QKD protocol
+[@Ekert, 1992]. I also needed *unknown* amplitudes, in order to be able to track
+Rieffel and Polak's calculation of the teleportation protocol: given the state
+*a*`|0>`+*b*`|1>` we know that *a*\*\*2+*b*\*\*2=1, because we know that of any
+single-qubit state, but we don't know the values of amplitudes *a* or *b*. 
+
+As soon as I began to work with some calculations I realised that powers of *h*
+cropped up all the time, so *h*\*\*i, where 0\<=i, became an amplitude constant,
+and the normal form of an amplitude was a sum of possibly-negated products of
+amplitude constants, though the OCaml type didn't enforce this. 
+
+\\begin{verbatim}
+
+  type prob = P_0 \| P_1 \| P_f \| P_g  \| P_h of int 
+
+            \| Psymb of int \* bool \* float 
+
+            \| Pneg of prob \| Pprod of prob list \| Psum of prob list
+
+\\end{verbatim}
+
+I implemented a naive formula simplifier, doing at first very simple stuff like
+\$h\^{i}\\times{}h\^{j}=h\^{i+j}\$, but rapidly becoming more complicated over
+time. One problem is that, for example, \\verb!P_h(1)!, \\verb!Pprod[P_h(1)]!
+and \\verb!Psum[Pprod[P_h(1)]]! are all ways of writing \$h\$. The product
+simplifier dealt with \$ff=h\^{2}+h\^{3}\$, \$gg=h\^{2}-h\^{3}\$ and
+\$fg=h\^{3}\$. The sum simplifier dealt with \$x-x=0\$, with powers of \$h\$,
+with \$aa+bb=1\$, with \$fh+fh-f=g\$, and with sums of several identical
+products.
+
+And so it remained for some time, complicated but working. I memoised the sum
+and product operations, which can invoke lengthy simplification, and things got
+a little quicker. Pressed by my colleague Raja Nagarajan to implement complex
+amplitudes I did so, and found that memoising the complex sum and product
+operations made no useful difference: the action was all in the symbolic real
+arithmetic. 
+
+\\subsection{Simpler, faster, more expressive, not so easy to use}
+
+When I began to work with sparse matrices, confluence became a problem: to
+identify the most-common element in a matrix of symbolic numbers, it was
+necessary to simplify always to the same formula rather than an equivalent
+formula. I already dealt with \$h\^j-h\^{j+2} = h\^{j+2}\$; I saw that I had
+also to deal with \$h\^j+h\^{j+2} = h\^{j-2}-h\^{j+2}\$, and the simplifier was
+already too complicated. So I devised a new type:
+
+\\begin{verbatim}
+
+type s_el = S_f \| S_g \| S_symb of s_symb 
+
+and sprod = bool \* int \* s_el list  
+
+and snum = sprod list               
+
+\\end{verbatim}
+
+where in \\verb!sprod! the boolean is a sign and the int is a power of \$h\$. I
+relaxed the restriction on powers of \$h\$ to allow 0 and negative powers, which
+enabled integers. The simplifier got more straightforward, as did sum and
+product. The drawback, if any, was that there were no simple constants: 0 is
+\\verb![]! (an empty sum) and 1 is \\verb![(false,0,[])]! (a singleton sum of a
+trivial product). But I got over that, because it was easier to program an
+almost-confluent simplifier. Non-confluence in the simplifier has to do with
+with complex conjugates of symbolic amplitudes (\\verb!s_symb!) and is difficult
+to provoke; I'll deal with it one day.
+
+Real arithmetic is memoised, as before; complex arithmetic is not, but complex
+numbers are interned (looked up in a hash table to give a unique
+representation). I don't recall that I experimented to see if interning is a
+good idea.
+
+This, too, was a slog, and it made little difference at first because the Grover
+matrices weren't very big -- large examples take too much time -- and because I
+couldn't optimise the dot product, or at least I couldn't do it as well as in
+the zero case. Then I realised that if I allowed negative powers of my constant
+*h* (*h* = 1/sqrt(2), remember) then I could efficiently implement
+multiplication of a symbolic number by a zint. That speeded up the dot product,
+but not as much as I'd hoped. Still, I can do larger Grover examples now.
 
 ### What a lot of effort
 
@@ -562,15 +699,41 @@ All that sounds easier than it was ...
 
  
 
-That's all, folks!
-==================
+Partial compilation (mostly a waste of time)
+============================================
 
  
 
-as of today.
+Qtpi was interpreted from the parse tree. I imagined that this was an expensive
+operation, and dreamed of speeding it up. I hoped for massive speedups -- not
+quadratic or better, as the sparse matrix improvements had been, only linear,
+but I though a factor of 10 wouldn't be a surprise.
+
+So I converted the parse tree of an expression in the functional language into
+an OCaml function. Speedup about 30%. Really. As little as that.
+
+My friend and colleague Bernard Sufrin pointed out that I was using association
+lists as an environment mechanism, and I should be using an array to avoid the
+cost of lookup. That meant converting to an untyped value mechanism (OCaml
+arrays are typed ...) which was a slog, but I managed it using OCaml's
+`Obj.magic` mechanism. Total speedup of both mechanisms together: 50%. It runs
+twice as fast as it did.
+
+Proper compilation, to LLVM or something like that, would no doubt be more
+effective but I don't fancy writing a garbage collector.
+
+I even tried converting the expression 'compilation' mechanism to use
+continuation-passing style. No improvement that I could see, although (at the
+expense of a useful error message) it manages to deal with very deeply-recursive
+examples. So that mechanism is a branch on the github repo.
 
  
 
-RB 2020/04/28
+That's it for now
+=================
+
+Richard Bornat
+
+2020/18/06
 
  

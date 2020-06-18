@@ -225,8 +225,8 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x03bb      -> LAMBDA       (* λ *)
   | "/^"        -> TESTPOINT
   | 0x2041      -> TESTPOINT    (* ⁁ *)
-  | "|:"        -> LEFTREPEAT   
-  | ":|"        -> RIGHTREPEAT 
+  | "||:"       -> LEFTREPEAT   
+  | ":||"       -> RIGHTREPEAT 
   | 0x1d106     -> LEFTREPEAT   (* 𝄆 *)
   | 0x1d107     -> RIGHTREPEAT (* 𝄇 *)
   | '?'         -> QUERY

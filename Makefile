@@ -28,6 +28,8 @@ ziplinux :
   
 zipmacos :
 	(make zip Qtpi; \
+	 zip -d qtpi\ distrib/docs \*.DS_Store; \
+	 zip -d qtpi\ distrib/examples \*.DS_Store; \
 	 zip -r qtpi\ distrib/Qtpi_Macos Qtpi \
 	)
 

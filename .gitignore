@@ -2,3 +2,4 @@ _build/
 Qtpi
 qtpi.native
 qtpi\ distrib/
+version.ml

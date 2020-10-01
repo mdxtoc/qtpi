@@ -27,6 +27,8 @@ let progname = Sys.argv.(0)
 let files = ref []
 let usage = "Usage: " ^ progname ^ " [options]* filename filename ..."
 
+let print_version () = Printf.printf "qtpi version %s\n" Version.version
+
 let set_arg aref v = aref:=v
 ;;
 let opts = Arg.align 
@@ -76,6 +78,8 @@ let opts = Arg.align
 					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
 					" verbose operation, various arguments, defaults false" ); 
+              ("-version", Arg.Unit print_version, 
+					" show version number" ); 
              ]
 
 let _ = Arg.parse opts (fun s -> files := s :: !files) usage

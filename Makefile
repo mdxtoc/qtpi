@@ -14,3 +14,24 @@ clean :
 links :
 	rm -f Qtpi
 	ln -s qtpi.native Qtpi
+
+zip :
+	(mkdir -p qtpi\ distrib; \
+	 zip -r qtpi\ distrib/docs docs; \
+	 zip -r qtpi\ distrib/examples BB84QKDcontrol.txt E92QKDcontrol.txt examples \
+	) 
+  
+ziplinux :
+	(make zip Qtpi; \
+	 zip -r qtpi\ distrib/Qtpi_Linux Qtpi \
+	)
+  
+zipmacos :
+	(make zip Qtpi; \
+	 zip -r qtpi\ distrib/Qtpi_Macos Qtpi \
+	)
+
+zipwindows :
+	(make zip Qtpi; \
+	 zip -r qtpi\ distrib/Qtpi_Windows Qtpi.exe \
+	)

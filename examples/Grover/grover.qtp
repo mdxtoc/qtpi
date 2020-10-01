@@ -20,27 +20,16 @@ proc
   System () =
     . (let n = read_min_int 1 "number of bits")
     . (newqs qs = |+>⊗⊗n)  
-    .
+
     . (let G = groverG n)
     . (let bs = randbits n)
     . (let U = groverU bs)
     . (let iters = floor (pi*sqrt(2**n)/4+0.5))
-    . ⁁1
-    . Grover (iters, G, U, qs, bs) 
-  
-                  with 1: out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
-
-  Grover (iters, G, U, qs, secretbs) =
-    if iters=0 then
-      . qs⌢⃫(bs) 
-      . ⁁1
-      . _0
-    else
-      . qs>>>U
-      . qs>>>G
-      . Grover (iters-1, G, U, qs, secretbs)
-  
-                  with
-                    1: . out!["measurement says "; show bs; 
-                              if bs=secretbs then " ok" else " ** WRONG **"; "\n"] 
-                       . _0
+    . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
+    
+    . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . _0
+    
+    . qs⌢⃫(bs') 
+    . out!["measurement says "; show bs'; 
+           if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
+    . _0

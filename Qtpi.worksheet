@@ -39,6 +39,8 @@ make links
 
 make Qtpi
 
+./Qtpi -version
+
 # collection of odd examples
 
 ./Qtpi examples/hadamard.qtp

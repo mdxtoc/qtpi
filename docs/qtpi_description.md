@@ -81,11 +81,11 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
 * Quantum step *Q*
   
   | *E* `,` *E* `,` ... `,` *E* `>>` *G*    
-  | *E* `=?` (*pat*)    
-  | *E* `=?` `[` *E* `;` ... `;` *E* `]` (*pat*)    
+  | *E* `-/-` (*pat*)    
+  | *E* `-/-` `[` *E* `;` ... `;` *E* `]` (*pat*)    
 
   * '`>>`' is 'send through a gate'; each left-hand *E* must describe a single qbit. The arity of the input must match the arity of the gate (e.g. H takes one qbit, Cnot takes 2, Fredkin takes 3, and so on).  
-  * `=?` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
+  * `-/-` is measure, in the computational basis defined by `|0>` and `|1>`.  The parameter *par* binds the single-bit result. 
   * Measurement takes a pattern, either `_` or *x*. 
   * The optional square-bracketed *E* list in a measurement is a gate expression controlling the measurement basis: for example `[H]` specifies measurement in the Hadamard basis, and `[I]` the computational basis. If there's more than one gate it specifies measurement in the basis defined by the matrix product of those gates. Internally `q=?[G](b)` is equivalent to `q>>G . q=?(b) . q>>G*` where `G*` is the conjugate transpose of `G`. (Somewhat more complicated if *q* is part of an entanglement: for a two-bit entanglement we must use `G><G` and `(G><)*` where `><` is tensor product; and so on for larger entanglements.) 
   * CQP had `*=` for measure, which looked like an assignment, so (at Guillaume Poly's suggestion) I changed it to `=?`.   

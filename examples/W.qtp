@@ -1,6 +1,6 @@
 (* W-state algorithm taken from 
     the Q# Kata on superposition
-    (https://github.com/microsoft/QuantumKatas/blob/master/Superposition/ReferenceImplementation.qs), 
+    (https://github.com/microsoft/QuantumKatas/tree/mail/Superposition/ReferenceImplementation.qs), 
     task 16, WState_PowerOfTwo_Reference
  *)
 

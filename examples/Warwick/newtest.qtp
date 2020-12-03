@@ -22,7 +22,6 @@ proc System () =
    . out ! ["g4="; show g4; "\n"]
    . out ! ["g5="; show g5; "\n"]
    . (let g = g1*g2*g3*g4*g5) 
-   . out!["product g1*g2*g3*g4*g5 computed, but too large to print without stack overflow\n"]
-   (* . out ! ["product="; show (g1*g2*g3*g4*g5); "\n"] *)
+   . out ! ["product="; show (g1*g2*g3*g4*g5); "\n"]
    . _0
    

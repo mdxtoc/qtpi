@@ -492,5 +492,5 @@ let _qvals qs =
   let qv = Qsim.qval_of_qs qs in
   Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qbit qs) (Qsim.string_of_qval qv) (* oh the qsort ... *)
   
-let _ = know ("qval" , "qbit  -> qstate", qtpfun (hide_string <.> _qval))       (* yup, that's a qbit argument *)
-let _ = know ("qvals", "qbits -> qstate", qtpfun (hide_string <.> _qvals))      (* yup, that's a qbits argument *)
+let _ = know ("qval" , "qbit  -> qstate", qtpfun (of_qstate <.> _qval))       (* yup, that's a qbit argument *)
+let _ = know ("qvals", "qbits -> qstate", qtpfun (of_qstate <.> _qvals))      (* yup, that's a qbits argument *)

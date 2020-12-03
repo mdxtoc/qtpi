@@ -425,8 +425,8 @@ let rec interp pn rtenv procstart =
                       )
                     else
                     if c.cname = outq_c then
-                      (let s = to_uchars v in
-                       Utf8.print_uchars s; flush stdout; 
+                      (let s = to_qstate v in
+                       print_string s; flush stdout; 
                        if !traceIO then trace (EVOutput (name_of_procname pn, (t,v)));
                        true
                       )

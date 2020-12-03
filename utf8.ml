@@ -43,29 +43,29 @@ exception IllformedUtf8
 
 let next_from_char_stream:  char Stream.t -> uchar = fun s -> 
   let code = match Stream.next s with
-    | '\000'..'\127' as c ->
-        Char.code c
-    | '\192'..'\223' as c ->
-        let n1 = Char.code c in
-        let n2 = Char.code (Stream.next s) in
-        if (n2 lsr 6 != 0b10) then raise IllformedUtf8;
-        ((n1 land 0x1f) lsl 6) lor (n2 land 0x3f)
-    | '\224'..'\239' as c ->
-        let n1 = Char.code c in
-        let n2 = Char.code (Stream.next s) in
-        let n3 = Char.code (Stream.next s) in
-        if (n2 lsr 6 != 0b10) || (n3 lsr 6 != 0b10) then raise IllformedUtf8;
-        ((n1 land 0x0f) lsl 12) lor ((n2 land 0x3f) lsl 6) lor (n3 land 0x3f)
-    | '\240'..'\247' as c ->
-        let n1 = Char.code c in
-        let n2 = Char.code (Stream.next s) in
-        let n3 = Char.code (Stream.next s) in
-        let n4 = Char.code (Stream.next s) in
-        if (n2 lsr 6 != 0b10) || (n3 lsr 6 != 0b10) || (n4 lsr 6 != 0b10)
-        then raise IllformedUtf8;
-        ((n1 land 0x07) lsl 18) lor ((n2 land 0x3f) lsl 12) lor
-        ((n3 land 0x3f) lsl 6) lor (n4 land 0x3f)
-    | _ -> raise IllformedUtf8
+             | '\000'..'\127' as c ->
+                 Char.code c
+             | '\192'..'\223' as c ->
+                 let n1 = Char.code c in
+                 let n2 = Char.code (Stream.next s) in
+                 if (n2 lsr 6 != 0b10) then raise IllformedUtf8;
+                 ((n1 land 0x1f) lsl 6) lor (n2 land 0x3f)
+             | '\224'..'\239' as c ->
+                 let n1 = Char.code c in
+                 let n2 = Char.code (Stream.next s) in
+                 let n3 = Char.code (Stream.next s) in
+                 if (n2 lsr 6 != 0b10) || (n3 lsr 6 != 0b10) then raise IllformedUtf8;
+                 ((n1 land 0x0f) lsl 12) lor ((n2 land 0x3f) lsl 6) lor (n3 land 0x3f)
+             | '\240'..'\247' as c ->
+                 let n1 = Char.code c in
+                 let n2 = Char.code (Stream.next s) in
+                 let n3 = Char.code (Stream.next s) in
+                 let n4 = Char.code (Stream.next s) in
+                 if (n2 lsr 6 != 0b10) || (n3 lsr 6 != 0b10) || (n4 lsr 6 != 0b10)
+                 then raise IllformedUtf8;
+                 ((n1 land 0x07) lsl 18) lor ((n2 land 0x3f) lsl 12) lor
+                 ((n3 land 0x3f) lsl 6) lor (n4 land 0x3f)
+             | _ -> raise IllformedUtf8
    in Uchar.of_int code
     
 let put_unicode_char: Buffer.t -> uchar -> unit = Buffer.add_utf_8_uchar
@@ -118,15 +118,21 @@ let string_of_uchar: uchar -> utf8string = fun u ->
     in  put_unicode_char b u;
         Buffer.contents b
         
-let uchar_of_string: utf8string -> uchar = fun str ->
-    let s = Stream.of_string str in next_from_char_stream s
+(* let uchar_of_string: utf8string -> uchar = fun str ->
+     let s = Stream.of_string str in next_from_char_stream s
+ *)
 
+(* with very long strings, catching the Failure exception around the body of gen
+   causes stack overflow. This version is, I believe, tail-recursive. RB 2020/11/11
+ *)
 let uchars_of_string: utf8string -> uchar list = fun str ->
   let s = Stream.of_string str in 
   let rec gen ucs =
-    try let uc = next_from_char_stream s in gen (uc::ucs) with Stream.Failure -> List.rev ucs
+    match try Some (next_from_char_stream s) with Stream.Failure -> None with
+    | Some uc -> gen (uc::ucs)
+    | None    -> List.rev ucs
   in
-  gen []
+  gen [] 
 
 let string_of_uchars: uchar list -> utf8string = fun ucs ->
     let b = Buffer.create (List.length ucs + 10)

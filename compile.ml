@@ -403,8 +403,8 @@ let rec kompile_expr : ctenv -> expr -> ctenv * kexpr = fun ctenv e ->
   | EJux (fe,ae)        ->
       let ctenv, ff = kompile_expr ctenv fe in
       let ctenv, af = kompile_expr ctenv ae in
-      ctenv, (fun rtenv contn -> (*try*) (ff[@tailcall]) rtenv (fun fv -> af rtenv (fun av -> (to_fun fv) av contn))
-                                 (*with LibraryError s -> raise (ExecutionError (e.pos, s))*)
+      ctenv, (fun rtenv contn ->  (ff[@tailcall]) rtenv (fun fv -> af rtenv (fun av -> try ((to_fun fv)[@tailcall]) av contn with LibraryError s -> raise (ExecutionError (e.pos, s))))
+                                 
              )
     
   | EArith (e1,op,e2)  ->

@@ -64,6 +64,8 @@ type qbit = int
 
 type procv = vt list -> procname * rtenv * cprocess             (* procname is for tracing *)
 
+type qstate = string
+
 (* the gsum_info in channel waiter queues is to deal with guarded sums: an offer
    to communicate is withdrawn from all guards by setting the shared boolean to false.
    The channel list is to remove a space leak (blush): clear out the dead from those channels.
@@ -92,24 +94,25 @@ let string_of_bit b = if b then "1" else "0"
 
 (* *************************** conversion functions for the vt trick ********************************** *)
 
-let to_bit     : vt -> bool         =  Obj.magic
-let to_bool    : vt -> bool         =  Obj.magic
-let to_bra     : vt -> nv           =  Obj.magic
-let to_chan    : vt -> chan         =  Obj.magic
-let to_csnum   : vt -> csnum        =  Obj.magic
-let to_fun     : vt -> (vt -> vt)   =  Obj.magic
-let to_gate    : vt -> gate         =  Obj.magic
-let to_ket     : vt -> nv           =  Obj.magic
-let to_list    : vt -> vt list      =  Obj.magic
-let to_matrix  : vt -> matrix       =  Obj.magic
-let to_num     : vt -> num          =  Obj.magic
-let to_nv      : vt -> nv           =  Obj.magic
-let to_procv   : vt -> procv        =  Obj.magic 
-let to_qbit    : vt -> qbit         =  Obj.magic
-let to_qbits   : vt -> qbit list    =  Obj.magic
-let to_uchar   : vt -> Uchar.t      =  Obj.magic
+let to_bit     : vt -> bool         = Obj.magic
+let to_bool    : vt -> bool         = Obj.magic
+let to_bra     : vt -> nv           = Obj.magic
+let to_chan    : vt -> chan         = Obj.magic
+let to_csnum   : vt -> csnum        = Obj.magic
+let to_fun     : vt -> (vt -> vt)   = Obj.magic
+let to_gate    : vt -> gate         = Obj.magic
+let to_ket     : vt -> nv           = Obj.magic
+let to_list    : vt -> vt list      = Obj.magic
+let to_matrix  : vt -> matrix       = Obj.magic
+let to_num     : vt -> num          = Obj.magic
+let to_nv      : vt -> nv           = Obj.magic
+let to_procv   : vt -> procv        = Obj.magic 
+let to_qbit    : vt -> qbit         = Obj.magic
+let to_qbits   : vt -> qbit list    = Obj.magic
+let to_uchar   : vt -> Uchar.t      = Obj.magic
 let to_uchars  : vt -> Uchar.t list = Obj.magic
-let to_unit    : vt -> unit         =  Obj.magic
+let to_unit    : vt -> unit         = Obj.magic
+let to_qstate  : vt -> qstate       = Obj.magic
 
 let of_bit     : bool         -> vt = Obj.magic
 let of_bool    : bool         -> vt = Obj.magic
@@ -130,14 +133,12 @@ let of_uchar   : Uchar.t      -> vt = Obj.magic
 let of_uchars  : Uchar.t list -> vt = Obj.magic
 let of_tuple   : vt list      -> vt = Obj.magic
 let of_unit    : unit         -> vt = Obj.magic
+let of_qstate  : qstate       -> vt = Obj.magic
 
 (* convert strings, for the library. What's hidden is a uchar list (see of_uchars) *)
 let reveal_string : vt -> string = fun v -> let cs = to_uchars v in
                                             Utf8.string_of_uchars cs
 let hide_string : string -> vt = fun s -> of_uchars (Utf8.uchars_of_string s)
-
-let reveal_qstate = reveal_string
-let hide_qstate = hide_string
 
 (* convert pairs and triples, for the library. What's hidden is an n-element list (see of_tuple) *)
 let reveal_pair   : vt -> 'a * 'b = fun v -> let vs = to_list v in 
@@ -181,7 +182,7 @@ let rec so_value optf t v =
                | Char          -> Printf.sprintf "'%s'" (Utf8.escaped (to_uchar v))
                | Qbit          -> "Qbit " ^ string_of_qbit (to_qbit v)
                | Qbits         -> "Qbits " ^ string_of_qbits (to_qbits v)
-               | Qstate        -> reveal_string v
+               | Qstate        -> to_qstate v
                | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
                | List t        -> bracketed_string_of_list (so_value optf t) (to_list v)

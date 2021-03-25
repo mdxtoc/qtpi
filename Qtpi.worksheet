@@ -71,6 +71,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi -trace examples/basicteleportrandom.qtp
 ./Qtpi -trace examples/basicteleportrandom_untyped.qtp
 ./Qtpi examples/basicteleport_with.qtp
+./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 # randomteleport_with is a test of formula simplification. The problem is that the simplification
 # algorithm isn't perfectly confluent. It's possible to start with one formula and finish with an equivalent
@@ -105,10 +106,12 @@ time ./Qtpi -show_final examples/BB84_QBC_untyped.qtp
 # BB84 QKD without Eve, and with a naive intercept-and-send Eve
 
 (cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
-            
+                        
 (cd examples/BB84_QKD; time ../../Qtpi functions.qtp iteratedAlice.qtp Bob.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
             
 (cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
 
 # E92 QKD without an Eve, and now with.
 

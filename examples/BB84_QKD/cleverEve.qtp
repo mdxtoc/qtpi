@@ -43,15 +43,15 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
       . ⁁3
        . _0
 
-  with
-    1: . logEB!bs. logEB!vs
-       . _0
-    2: . logEB!checkbitsB
-       . _0
-    3: . logAE!encrypted           
-       . logAE!codeA
-       . logEB![bool2bit true]              (* can decrypt, sort of *)
-       . logEB!messageA                     (* best guess *)
-       . logAE!hkbsAE'                           
-       . logEB!hkbsEB'                          
-       . _0            
+          with
+            1: . logEB!bs. logEB!vs
+               . _0
+            2: . logEB!checkbitsB
+               . _0
+            3: . logAE!encrypted           
+               . logAE!codeA
+               . logEB![bool2bit true]              (* can decrypt, sort of *)
+               . logEB!messageA                     (* best guess *)
+               . logAE!hkbsAE'                           
+               . logEB!hkbsEB'                          
+               . _0            

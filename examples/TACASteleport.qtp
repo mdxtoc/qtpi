@@ -1,0 +1,24 @@
+proc
+  System () =
+    . (newq x=|+>, y=|0>)
+    . x,y>>CNot
+    . (new a, b, ab)
+    . | Alice(a, ab)
+      | Bob(b, ab)
+      | a!x . b!y . _0
+  
+  Alice (a, c) =
+    . a?(x)
+    . (newq z) 
+    . z,x>>CNot . z>>H . z⌢̸(vz) . x⌢̸(vx)
+    . c!vz,vx
+    . _0
+    
+  Bob(b, c) =
+    . b?(y)
+    . c?(pair)
+    . y >> match pair . + (0b0,0b0) . I
+                        + (0b0,0b1) . X
+                        + (0b1,0b0) . Z
+                        + (0b1,0b1) . Z*X    
+    . _0

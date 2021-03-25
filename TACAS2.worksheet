@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CurrentWorkingDirectory</key>
+	<string>/Users/richard/gitrepositories/qtpi</string>
+	<key>WorksheetContents</key>
+	<string>cd ~/gitrepositories/qtpi
+
+cat TACAS_BB84QKDcontrol.txt
+length of message? 1000
+length of a hash key? 100
+minimum number of checkbits? 250
+number of sigmas? 10
+number of trials? 1000
+with commentary (y/n)? n
+
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; TACAS_BB84QKDcontrol.txt
+trial number 1 
+... 
+trial number 1000 
+5611 qbits per trial
+all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 0 short codebits; average check bits 701.71 minimum check bits 618
+...
+
+83.44s user 0.92s system 98% cpu 1:25.36 total
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; TACAS_BB84QKDcontrol.txt
+trial number 1 quantum interference detected -- 677 check bits
+...
+trial number 1000 quantum interference detected -- 658 check bits
+5611 qbits per trial
+all done: 0 Eve's; 1000 Alice's; 0 successful evasions; 0 short codebits; average check bits (Alice/Eve) 701.47; minimum check bits (Alice/Eve) 611; average check bits (Eve/Bob) 701.47; minimum check bits (Eve/Bob) 611
+...
+
+145.42s user 1.63s system 98% cpu 2:28.96 total
+
+cat BB84QKD_Evewins_control.txt
+length of message? 32
+length of a hash key? 0
+minimum number of checkbits? 0
+number of sigmas? 0
+number of trials? 1000
+with commentary (y/n)? n
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKD_Evewins_control.txt
+trial number 1 quantum interference detected -- 10 check bits
+trial number 2 
+trial number 3 quantum interference detected -- 11 check bits
+...
+trial number 20 
+...
+trial number 1000 quantum interference detected -- 10 check bits
+86 qbits per trial
+all done: 0 Eve's; 918 Alice's; 82 successful evasions; 798 short codebits; average check bits (Alice/Eve) 10.19; minimum check bits (Alice/Eve) 2; average check bits (Eve/Bob) 10.19; minimum check bits (Eve/Bob) 2
+...
+
+4.41s user 0.08s system 98% cpu 4.548 total
+
+</string>
+</dict>
+</plist>

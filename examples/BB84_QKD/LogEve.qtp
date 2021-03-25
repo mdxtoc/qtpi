@@ -10,11 +10,11 @@ proc
       _0
   
   LogAliceEve (verbose, log, done) = 
-    log?(encrypted)     .
+    log?(encrypted:[bit])     .
     out!if verbose then ["Eve (as Bob) sees encrypted "; show encrypted; "\n"] 
                    else []
                         .
-    log?(code)          .
+    log?(code:[bit])          .
     out!if verbose then ["Eve's code with Alice is "; show code; "\n"] 
                    else []
                         .

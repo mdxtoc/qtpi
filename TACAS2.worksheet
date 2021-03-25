@@ -58,6 +58,16 @@ all done: 0 Eve's; 918 Alice's; 82 successful evasions; 798 short codebits; aver
 
 4.41s user 0.08s system 98% cpu 4.548 total
 
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp) &lt; TACAS_BB84QKDcontrol.txt
+trial number 1 
+Eve wins -- 728 check bits E-&gt;A; 651 check bits B-&gt;E
+
+trial number 1000 
+Eve wins -- 731 check bits E-&gt;A; 703 check bits B-&gt;E
+5611 qbits per trial
+all done: 1000 Eve's; 0 Alice's; 1000 successful evasions; 0 short codebits; average check bits (Alice/Eve) 701.62; minimum check bits (Alice/Eve) 621; average check bits (Eve/Bob) 700.62; minimum check bits (Eve/Bob) 620
+
+173.83s user 2.11s system 97% cpu 2:59.99 total
 </string>
 </dict>
 </plist>

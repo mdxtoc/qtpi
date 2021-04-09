@@ -1,0 +1,3 @@
+number of trials? 20
+length of message? 1000
+with commentary (y/n)? y

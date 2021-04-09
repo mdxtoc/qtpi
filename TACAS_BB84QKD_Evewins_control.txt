@@ -1,0 +1,6 @@
+length of message? 32
+length of a hash key? 0
+minimum number of checkbits? 0
+number of sigmas? 0
+number of trials? 20
+with commentary (y/n)? n

@@ -74,6 +74,8 @@ let opts = Arg.align
 					" show trace of process ids (probably unnecessary), at end of execution");
               ("-try_rotate"  , Arg.Bool (set_arg try_rotate), 
 					 Printf.sprintf " when splitting state, try every qbit (default %B)" !Settings.try_rotate);
+              ("-trydiag"  , Arg.Bool (set_arg trydiag), 
+					 Printf.sprintf " use diagonal matrix optimisation in calculations (default %B)" !Settings.trydiag);
               ("-typereport"  , Arg.Set typereport, 
 					" show fully typed program");
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 

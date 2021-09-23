@@ -78,6 +78,8 @@ let traceIO = ref false
 
 let try_rotate = ref false
 
+let trydiag = ref false
+
 let typereport = ref false
 
 let verbose             = ref false

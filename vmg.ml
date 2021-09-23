@@ -52,7 +52,14 @@ let stats_to_list table =
 (* *********************** vectors, matrices,gates ************************************ *)
 
 (* because matrices and vectors can become very large (see the W example), indices are now zint *)
-(* because Arrays can't get that large, they are indexed by ints. Ho hum. *)
+(* because Arrays can't get that large, they are indexed by ints. Ho hum. 
+   But an Array would be too big for memory long before it ran out of indices.
+ *)
+(* and actually a SparseM is an array of cvecs, so it has to be indexed by int. Ho hum again. 
+   Sparse matrices can reasonably be larger than the int address space, and we deal with 
+   2^1024 examples in the W state example. But that's done with functional matrices. The
+   time optimisations I developed need an explicit sparse matrix representation. So there.
+ *)
 
 type dvec  = csnum array
 and  cvec  = (zint * csnum) list                 (* assoc list *)
@@ -66,6 +73,7 @@ and matrix =
   | SparseM of zint * csnum * cvec array        (* csize, default value, sparse rows *)
   | FuncM  of string * zint * zint * (zint -> zint -> csnum) * (csnum * (zint -> cvec) * (zint -> cvec)) option
                                                 (* rsize, csize, element function, sparse row/column option *)
+  | DiagM of vector                             (* rsize=csize=diagsize *)
 
 and dmat = csnum array array
 
@@ -89,19 +97,18 @@ let rsize = function
   | DenseM m                -> Z.of_int (Array.length m)
   | SparseM (nc, sv, cvs)   -> Z.of_int (Array.length cvs)
   | FuncM  (_,nr,_,_,_)     -> nr
+  | DiagM   v               -> vsize v
 
 let csize = function
   | DenseM m                -> if Array.length m = 0 then z_0 else Z.of_int (Array.length m.(0))
   | SparseM (nc, sv, cvs)   -> nc
   | FuncM  (_,_,nc,_,_)     -> nc
+  | DiagM   v               -> vsize v
 
 let gsize = rsize
 
 let init_v n f = Array.init n f
 let init_dm n m f = Array.init m (fun i -> Array.init m (f i))
-
-let init_diag_m : zint -> (zint -> csnum) -> matrix = fun n f ->
-  SparseM (n, c_0, Array.init (Z.to_int n) (fun i -> let zi = Z.of_int i in [zi, f zi]))
 
 (* cvecs are ordered ... *)
 
@@ -127,6 +134,7 @@ let (?..) m i j =
   | DenseM m                -> m.(Z.to_int i).(Z.to_int j)
   | SparseM (_,sv,cvv)      -> find_cv sv (cvv.(Z.to_int i)) j
   | FuncM  (_,_,_,f,_)      -> f i j
+  | DiagM   v               -> if i=:j then ?.v i else c_0
 
 (* a bit of false recursion, so I don't have to find what order to put these functions in 
    -- all so I can use string_of_vector in diag printing when I need to
@@ -304,10 +312,7 @@ and string_of_nv bksign (vm, vv) =
        | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
       )
     else
-      match v with
-      | DenseV  v         -> let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
-                             Printf.sprintf "DenseV%s" (bracketed_string_of_list id estrings)
-      | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s,%s)" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
+      raw_string_of_vector v
   in
   (* since splitting the state is now not a normal thing, we don't need this ...
      let normalised_sign vv = 
@@ -333,22 +338,34 @@ and string_of_ket k = string_of_nv PVKet k
 
 and string_of_vector v = string_of_ket (snum_1,v)
 
+and raw_string_of_vector v = 
+  match v with
+  | DenseV  v         -> let estrings = Array.fold_right (fun s ss -> string_of_csnum s::ss) v [] in
+                         Printf.sprintf "DenseV%s" (bracketed_string_of_list id estrings)
+  | SparseV (n,sv,cv) -> Printf.sprintf "SparseV(%s,%s,%s)" (string_of_zint n) (string_of_csnum sv) (string_of_cv cv)
+
+
 (* with sparse vectors, we can have some seriously large ones ... *)
+and stats_v stats v =
+  let count = stats_inc stats z_1 in
+  (match v with
+   | DenseV  dv        -> Array.iter count dv
+   | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
+                          List.iter (count <.> snd) cv
+  )
+  
 and statistics_v v :(csnum*zint) list =
   let nv = match v with 
            | DenseV  _         -> vsize v 
            | SparseV (n,sv,cv) -> zlength cv *: z_4
   in
   let stats = stats_init (Z.to_int nv) in
-  let count = stats_inc stats z_1 in
-  (match v with
-   | DenseV  dv        -> Array.iter count dv
-   | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
-                          List.iter (count <.> snd) cv
-  );
+  stats_v stats v;
   stats_to_list stats
 
 let statistics_nv (_,v) = statistics_v v
+
+let string_of_cvv cvv = bracketed_string_of_list string_of_cv (Array.to_list cvv)
 
 let string_of_matrix = function
   | DenseM m -> 
@@ -360,13 +377,14 @@ let string_of_matrix = function
       let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
       Printf.sprintf "\n{%s}\n" block
   | SparseM (nc,sv,cvv) ->   
-      Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (bracketed_string_of_list string_of_cv (Array.to_list cvv))
+      Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (string_of_cvv cvv)
   | FuncM (id,nr,nc,_,opt) ->
       Printf.sprintf "FuncM(%s,%s,%s,_,%s)" id (string_of_zint nr) (string_of_zint nc) 
                                             (Optionutils.string_of_option (fun (sv,_,_) -> Printf.sprintf "%s,_,_" (string_of_csnum sv)) 
                                                                           opt
                                             )
-      
+  | DiagM v -> Printf.sprintf "DiagM(%s)" (string_of_vector v)
+  
 let string_of_gate = string_of_matrix
 
 let statistics_m m :(csnum*zint) list =
@@ -383,6 +401,10 @@ let statistics_m m :(csnum*zint) list =
    | FuncM (_,nr,nc,f,_) -> _forZ z_0 z_1 nr (fun i ->
                               _forZ z_0 z_1 nc (fun j -> count (f i j))
                             )
+   | DiagM   v           -> let s0 = stats_ref stats c_0 in
+                            let vn = vsize v in
+                            s0 := (vn *: vn) -: vn;
+                            stats_v stats v
   );
   stats_to_list stats
 
@@ -395,12 +417,38 @@ let svfreq_m m =
   let stats = statistics_m m in
   List.hd stats
 
+exception NotDiag
+
+let maybe_diag_m nr nc sv cvv =
+   (* Printf.printf "maybe_diag_m %s %s %s %s" (Z.to_string nr) (Z.to_string nc) (string_of_csnum sv) (string_of_cvv cvv);
+   let r = *)
+   try if not !trydiag || nr<>nc || sv<>c_0 then raise NotDiag;
+       let diagv = Array.mapi (fun i -> function [(zj,x)] -> if Z.of_int i=:zj then x else raise NotDiag
+                                        |        []       -> c_0
+                                        |        _        -> raise NotDiag
+                              )
+                              cvv 
+       in
+       DiagM (maybe_sparse_v diagv)
+   with NotDiag -> SparseM (nc, sv, cvv)
+   (* in
+   Printf.printf " = %s\n" (string_of_matrix r);
+   r *)
+   
+let init_diag_m : zint -> (zint -> csnum) -> matrix = fun n f ->
+  (* let r = *) 
+  if !trydiag then DiagM (maybe_sparse_v (Array.init (Z.to_int n) (f <.> Z.of_int))) 
+              else SparseM (n, c_0, Array.init (Z.to_int n) (fun i -> let zi = Z.of_int i in [zi, f zi]))
+  (* in
+  Printf.printf "init_diag_m %s ?? = %s\n" (Z.to_string n) (string_of_matrix r);
+  r *)
+
 let maybe_sparse_m dm =
   let m = DenseM dm in
   if rsize m>:z_4 then
     (let sv,freq = svfreq_m m in
      let nr, nc = rsize m, csize m in
-     if Z.(freq*z_4 > z_3*nr*nc) then SparseM (nc, sv, cvv_of_dm sv dm)
+     if Z.(freq*z_4 > z_3*nr*nc) then maybe_diag_m nr nc sv (cvv_of_dm sv dm)
                                  else m
     )
   else m
@@ -415,7 +463,7 @@ let maybe_dense_m sv nc cvv =
      let nr = rsize m in
      if Z.(freq*z_4 > z_3*nr*nc) then 
        if sv=sv' then m
-                 else SparseM (nc, sv', Array.map (sparse_elements_cv sv sv' nc) cvv)
+                 else maybe_diag_m nr nc sv' (Array.map (sparse_elements_cv sv sv' nc) cvv)
      else dense()
     )
   else dense()
@@ -457,10 +505,12 @@ let transpose_m m =
   | DenseM  dm          -> let nr = Z.to_int (rsize m) in
                            let nc = Z.to_int (csize m) in
                            DenseM (init_dm nr nc (fun i j -> dm.(j).(i)))
-  | FuncM (id, rn, cn, f, opt) -> let id = Printf.sprintf "(%s)*" id in
-                                FuncM (id, cn, rn, revargs f, 
-                                        opt &~~ (fun (sv, rf, cf) -> Some (sv, cf, rf))
-                                      ) 
+  | FuncM (id, rn, cn, f, opt) 
+                        -> let id = Printf.sprintf "(%s)*" id in
+                           FuncM (id, cn, rn, revargs f, 
+                                   opt &~~ (fun (sv, rf, cf) -> Some (sv, cf, rf))
+                                 ) 
+  | DiagM  _            -> m
 
 module DmatH = struct type t = dmat 
                       let equal = (=)
@@ -480,7 +530,9 @@ let rowfopt_dm = DMatHash.memofun rcftab (fun dm ->
 let rowfopt_m = function
   | SparseM (n, sv, cvv)      -> Some (sv, Array.get cvv <.> Z.to_int, Array.get (transpose_cvv n cvv) <.> Z.to_int)
   | FuncM   (id,nr,nc,f,optf) -> optf
-  | DenseM dm                 -> Some (rowfopt_dm dm) (* if we are asked, it's needed *) 
+  | DenseM  dm                -> Some (rowfopt_dm dm) (* if we are asked, it's needed *) 
+  | DiagM   v                 -> let f i = [(i,?.v i)] in
+                                 Some (c_0, f, f)
                        
 (* ********************** build vectors, matrices, gates ******************************* *)
 
@@ -601,14 +653,20 @@ let func_H (n:int) =
 
 (* note that gates are square matrices, but we also have unsquare matrices *)
 
-let exists_array p v = _for_exists 0 1 (Array.length v) (fun i -> p (Z.of_int i) v.(i))
+let exists_Array p v = _for_exists 0 1 (Array.length v) (fun i -> p (Z.of_int i) v.(i))
+
+let exists_v p = function DenseV dv           -> exists_Array p dv
+                |         SparseV (n, sv, cv) -> _for_existsZ z_0 z_1 n (fun i -> p i (find_cv sv cv i))
+
 let exists_m p = function
-  | DenseM m            -> exists_array (fun i row -> exists_array (fun j x -> p i j x) row) m
-  | SparseM (nc,sv,cvv) -> exists_array (fun i cv -> let row = SparseV (nc,sv,cv) in
+  | DenseM m            -> exists_Array (fun i row -> exists_Array (fun j x -> p i j x) row) m
+  | SparseM (nc,sv,cvv) -> exists_Array (fun i cv -> let row = SparseV (nc,sv,cv) in
                                                      _for_existsZ z_0 z_1 nc (fun j -> p i j (?.row j))
                                         ) cvv
   | FuncM (_,nr,nc,f,_) -> _for_existsZ z_0 z_1 nr (fun i -> _for_existsZ z_0 z_1 nc (fun j -> p i j (f i j)))
-
+  | DiagM v             -> let n = vsize v in
+                           _for_existsZ z_0 z_1 n (fun i -> _for_existsZ z_0 z_1 n (fun j -> p i j (if i=:j then ?.v i else c_0)))
+  
 (* from this point on, sparse matrices with non-zero sv complicate the coding. Remember
    that sparse techniques save space; sv=c_0 also saves time. 
  *)
@@ -737,7 +795,7 @@ let tensor_mm mA mB =
                                                              let cvva = cvv_of_dm sva dma in
                                                              tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb
              | DenseM  dma         , DenseM  dmb          -> 
-                 try 
+                 (try 
                      let nra, nca = Z.to_int nra, Z.to_int nca in
                      let nrb, ncb = Z.to_int nrb, Z.to_int ncb in
                      let dmc = init_dm (nra*nrb) (nca*ncb) (fun _ _ -> c_0) in
@@ -757,6 +815,9 @@ let tensor_mm mA mB =
                                                             (string_of_zint nrb) (string_of_zint ncb)
                                                     )
                                           )
+                )
+            | DiagM _, _
+            | _, DiagM _-> raise (Disaster "tensor_mm DiagM not implemented yet")
             )  
   in
   if !verbose || !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m);
@@ -932,6 +993,8 @@ let mult_mv m v =
                mult_cvvcv nr nc svm rf cf svv cv
            | FuncM (_,_,_,_,Some (sv,rf,cf)), SparseV (_,svv,cv) -> 
                mult_cvvcv nr nc sv rf cf svv cv
+           | DiagM mv, _                                          -> 
+               maybe_sparse_v (Array.init (Z.to_int nr) (fun i -> cprod (?.mv (Z.of_int i)) (?.v (Z.of_int i))))
            | _                                                   -> 
                default ()
   in
@@ -1035,6 +1098,7 @@ let mult_nm cn m =
            | DenseM dm as mA              -> let m = Z.to_int (rsize mA) in
                                              let n = Z.to_int (csize mA) in
                                              maybe_sparse_m (init_dm m n (fun i j -> cprod cn (dm.(i).(j))))
+           | DiagM v             -> raise (Disaster "mult_nm DiagM not implemented yet")
           )
   in
   if !verbose || !verbose_qcalc then
@@ -1087,18 +1151,22 @@ let mult_kb (km, kv as k) (bm, bv as b) =
 (* conjugate transpose: transpose and piecewise complex conjugate *)
 let cconj_cv = List.map (fun (i,x) -> i, cconj x)
 
+let cconj_v = function DenseV  dv          -> DenseV (Array.map cconj dv)
+              |        SparseV (n, sv, cv) -> SparseV (n, cconj sv, cconj_cv cv)
+
 let dagger_m m =
   if rsize m<>csize m then
     raise (Disaster (Printf.sprintf "dagger_m %s" (string_of_matrix m)));
   match m with
-  | SparseM (nc, sv, cvv)    -> SparseM (nc, cconj sv, Array.map cconj_cv (transpose_cvv nc cvv))
-  | DenseM dm as mA          -> let m = Z.to_int (rsize mA) in
-                                let n = Z.to_int (csize mA) in
-                                DenseM (init_dm m n (fun i j -> cconj (dm.(j).(i))))
+  | SparseM (nc, sv, cvv)      -> SparseM (nc, cconj sv, Array.map cconj_cv (transpose_cvv nc cvv))
+  | DenseM dm as mA            -> let m = Z.to_int (rsize mA) in
+                                  let n = Z.to_int (csize mA) in
+                                  DenseM (init_dm m n (fun i j -> cconj (dm.(j).(i))))
   | FuncM (id, rn, cn, f, opt) -> let id = Printf.sprintf "(%s)†" id in
-                                FuncM (id, cn, rn, cconj <..> revargs f, 
-                                        opt &~~ (fun (sv, rf, cf) -> Some (cconj sv, cconj_cv <.> cf, cconj_cv <.> rf))
-                                      ) 
+                                  FuncM (id, cn, rn, cconj <..> revargs f, 
+                                          opt &~~ (fun (sv, rf, cf) -> Some (cconj sv, cconj_cv <.> cf, cconj_cv <.> rf))
+                                        ) 
+  | DiagM v                    -> DiagM (cconj_v v)
 
 let dagger_g = dagger_m
 
@@ -1146,6 +1214,8 @@ let addsub_mm f s mA mB =
                         | _                              -> None
               in
               FuncM (id, m, n, (fun i j -> f (fA i j) (fB i j)), opt)
+          | DiagM _, _
+          | _, DiagM _ -> raise (Disaster "addsub_mm DiagM not implemented yet")
           | _                                                -> 
               try maybe_sparse_m (init_dm (Z.to_int m) (Z.to_int n) 
                                           (fun i j -> f (?..mA (Z.of_int i) (Z.of_int j)) (?..mB (Z.of_int i) (Z.of_int j)))
@@ -1165,7 +1235,7 @@ let is_diag_I m =
   rsize m =: csize m &&
   match m with
   | SparseM (_,sv,cvv) 
-      when sv=c_0       -> not (exists_array (fun i cv -> match cv with 
+      when sv=c_0       -> not (exists_Array (fun i cv -> match cv with 
                                                           | [(j,x)] -> i<>:j || x<>c_1
                                                           | _       -> true
                                              )

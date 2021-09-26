@@ -222,6 +222,12 @@ and sparse_elements_v sv vV =
                           else sparse_elements_cv sv sv' n cv
   | DenseV  v          -> sparse_elements_dv sv v
 
+and sparse_of_diag v =
+  let doit n v = SparseM (n, c_0, Array.init (Z.to_int n) (fun i -> [(Z.of_int i,v.(i))])) in
+  match v with
+  | SparseV (n,_,_) -> doit n (densify_v v)
+  | DenseV  dv      -> doit (Z.of_int (Array.length dv)) dv
+  
 and vseg n m v = (* from n to m-1, natch *)
   match v with
   | DenseV  dv          -> DenseV (Array.init (Z.to_int (m-:n)) (fun i -> dv.(Z.to_int n+i)))
@@ -1134,7 +1140,8 @@ let mult_nm cn m =
            | DenseM dm as mA              -> let m = Z.to_int (rsize mA) in
                                              let n = Z.to_int (csize mA) in
                                              maybe_sparse_m (init_dm m n (fun i j -> cprod cn (dm.(i).(j))))
-           | DiagM v                      -> raise (Disaster "mult_nm DiagM not implemented yet")
+           | DiagM (SparseV (n, sv, cv))  -> DiagM (SparseV (n, (cprod cn sv), List.map (fun (i,x) -> i, cprod cn x) cv))
+           | DiagM (DenseV dv)            -> DiagM (DenseV (Array.map (cprod cn) dv))
           )
   in
   if !verbose || !verbose_qcalc then
@@ -1238,8 +1245,9 @@ let rec elwise_mm ee str mA mB =
                         | _                              -> None
               in
               FuncM (id, m, n, (fun i j -> ee (fA i j) (fB i j)), opt)
-          | DiagM _, _
-          | _, DiagM _ -> raise (Disaster "elwise_mm DiagM not implemented yet")
+          | DiagM v1               , DiagM v2                -> DiagM (elwise_vv cprod "*" v1 v2)
+          | DiagM v1               , SparseM _               -> elwise_mm ee str (sparse_of_diag v1) mB
+          | SparseM _              , DiagM v2                -> elwise_mm ee str mA (sparse_of_diag v2)
           | _                                                -> 
               try maybe_sparse_m (init_dm (Z.to_int m) (Z.to_int n) 
                                           (fun i j -> ee (?..mA (Z.of_int i) (Z.of_int j)) (?..mB (Z.of_int i) (Z.of_int j)))

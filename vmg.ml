@@ -910,47 +910,47 @@ let dotprod_vv vA vB =
                                                 dotprod_cvcv n sva (sparse_elements_dv sva dva) svb cvb
   | DenseV  dva        , DenseV  dvb         -> dense_dotprod dva dvb
 
-(* cross product (I think that's the right name) 
-   Very much the same logic as dotprod, but different aims
- *)
+(* elwise: element-wise combination of vectors and matrices *)
 
-let track_crossprod = true
+let track_elwise = true
 
-let crossprod_cvcv n sva cva svb cvb =
-  if track_crossprod && (!verbose || !verbose_qcalc) then 
-       Printf.printf "crossprod_cvcv %s %s %s %s %s = " (string_of_zint n) (string_of_csnum sva) (string_of_cv cva) 
-                                                                         (string_of_csnum svb) (string_of_cv cvb); 
-  let sv = cprod sva svb in
+let elwise_cvcv ee str sva cva svb cvb =
+  if track_elwise && (!verbose || !verbose_qcalc) then 
+       Printf.printf "elwise_cvcv %s %s %s %s %s = " str (string_of_csnum sva) (string_of_cv cva) 
+                                                         (string_of_csnum svb) (string_of_cv cvb); 
+  let sv = ee sva svb in
   let rec f vs cva cvb =
     let vadd k v = if v=sv then vs else (k,v)::vs in
     Z.(match cva, cvb with
-       | (i,x)::ixs, (j,y)::jys -> if i<j then f (vadd i (cprod x svb)) ixs cvb else
-                                   if i=j then f (vadd i (cprod x y  )) ixs jys else
-                                               f (vadd j (cprod sva y)) cva jys
-       | (i,x)::ixs, []         ->             f (vadd i (cprod x svb)) ixs cvb 
-       | []        , (j,y)::jys ->             f (vadd j (cprod sva y)) cva jys
+       | (i,x)::ixs, (j,y)::jys -> if i<j then f (vadd i (ee x svb)) ixs cvb else
+                                   if i=j then f (vadd i (ee x y  )) ixs jys else
+                                               f (vadd j (ee sva y)) cva jys
+       | (i,x)::ixs, []         ->             f (vadd i (ee x svb)) ixs cvb 
+       | []        , (j,y)::jys ->             f (vadd j (ee sva y)) cva jys
        | _                      -> List.rev vs
      )
   in
   let cv = f [] cva cvb in
-  let r = maybe_dense_v sv n cv in
-  if track_crossprod && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (raw_string_of_vector r); 
-  r
+  if track_elwise && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (string_of_cv cv); 
+  cv
 
-let dense_crossprod va vb =
-  maybe_sparse_v (Array.init (Array.length va) (fun i -> cprod va.(i) vb.(i)))
+let elwise_dvdv ee str va vb =
+  Array.init (Array.length va) (fun i -> ee va.(i) vb.(i))
   
-let crossprod_vv vA vB =
+let elwise_vv ee str vA vB =
   let n = vsize vA in
   if n<>vsize vB then 
-    raise (Disaster (Printf.sprintf "crossprod size mismatch %s*%s" (string_of_vector vA) (string_of_vector vB)));
+    raise (Disaster (Printf.sprintf "elwise size mismatch %s %s %s" (string_of_vector vA) str (string_of_vector vB)));
   match vA, vB with
-  | SparseV (_,sva,cva), SparseV (_,svb,cvb) -> crossprod_cvcv n sva cva svb cvb
+  | SparseV (_,sva,cva), SparseV (_,svb,cvb) -> maybe_dense_v (ee sva svb) n (elwise_cvcv ee str sva cva svb cvb)
+
   | SparseV (_,sva,cva), DenseV  dvb         -> let svb,_ = svfreq_v vB in
-                                                crossprod_cvcv n sva cva svb (sparse_elements_dv svb dvb)
+                                                maybe_dense_v (ee sva svb) n 
+                                                              (elwise_cvcv ee str sva cva svb (sparse_elements_dv svb dvb))
   | DenseV  dva        , SparseV (_,svb,cvb) -> let sva,_ = svfreq_v vA in
-                                                crossprod_cvcv n sva (sparse_elements_dv sva dva) svb cvb
-  | DenseV  dva        , DenseV  dvb         -> dense_crossprod dva dvb
+                                                maybe_dense_v (ee sva svb) n 
+                                                              (elwise_cvcv ee str sva (sparse_elements_dv sva dva) svb cvb)
+  | DenseV  dva        , DenseV  dvb         -> maybe_sparse_v (elwise_dvdv ee str dva dvb)
 
 let rowcolprod nc row col =
   let els = Listutils.tabulate (my_to_int nc "rowcolprod") (fun j -> cprod (row (Z.of_int j)) (col (Z.of_int j))) in
@@ -1044,7 +1044,7 @@ let mult_mv m v =
            | FuncM (_,_,_,_,Some (sv,rf,cf)), SparseV (_,svv,cv) -> 
                mult_cvvcv nr nc sv rf cf svv cv
            | DiagM mv, _                                         -> 
-               crossprod_vv mv v
+               elwise_vv cprod "*" mv v
            | _                                                   -> 
                default ()
   in
@@ -1121,7 +1121,7 @@ let mult_mm mA mB =
                    in
                    transpose_m m
                | DiagM va, DiagM vb                       ->
-                   DiagM (crossprod_vv va vb)
+                   DiagM (elwise_vv cprod "*" va vb)
                | _                                        -> 
                    maybe_sparse_m (init_dm (Z.to_int nrA) (Z.to_int ncB) 
                                           (fun i j -> rowcolprod ncA (?..mA (Z.of_int i)) (revargs ?..mB (Z.of_int j)))
@@ -1222,57 +1222,45 @@ let dagger_m m =
 
 let dagger_g = dagger_m
 
-let addsub_cvcv f s svA cvA svB cvB =
-  let rec doit els cvA cvB =
-    match cvA, cvB with
-    | (i,x)::ixs, (j,y)::jys -> if i<:j then doit ((i, f x   svB)::els) ixs cvB else
-                                if i=:j then doit ((i, f x   y  )::els) ixs jys else
-                                             doit ((j, f svA y  )::els) cvA jys
-    | (i,x)::ixs, []         ->              doit ((i, f x   svB)::els) ixs cvB
-    | []        , (j,y)::jys ->              doit ((j, f svA y  )::els) cvA jys
-    | []        , []         ->              List.rev els
-  in
-  doit [] cvA cvB
-  
-let addsub_ff f s svA rfA svB rfB i = addsub_cvcv f s svA (rfA i) svB (rfB i)
+let elwise_ff ee str svA rfA svB rfB i = elwise_cvcv ee str svA (rfA i) svB (rfB i)
 
-let addsub_mm f s mA mB =
+let elwise_mm ee str mA mB =
   if !verbose || !verbose_qcalc then
-    (Printf.printf "addsub_mm %s %s %s = " (string_of_matrix mA) s (string_of_matrix mB); 
+    (Printf.printf "elwise_mm %s %s %s = " (string_of_matrix mA) str (string_of_matrix mB); 
      flush_all();
     );
   let m = rsize mA in
   let n = csize mA in
   if m<>rsize mB || n<>csize mB then
-    raise (Error (Printf.sprintf "** Disaster (size mismatch): %s %s %s"
+    raise (Error (Printf.sprintf "** Disaster (size mismatch): elwise_mm %s %s %s"
                                  (string_of_matrix mA)
-                                 s
+                                 str
                                  (string_of_matrix mB)
                  )
           );
   let r = match mA, mB with
           | SparseM (_,svA,cvvA)   , SparseM (_,svB,cvvB)    -> 
-              let cvv = Array.init (Z.to_int m) (fun i -> addsub_cvcv f s svA cvvA.(i) svB cvvB.(i)) in
-              maybe_dense_m (f svA svB) n cvv
+              let cvv = Array.init (Z.to_int m) (fun i -> elwise_cvcv ee str svA cvvA.(i) svB cvvB.(i)) in
+              maybe_dense_m (ee svA svB) n cvv
           | SparseM (nc,svA,cvvA)   , FuncM (_,_,_,_,Some(svB, rf, cf))    -> 
-              let cvv = Array.init (Z.to_int m) (fun i -> addsub_cvcv f s svA cvvA.(i) svB (rf (Z.of_int i))) in
-              maybe_dense_m (f svA svB) n cvv
+              let cvv = Array.init (Z.to_int m) (fun i -> elwise_cvcv ee str svA cvvA.(i) svB (rf (Z.of_int i))) in
+              maybe_dense_m (ee svA svB) n cvv
           | FuncM (idA,_,_,fA,optA), FuncM (idB,_,_,fB,optB) -> 
-              let id = Printf.sprintf "(%s)%s(%s)" idA s idB in
+              let id = Printf.sprintf "(%s)(%s)" idA idB in
               let opt = match optA, optB with
-                        | Some (svA,rfA,cfA), Some (svB,rfB,cfB) -> Some (f svA svB, addsub_ff f s svA rfA svB rfB, 
-                                                                                     addsub_ff f s svA cfA svB cfB
+                        | Some (svA,rfA,cfA), Some (svB,rfB,cfB) -> Some (ee svA svB, elwise_ff ee str svA rfA svB rfB, 
+                                                                                      elwise_ff ee str svA cfA svB cfB
                                                                          )
                         | _                              -> None
               in
-              FuncM (id, m, n, (fun i j -> f (fA i j) (fB i j)), opt)
+              FuncM (id, m, n, (fun i j -> ee (fA i j) (fB i j)), opt)
           | DiagM _, _
-          | _, DiagM _ -> raise (Disaster "addsub_mm DiagM not implemented yet")
+          | _, DiagM _ -> raise (Disaster "elwise_mm DiagM not implemented yet")
           | _                                                -> 
               try maybe_sparse_m (init_dm (Z.to_int m) (Z.to_int n) 
-                                          (fun i j -> f (?..mA (Z.of_int i) (Z.of_int j)) (?..mB (Z.of_int i) (Z.of_int j)))
+                                          (fun i j -> ee (?..mA (Z.of_int i) (Z.of_int j)) (?..mB (Z.of_int i) (Z.of_int j)))
                                  )
-              with Z.Overflow -> raise (Disaster (Printf.sprintf "Overflow in addsub_mm (%s*%s)" (string_of_zint m) (string_of_zint n)))
+              with Z.Overflow -> raise (Disaster (Printf.sprintf "Overflow in elwise_mm (%s%s%s)" (string_of_zint m) str (string_of_zint n)))
   in
   if !verbose || !verbose_qcalc then
     (Printf.printf "%s\n" (string_of_matrix r); 
@@ -1280,8 +1268,8 @@ let addsub_mm f s mA mB =
     );
   r
 
-let add_mm = addsub_mm csum "+"
-let sub_mm = addsub_mm cdiff "-"
+let add_mm = elwise_mm csum "+" 
+let sub_mm = elwise_mm cdiff "-"
 
 let is_diag_I m = 
   rsize m =: csize m &&

@@ -62,7 +62,7 @@ let stats_to_list table =
  *)
 
 type dvec  = csnum array
-and  cvec  = (zint * csnum) list                 (* assoc list *)
+and  cvec  = (zint * csnum) list                (* assoc list *)
 
 type vector = 
   | DenseV   of dvec                            (* always 2^n-sized, but we don't have existential type for that *)
@@ -183,19 +183,21 @@ and maybe_dense_v sv n cv =
   let dense () = DenseV (dv_of_cv sv n cv) in
   if n>:z_4 then
     (let vv = SparseV (n, sv, cv) in
-     let stats = statistics_v vv in
-     let sv',freq = List.hd stats in
-     if Z.(freq*z_4>z_3*n) then
-       if sv=sv' then vv 
-                 else SparseV (n,sv',sparse_elements_cv sv sv' n cv) 
-     else (if !verbose || !verbose_qcalc then
-             Printf.printf "maybe_dense_v %s dense with n=%s sv=%s stats=[\n%s]\n" 
-                  (string_of_vector vv)
-                  (string_of_zint n) 
-                  (string_of_csnum sv) 
-                  (string_of_assoc string_of_csnum string_of_zint ":" ";\n" stats);
-           dense()
-          )
+     if Z.(of_int (List.length cv)*z_4<=n) then vv 
+     else
+       let stats = statistics_v vv in
+       let sv',freq = List.hd stats in
+       if Z.(freq*z_4>z_3*n) then
+         if sv=sv' then vv 
+                   else SparseV (n,sv',sparse_elements_cv sv sv' n cv) 
+       else (if !verbose || !verbose_qcalc then
+               Printf.printf "maybe_dense_v %s dense with n=%s sv=%s stats=[\n%s]\n" 
+                    (string_of_vector vv)
+                    (string_of_zint n) 
+                    (string_of_csnum sv) 
+                    (string_of_assoc string_of_csnum string_of_zint ":" ";\n" stats);
+             dense()
+            )
     )
   else dense()
 
@@ -383,7 +385,7 @@ let string_of_matrix = function
                                             (Optionutils.string_of_option (fun (sv,_,_) -> Printf.sprintf "%s,_,_" (string_of_csnum sv)) 
                                                                           opt
                                             )
-  | DiagM v -> Printf.sprintf "DiagM(%s)" (string_of_vector v)
+  | DiagM v -> Printf.sprintf "DiagM(%s)" (raw_string_of_vector v)
   
 let string_of_gate = string_of_matrix
 
@@ -419,21 +421,25 @@ let svfreq_m m =
 
 exception NotDiag
 
+let trace_diag = true
+
 let maybe_diag_m nr nc sv cvv =
-   (* Printf.printf "maybe_diag_m %s %s %s %s" (Z.to_string nr) (Z.to_string nc) (string_of_csnum sv) (string_of_cvv cvv);
-   let r = *)
-   try if not !trydiag || nr<>nc || sv<>c_0 then raise NotDiag;
-       let diagv = Array.mapi (fun i -> function [(zj,x)] -> if Z.of_int i=:zj then x else raise NotDiag
-                                        |        []       -> c_0
-                                        |        _        -> raise NotDiag
-                              )
-                              cvv 
-       in
-       DiagM (maybe_sparse_v diagv)
-   with NotDiag -> SparseM (nc, sv, cvv)
-   (* in
-   Printf.printf " = %s\n" (string_of_matrix r);
-   r *)
+   if trace_diag && (!verbose || !verbose_qcalc) then 
+     Printf.printf "maybe_diag_m %s %s %s %s" (Z.to_string nr) (Z.to_string nc) (string_of_csnum sv) (string_of_cvv cvv);
+   let r = try if not !trydiag || nr<>nc || sv<>c_0 then raise NotDiag;
+               let cv = _for_fold_right 0 1 (Array.length cvv)
+                                (fun i es -> match cvv.(i) with
+                                             | [(zj,_) as e] -> if Z.of_int i=:zj then e::es else raise NotDiag
+                                             | []            -> es
+                                             | _             -> raise NotDiag
+                                )
+                                [] 
+               in
+               DiagM (maybe_dense_v sv nr cv)
+           with NotDiag -> SparseM (nc, sv, cvv)
+   in
+   if trace_diag && (!verbose || !verbose_qcalc) then Printf.printf " = %s\n" (string_of_matrix r);
+   r
    
 let init_diag_m : zint -> (zint -> csnum) -> matrix = fun n f ->
   (* let r = *) 
@@ -462,7 +468,7 @@ let maybe_dense_m sv nc cvv =
      let sv',freq = svfreq_m m in
      let nr = rsize m in
      if Z.(freq*z_4 > z_3*nr*nc) then 
-       if sv=sv' then m
+       if sv=sv' then maybe_diag_m nr nc sv cvv
                  else maybe_diag_m nr nc sv' (Array.map (sparse_elements_cv sv sv' nc) cvv)
      else dense()
     )
@@ -654,6 +660,8 @@ let func_H (n:int) =
 (* note that gates are square matrices, but we also have unsquare matrices *)
 
 let exists_Array p v = _for_exists 0 1 (Array.length v) (fun i -> p (Z.of_int i) v.(i))
+
+let all_Array p v = _for_all 0 1 (Array.length v) (fun i -> p (Z.of_int i) v.(i))
 
 let exists_v p = function DenseV dv           -> exists_Array p dv
                 |         SparseV (n, sv, cv) -> _for_existsZ z_0 z_1 n (fun i -> p i (find_cv sv cv i))
@@ -901,7 +909,49 @@ let dotprod_vv vA vB =
   | DenseV  dva        , SparseV (_,svb,cvb) -> let sva,_ = svfreq_v vA in
                                                 dotprod_cvcv n sva (sparse_elements_dv sva dva) svb cvb
   | DenseV  dva        , DenseV  dvb         -> dense_dotprod dva dvb
+
+(* cross product (I think that's the right name) 
+   Very much the same logic as dotprod, but different aims
+ *)
+
+let track_crossprod = true
+
+let crossprod_cvcv n sva cva svb cvb =
+  if track_crossprod && (!verbose || !verbose_qcalc) then 
+       Printf.printf "crossprod_cvcv %s %s %s %s %s = " (string_of_zint n) (string_of_csnum sva) (string_of_cv cva) 
+                                                                         (string_of_csnum svb) (string_of_cv cvb); 
+  let sv = cprod sva svb in
+  let rec f vs cva cvb =
+    let vadd k v = if v=sv then vs else (k,v)::vs in
+    Z.(match cva, cvb with
+       | (i,x)::ixs, (j,y)::jys -> if i<j then f (vadd i (cprod x svb)) ixs cvb else
+                                   if i=j then f (vadd i (cprod x y  )) ixs jys else
+                                               f (vadd j (cprod sva y)) cva jys
+       | (i,x)::ixs, []         ->             f (vadd i (cprod x svb)) ixs cvb 
+       | []        , (j,y)::jys ->             f (vadd j (cprod sva y)) cva jys
+       | _                      -> List.rev vs
+     )
+  in
+  let cv = f [] cva cvb in
+  let r = maybe_dense_v sv n cv in
+  if track_crossprod && (!verbose || !verbose_qcalc) then Printf.printf "%s\n" (raw_string_of_vector r); 
+  r
+
+let dense_crossprod va vb =
+  maybe_sparse_v (Array.init (Array.length va) (fun i -> cprod va.(i) vb.(i)))
   
+let crossprod_vv vA vB =
+  let n = vsize vA in
+  if n<>vsize vB then 
+    raise (Disaster (Printf.sprintf "crossprod size mismatch %s*%s" (string_of_vector vA) (string_of_vector vB)));
+  match vA, vB with
+  | SparseV (_,sva,cva), SparseV (_,svb,cvb) -> crossprod_cvcv n sva cva svb cvb
+  | SparseV (_,sva,cva), DenseV  dvb         -> let svb,_ = svfreq_v vB in
+                                                crossprod_cvcv n sva cva svb (sparse_elements_dv svb dvb)
+  | DenseV  dva        , SparseV (_,svb,cvb) -> let sva,_ = svfreq_v vA in
+                                                crossprod_cvcv n sva (sparse_elements_dv sva dva) svb cvb
+  | DenseV  dva        , DenseV  dvb         -> dense_crossprod dva dvb
+
 let rowcolprod nc row col =
   let els = Listutils.tabulate (my_to_int nc "rowcolprod") (fun j -> cprod (row (Z.of_int j)) (col (Z.of_int j))) in
   simplify_csum els
@@ -993,8 +1043,8 @@ let mult_mv m v =
                mult_cvvcv nr nc svm rf cf svv cv
            | FuncM (_,_,_,_,Some (sv,rf,cf)), SparseV (_,svv,cv) -> 
                mult_cvvcv nr nc sv rf cf svv cv
-           | DiagM mv, _                                          -> 
-               maybe_sparse_v (Array.init (Z.to_int nr) (fun i -> cprod (?.mv (Z.of_int i)) (?.v (Z.of_int i))))
+           | DiagM mv, _                                         -> 
+               crossprod_vv mv v
            | _                                                   -> 
                default ()
   in
@@ -1070,6 +1120,8 @@ let mult_mm mA mB =
                                in maybe_sparse_m m'
                    in
                    transpose_m m
+               | DiagM va, DiagM vb                       ->
+                   DiagM (crossprod_vv va vb)
                | _                                        -> 
                    maybe_sparse_m (init_dm (Z.to_int nrA) (Z.to_int ncB) 
                                           (fun i j -> rowcolprod ncA (?..mA (Z.of_int i)) (revargs ?..mB (Z.of_int j)))
@@ -1098,7 +1150,7 @@ let mult_nm cn m =
            | DenseM dm as mA              -> let m = Z.to_int (rsize mA) in
                                              let n = Z.to_int (csize mA) in
                                              maybe_sparse_m (init_dm m n (fun i j -> cprod cn (dm.(i).(j))))
-           | DiagM v             -> raise (Disaster "mult_nm DiagM not implemented yet")
+           | DiagM v                      -> raise (Disaster "mult_nm DiagM not implemented yet")
           )
   in
   if !verbose || !verbose_qcalc then
@@ -1133,7 +1185,7 @@ let mult_kb (km, kv as k) (bm, bv as b) =
                 let sv' = cprod svA svB in
                 let rowmult x = sparse_elements_cv (cprod x svB) sv' n (List.map (fun (i,y) -> i, cprod x y) cvB) in
                 let svrow = if svA=c_0 then [] else rowmult svA in
-                SparseM (n, sv', Array.map (function | [(_,x)] -> rowmult x | _ -> svrow) cvv)
+                maybe_dense_m sv' n (Array.map (function | [(_,x)] -> rowmult x | _ -> svrow) cvv)
            | SparseV (_, svA, cvA), DenseV  dvB           -> 
                 default (densify_cv n svA cvA) dvB
            | DenseV  dvA          , SparseV (_, svB, cvB) -> 
@@ -1241,6 +1293,11 @@ let is_diag_I m =
                                              )
                                              cvv
                                )
+  | DiagM v             -> (match v with
+                            | SparseV (_, sv, []) when sv=c_1 -> true
+                            | DenseV  dv                      -> all_Array (fun i x -> x=c_1) dv
+                            | _                               -> false
+                           )
   | _                   -> not (exists_m (fun i j x -> j=:i && x<>c_1 || j<>:i && x<>c_0) m)
 
 let engate mA =

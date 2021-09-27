@@ -792,7 +792,7 @@ let tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb =
               )
   with Z.Overflow -> raise (Disaster (Printf.sprintf "tensor_sparse_mm %s %s" (string_of_zint nra) (string_of_zint nrb)))
   
-let tensor_mm mA mB =
+let rec tensor_mm mA mB =
   if !verbose || !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
   let m = if mA=g_1 then mB else
           if mB=g_1 then mA else
@@ -805,6 +805,9 @@ let tensor_mm mA mB =
              | SparseM (_,sva,cvva), DenseM  dmb          -> let svb,_ = svfreq_m mB in
                                                              let cvvb = cvv_of_dm svb dmb in
                                                              tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb
+             | DiagM v1            , DiagM v2             -> DiagM (tensor_vv v1 v2)
+             | DiagM v1            , _                    -> tensor_mm (sparse_of_diag v1) mB
+             | _                   , DiagM v2             -> tensor_mm mA (sparse_of_diag v2)
              | DenseM  dma         , SparseM (_,svb,cvvb) -> let sva,_ = svfreq_m mA in
                                                              let cvva = cvv_of_dm sva dma in
                                                              tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb
@@ -830,8 +833,6 @@ let tensor_mm mA mB =
                                                     )
                                           )
                 )
-            | DiagM _, _
-            | _, DiagM _-> raise (Disaster "tensor_mm DiagM not implemented yet")
             )  
   in
   if !verbose || !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m);

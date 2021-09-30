@@ -80,6 +80,6 @@ let tev qs =
 let stored_trace = (ref [] : event list ref)
 
 let show_trace () = 
-  List.iter (fun e -> Printf.printf "%s\n" (string_of_event e)) (List.rev !stored_trace)
+  List.iter (fun e -> Printf.printf "%s\n\n" (string_of_event e)) (List.rev !stored_trace)
                 
 let trace e = stored_trace := e::!stored_trace

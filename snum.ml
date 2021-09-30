@@ -131,7 +131,7 @@ let string_of_snum_struct = bracketed_string_of_list string_of_prod_struct
 let string_of_snum_structs = bracketed_string_of_list string_of_snum_struct 
 
 let string_of_el = 
-  if !fancynum then
+  if !fancynum<>RawNum then
     function
     | S_f         -> "f"            
     | S_g         -> "g"
@@ -141,10 +141,10 @@ let string_of_el =
                                 (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
   else string_of_el_struct
   
-let string_of_els = if !fancynum then String.concat "*" <.> List.map string_of_el else string_of_els_struct
+let string_of_els = if !fancynum<>RawNum then String.concat "*" <.> List.map string_of_el else string_of_els_struct
 
 let rec string_of_prod p = 
-  if !fancynum then
+  if !fancynum<>RawNum then
     match p with
     | true, hn, els  -> "-" ^ string_of_prod (false, hn, els)
     | _   , 0 , []   -> "1"
@@ -154,16 +154,40 @@ let rec string_of_prod p =
     | _   , hn, els  -> Printf.sprintf "%s*%s" (string_of_prod (false,hn,[])) (string_of_els els)
   else string_of_prod_struct p
   
-let string_of_snum (s:snum) = 
-  if !fancynum then
-  (let prodstrings = List.map string_of_prod s in
-   let ensign str = if str.[0]='-' then str else "+" ^ str in
-   match prodstrings with
+let hpower_string_of_snum (s:snum) = 
+  let prodstrings = List.map string_of_prod s in
+  let ensign str = if str.[0]='-' then str else "+" ^ str in
+  (match prodstrings with
    | []        -> "0"
    | [str]     -> str
    | str::strs -> str ^ (String.concat "" (List.map ensign strs))
   )
-  else string_of_snum_struct s
+
+let string_of_snum (s:snum) = 
+  match !fancynum with
+  | RawNum        -> string_of_snum_struct s
+  | HpowerNum     -> hpower_string_of_snum s
+  | FractionalNum -> (* can we reduce the thing to a fraction, or thereabouts *)
+      let fpart ((neg, hpower, els) : sprod) = 
+        let rem = hpower land 1 in
+        let quot = (hpower-rem) / 2 in
+        let frac = half **/ quot in
+        (if neg then ~-/frac else frac), 
+        (false, rem, els)
+      in
+      let parts = List.map fpart s in
+      let parts = List.sort (fun (_,na) (_,nb) -> Stdlib.compare na nb) parts in
+      let rec string_of_parts first parts =
+        match parts with
+        | []              -> if first then "0" else ""
+        | (_,n) ::_ ->
+            let sames, rest = takedropwhile (fun (_, n') -> n=n') parts in
+            let f = List.fold_left (+/) num_0 (List.map fst sames) in
+            let fstr = (if f>=/num_0 then (if first then "" else "+") else "") ^ string_of_num f in
+            let nstr = if [n]=snum_1 then "" else "(" ^ hpower_string_of_snum [n] ^ ")" in
+            fstr^nstr^string_of_parts false rest
+      in
+      string_of_parts true parts
 
 let string_of_snums = bracketed_string_of_list string_of_snum
 

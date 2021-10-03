@@ -1,14 +1,14 @@
 proc 
-  Alice (x:qbit, c:^(bit,bit)) = 
+  Choose (x:qbit, c:^(bit,bit)) = 
     (let init = read_bool "initialised qbit or random" "i" "r")
     if init 
       then
         (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
-        (newq z = bv) AliceDoIt (x, c, z)
+        (newq z = bv) Alice (x, c, z)
       else 
-        (newq z) AliceDoIt (x, c, z)
+        (newq z) Alice (x, c, z)
 
-  AliceDoIt (x:qbit, c:^(bit,bit), z:qbit) =
+  Alice (x:qbit, c:^(bit,bit), z:qbit) =
     out!["initially Alice's z is "] . 
     outq!(qval z) . out!["\n"] .
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
@@ -27,4 +27,4 @@ proc
 
   System () = 
     (newq x=|+>, y=|0>) x,y>>CNot . 
-    (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)
+    (new c:^(bit,bit)) | Choose(x,c) | Bob(y,c)

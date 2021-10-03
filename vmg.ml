@@ -300,18 +300,31 @@ and string_of_nv bksign (vm, vv) =
          | _::_::_, [] -> true
          | _           -> false
        in
-       let estringf ss (i,x) = match string_of_csnum x with
-                           | "0"  -> ss
-                           | "1"  -> (string_of_basis_idx i) :: ss
-                           | "-1" -> ("-" ^ string_of_basis_idx i) :: ss
-                           | s   ->  (Printf.sprintf "%s%s" 
-                                                     (if mustbracket x then "(" ^s ^ ")" else s) 
-                                                     (string_of_basis_idx i)
-                                     ) :: ss
+       let coeff x = 
+         match string_of_csnum x with
+         | "0"  -> ""
+         | "1"  -> ""
+         | "-1" -> "-"
+         | s   ->  if mustbracket x then "(" ^ s ^ ")" else s
+       in
+       let estringf ss (i,x) = 
+         if x=c_0 then ss else (coeff x ^ string_of_basis_idx i) :: ss
        in
        let estrings = match v with
                       | SparseV (_, sv, cv) 
                           when sv=c_0       -> List.fold_left estringf [] cv 
+                      | SparseV (n, sv, cv) -> 
+                          let rec showe i cv ss =
+                            let catchup j =
+                              if Z.(i=j) then ss else 
+                                Printf.sprintf "%s%s..%s" (coeff sv) (string_of_basis_idx i) (string_of_basis_idx j) :: ss
+                            in
+                            match cv with
+                            | ((j,_) as e)::cv -> let ss = catchup Z.(j-:one) in
+                                                  showe Z.(j+:one) cv (estringf ss e)
+                            | []               -> catchup Z.(n-:one)
+                          in
+                          showe Z.zero cv []
                       | _                   -> _for_fold_leftZ z_0 z_1 n [] (fun ss i -> estringf ss (i,?.v i))
        in
        match estrings with
@@ -375,6 +388,17 @@ let statistics_nv (_,v) = statistics_v v
 
 let string_of_cvv cvv = bracketed_string_of_list string_of_cv (Array.to_list cvv)
 
+exception NotDiag
+
+let diagcv_of_cvv cvv =
+  _for_fold_right 0 1 (Array.length cvv)
+                  (fun i es -> match cvv.(i) with
+                               | [(zj,_) as e] -> if Z.of_int i=:zj then e::es else raise NotDiag
+                               | []            -> es
+                               | _             -> raise NotDiag
+                  )
+                  []
+
 let string_of_matrix = function
   | DenseM m -> 
       let strings_of_row r = Array.fold_right (fun s ss -> string_of_csnum s::ss) r [] in
@@ -384,8 +408,14 @@ let string_of_matrix = function
       let pad s = s ^ String.make (width - String.length s) ' ' in
       let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
       Printf.sprintf "\n{%s}\n" block
-  | SparseM (nc,sv,cvv) ->   
-      Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (string_of_cvv cvv)
+  | SparseM (nc,sv,cvv) ->  
+      (* could be sparse diagonal *)
+      (try let cv = diagcv_of_cvv cvv in
+           Printf.sprintf "SparseDiagM(%s,%s,%s)\n" (string_of_zint nc) (string_of_csnum sv) 
+                                                    (raw_string_of_vector (maybe_dense_v sv nc cv))
+       with NotDiag ->
+         Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (string_of_cvv cvv)
+      )
   | FuncM (id,nr,nc,_,opt) ->
       Printf.sprintf "FuncM(%s,%s,%s,_,%s)" id (string_of_zint nr) (string_of_zint nc) 
                                             (Optionutils.string_of_option (fun (sv,_,_) -> Printf.sprintf "%s,_,_" (string_of_csnum sv)) 
@@ -425,22 +455,13 @@ let svfreq_m m =
   let stats = statistics_m m in
   List.hd stats
 
-exception NotDiag
-
 let trace_diag = true
 
 let maybe_diag_m nr nc sv cvv =
    if trace_diag && (!verbose || !verbose_qcalc) then 
      Printf.printf "maybe_diag_m %s %s %s %s" (Z.to_string nr) (Z.to_string nc) (string_of_csnum sv) (string_of_cvv cvv);
    let r = try if not !trydiag || nr<>nc || sv<>c_0 then raise NotDiag;
-               let cv = _for_fold_right 0 1 (Array.length cvv)
-                                (fun i es -> match cvv.(i) with
-                                             | [(zj,_) as e] -> if Z.of_int i=:zj then e::es else raise NotDiag
-                                             | []            -> es
-                                             | _             -> raise NotDiag
-                                )
-                                [] 
-               in
+               let cv = diagcv_of_cvv cvv in
                DiagM (maybe_dense_v sv nr cv)
            with NotDiag -> SparseM (nc, sv, cvv)
    in

@@ -292,20 +292,24 @@ and string_of_nv bksign (vm, vv) =
          sb i 0
        in
        let string_of_basis_idx i =
-         Printf.sprintf (match bksign with PVBra -> "<%s|" | PVKet -> "|%s>") (string_of_bin i)
+         Printf.sprintf (match bksign with PVBra -> "⟨%s|" | PVKet -> "|%s⟩") (string_of_bin i)
        in
        let mustbracket (C(real,im)) = 
          (* bracket real sums: everything else is bracketed in csnum *)
          match real, im with
-         | _::_::_, [] -> true
-         | _           -> false
+         | [_], [] -> false
+         | _  , [] -> (match !fancynum with
+                       | FractionalNum -> List.length (Snum.fracparts real) > 1
+                       | _             -> false
+                      )
+         | _       -> false
        in
        let coeff x = 
          match string_of_csnum x with
          | "0"  -> ""
          | "1"  -> ""
          | "-1" -> "-"
-         | s   ->  if mustbracket x then "(" ^ s ^ ")" else s
+         | s    ->  if mustbracket x then "(" ^ s ^ ")" else s
        in
        let estringf ss (i,x) = 
          if x=c_0 then ss else (coeff x ^ string_of_basis_idx i) :: ss
@@ -313,11 +317,14 @@ and string_of_nv bksign (vm, vv) =
        let estrings = match v with
                       | SparseV (_, sv, cv) 
                           when sv=c_0       -> List.fold_left estringf [] cv 
-                      | SparseV (n, sv, cv) -> 
+                      | SparseV (n, sv, cv) 
+                          when n>:z_2       -> 
                           let rec showe i cv ss =
                             let catchup j =
                               if Z.(i=j) then ss else 
-                                Printf.sprintf "%s%s..%s" (coeff sv) (string_of_basis_idx i) (string_of_basis_idx j) :: ss
+                              if Z.(i+one=j) then (coeff sv ^ string_of_basis_idx i) :: ss else
+                                Printf.sprintf "%s%s+..+%s%s" (coeff sv) (string_of_basis_idx i) 
+                                                              (coeff sv) (string_of_basis_idx j) :: ss
                             in
                             match cv with
                             | ((j,_) as e)::cv -> let ss = catchup Z.(j-:one) in
@@ -327,10 +334,11 @@ and string_of_nv bksign (vm, vv) =
                           showe Z.zero cv []
                       | _                   -> _for_fold_leftZ z_0 z_1 n [] (fun ss i -> estringf ss (i,?.v i))
        in
-       match estrings with
-       | []  -> "?..empty nv?.."
-       | [e] -> e
-       | _   -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
+       let is_single () = countzeros_v z_0 n v = Z.(n-one) in
+       match estrings with 
+       | []                    -> "?..empty nv?.."
+       | [e] when is_single () -> e 
+       | _                     -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
       )
     else
       raw_string_of_vector v

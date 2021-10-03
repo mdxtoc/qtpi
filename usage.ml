@@ -40,8 +40,8 @@ let opts = Arg.align
                     Printf.sprintf " unnown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
                     Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
-              ("-fancynum"  , Arg.Bool (set_arg fancynum), 
-                    Printf.sprintf " fancy printing of symbolic numbers (default %B)" !fancynum);
+              ("-fancynum"  , Arg.Symbol (List.map (fun (x,_) -> x) fancynumopts, setfancynum), 
+                    Printf.sprintf " fancy printing of symbolic numbers (default %s)" (decode_fancynum ()));
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
                     Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
               ("-func_matrices" , Arg.Bool (set_arg func_matrices), 

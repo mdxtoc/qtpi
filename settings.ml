@@ -42,7 +42,9 @@ let checkrandombias = ref false
 
 let complexunknowns = ref true
 
-let fancynum = ref true
+type fancynum = RawNum | HpowerNum | FractionalNum 
+
+let fancynum = ref FractionalNum
 
 let fancyvec = ref true
 
@@ -78,7 +80,7 @@ let traceIO = ref false
 
 let try_rotate = ref false
 
-let trydiag = ref false
+let trydiag = ref true (* why not? I think it's only Grover that cares *)
 
 let typereport = ref false
 
@@ -113,6 +115,17 @@ let verboseopts = [("all"              , verbose                  );
 
 let setverbose s = (List.assoc s verboseopts) := true
 
+let fancynumopts = [("raw"       , RawNum);
+                    ("hpower"    , HpowerNum);
+                    ("fractional", FractionalNum)
+                   ]
+
+let setfancynum s = fancynum := List.assoc s fancynumopts
+
+let decode_fancynum () = let ss, ns = List.split fancynumopts in
+                         let revopts = List.combine ns ss in
+                         List.assoc !fancynum revopts
+                         
 let temp_setting vref v f =
   let oldv = !vref in
   vref := v;

@@ -487,7 +487,9 @@ let _ = know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun
 
 (* ********************* special qbit functions ************************ *)
 
-(* qval now shows sort of minimum entanglement *)
+(* qval now shows sort-of-minimum entanglement, but the result is always +/- -- i.e. maybe the sign's `wrong`.
+   But that doesn't matter, because scalar factor ...
+ *)
 let _qval q =
   let q = to_qbit q in
   let qs,v = Qsim.qval q in

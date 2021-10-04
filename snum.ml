@@ -144,8 +144,8 @@ let string_of_el e =
   
 let string_of_els es = 
   (match !fancynum with
-   | RawNum -> String.concat "*" <.> List.map string_of_el 
-   | _      -> string_of_els_struct
+   | RawNum -> string_of_els_struct
+   | _      -> String.concat "*" <.> List.map string_of_el 
   ) es
   
 let rec string_of_prod p = 

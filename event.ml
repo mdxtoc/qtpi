@@ -34,7 +34,7 @@ type event =
   | EVOutput of name * tv
   | EVDispose of name * tv
   | EVGate of name * string list * gate * string list
-  | EVMeasure of name * qbit list * gate * bool list * string list
+  | EVMeasure of name * string list * gate * bool list * string list
   | EVChangeId of name * name list
   
 let soqs = function
@@ -56,7 +56,7 @@ let string_of_event = function
   | EVMeasure (pn, qs, g, bs, aqs)  
                                 -> Printf.sprintf "%s: %s -/- %s; result %s%s" 
                                      (string_of_name pn)
-                                     (string_of_qbits qs)
+                                     (match qs with [q] -> q | _ -> soqs qs)
                                      (if g=g_I then "" else ("[" ^ string_of_gate g ^ "]"))
                                      (string_of_multi string_of_bit bs)
                                      (if null aqs then "" else " and " ^ soqs aqs)
@@ -71,7 +71,7 @@ let tev qs =
     | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qval q=Qsim.qval q') prevqs in
                     Printf.sprintf "%s=%s" (string_of_qbit q) (string_of_qbit prevq)
                 with Not_found -> 
-                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qval q))
+                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort (Qsim.qval q)))
                ) :: tqs (prevqs@[q]) qs (* why append??? *)
     | _     -> []
   in

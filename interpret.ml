@@ -273,9 +273,10 @@ let rec interp pn rtenv procstart =
                       else 
                         qs
                     in
+                    let preqs = if !traceevents then tev qs else [] in
                     let gv = ((to_gate <.> evale rtenv) ||~~ g_I) gopt in
                     let bs = List.map (fun q -> qmeasure disposed (name_of_procname pn) gv q = 1) qs in
-                    if !traceevents then trace (EVMeasure (name_of_procname pn, qs, gv, bs, tev aqs));
+                    if !traceevents then trace (EVMeasure (name_of_procname pn, preqs, gv, bs, tev (List.sort Stdlib.compare aqs)));
                     let vs = List.map of_bit bs in
                     let rtenv = patf rtenv (if plural then of_list vs else List.hd vs) in
                     (* if !pstep then 

@@ -500,7 +500,7 @@ let _qval q =
     | Some (_,_,qs',v')         -> findit qs' v'
     | None                      -> printit q (qs,v)
   in
-  findit qs v
+  if !qvalsimplifies then findit qs v else printit q (qs,v)
   
 let _qvals qs =
   let qs = to_qbits qs in

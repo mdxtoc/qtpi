@@ -2,14 +2,18 @@
    Teleporting an unknown quantum state via dual classical and 
      Einstein-Podolsky-Rosen channels. Physical Review Letters, 70(13), 1993 *)
      
-proc Alice (x:qbit, c:^(bit,bit)) = 
+proc System () = 
+  (newq x=|+>, y=|0>) x,y>>CNot . 
+  (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)
+
+  Alice (x:qbit, c:^(bit,bit)) = 
     (newq z = |+>)                                                                                      ⁁1
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
     c!vz,vx . 
     _0 
                                                                                                       with 1: out!["\ninitially Alice's z is "] . 
                                                                                                               outq!(qval z) . out!["\n"] . _0
-proc Bob(y:qbit, c:^(bit,bit)) = 
+  Bob(y:qbit, c:^(bit,bit)) = 
     c?(b1,b2) . 
     y >> match (b1,b2) . + (0b0,0b0) . I
                          + (0b0,0b1) . X
@@ -19,6 +23,3 @@ proc Bob(y:qbit, c:^(bit,bit)) =
     _0 
                                                                                                         with 1: out!["finally Bob's y is "] . 
                                                                                                                 outq!(qval y) . out!["\n"] . _0
-proc System () = 
-  (newq x=|+>, y=|0>) x,y>>CNot . 
-  (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)

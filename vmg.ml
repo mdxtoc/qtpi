@@ -608,12 +608,12 @@ let g_Z  = make_g   [[c_1       ; c_0        ];
 let g_H  = make_g   [[c_h       ; c_h        ];
                      [c_h       ; cneg (c_h) ]]
                      
-(* these two are intended to be like rotations. Unlike H, Rz*Rz<>I *)
+(* these two are intended to be rotations. Deliberately made like H *)
 
-let g_Rz = make_g   [[c_f       ; cneg c_g   ];
-                     [c_g       ; c_f        ]]
-let g_G  = make_g   [[c_g       ; cneg c_f   ];
-                     [c_f       ; c_g        ]]
+let g_Rz = make_g   [[c_f       ; c_g   ];
+                     [c_g       ; cneg c_f        ]]
+let g_G  = make_g   [[c_g       ; c_f   ];
+                     [c_f       ; cneg c_g        ]]
 
 (* experimental Rx(pi/8) gate *)
 

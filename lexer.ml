@@ -196,7 +196,10 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "gate"      -> GATETYPE
   | "qbit"      -> QBITTYPE
   | "qbits"     -> QBITSTYPE
+  | "qubit"     -> QBITTYPE
+  | "qubits"    -> QBITSTYPE
   | "qstate"    -> QSTATETYPE
+  | "qustate"   -> QSTATETYPE
   | "^"         -> CHANTYPE
   | "char"      -> CHARTYPE
   | "sxnum"     -> SXNUMTYPE

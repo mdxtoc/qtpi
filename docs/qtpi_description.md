@@ -290,7 +290,7 @@ To help with output, there is the special function *show*
 
   * *show*: '\**a* &rarr; *string*
   
--- it takes any value and turns it into a string. It produces `<qbit>` for a qbit, `<qstate>` for a qstate, to stop computational cheating. It treats functions, processes and channels similarly opaquely, but for different reasons.
+-- it takes any value and turns it into a string. It produces `"<qbit>"` for a qbit, `"<qstate>"` for a qstate, to stop computational cheating. It treats functions, processes and channels similarly opaquely, but for different reasons.
 
 For qbits there is *qval*
 
@@ -312,11 +312,11 @@ If a process wants to use the logging parameters in the arguments of a process c
 
 Qtpi uses a symbolic quantum calculator: only during quantum measurement does it calculate numerically. This enables it to do some nice tricks, like accurately 'teleporting' a qbit whose value is unknown. It also means that it can do exact calculations in most cases.
 
-Qbits are represented as integer indices into a quantum state of unitary amplitude vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of complex-number-valued probability-amplitude expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`); either *A* or *B* may be zero, and always |*A*|<sup>2</sup>+|*B*|<sup>2</sup>=1. A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[`#`*i*; `#`*j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (again, some of *A*, *B*, *C* and *D* may be zero). And so on for larger entanglements: famously, *n* qbits need 2<sup>*n*</sup> amplitudes.
+Qbits are represented as integer indices into a quantum state of unitary vectors in the computational basis defined by `|0>` and `|1>`. An unentangled qbit indexes a pair of complex-valued amplitude expressions (*A*, *B*) representing (*A*`|0>`+*B*`|1>`); either *A* or *B* may be zero, and always |*A*|<sup>2</sup>+|*B*|<sup>2</sup>=1. A singly-entangled qbit indexes a quadruple (*A*,*B*,*C*,*D*), representing \[`#`*i*; `#`*j*\](*A*`|00>`+*B*`|01>`+*C*`|10>`+*D*`|11>`), where *i* and *j* are the indices of the entangled qbits (again, some of *A*, *B*, *C* and *D* may be zero). And so on for larger entanglements: famously, *n* qbits need 2<sup>*n*</sup> amplitudes.
 
 The constant `h` is *sqrt*(1/2), and `h(`*k*`)` means `h`<sup>*k*</sup>.  *h* is also *cos*(&pi;/4) and *sin*(&pi;/4). The constant `f` is *sqrt*((1+`h`)/2), which is *cos*(&pi;/8), and `g` is *sqrt*((1-`h`)/2), which is *sin*(&pi;/8).
 
-An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that |`a`<sub>k</sub>|<sup>2</sup>+|`b`<sub>k</sub>|<sup>2</sup>=1. To enhance the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured. In computing |`a`<sub>k</sub>|<sup>2</sup> or |`b`<sub>k</sub>|<sup>2</sup> qtpi uses the fact that |*x*|<sup>2</sup> = *x* * <span style="text-decoration:overline;">*x*</span> -- *x* times its complex conjucate. Due to deficiencies in the calculator, unfortunately this can mean that <span style="text-decoration:overline;">`a`<sub>k</sub></span> or <span style="text-decoration:overline;">`b`<sub>k</sub></span> can appear in the result of calculations, written as `a`*k*`!` or `b`*k*`!`
+An unknown qbit with index *k* starts life as the vector (`a`<sub>k</sub>`|0>`+`b`<sub>k</sub>`|1>`), and the evaluator knows that |`a`<sub>k</sub>|<sup>2</sup>+|`b`<sub>k</sub>|<sup>2</sup>=1. To enhance the randomness of the execution, there are secret real values attached to `a`<sub>k</sub> and `b`<sub>k</sub>, used when the qbit (or a qbit with which is entangled) is measured. In computing |`a`<sub>k</sub>|<sup>2</sup> or |`b`<sub>k</sub>|<sup>2</sup> qtpi uses the fact that |*x*|<sup>2</sup> = *x* * <span style="text-decoration:overline;">*x*</span> -- *x* times its complex conjugate. Due to deficiencies in the calculator, unfortunately this can mean that <span style="text-decoration:overline;">`a`</span><sub>k</sub> or <span style="text-decoration:overline;">`b`</span><sub>k</sub> can appear in the result of calculations, printed as `a`*k*`!` or `b`*k*`!`
 
 ### Modulus
 
@@ -353,16 +353,16 @@ There are lots more gates -- e.g. 'square root of NOT' -- which aren't included.
 
 ## The *dispose* channel
 
-Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection (unless you tell qtpi `-measuredestroys false`), and it vanishes from the simulation. A vanished qbit is in fact recycled.
+Qbits get discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qbit is destroyed on detection (unless you use the switch '`-measuredestroys false`'), and it vanishes from the simulation. A vanished qbit is in fact recycled.
 
-Qbits that aren't measured, or even measured qbits if `-measuredestroys false` is used, live for ever. Sometimes this is inconvenient (it muddies the waters if you are debugging, for example). To solve this problem there is a *dispose* channel for qbits: send a qbit down the *dispose* channel and it vanishes. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or it is an unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
+Qbits that aren't measured, and even measured qbits if `-measuredestroys false` is used, live for ever. Sometimes this is inconvenient (it muddies the waters if you are debugging, for example). To solve this problem there is a *dispose* channel for qbits: send a qbit down the *dispose* channel and it vanishes. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or it is an unknown, in which case it will be forever in limbo. Like any sent-away qbit, you can't use it once it's disposed (see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation).
 
 Reading from from the *dispose* channel is a run-time error, because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
 ## Restrictions
 
-In protocols, and in quantum computing in general, qbits are fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits to each other and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.
+In protocols, and in quantum computing in general, qbits are fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits on a quantum channel and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.
 
 These restrictions give you a language in which qbits are known only by a single name at any time. This simplifies the description of protocols, I believe, and it simplifies resource-checking, but it's also there for aesthetic reasons.
 
@@ -388,7 +388,7 @@ It is impossible to branch according to the state or identity of a qbit unless y
   
   	Without the result restriction resource-checking simply wouldn't work. Without the argument restriction some computational cheating could occur: e.g. a process could get the qstate of another process's qbit.
   	
-  	There is a deliberate loophole: this restriction is applied to function *definitions*. This is to allow library functions (e.g. qval and show) to take non-classical arguments. But be careful with it: see below.
+  	There is a deliberate loophole: this restriction is applied to function *definitions*. This is to allow library functions to take non-classical arguments, and so far this applies only to `qval` and `show`. But be careful with it: see below.
 
   * **No comparison of qbits, qstates, or values containing qbits or qstates**.
   
@@ -402,9 +402,9 @@ It is impossible to branch according to the state or identity of a qbit unless y
   
   	There used to be a function *qbit_state* which gave you a string representation of a qbit's internal state. Useful for diagnostic printing, I thought. Then I realised it allowed the program to branch on whether a pair of qbits are entangled or not, by comparing the results of *qbit_state* on them. Horror!
   	
-  	Not all is lost: there's *qval* which gives a *qstate*, there's the *outq* channel which accepts a *qstate*, and the `-verbose qsim` switch on Qtpi allows you to watch the simulation in any case.
+  	Not all is lost: there's *qval* which gives a *qstate*, there's the *outq* channel which accepts a *qstate*, and the `-verbose qsim` switch on Qtpi allows you to watch the simulation in detail.
   	
-  	If you define a library function with a non-classical parameter, please make it the *last* parameter and don't deliver a functional result. This is to stop partial application baking-in access to qbits.
+  	Since qtpi is in the public domain, you can modify `library.ml` to define new library functions. If you define one with a non-classical parameter, please make it the *last* parameter and don't deliver a functional result. This is to stop partial application baking-in access to qbits.
   	
   	This is a restriction on the implementation of the language. Not sure how to police it ... especially if I allow downloadable libraries. Hmm.
   	

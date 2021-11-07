@@ -70,9 +70,9 @@ let opts = Arg.align
 					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
               ("-stepcount"  , Arg.Set showstepcount, 
 					 Printf.sprintf " show interpreter stepcount");
-              ("-trace"  , Arg.Set traceevents, 
+              ("-trace"       , Arg.Set traceevents, 
 					" show trace of quantum events, messages, disposal, at end of execution");
-              ("-traceId"     , Arg.Set traceevents, 
+              ("-traceId"     , Arg.Set traceId, 
 					" show trace of process ids (probably unnecessary), at end of execution");
               ("-try_rotate"  , Arg.Bool (set_arg try_rotate), 
 					 Printf.sprintf " when splitting state, try every qbit (default %B)" !Settings.try_rotate);

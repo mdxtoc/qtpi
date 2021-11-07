@@ -26,8 +26,9 @@ open Settings
 let progname = Sys.argv.(0)
 let files = ref []
 let usage = "Usage: " ^ progname ^ " [options]* filename filename ..."
+let ok_nofiles = ref false
 
-let print_version () = Printf.printf "qtpi version %s\n" Version.version
+let print_version () = Printf.printf "qtpi version %s\n" Version.version; ok_nofiles := true
 
 let set_arg aref v = aref:=v
 ;;

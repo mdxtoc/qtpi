@@ -42,7 +42,7 @@ let parsefile opts usage filename =
   Parseutils.parse_program filename
 
 let _ = ((match !Usage.files with 
-          | [] -> print_string ("\nno file specified") 
+          | [] -> if not !Usage.ok_nofiles then print_string ("\nno file specified") 
           | fs -> try (* check the library has parseable types *)
                       (try List.iter (fun (n,s,v) -> ignore (Parseutils.parse_typestring s)) !Library.knowns
                        with Parseutils.Error s -> raise (Parseutils.Error ("while checking types in built-in library: " ^ s))

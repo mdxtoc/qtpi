@@ -1,30 +1,30 @@
-proc 
-  Choose (x:qbit, c:^(bit,bit)) = 
-    (let init = read_bool "initialised qbit or random" "i" "r")
-    if init 
-      then
-        (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
-        (newq z = bv) Alice (x, c, z)
-      else 
-        (newq z) Alice (x, c, z)
+proc System () = (newq x=|+>, y=|0>) x,y>>CNot . 
+                 (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)
 
-  Alice (x:qbit, c:^(bit,bit), z:qbit) =
-    out!["initially Alice's z is "] . 
-    outq!(qval z) . out!["\n"] .
-    z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
-    c!vz,vx . 
-    _0 
+     Alice (x:qbit, c:^(bit,bit)) = (new cz:^qbit)
+                                    | Choose(cz)
+                                    | cz?(z).
+                                      out!["\ninitially Alice's z is "] . 
+                                      outq!(qval z) . out!["\n"] .
+                                      z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
+                                      c!vz,vx . 
+                                      _0 
 
-  Bob(y:qbit, c:^(bit,bit)) = 
-    c?(pair) . 
-    y >> match pair . + (0b0,0b0) . I
-                      + (0b0,0b1) . X
-                      + (0b1,0b0) . Z
-                      + (0b1,0b1) . Z*X    .
-    out!["finally Bob's y is "] . 
-    outq!(qval y) . out!["\n"] .
-    _0 
+     Bob(y:qbit, c:^(bit,bit)) = c?(pair) . 
+                                 y >> match pair . + (0b0,0b0) . I
+                                                   + (0b0,0b1) . X
+                                                   + (0b1,0b0) . Z
+                                                   + (0b1,0b1) . Z*X    .
+                                 out!["finally Bob's y is "] . 
+                                 outq!(qval y) . out!["\n"] .
+                                 _0 
 
-  System () = 
-    (newq x=|+>, y=|0>) x,y>>CNot . 
-    (new c:^(bit,bit)) | Choose(x,c) | Bob(y,c)
+     Choose (cz:^qbit) = 
+       (let init = read_bool "initialised qbit or random" "i" "r")
+       if init 
+         then
+           (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
+           (newq z = bv) cz!z . _0
+         else 
+           (newq z) cz!z . _0
+

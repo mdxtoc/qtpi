@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CurrentWorkingDirectory</key>
+	<string>/Users/richard/gitrepositories/qtpi</string>
+	<key>WorksheetContents</key>
+	<string>cd ~/gitrepositories/qtpi
+
+# teleporting a |+&gt; bit : see source
+
+./Qtpi examples/basicteleportplus.qtp -trace
+
+# control file for BB84 QKD short demo (qtpi can do much longer messages)
+
+cat BB84QKDcontrol.txt
+# Alice talking directly to Bob: every trial works
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp SystemAB.qtp) &lt; BB84QKDcontrol.txt
+
+# Alice's qubits are intercepted by Eve, but she is detected every time
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp naiveEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
+
+# If Eve knows the one-time hash codes that secure the classical channel, she
+# can spoof the protocol for ever. She wins every time.
+
+(cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
+
+# lots more examples in Qtpi.worksheet, in the distribution of mdxtoc/qtpi from github
+</string>
+</dict>
+</plist>

@@ -6,18 +6,18 @@ proc System () =
         qB   = basis "B",
         qCin = basis "Cin") . 
   
-  out!["full adder sum of (A="] . outq!qval qA . out![", B="] . 
+  out!["\nfull adder sum of (A="] . outq!qval qA . out![", B="] . 
             outq!qval qB . out![", Cin="] . outq!qval qCin . out![")"] .
   
   (newq qSum=|0>, qCout=|0>) .
   qA,qSum>>CNot . qB,qSum>>CNot . qCin,qSum>>CNot .
   qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T .
   
-  out![" is (Cout="] . outq!qval qCout . out![", Sum="] . outq!qval qSum . out![")\n"] . 
+  out!["\n          is (Cout="] . outq!qval qCout . out![", Sum="] . outq!qval qSum . out![")\n"] . 
   
   qA-/-(bA) . qB-/-(bB) . qCin-/-(bCin) . qSum-/-(bSum) . qCout-/-(bCout) . 
   
-  out!["A measures "; show bA; ", B "; show bB; "; Cin "; show bCin; "; 
+  out!["\nA measures "; show bA; ", B "; show bB; "; Cin "; show bCin; "; 
        Sum "; show bSum; "; Cout "; show bCout; ".\n"] .
 
   _0

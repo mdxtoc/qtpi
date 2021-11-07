@@ -36,6 +36,7 @@ cd ~/gitrepositories/qtpi
 
 make clean
 make links
+eval $(opam env)
 
 make Qtpi
 

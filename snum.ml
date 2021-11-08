@@ -66,21 +66,27 @@ let log_2 : zint -> int = fun n ->
    Also f^2+g^2 = 1 (which will fall out of the above)
  *)
 
-(* for a long time this was a very ordinary data type. Now optimised for simplification (I hope) *)
+(* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
+   So: something more general, numbers, square roots, powers, sums and prods. Hoping to 
+   make it work.
+ *)
 type s_el = 
   | S_f              
   | S_g 
-  | S_symb of s_symb                 (* k, false=a_k, true=b_k, conjugated, both random floats s.t. a_k**2+b_k**2 = 1; random r s.t. 0<=r<=1.0 *)
+  | S_symb of s_symb                 
 
 and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
-
+             (* k,      false=a_k, true=b_k, 
+                                     conjugated, both random floats s.t. a_k**2+b_k**2 = 1; 
+                                                      random r s.t. 0<=r<=1.0 *)
+             
 and sprod = bool * int * s_el list  (* true if neg, power of h, elements - a product*)
 
 and snum = sprod list               (* a sum *) 
 
 (* S_symb is an unknown (with furtively a secret value -- see below). 
    0, 1, f and g are reals, but S_symb is a complex number. So it has a conjugate. 
-   Hence the normal field.
+   Hence the conj field.
    
    The order of the fields matters for sorting: 
     -- a1 comes before a2 (and b2, and etc.) so the id field is first; 
@@ -90,7 +96,7 @@ and snum = sprod list               (* a sum *)
     
     The secret values are used when measuring, to compute the value of a formula
     involving the symbol. They are _never_ used when calculating/simplifying, even if
-    it is 0.0 or 1.0 (which it very very rarely might be).
+    they are 0.0 or 1.0 (which they very very rarely might be).
     
     We need both floats -- one for a, one for b -- because of the a2b2 function in simplify_prod.
  *)

@@ -220,6 +220,7 @@ let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
 
 let half:                num                = num_1 // num_2;;      
+let third:               num                = num_1 // num_3;;      
 let round:               num -> num         = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 
 

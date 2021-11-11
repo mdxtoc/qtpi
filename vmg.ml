@@ -681,7 +681,7 @@ let func_I (n:int) =
     )
 
 let func_H (n:int) = 
-  Z.(let sn = snum_h n in
+  Z.(let sn = make_snum_h n in
      let negsn = rneg sn in
      let f i j = 
        C ((if Stdlib.(land) (popcount (i land j)) 1 = 1 then negsn else sn), snum_0)

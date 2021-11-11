@@ -55,9 +55,9 @@ let log_2 : zint -> int = fun n ->
    g = sqrt ((1-h)/2) = sin (pi/8); the partner of f;
    
    Note h^2 = 1/2; 
-        f^2 = (1+h)/2 = h^2(1+h) = h^2+h^3;
-        g^2 = (1-h)/2 = h^2(1-h) = h^2-h^3;
-        fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = sqrt(h^6) = h^3  
+        f^2 = (1+h)/2 = 1/2+h/2;
+        g^2 = (1-h)/2 = 1/2-h/2;
+        fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = h/2  
         
         f/h-f = g
         gh^3  = gfg = fg^2 -- not used
@@ -71,16 +71,17 @@ let log_2 : zint -> int = fun n ->
    make it work.
  *)
 type s_el = 
-  | S_f              
+  | S_sqrt of num
+  | S_f                 (* keep f and g for now ... *)   
   | S_g 
   | S_symb of s_symb                 
 
 and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
              (* k,      false=a_k, true=b_k, 
                                      conjugated, both random floats s.t. a_k**2+b_k**2 = 1; 
-                                                      random r s.t. 0<=r<=1.0 *)
+                                                      each s.t. 0<=float<=1.0 *)
              
-and sprod = bool * int * s_el list  (* true if neg, power of h, elements - a product*)
+and sprod = num * s_el list         (* a product*)
 
 and snum = sprod list               (* a sum *) 
 
@@ -103,25 +104,40 @@ and snum = sprod list               (* a sum *)
 
 let snum_0 :snum = []
 
-let snum_1 :snum = [(false,0,[])]
+let snum_1 :snum = [(num_1,[])]
 
-let sprod_h n :sprod = (false,n,[])
+let sprod_half   = (half, [])
 
-let snum_h n :snum = [sprod_h n]
+let s_el_h       = S_sqrt half
 
-let snum_f :snum = [(false,0,[S_f])]
+let sprod_h      = (num_1,[s_el_h])
 
-let snum_g :snum = [(false,0,[S_g])]
+let sprod_half_h = (half, [s_el_h])
 
-let snum_symb symb :snum = [(false,0,[S_symb symb])]
+let snum_h :snum = [sprod_h]
 
-let isneg_sprod (s,_,_ : sprod) = s
+let snum_t :snum = [(num_1,[S_sqrt third])]
 
-let isneg_snum : snum -> bool = function
-  | sprod::_ -> isneg_sprod sprod
-  | []       -> false (* because it's zero *)
-  
+let sprod_f      = (num_1,[S_f])
+let sprod_hf     = (num_1,[s_el_h; S_f])
+
+let snum_f :snum = [sprod_f]
+
+let snum_g :snum = [(num_1,[S_g])]
+
+let snum_symb symb :snum = [(num_1,[S_symb symb])]
+
+(* not used
+
+   let isneg_sprod (n,_ : sprod) = n</num_zero
+
+   let isneg_snum : snum -> bool = function
+     | sprod::_ -> isneg_sprod sprod
+     | []       -> false (* because it's zero *)
+ *)  
+
 let string_of_el_struct = function
+  | S_sqrt n    -> Printf.sprintf "r(%s)" (string_of_num n)
   | S_f         -> "f"            
   | S_g         -> "g"
   | S_symb symb -> let a,b = symb.secret in
@@ -130,7 +146,7 @@ let string_of_el_struct = function
 
 let string_of_els_struct = bracketed_string_of_list string_of_el_struct
 
-let string_of_prod_struct = bracketed_string_of_triple string_of_bool string_of_int string_of_els_struct 
+let string_of_prod_struct = bracketed_string_of_pair string_of_num string_of_els_struct 
 
 let string_of_snum_struct = bracketed_string_of_list string_of_prod_struct 
 
@@ -141,6 +157,9 @@ let string_of_el e =
   | RawNum -> string_of_el_struct e
   | _      ->
       match e with
+      | S_sqrt n    -> if n=/half  then "h"     else
+                       if n=/third then "t"     else
+                                        Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
       | S_symb symb -> Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
@@ -153,57 +172,29 @@ let string_of_els es =
    | RawNum -> string_of_els_struct
    | _      -> String.concat "*" <.> List.map string_of_el 
   ) es
-  
-let rec string_of_prod p = 
-  if !fancynum<>RawNum then
-    match p with
-    | true, hn, els  -> "-" ^ string_of_prod (false, hn, els)
-    | _   , 0 , []   -> "1"
-    | _   , 1 , []   -> "h"
-    | _   , hn, []   -> Printf.sprintf "h(%d)" hn
-    | _   , 0 , els  -> string_of_els els
-    | _   , hn, els  -> Printf.sprintf "%s*%s" (string_of_prod (false,hn,[])) (string_of_els els)
-  else string_of_prod_struct p
-  
-let hpower_string_of_snum (s:snum) = 
-  let prodstrings = List.map string_of_prod s in
-  let ensign str = if str.[0]='-' then str else "+" ^ str in
-  (match prodstrings with
-   | []        -> "0"
-   | [str]     -> str
-   | str::strs -> str ^ (String.concat "" (List.map ensign strs))
-  )
 
-let fracparts (s:snum) : string list =
-  let fpart ((neg, hpower, els) : sprod) = 
-    let rem = hpower land 1 in (* rem 0 or 1: mod does it the horrid way *)
-    let quot = (hpower-rem) / 2 in
-    let frac = half **/ quot in
-    (if neg then ~-/frac else frac), (false, rem, els)
-  in
-  let parts = List.map fpart s in
-  let parts = List.sort (fun (_,na) (_,nb) -> Stdlib.compare na nb) parts in
-  let rec fnparts revfps = function
-    | []          -> List.rev revfps
-    | (_,n) :: _ ->
-        let sames, rest = takedropwhile (fun (_, n') -> n=n') parts in
-        let f = List.fold_left (+/) num_0 (List.map fst sames) in
-        (* f can be neg or pos; n is always pos *)
-        fnparts ((f,n)::revfps) rest
-  in
-  let parts = fnparts [] parts in
-  let spart (f,n) = 
-    if [n]=snum_1 then string_of_num f else
-      let num = Q.num f in
-      let den = Q.den f in
-      let nstr = hpower_string_of_snum [n] in
-        (if num = Z.one then nstr else 
-         if num = Z.minus_one then "-" ^ nstr else
-         Z.to_string num ^ (if [n]=snum_1 then "" else nstr)
-        ) ^
-        (if den = Z.one then "" else "/" ^ Z.to_string den)
-  in
-  List.map spart parts
+(* I want to get this right once, so I can deal with real and imaginary products.
+   si is "" or "i"
+ *)  
+  
+let rec string_of_prodi si (n,els) = 
+  if n</num_0   then "-" ^ string_of_prodi si (~-/n,els) else
+  if n=/num_0   then "0" (* shouldn't happen *)          else
+  if !fancynum<>RawNum then 
+    (let numerator = 
+       match n.num=:z_1, si, els with
+       | true , "", [] -> "1"
+       | true , _ , _  -> si ^ string_of_els els
+       | false, _ , _  -> string_of_zint n.num ^ si ^ string_of_els els
+     in
+     numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
+    )
+  else 
+    si ^ string_of_prod_struct (n,els)
+
+let string_of_prod p = string_of_prodi "" p 
+
+let fracparts (s:snum) : string list = List.map string_of_prod s
 
 let rec sum_separate = function
   | s1::s2::ss -> if Stringutils.starts_with s2 "-" then s1 ^ sum_separate (s2::ss) 
@@ -214,14 +205,43 @@ let rec sum_separate = function
 let string_of_snum (s:snum) = 
   match !fancynum with
   | RawNum        -> string_of_snum_struct s
-  | HpowerNum     -> hpower_string_of_snum s
   | FractionalNum -> sum_separate (fracparts s)
 
 let string_of_snums = bracketed_string_of_list string_of_snum
 
 (* *********************** symbolic arithmetic ************************************ *)
 
-(* The normal form -- now the snum type -- is a sum of possibly-negated products. 
+let make_snum_h k = 
+  if k<0 then (* look out for div, mod going towards 0 *)
+    let n = Number.pow num_2 (((~-k)+1)/2) in
+    let els = if (~-k) mod 2 = 1 then [s_el_h] else [] in
+    [(n,els)]
+  else
+    let n = Number.pow half (k/2) in
+    let els = if k mod 2 = 1 then [s_el_h] else [] in
+    [(n,els)]
+
+let fp_h2 = 0.5
+let fp_h = sqrt fp_h2
+let fp_f2 = (1.0 +. fp_h) /. 2.0
+let fp_f = sqrt fp_f2
+let fp_g2 = (1.0 -. fp_h) /. 2.0
+let fp_g = sqrt fp_g2
+
+let rec to_float = 
+  let compute_el = function
+    | S_sqrt x    -> sqrt (Q.to_float x)
+    | S_f         -> fp_f
+    | S_g         -> fp_g
+    | S_symb symb -> let a,b = symb.secret in if symb.alpha then b else a
+  in
+  let compute_prod (n,els) =
+    Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map compute_el els))
+  in
+  List.fold_left ( +. ) 0.0 <.> List.map compute_prod
+
+(* The normal form -- now the snum type -- is a sum of products. 
+ * Sign is now naturally included in the num element of a product.
  * Products are sorted according to the type definition: i.e.
  * S_f, S_g, S_symb. 
  
@@ -243,15 +263,23 @@ let sort compare ss =
 (* an snum is usually a real. But not always ... *)
 let rconj (s:snum) = 
   let rec rc_el = function
+    | S_sqrt _
     | S_f              
     | S_g           -> None
     | S_symb symb   -> Some (S_symb {symb with conj=not symb.conj})
-  and rc_prod (sign,hn,els) =
-    optmap_any rc_el els &~~ (fun els' -> Some (sign,hn,els'))
+  and rc_prod (n,els) =
+    optmap_any rc_el els &~~ (fun els' -> Some (n,els'))
   in
   if !complexunknowns then (optmap_any rc_prod ||~ id) s else s
 
-let sprod_neg (sign,hn,els) = not sign, hn, els
+let rmult_num sn n =
+  if n=/num_0 then snum_0  else 
+  if n=/num_1 then sn      else
+  List.map (fun (m,els) -> n*/m,els) sn
+  
+let rmult_zint sn zi = rmult_num sn (num_of_zint zi)
+
+let sprod_neg (n,els) = ~-/n, els
 
 let rec rneg s =
   let r = List.map sprod_neg s in
@@ -260,43 +288,50 @@ let rec rneg s =
   r
     
 and rprod s1 s2 :snum =
-  let rp (sign1,hn1,els1) (sign2,hn2,els2) = simplify_prod (sign1<>sign2, hn1+hn2, els1@els2) in
-  let r = simplify_sum 
-            (List.fold_left 
-               (fun sum prod1 -> List.fold_left (fun sum prod2 -> (rp prod1 prod2) @ sum) sum s2)
-               []
-               s1
-            )
+  let r = match s1, s2 with
+          | [(n1,[])], _         -> rmult_num s2 n1
+          | _        , [(n2,[])] -> rmult_num s1 n2
+          | _                    ->
+              let rp (n1,els1) (n2,els2) = simplify_prod (n1*/n2, els1@els2) in (* simplify_prod does the sorting *)
+              simplify_sum (List.fold_left 
+                              (fun sum prod1 -> 
+                                 List.fold_left (fun sum prod2 -> (rp prod1 prod2) @ sum) sum s2 (* yes, append (sigh) *)
+                              )
+                              []
+                              s1
+                           )
   in
   if !verbose_simplify then
     Printf.printf "rprod (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
   r
   
-and simplify_prod (sign,hn,els as prod) :snum = (* We deal with f^2, g^2, gh, fg *)
-  let r = let rec sp els hn ss = 
-            let premult s hn ss = 
-              let popt, hn, ss = sp els hn ss in
+and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, fg *)
+  let r = let rec sp els n ss = 
+            let premult s n ss = 
+              let popt, n, ss = sp els n ss in
               (match popt with 
                | Some pre_p -> Some (rprod pre_p s)
                | None       -> Some s
-              ), hn, ss
+              ), n, ss
             in
             match ss with
-            | S_f   :: S_f   :: ss -> premult [sprod_h 2; sprod_h 3] hn ss
-            | S_f   :: S_g   :: ss -> premult [sprod_h 3] hn ss
-            | S_g   :: S_g   :: ss -> premult [sprod_h 2; sprod_neg (sprod_h 3)] hn ss
-(*          | S_g   ::          ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
-              when hn>=3           -> sp (S_f :: els) (hn-3) (S_g :: S_g :: ss)) 
+            | S_sqrt a :: S_sqrt b :: ss 
+              when a=/b                  -> sp els (n*/a) ss
+            | S_f      :: S_f      :: ss -> premult [sprod_half; sprod_half_h] n ss
+            | S_f      :: S_g      :: ss -> premult [sprod_half_h] n ss
+            | S_g      :: S_g      :: ss -> premult [sprod_half; sprod_neg (sprod_half_h)] n ss
+(*          | S_g      ::             ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
+              when hn>=3                 -> sp (S_f :: els) (hn-3) (S_g :: S_g :: ss)) 
  *)
-            | S_g   ::          ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
-              when hn>=1           -> premult [sprod_h 0; sprod_neg (sprod_h 1)] (hn-1) (S_f :: ss)
-            | s              :: ss -> sp (s::els) hn ss
-            | []                   -> None, hn, sort Stdlib.compare els
+            | S_sqrt a   :: S_g    :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so hg = f(1-h) *)
+              when a=/half               -> premult [sprod_f; sprod_neg sprod_hf] n ss
+            | s                    :: ss -> sp (s::els) n ss
+            | []                         -> None, n, sort Stdlib.compare (List.rev els)
           in
-          let popt, hn, ss = sp [] hn (sort Stdlib.compare els) in
-          let s = [(sign, hn, ss)] in
+          let popt, n, ss = sp [] n (sort Stdlib.compare els) in
+          let s = [(n, ss)] in
           match popt with 
-          | Some pre_p -> rprod pre_p s
+          | Some pre_p -> rprod pre_p s (* this used to be right: do we need to go round again? *)
           | None       -> s
   in
   if !verbose_simplify then
@@ -322,30 +357,30 @@ and sflatten ss = (* flatten a list of sums *)
  *)
 
 and simplify_sum ps = 
-  let r = let prodcompare (sg1,hn1,els1) (sg2,hn2,els2) = (* ignore negation, but put -p after p *)
-            Stdlib.compare (hn1,els1,sg1) (hn2,els2,sg2) 
+  let r = let prodcompare (n1,els1) (n2,els2) = (* els before n *)
+            Stdlib.compare (els1,n1) (els2,n2) 
           in
-          let rec multiple p rest = (* looking for X+X+... -- we no longer care about the h's *)
-            let r = (match takedropwhile ((=)p) rest with
-                     | [] , _   -> None (* not going to happen, but never mind *)
-                     | ps, rest -> Some (rmult_zint [p] (zlength ps+:z_1), rest)
+          let multiple (n,els:sprod) rest = (* looking for nX+mX+... -- we sum the num parts *)
+            let r = (match takedropwhile (fun (_,els') -> els=els') rest with
+                     | [] , _   -> n, rest
+                     | ps, rest -> List.fold_left (fun sum (m,_) -> m+/sum) n ps, rest
                     )
             in
             if !verbose_simplify then
-              Printf.printf "multiple (%s) %s -> %s\n" (string_of_prod p)  
+              Printf.printf "multiple (%s) %s -> %s\n" (string_of_prod (n,els))  
                                                        (bracketed_string_of_list string_of_prod rest)
-                                                       (string_of_option (string_of_pair string_of_snum (bracketed_string_of_list string_of_prod) ",") r);
+                                                       (string_of_pair string_of_num (bracketed_string_of_list string_of_prod) "," r);
             r
           in
           let rec a2b2 p ps = (* looking for X*aa!Y+X*bb!Y to replace with XY. Sorting doesn't always make aa! and bb! next to each other in ps *)
-            let sign,hn,els = p in
+            let n,els = p in
             let rec find pres els =
               match els with 
               | S_symb ({id=q1; alpha=false; conj=false} as symb1) :: 
                 S_symb ({id=q2; alpha=false; conj=c    } as symb2) :: els 
                           when q1=q2 && c = !complexunknowns 
                           -> 
-                  let remake post = sign, hn, prepend pres post in
+                  let remake post = n, prepend pres post in
                   let p' = remake (S_symb {symb1 with alpha=true} :: S_symb {symb2 with alpha=true} :: els) in
                   if !verbose_simplify then 
                     Printf.printf "a2b2.find looking for %s in %s\n" (string_of_prod p') (string_of_snum ps);
@@ -364,27 +399,14 @@ and simplify_sum ps =
             if !verbose_simplify then 
               Printf.printf "sp %B %s %s\n" again (string_of_snum r) (string_of_snum ps);
             match ps with
-            (* negated but otherwise identical *)
-            | (sg1,hn1,es1) :: (sg2,hn2,es2) :: ps when hn1=hn2 && es1=es2 && sg1<>sg2 -> sp true r ps
-            (* the next two are because h^j-h^(j+2) = h^j(1-h^2) = h^(j+2) 
-               -- and for confluence, dammit, I have to do the h(j)+h(j+2) = h(j-2)-h(j+2) thing. Rats. 
-             *)
-            | (sg,j,es) ::  ps  
-                    when List.exists ((=) (not sg,j+2,es)) ps
-                                                  -> sp true ((sg,j+2,es)::r) (Listutils.remove (not sg,j+2,es) ps)
-            | (sg,j,es) ::  ps  
-                    when List.exists ((=) (sg,j+2,es)) ps
-                                                  -> sp true ((not sg,j+2,es)::(sg,j-2,es)::r) (Listutils.remove (sg,j+2,es) ps)
-            (* f(1-h) = gh *)
+            | (n1,es1) :: (n2,es2) :: ps -> let n', ps' = multiple (n1+/n2,es1) ps in
+                                            if n'=/num_0 then sp true r ps' else sp true ((n',es1)::r) ps'
+            (* f(1-h) = gh -- commented out for now 
             | (sg,j,(S_f :: es)) :: ps
                    when List.exists ((=) (not sg,j+1,S_f :: es)) ps
                                                   -> sp true ((sg,j+1,S_g :: es) :: r) 
                                                              (Listutils.remove (not sg,j+1,S_f :: es) ps)
-            (* many copies of the same thing *)
-            | p1      :: p2      :: ps when p1=p2 -> (match multiple p1 (p2::ps) with
-                                                      | Some (s,ps) -> sp true (s@r) ps
-                                                      | None        -> sp again (p1::r) (p2::ps)
-                                                     )
+             *)
             (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
             | p                  :: ps            -> (match a2b2 p ps with
                                                       | Some (p', ps') -> sp true (p'::r) ps'
@@ -399,15 +421,9 @@ and simplify_sum ps =
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_snum ps) (string_of_snum r);
   r
 
-and rmult_zint sn zi =
-  if sn=snum_0 || Z.(zi=zero) then snum_0 else
-  if Z.(zi<zero) then rneg (rmult_zint sn Z.(~-zi))
-                 else match setbits zi with
-                      | []  -> snum_0
-                      | [0] -> sn
-                      | bs  -> rprod sn (List.map (fun i -> sprod_h (-2*i)) bs)
-  
-and rdiv_h s = rprod (snum_h (-1)) s (* multiply by h(-1) = divide by h(1). Used to happen in normalise; may happen again in try_split *)
+(* can't do this any more -- at least not this way
+   and rdiv_h s = rprod (snum_h (-1)) s (* multiply by h(-1) = divide by h(1). Used to happen in normalise; may happen again in try_split *)
+ *)
   
 (******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
 
@@ -448,15 +464,13 @@ let memo_rprod = memofun2Prob rprod "rprod"
 let rec rprod s1 s2 =
   if !Settings.memoise then
     match s1, s2 with
-    (* we do 0, 1 and -1 ourselves *)
+    (* we do simple numbers ourselves *)
     | []          , _
     | _           , []           -> []   
-    | [false,0,[]], _            -> s2
-    | _           , [false,0,[]] -> s1
-    | [true ,0,[]], _            -> rneg s2
-    | _           , [true ,0,[]] -> rneg s1
+    | [(n1,[])]   , _            -> rmult_num s2 n1
+    | _           , [(n2,[])]    -> rmult_num s1 n2
     (* we memoise everything else *)
-    | _                 -> memo_rprod s1 s2
+    | _                          -> memo_rprod s1 s2
   else
     raw_rprod s1 s2
 
@@ -470,10 +484,11 @@ let rec rsum s1 s2 =
     | []      , _       -> s2
     | _       , []      -> s1
    (* (* we memoise sum *)
-    | S_sum  _ , _
-    | _       , S_sum  _ -> memo_rsum s1 s2
-    (* everything else is raw *)
-    | _                 -> raw_rsum s1 s2 *)
+      | S_sum  _ , _
+      | _       , S_sum  _ -> memo_rsum s1 s2
+      (* everything else is raw *)
+      | _                 -> raw_rsum s1 s2 
+    *)
     | _                 -> memo_rsum s1 s2
   else
     memo_rsum s1 s2
@@ -494,25 +509,22 @@ let simplify_sum =
 type csnum = C of snum*snum (* complex snum A + iB *)
 
 let string_of_csnum (C (x,y)) =
-  let im y = (* y non-zero, positive *)
+  let rec im y = (* y non-zero *) 
     match y with
-    | [_,0,[]]    -> "i"
-    | [_,_,_]     -> "i*" ^ string_of_snum y
-    | _           -> "i*(" ^ string_of_snum y ^ ")"
+    | [p]                -> string_of_prodi "i" p
+    | _                  -> "i*(" ^ string_of_snum y ^ ")"
   in
   match x,y with
   | [] , []            -> "0"
   | _  , []            -> string_of_snum x
-  | [] , (true,_,_)::_ -> "-" ^ im (rneg y)
   | [] , _             -> im y
-  | _  , (true,_,_)::_ -> "(" ^ string_of_snum x ^ "-" ^ im (rneg y) ^ ")"
-  | _  , _             -> "(" ^ string_of_snum x ^ "+" ^ im y ^ ")"
+  | _  , _             -> sum_separate [string_of_snum x; im y]
 
 let csnum_of_snum s = C (s, snum_0)
 
 let c_0 = csnum_of_snum snum_0
 let c_1 = csnum_of_snum (snum_1)
-let c_h = csnum_of_snum (snum_h 1)
+let c_h = csnum_of_snum (snum_h)
 let c_f = csnum_of_snum snum_f
 let c_g = csnum_of_snum snum_g
 
@@ -532,17 +544,16 @@ let intern cn = try CsnumHash.find interntab cn with Not_found -> (CsnumHash.add
 let cneg  (C (x,y)) = intern (C (rneg x, rneg y))
 
 let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  if c1=c_0 || c2=c_0 then c_0  else
+  if c1=c_1           then c2   else
+  if c2=c_1           then c1   else
   match x1,y1, x2,y2 with
-  | []           , [] , _            , _    
-  | _            , _  , []           , []        -> c_0
-  | [false,0,[]] , [] , _            , _         -> c2  
-  | _            , _  , [false,0,[]] , []        -> c1
-  | [true ,0,[]] , [] , _            , _         -> cneg c2  
-  | _            , _  , [true ,0,[]] , []        -> cneg c1
-  | _            , [] , _            , []        -> intern (C (rprod x1 x2, []))             (* real    * real    *)
-  | _            , [] , _            , _         -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
-  | _            , _  , _            , []        -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
-  | _                                            -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
+  | [], [] , _ , _    
+  | _ , _  , [], [] -> c_0
+  | _ , [] , _ , [] -> intern (C (rprod x1 x2    , []))         (* real    * real    *)
+  | _ , [] , _ , _  -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
+  | _ , _  , _ , [] -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
+  | _               -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
 
 let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
@@ -583,8 +594,8 @@ let absq  (C(x,y) as c) = (* this is going to cost me ... *)
 
 (* we can't really divide 
     let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
+    let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
  *)
-let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
 
 let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi))
 
@@ -652,7 +663,7 @@ let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi)
 
     (* we can't really divide
         let c_r_div = memofunCP c_r_div "c_r_div"
+        let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
      *)
-    let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
  *)
 

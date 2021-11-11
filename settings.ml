@@ -42,7 +42,7 @@ let checkrandombias = ref false
 
 let complexunknowns = ref true
 
-type fancynum = RawNum | HpowerNum | FractionalNum 
+type fancynum = RawNum | FractionalNum 
 
 let fancynum = ref FractionalNum
 
@@ -118,7 +118,6 @@ let verboseopts = [("all"              , verbose                  );
 let setverbose s = (List.assoc s verboseopts) := true
 
 let fancynumopts = [("raw"       , RawNum);
-                    ("hpower"    , HpowerNum);
                     ("fractional", FractionalNum)
                    ]
 

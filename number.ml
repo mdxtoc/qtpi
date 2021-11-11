@@ -174,8 +174,8 @@ let ( <=: ) = Z.leq;;
 let ( >=: ) = Z.geq;;
 let ( **: ) = Z.pow;;
  
-let string_of_zint:      zint -> string     = Z.to_string;;
-let zint_of_string:      string -> zint     = Z.of_string;;
+let string_of_zint:   zint -> string     = Z.to_string;;
+let zint_of_string:   string -> zint     = Z.of_string;;
 let z_0:              zint               = Local.z_0;;
 let z_1:              zint               = Local.z_1;;
 let z_2:              zint               = z_1 +: z_1;;
@@ -191,6 +191,7 @@ let num_0:               num                = Q.zero;;
 let num_1:               num                = Q.one;;
 let num_2:               num                = num_of_zint z_2;;
 let num_3:               num                = num_of_zint z_3;;
+let num_4:               num                = num_of_zint z_4;;
 let num_10:              num                = num_of_zint z_10;;
 let num_of_int:          int -> num         = Q.of_int;;
 let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
@@ -220,7 +221,8 @@ let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
 
 let half:                num                = num_1 // num_2;;      
-let third:               num                = num_1 // num_3;;      
+let third:               num                = num_1 // num_3;;  
+let quarter:             num                = num_1 // num_4;; 
 let round:               num -> num         = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 
 

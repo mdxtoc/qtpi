@@ -463,29 +463,6 @@ let ugstep_padded pn qs g gpad =
 
 let ugstep pn qs g = ugstep_padded pn qs g g_I
 
-let fp_h2 = 0.5
-let fp_h = sqrt fp_h2
-let fp_f2 = (1.0 +. fp_h) /. 2.0
-let fp_f = sqrt fp_f2
-let fp_g2 = (1.0 -. fp_h) /. 2.0
-let fp_g = sqrt fp_g2
-
-let rec compute = 
-  let rec compute_h = function
-    | 0             -> 1.0
-    | 1             -> fp_h
-    | i when i<0    -> 1.0 /. compute_h (~-i) 
-    | i             -> fp_h2 *. compute_h (i-2)
-  and compute_prod = function
-    | false, hn, els -> compute_h hn *. (List.fold_left ( *. ) 1.0 (List.map compute_el els))
-    | true , hn, els -> ~-. (compute_prod (false, hn, els))
-  and compute_el = function
-    | S_f         -> fp_f
-    | S_g         -> fp_g
-    | S_symb symb -> let a,b = symb.secret in if symb.alpha then b else a
-  in
-  List.fold_left ( +. ) 0.0 <.> List.map compute_prod
-
 let paranoid = false
 let _zeroes = ref z_0
 let _ones = ref z_0
@@ -535,8 +512,8 @@ let rec qmeasure disposes pn gate q =
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
         more or less than vm^2/2.
       *)
-     let r = let vm_value = compute vm in
-             let prob_value = compute prob_1 in (* squaring has been done *)
+     let r = let vm_value = Snum.to_float vm in
+             let prob_value = Snum.to_float prob_1 in (* squaring has been done *)
              if prob_value=vm_value then 
                (if !verbose || !verbose_qsim || !verbose_measure || paranoid then Printf.printf " that's 1\n";
                 1
@@ -573,10 +550,12 @@ let rec qmeasure disposes pn gate q =
      let nv = nvhalf in
      let vm', vv = 
        match modulus with (* modulus is sum of squares, always positive *)
-       | [_,0,[]]           -> snum_1, vv
-       | [_,k,[]] when k mod 2 = 0 
+       | [n,[]] when n=num_1 -> snum_1, vv
+       (* can't do this any more
+          | [_,k,[]] when k mod 2 = 0 
                             -> let n = k/2 in (* h(n) is sqrt modulus -- multiply by h(-n) *)
-                               snum_1, mult_nv (csnum_of_snum (snum_h (~-n))) vv
+                               snum_1, mult_nv (csnum_of_snum (make_snum_h (~-n))) vv
+        *)
        (* at this point it _could_ be necessary to guess roots of squares. 
         * Or maybe a better solution is required ...
         *)

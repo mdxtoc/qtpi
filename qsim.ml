@@ -501,13 +501,14 @@ let rec qmeasure disposes pn gate q =
      in
      let prob_1 = getsum nvhalf nvhalf in
      if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-       Printf.printf "%s qmeasure [] %s; %s|->%s; nv=%s ;nvhalf=%s; prob_1 = %s;"
+       Printf.printf "%s qmeasure [] %s; %s|->%s; nv=%s ;nvhalf=%s; prob_1 = %s; prob_0=%s;"
                      (Name.string_of_name pn)
                      (string_of_qbit q)
                      (string_of_qbit q)
                      (string_of_qval (qs,(vm,vv)))
                      (string_of_zint nv) (string_of_zint nvhalf)
-                     (string_of_snum prob_1);
+                     (string_of_snum prob_1)
+                     (string_of_snum (rsum vm (rneg prob_1)));
      (* vv is not normalised: you have to divide everything by vm to get the normalised version. 
         So in finding out whether we have 1 or 0, we have to take the possibility of scoring 
         more or less than vm^2/2.

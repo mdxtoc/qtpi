@@ -103,3 +103,10 @@ let rec optfold f x = function
               | Some x -> Some (anyway (revargs (optfold f) ys) x) 
               | None   -> optfold f x ys
              )
+
+let optdelete y xs =
+  let rec odr rs = function
+    | x::xs -> if x=y then Some (Listutils.prepend rs xs) else odr (x::rs) xs
+    | []    -> None
+  in
+  odr [] xs

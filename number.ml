@@ -160,7 +160,16 @@ module Local = struct
       and d' = Z.pow x.den exp'
       in  if exp >= 0 then Q.make n' d' else Q.make d' n'
   
+  let reciprocal: num -> num =
+    fun n -> Q.(n.den /// n.num)
+
+  let exactsqrt: num -> num option =
+    fun n -> let numr, denr = Z.sqrt n.num, Z.sqrt n.den in
+             if Z.(equal (numr*numr) n.num && equal (denr*denr) n.den) 
+               then Some (Q.make numr denr)
+               else None
 end
+
 let ( ~-: ) = Z.(~-);;
 let ( /:  ) = Z.(/);;
 let ( *:  ) = Z.( * );;
@@ -219,6 +228,8 @@ let divmod_num:          num -> num*num     = Local.divmod;;
 let integer_num:         num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
+let reciprocal:          num -> num         = Local.reciprocal
+let exactsqrt:           num -> num option  = Local.exactsqrt
 
 let half:                num                = num_1 // num_2;;      
 let third:               num                = num_1 // num_3;;  

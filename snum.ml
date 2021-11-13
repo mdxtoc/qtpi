@@ -170,7 +170,7 @@ let string_of_el e =
 let string_of_els es = 
   (match !fancynum with
    | RawNum -> string_of_els_struct
-   | _      -> String.concat "*" <.> List.map string_of_el 
+   | _      -> String.concat "" <.> List.map string_of_el 
   ) es
 
 (* I want to get this right once, so I can deal with real and imaginary products.
@@ -178,16 +178,17 @@ let string_of_els es =
  *)  
   
 let rec string_of_prodi si (n,els) = 
-  if n</num_0   then "-" ^ string_of_prodi si (~-/n,els) else
-  if n=/num_0   then "0" (* shouldn't happen *)          else
   if !fancynum<>RawNum then 
-    (let numerator = 
-       match n.num=:z_1, si, els with
-       | true , "", [] -> "1"
-       | true , _ , _  -> si ^ string_of_els els
-       | false, _ , _  -> string_of_zint n.num ^ si ^ string_of_els els
-     in
-     numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
+    (if n</num_0   then "-" ^ string_of_prodi si (~-/n,els) else
+     if n=/num_0   then "0" (* shouldn't happen *)          else
+                        (let numerator = 
+                           match n.num=:z_1, si, els with
+                           | true , "", [] -> "1"
+                           | true , _ , _  -> si ^ string_of_els els
+                           | false, _ , _  -> string_of_zint n.num ^ si ^ string_of_els els
+                         in
+                         numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
+                        )
     )
   else 
     si ^ string_of_prod_struct (n,els)
@@ -208,6 +209,19 @@ let string_of_snum (s:snum) =
   | FractionalNum -> sum_separate (fracparts s)
 
 let string_of_snums = bracketed_string_of_list string_of_snum
+
+(* The normal form -- now the snum type -- is a sum of products. 
+ * Sign is now naturally included in the num element of a product.
+ * Products are sorted according to the type definition: i.e.
+ * S_sqrt _, S_f, S_g, S_symb. (but somehow sqrt is coming last. Hmm.)
+ 
+ * We sort identifiers according to their suffix: a0,b0,a1,b1, ...
+ 
+ * Stdlib.compare works if we change the definition of S_symb, so I did
+ 
+ *)
+
+let elcompare = Stdlib.compare
 
 (* *********************** symbolic arithmetic ************************************ *)
 
@@ -239,17 +253,6 @@ let rec to_float =
     Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map compute_el els))
   in
   List.fold_left ( +. ) 0.0 <.> List.map compute_prod
-
-(* The normal form -- now the snum type -- is a sum of products. 
- * Sign is now naturally included in the num element of a product.
- * Products are sorted according to the type definition: i.e.
- * S_f, S_g, S_symb. 
- 
- * We sort identifiers according to their suffix: a0,b0,a1,b1, ...
- 
- * Stdlib.compare works if we change the definition of S_symb, so I did
- 
- *)
 
 (* we deal with long lists. Avoid sorting if poss *)
 let sort compare ss =
@@ -307,6 +310,8 @@ and rprod s1 s2 :snum =
   
 and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, fg *)
   let r = let rec sp els n ss = 
+            if !verbose_simplify then 
+              Printf.printf "sp %s %s %s\n" (string_of_els els) (string_of_num n) (string_of_els ss);
             let premult s n ss = 
               let popt, n, ss = sp els n ss in
               (match popt with 
@@ -326,12 +331,12 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
             | S_sqrt a   :: S_g    :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so hg = f(1-h) *)
               when a=/half               -> premult [sprod_f; sprod_neg sprod_hf] n ss
             | s                    :: ss -> sp (s::els) n ss
-            | []                         -> None, n, sort Stdlib.compare (List.rev els)
+            | []                         -> None, n, sort elcompare (List.rev els)
           in
-          let popt, n, ss = sp [] n (sort Stdlib.compare els) in
-          let s = [(n, ss)] in
+          let popt, n, ss = sp [] n (sort elcompare els) in
+          let s = [(n, sort elcompare ss)] in
           match popt with 
-          | Some pre_p -> rprod pre_p s (* this used to be right: do we need to go round again? *)
+          | Some pre_p -> rprod pre_p s (* it does go round again! *)
           | None       -> s
   in
   if !verbose_simplify then
@@ -357,8 +362,8 @@ and sflatten ss = (* flatten a list of sums *)
  *)
 
 and simplify_sum ps = 
-  let r = let prodcompare (n1,els1) (n2,els2) = (* els before n *)
-            Stdlib.compare (els1,n1) (els2,n2) 
+  let r = let prodcompare (n1,els1) (n2,els2) = (* els before n, pos before neg *)
+                  Stdlib.compare (els1,~-/n1) (els2,~-/n2) (* hmmm. *)
           in
           let multiple (n,els:sprod) rest = (* looking for nX+mX+... -- we sum the num parts *)
             let r = (match takedropwhile (fun (_,els') -> els=els') rest with

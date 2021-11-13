@@ -395,25 +395,26 @@ and simplify_sum ps =
                                                 (string_of_option (bracketed_string_of_pair string_of_prod string_of_snum) r);
             r
           in
-          let rec sp again (r:sprod list) (ps:sprod list) =
+          let rec sps again (r:sprod list) (ps:sprod list) =
             if !verbose_simplify then 
-              Printf.printf "sp %B %s %s\n" again (string_of_snum r) (string_of_snum ps);
+              Printf.printf "sps %B %s %s\n" again (string_of_snum r) (string_of_snum ps);
             match ps with
-            | (n1,es1) :: (n2,es2) :: ps -> let n', ps' = multiple (n1+/n2,es1) ps in
-                                            if n'=/num_0 then sp true r ps' else sp true ((n',es1)::r) ps'
+            | (n1,es1) :: (n2,es2) :: ps 
+              when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
+                                                      if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
             (* f(1-h) = gh -- commented out for now 
             | (sg,j,(S_f :: es)) :: ps
                    when List.exists ((=) (not sg,j+1,S_f :: es)) ps
-                                                  -> sp true ((sg,j+1,S_g :: es) :: r) 
+                                                  -> sps true ((sg,j+1,S_g :: es) :: r) 
                                                              (Listutils.remove (not sg,j+1,S_f :: es) ps)
              *)
             (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
             | p                  :: ps            -> (match a2b2 p ps with
-                                                      | Some (p', ps') -> sp true (p'::r) ps'
-                                                      | None           -> sp again (p::r) ps
+                                                      | Some (p', ps') -> sps true (p'::r) ps'
+                                                      | None           -> sps again (p::r) ps
                                                      )
             | []                                  -> if again then doit r else sort prodcompare r
-          and doit ps = sp false [] (sort prodcompare ps)
+          and doit ps = sps false [] (sort prodcompare ps)
           in
           doit ps
   in

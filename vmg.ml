@@ -299,7 +299,7 @@ and string_of_nv bksign (vm, vv) =
          match real, im with
          | [_], [] -> false
          | _  , [] -> (match !fancynum with
-                       | FractionalNum -> List.length (Snum.fracparts real) > 1
+                       | FractionalNum -> List.length real > 1
                        | _             -> false
                       )
          | _       -> false

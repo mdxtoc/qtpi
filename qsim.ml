@@ -550,30 +550,35 @@ let rec qmeasure disposes pn gate q =
        );
      let nv = nvhalf in
      let vm', vv = 
-       match modulus with (* modulus is sum of squares, always positive *)
-       | [n,[]] when n=num_1 -> snum_1, vv
-       (* can't do this any more
-          | [_,k,[]] when k mod 2 = 0 
-                            -> let n = k/2 in (* h(n) is sqrt modulus -- multiply by h(-n) *)
-                               snum_1, mult_nv (csnum_of_snum (make_snum_h (~-n))) vv
-        *)
-       (* at this point it _could_ be necessary to guess roots of squares. 
-        * Or maybe a better solution is required ...
-        *)
-       | _                  -> 
-           (* is there just one possibility? If so, set it to snum_1. And note: normalise 1 *)
-           if nv -: countzeros_v z_0 nv vv = z_1 then
-             let cv = sparse_elements_v c_0 vv in
-              snum_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
-           else
-             (if !verbose || !verbose_qsim || !verbose_measure || paranoid then
-                (Printf.printf "\noh dear! q=%d r=%d; was %s snum %s; un-normalised %s modulus %s vm %s\n" 
-                                          q r (string_of_qval (qval q)) (string_of_snum prob_1)
-                                         (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
-                 flush_all();
-                );
-               modulus, vv
-             ) 
+       let default () =
+         (* is there just one possibility? If so, set it to snum_1. And note: normalise 1 *)
+         if nv -: countzeros_v z_0 nv vv = z_1 then
+           let cv = sparse_elements_v c_0 vv in
+            snum_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
+         else
+           (if !verbose || !verbose_qsim || !verbose_measure || !verbose_simplify || paranoid then
+              (Printf.printf "\noh dear! q=%d r=%d; was %s prob_1 %s; un-normalised %s modulus %s vm %s\n" 
+                                        q r (string_of_qval (qval q)) (string_of_snum prob_1)
+                                       (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
+               flush_all();
+              );
+             modulus, vv
+           ) 
+       in
+       match modulus with (* modulus is sum of squares, always positive, always real *)
+       | [n,[]] -> if n=num_1 then modulus, vv 
+                   else (let doit n = 
+                           Number.exactsqrt n &~~ (fun root -> Some (mult_snv [(Number.reciprocal root,[])] vv))
+                         in
+                         match doit n |~~
+                               (fun () -> (doit (n//half) &~~ (fun vv -> Some (mult_snv [(num_2,[S_sqrt half])] vv))) |~~
+                                (fun () -> (doit (n//third) &~~ (fun vv -> Some (mult_snv [(num_3,[S_sqrt third])] vv))))
+                               )
+                         with
+                         | Some vv -> snum_1, vv
+                         | None    -> default ()
+                        )
+       | _    -> default () 
      in
      let qv = qs, (vm',vv) in
      if !verbose || !verbose_qsim || !verbose_measure then 

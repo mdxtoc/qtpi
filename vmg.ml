@@ -360,7 +360,18 @@ and string_of_nv bksign (vm, vv) =
                                       | []    -> so_v vv
      in
    *)
-  if vm=snum_1 then so_v vv else Printf.sprintf "<<%s>>%s" (string_of_snum vm) (so_v vv)
+  let string_of_vmultiplier vm =
+    match vm with
+    | [(n,[])] -> (match num_exactsqrt n with
+                   | Some root -> string_of_num (reciprocal root)
+                   | None      -> match zint_exactsqrt n.den, zint_exactsqrt n.num with
+                                  | Some denroot, _ -> Printf.sprintf "%s/r(%s)" (string_of_zint denroot) (string_of_zint n.num)
+                                  | _, Some numroot -> Printf.sprintf "r(%s)/%s" (string_of_zint n.den) (string_of_zint numroot)
+                                  | _               -> Printf.sprintf "r(%s)" (string_of_num (reciprocal n))
+                  )
+    | _        -> Printf.sprintf "<<modulus %s>>" (string_of_snum vm)
+  in
+  if vm=snum_1 then so_v vv else Printf.sprintf "%s%s" (string_of_vmultiplier vm) (so_v vv)
   
 and string_of_bra b = string_of_nv PVBra b
 and string_of_ket k = string_of_nv PVKet k

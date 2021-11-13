@@ -162,9 +162,10 @@ let string_of_el e =
                                         Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
-      | S_symb symb -> Printf.sprintf "%s%s%s%s" (if symb.alpha then "b" else "a") 
+      | S_symb symb -> Printf.sprintf "%s%s%s%s" 
+                                  (if symb.alpha then "b" else "a") 
                                   (string_of_int symb.id) 
-                                  (if symb.conj then " " else "")
+                                  (if symb.conj then "â€ " else "")
                                   (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
   
 let string_of_els es = 

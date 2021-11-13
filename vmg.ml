@@ -983,6 +983,8 @@ let mult_nv cn v =
                  | DenseV  v         -> DenseV (Array.map (fun x -> cprod cn x) v)
                  | SparseV (n,sv,cv) -> SparseV (n, cprod cn sv, List.map (fun (i,x) -> i, cprod cn x) cv)
 
+let mult_snv sn v = mult_nv (csnum_of_snum sn) v
+
 module OrderedZ = struct type t = zint
                          let compare = Z.compare
                          let to_string = string_of_zint

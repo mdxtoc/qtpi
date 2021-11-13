@@ -163,11 +163,14 @@ module Local = struct
   let reciprocal: num -> num =
     fun n -> Q.(n.den /// n.num)
 
+  let zint_exactsqrt: zint -> zint option =
+    fun zi -> let zr = Z.sqrt zi in
+              if Z.(equal (zr*zr) zi) then Some zr else None
+              
   let exactsqrt: num -> num option =
-    fun n -> let numr, denr = Z.sqrt n.num, Z.sqrt n.den in
-             if Z.(equal (numr*numr) n.num && equal (denr*denr) n.den) 
-               then Some (Q.make numr denr)
-               else None
+    fun n -> match zint_exactsqrt n.num, zint_exactsqrt n.den with
+             | Some numr, Some denr -> Some (Q.make numr denr)
+             | _                    -> None
 end
 
 let ( ~-: ) = Z.(~-);;
@@ -205,6 +208,7 @@ let num_10:              num                = num_of_zint z_10;;
 let num_of_int:          int -> num         = Q.of_int;;
 let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
 let zint_of_num:         num -> zint        = Local.zint_of_num;;
+let zint_exactsqrt:      zint -> zint option = Local.zint_exactsqrt
 
 let ( ~-/ ) = Q.(~-);;
 let ( //  ) = Q.(/);;
@@ -229,7 +233,7 @@ let integer_num:         num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
 let reciprocal:          num -> num         = Local.reciprocal
-let exactsqrt:           num -> num option  = Local.exactsqrt
+let num_exactsqrt:       num -> num option  = Local.exactsqrt
 
 let half:                num                = num_1 // num_2;;      
 let third:               num                = num_1 // num_3;;  

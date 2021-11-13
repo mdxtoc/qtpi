@@ -427,9 +427,14 @@ and simplify_sum ps =
     Printf.printf "simplify_sum (%s) -> %s\n" (string_of_snum ps) (string_of_snum r);
   r
 
-(* can't do this any more -- at least not this way
-   and rdiv_h s = rprod (snum_h (-1)) s (* multiply by h(-1) = divide by h(1). Used to happen in normalise; may happen again in try_split *)
+(* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
+   so be careful
  *)
+let div_sqrt_multiplier n = [(Number.reciprocal n, [S_sqrt n])]
+
+let rdiv_sqrt sn n = 
+  rprod (div_sqrt_multiplier n) sn
+
   
 (******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
 

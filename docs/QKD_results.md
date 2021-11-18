@@ -32,47 +32,35 @@ In the past the exchange would be restarted if Alice found herself with too few 
 <a name="enoughqbits"></a>
 ## Picking enough qbits
 
-Suppose Alice's message *M* is *m* bits long, and that the Wegman-Carter one-time hash keys are each *w* bits long, so she needs at least
+(Simplified, 2021/11/18, to deal with a fixed number of checkbits.)
 
-&emsp;&emsp;*k* = *m*+5*w*
+Suppose Alice's message *M* is *m* bits long and the management have decided to use *c* checkbits and *w*-bit keys for the Wegman-Carter authentication. We know that there are five classical messages per trial, so she needs at least
 
-secret code bits: *m* to encrypt *M* and send it to Bob, 5*w* to use for new hash keys. if *n* is the number of qbits she sends, then she can expect that about *n*/2 code bits will be agreed with Bob, who will then take a proportion of those -- in our simulation about a quarter or *n*/8 -- for check bits. So *n*/2 - *n*/8 = 3*n*/8 has to be at least *k*. (Actually she sould probably have a minimum number *c* of checkbits in mind, to ensure that the quantum-interference check is reliable, so that puts a lower bound on *n*/8, but we can deal with that by putting a lower bound on *n* after we've calculated it.)
+&emsp;&emsp;*k* = *m*+*c*+5*w*
 
-She must also allow for statistical variation: sometimes she and Bob will agree fewer, sometimes more, code bits. She knows that the standard deviation &sigma; of the number of successes when choosing with probability *p* from a sequence length *n* is &radic;<span style="text-decoration:overline;">&nbsp;*np*(1-*p*)&nbsp;</span>. She wants the probability of choosing too few bits to be very small, so she must over-estimate. If she wants to be *s* &sigma;s away from trouble, well into the tail of the normal distribution, she can write some equations. 
+secret code bits: *m* to encrypt *M* and send it to Bob, *c* for checkbits, 5*w* to use for new hash keys. if *N* is the number of qbits she sends, then she can expect that about *N*/2 code bits will be agreed with Bob.
 
-First, Bob may choose more than *n*/8 bits: he chooses a bit with probability 1/4 from a sequence length *n*/2, so the worst-case pick that she has to allow for is
+She must allow for statistical variation: sometimes she and Bob will agree fewer, sometimes more, code bits. She knows that the standard deviation &sigma; of the number of successes when choosing with probability *p* from a sequence length *n* is &radic;<span style="text-decoration:overline;">&nbsp;*np*(1-*p*)&nbsp;</span>. She wants the probability of choosing too few bits to be very small, so she must over-estimate. If she wants to be *s* &sigma;s away from trouble, well into the tail of the normal distribution, she can write some equations. 
 
-&emsp;&emsp;*b* = *n*/8 + *s*&radic;<span style="text-decoration:overline;">&nbsp;*n*/2(1/4)(3/4)&nbsp;</span>   
+Alice and Bob will agree on the measurement basis for a qbit with probability 1/2. So she can calculate 
 
-&emsp;&emsp;&emsp;&ensp;= *n*/8 + *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span>
+&emsp;&emsp;*N*/2 &ge; *k* + *s*&radic;<span style="text-decoration:overline;">&nbsp;*N*(1/2)(1/2)&nbsp;</span>
 
-If *s* is large enough Bob won't pick more than that many bits very often: [famously](https://en.wikipedia.org/wiki/68–95–99.7_rule) for *s*=5 the chances are 0.00003%, and they go down about three orders of magnitude for every increase in *s* after that. So Alice can give herself a comfortable allowance by choosing *s*=8 or *s*=10, or more if she likes.
+&emsp;&emsp;&emsp;&ensp;= *k* + *s*/2&radic;<span style="text-decoration:overline;">&nbsp;*N*&nbsp;</span>
 
-Alice and Bob will agree on the measurement basis for a qbit with probability 1/2. There will be statistical variation in the number of bits they agree on, and she must make sure that the number she needs is in the tail of the normal distribution, *s* &sigma;s away from the mean. So she can calculate 
+Taking the inequality as an equality, this is a quadratic in &radic;<span style="text-decoration:overline;">&nbsp;*N*&nbsp;</span>:
 
-&emsp;&emsp;*n*/2 &ge; *k* + *b* + *s*&radic;<span style="text-decoration:overline;">&nbsp;*n*(1/2)(1/2)&nbsp;</span>
-
-&emsp;&emsp;&emsp;&ensp;= *k* + *b* + *s*/2&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span>
-
-&emsp;&emsp;&emsp;&ensp;= *k* + *n*/8 + *s*(&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+1/2)&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span> 
-
-Taking the inequality as an equality, this is a quadratic in &radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span>:
-
-&emsp;&emsp;3/8*n* - *s*(&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>+1/2)&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span> - *k* = 0
+&emsp;&emsp;*N*/2 - *s*/2&radic;<span style="text-decoration:overline;">&nbsp;*N*&nbsp;</span> - *k* = 0
 
 One of the solutions of this equation is negative, so we ignore it and take the positive solution: qtpi's *num* type includes both integers and unbounded-precision rationals, so she can calculate the root directly. (Of course we still use an approximation for *sqrt*.) 
 
-At this point Alice has to decide if she will get enough check-bits from Bob. She can be confident of *c* checkbits, where
+The calculation so far isn't quite right, because Bob chooses checkbits at random from the *N*/2 that he and Alice share. If he chose with probability 2*c*/*N* he would get *c* checkbits *on average*. He wants the minimum -- i.e. the number which is *s*&sigma; away from the mean -- to be *c*. He has to shoot a little higher. A better guess would be 
 
-&emsp;&emsp;*c* = *n*/8 - *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>&radic;<span style="text-decoration:overline;">&nbsp;*n*&nbsp;</span>
+&emsp;&emsp;*cmin* = *c*+*s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span>
 
-So, given a pre-arranged lower bound *cmin*, she can calculate a lower bound *nmin* from a quadratic in &radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span>
+-- possibly overkill, but safety first. But then we have to worry about Bob taking too many checkbits, and not leaving enough for Alice. So we ought to allow another *s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span> for that. At any rate, plug *cmax* in place of *c* in the quadratic above and we're likely to get the right number of checkbits.
 
-&emsp;&emsp;*nmin*/8 - *s*&radic;<span style="text-decoration:overline;">&nbsp;3/32&nbsp;</span>&radic;<span style="text-decoration:overline;">&nbsp;*nmin*&nbsp;</span> - *cmin* = 0
-
-This gives quite a large lower bound: e.g. with *cmin*=20, *s*=10, we have *nmin*=891. (If we varied the probability of selecting a checkbit we could reduce that lower bound, but no matter for this simulation.)
-
-The [no Eve trials](#noEve) show how many bits she uses for various values of *k*, *s* and *cmin*, and how it affects the repetition rate.
+The [no Eve trials](#noEve) show how many bits she uses for various values of *k*, *s* and *c*, and how it affects the repetition rate.
 
 <a name="wegmancarter"></a>
 ## Wegman-Carter hash-tagging

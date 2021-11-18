@@ -157,9 +157,9 @@ let string_of_el e =
   | RawNum -> string_of_el_struct e
   | _      ->
       match e with
-      | S_sqrt n    -> if n=/half  then "h"     else
-                       if n=/third then "t"     else
-                                        Printf.sprintf "r(%s)" (string_of_num n)
+      | S_sqrt n    -> if n=/half  && !symbolic_ht then "h"     else
+                       if n=/third && !symbolic_ht then "t"     else
+                                                        Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
       | S_symb symb -> Printf.sprintf "%s%s%s%s" 

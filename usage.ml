@@ -63,6 +63,8 @@ let opts = Arg.align
 					 Printf.sprintf " show actual value of a_i, b_i in random qbit choice (default %B)" !showabvalues);
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
+              ("-symbolic_ht"  , Arg.Bool (set_arg symbolic_ht), 
+					 Printf.sprintf " print r(1/2) as h, r(1/3) as t (default %B)" !symbolic_ht);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
                     Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
               (* ("-pstep"     , Arg.Set pstep, 

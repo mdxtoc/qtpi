@@ -1,17 +1,17 @@
-proc Bob (w, hks, qc, bsc, log) = 
+proc Bob (N, c, w, hks, qc, bsc, log) = 
     . (new result) 
-    | . ReceiveQBits([],qc,bsc,result)
-    | . result?(bvs,message)
+    | . ReceiveQBits(N,[],qc,result)
+    | . result?(bvs)
       . (let (bs,vs) = unzip bvs)       (* bs, vs is what I saw *)
       . ⁁1
-      . (let (h0,bAs) = message)        (* Alice's first classical message: bAs are her bases *)
+      . bsc?(h0,bAs)                    (* Alice's first classical message: bAs are her bases *)
       . ⁁2 
       . (let h1 = hwc bs hks 1 w)
       . bsc!(h1,bs)                     (* send my bases *)
       . ⁁3
       . (let rvs = reconcile bAs bs vs) (* the bits we should agree on *)
       . ⁁4
-      . (let mask = tabulate (length rvs) cb_choose)
+      . (let mask = tabulate (length rvs) (cb_choose (c/length rvs)))
       . (let checkbits = mask_filter 0b1 mask rvs)
       . (let h2 = hwc mask hks 2 w)
       . bsc!(h2,mask)                   (* send her the mask *)

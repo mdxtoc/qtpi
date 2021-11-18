@@ -1,32 +1,43 @@
 proc 
-  Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) = 
+  Experiment (M, N, c, w, hksAE, hksEB, logA, logAE, logEB, logB) = 
     (new qcAE,qcEB,bscAE,bscEB)
-    | Alice (M, w, hksAE, cMin, nSigma,qcAE,bscAE,logA) 
-    | Eve   (w, hksAE, hksEB, qcAE,qcEB,bscAE,bscEB,logAE,logEB) 
-    | Bob   (w, hksEB, qcEB,bscEB,logB)
+    | Alice (M, N, w, hksAE, qcAE, bscAE, logA) 
+    | Eve   (N, c, w, hksAE, hksEB, qcAE, qcEB, bscAE, bscEB, logAE, logEB) 
+    | Bob   (N, c, w, hksEB, qcEB, bscEB, logB)
 
-  System() = (let n = read_min_int 1 "length of message")
-             (let w = read_min_int 0 "length of a hash key")
-             (let cMin = read_min_int 0 "minimum number of checkbits")
-             (let nSigma = read_min_int 0 "number of sigmas")
-             (let k = read_min_int 1 "number of trials")
-             (let verbose = read_bool "with commentary" "y" "n")
-             Run (k, verbose, n, w, cMin, nSigma)
+  System() = 
+    (let m = read_min_int 1 "length of message")
+    (let c = read_min_int 0 "minimum number of checkbits")
+    (let w = read_min_int 0 "length of a hash key")
+    (let nSigma = read_min_int 0 "number of sigmas")
+    (let k = read_min_int 1 "number of trials")
+    (let verbose = read_bool "with commentary" "y" "n")
+    (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+       plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
+       message). We don't want the protocol to fail because we pick too few qbits, and 
+       nSigma is the number of standard deviations we want to be away from that possibility.
+   
+       For the basis of the calculation in min_qbits, see QKD_results.md 
+     *)
+    . (let cmin = c+nSigma*sqrt c) 
+    . (let N = min_qbits (m+cmin+nSigma*sqrt c+5*w) nSigma)  
+    . Run (k, verbose, N, m, cmin, w)
+
            
-  Run (k, verbose, n, w, cMin, nSigma) = 
+  Run (k, verbose, N, m, c, w) = 
     (let hkbs = randbits (5*w))
     Logger (k, 0, verbose, 0,  0, 0, 0,
                            [], [], [],
-                           n, w, hkbs, hkbs, cMin, nSigma)
+                           N, m, c, w, hkbs, hkbs)
 
   Logger (k, i, verbose, nAlice, nEve, nShort, nEvades,
                                  ncAs, ncBs, evasions,
-                                 n, w, hkbsAE, hkbsEB, cMin, nSigma) =
+                                 N, m, c, w, hkbsAE, hkbsEB) =
     if i<k then 
       . out!if k<>1 then ["trial number "; show (i+1); 
                                   if verbose then "\n" else " "]
                     else []
-      . (let M = randbits n)
+      . (let M = randbits m)
       . out!if verbose then ["message is "; show M; "\n"] else []
       . (new logA,logAE,logEB,logB,doneA,doneB,doneE)
       . (let (hksAE, hksEB) = (map bits2num (packets [] w hkbsAE),
@@ -36,7 +47,7 @@ proc
                                           " (E<->B) "; show hksEB;
                                                 "\n"] 
                        else [] 
-      . | Experiment (M, w, hksAE, hksEB, cMin, nSigma, logA, logAE, logEB, logB) 
+      . | Experiment (M, N, c, w, hksAE, hksEB, logA, logAE, logEB, logB) 
         | LogAlice (verbose, logA, doneA)
         | LogBob (verbose, logB, doneB)
         | LogEve (verbose, logAE, logEB, doneE)
@@ -44,13 +55,13 @@ proc
           . doneB?(ncB, messageB, c_intfseenB, hkbsB)
           . doneE?(hkbsAE', (decodeE, messageE, _, hkbsEB'))
           . (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-          . if ¬intfseen && hkbsA<>hkbsAE' && hkbsAE'<>[]
+          . if ¬intfseen && enough && hkbsA<>hkbsAE' && hkbsAE'<>[]
              then . out!["whoops! different new hash keys A<->E ";
                                          show (packets [] w hkbsA); " ";
                                          show (packets [] w hkbsAE')
                                         ] 
                   . _0
-             elif ¬intfseen && hkbsB<>hkbsEB' && hkbsEB'<>[]
+             elif ¬intfseen && enough && hkbsB<>hkbsEB' && hkbsEB'<>[]
                then . out!["whoops! different new hash keys E<->B ";
                                          show (packets [] w hkbsEB'); " ";
                                          show (packets [] w hkbsB)
@@ -58,7 +69,7 @@ proc
                     . _0
              elif ¬enough then
                   Logger (k, i, verbose, nAlice, nEve, nShort+1, nEvades, ncAs, ncBs, evasions, 
-                          n, w, hkbsAE, hkbsEB, cMin, nSigma
+                          N, m, c, w, hkbsAE, hkbsEB
                          )
              else . (let evewins = decodeE && ¬intfseen && messageE=messageA)
                   . (let evades = ¬intfseen)
@@ -77,7 +88,7 @@ proc
                     )
                   . Logger (k, i+1, verbose, nAlice, nEve, nShort, nEvades,
                                                ncA::ncAs, ncB::ncBs, evades::evasions,
-                                               n, w, hkbsAE, hkbsEB, cMin, nSigma)
+                                               N, m, c, w, hkbsAE, hkbsEB)
     else . out!["all done: "; 
                 show nEve;                " Eve's; ";
                 show nAlice;              " Alice's; ";

@@ -1,35 +1,45 @@
-proc Experiment (M, w, hks, cMin, nSigma, logA, logB) = 
+proc Experiment (M, N, c, w, hks, logA, logB) = 
   (new qc,bsc)
-  | Alice (M,w,hks,cMin,nSigma,qc,bsc,logA) 
-  | Bob   (w,hks,qc,bsc,logB)
+  | Alice (M,N,w,hks,qc,bsc,logA) 
+  | Bob   (N,c,w,hks,qc,bsc,logB)
     
-proc System() = (let n = read_min_int 1 "length of message")
-                (let w = read_min_int 0 "length of a hash key")
-                (let cMin = read_min_int 0 "minimum number of checkbits")
-                (let nSigma = read_min_int 0 "number of sigmas")
-                (let k = read_min_int 1 "number of trials")
-                (let verbose = read_bool "with commentary" "y" "n")
-                Run (k, verbose, n, w, cMin, nSigma)
+proc System() = 
+  (let m = read_min_int 1 "length of message")
+  (let c = read_min_int 0 "minimum number of checkbits")
+  (let w = read_min_int 0 "length of a hash key")
+  (let nSigma = read_min_int 0 "number of sigmas")
+  (let k = read_min_int 1 "number of trials")
+  (let verbose = read_bool "with commentary" "y" "n")
+  (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+     plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
+     message). We don't want the protocol to fail because we pick too few qbits, and 
+     nSigma is the number of standard deviations we want to be away from that possibility.
+   
+     For the basis of the calculation in min_qbits, see QKD_results.md 
+   *)
+  . (let cmin = c+nSigma*sqrt c) 
+  . (let N = min_qbits (m+cmin+nSigma*sqrt c+5*w) nSigma)  
+  . Run (k, verbose, N, m, cmin, w)
            
-Run (k, verbose, n, w, cMin, nSigma) = 
-  Logger (k, 0, verbose, 0, 0, 0, [], n, w, randbits (5*w), cMin, nSigma)
+Run (k, verbose, N, m, c, w) = 
+  Logger (k, 0, verbose, 0, 0, 0, [], N, m, c, w, randbits (5*w))
 
-Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
+Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, N, m, c, w, hkbs) =
   if i<k 
   then . out!if k<>1 then ["trial number "; show (i+1); if verbose then "\n" else " "] 
                   else []
        . (let hks = map bits2num (packets [] w hkbs))
        . out!if verbose then ["hash keys are "; show hks; "\n"] else []
-       . (let M = randbits n)
+       . (let M = randbits m)
        . out!if verbose then ["message is "; show M; "\n"] else [] .
        . (new logA, logB, doneA, doneB)
-       | Experiment (M, w, hks, cMin, nSigma, logA, logB) 
+       | Experiment (M, N, c, w, hks, logA, logB) 
        | LogAlice (verbose, logA, doneA)
        | LogBob (verbose, logB, doneB)
        | . doneA?(nbA, ncA, c_intfseenA, q_intfseen, enough, hkbsA, messageA)
          . doneB?(ncB, messageB, c_intfseenB, hkbsB)       .
          . (let intfseen = q_intfseen || c_intfseenA || c_intfseenB)
-         . out!if ¬intfseen && hkbsA<>hkbsB
+         . out!if ¬intfseen && enough && hkbsA<>hkbsB
                  then ["whoops! different new hash keys ";
                                 show (packets [] w hkbsA); " ";
                                 show (packets [] w hkbsB)
@@ -38,12 +48,12 @@ Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, hkbs, cMin, nSigma) =
          . (let nIntf = if intfseen then nIntf+1 else nIntf)
          . (let nShort = if ¬enough then nShort+1 else nShort)
          . if ¬enough 
-           then . Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, n, w, randbits (5*w), cMin, nSigma)
+           then . Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, N, m, c, w, randbits (5*w))
            else . (let nOk = if messageB=messageA then nOk+1 else nOk)
-                . out!if i+1=k then [show nbA; " qbits"; if k=1 then "\n" else " per trial\n"]
+                . out!if i+1=k then [show nbA; " qubits"; if k=1 then "\n" else " per trial\n"]
                                else []
                 . (let hkbs = if intfseen then randbits (5*w) elif hkbsA=[] || hkbsB=[] then hkbs else hkbsA fi)                
-                . Logger (k, i+1, verbose, nOk, nIntf, nShort, ncA::ncAs, n, w, hkbs, cMin, nSigma)
+                . Logger (k, i+1, verbose, nOk, nIntf, nShort, ncA::ncAs, N, m, c, w, hkbs)
   else . out!["all done: "; 
               show nIntf;          " interfered with; ";
               show nOk;            " exchanges succeeded; ";

@@ -102,7 +102,55 @@ and edeclnode =
 and resword =
   | ResShow
   | ResCompare
+
+(* I've only just realised that I can't compare expressions for equality, because of tinst stuff *)  
+(* maybe one day ...
+   let rec equal (x:expr) (y:expr) =
+     match tinst x, tinst y with
+     | EUnit    , EUnit
+     | ENil     , ENil      -> true
   
+     | EVar    x, EVar    y 
+     | EBool   x, EBool   y 
+     | EChar   x, EChar   y 
+     | EString x, EString y
+     | EBit    x, EBit    y
+     | EBra    x, EBra    y
+     | EKet    x, EKet    y  
+     | ERes    x, ERes    y -> x=y (* none of these are instances *)
+  
+     | ENum    x, ENum    y -> x=/y
+  
+     | EMinus  x, EMinus  y
+     | ENot    x, ENot    y
+     | EDagger x, EDagger y -> equal x y
+  
+     | ETuple xs, ETuple ys  
+     | EJux   xs, EJux   ys  
+     | ESub   xs, ESub   ys  -> eqlists equal xs ys
+  
+     | ECons   (x1,x2), ECons   (y1,y2)
+     | EAppend (x1,x2), EAppend (y1,y2)  -> equal x1 y1 && equal x2 y2
+  
+     | ECond (x1,x2,x3), ECond(y1,y2,y3) -> equal x1 y1 && equal x2 y2 && equal x3 y3
+  
+     | EMatch (x1,xs), EMatch (y1,ys) -> equal x1 y1 && 
+                                         eqlists (fun ((p1,e1),(p2,e2)) -> Pattern.equal p1 p2 && 
+                                                                           equal e1 e2
+                                                 ) xs ys
+     | EArith     (x1,xop,x2), EArith     (y1,yop,y2)  
+     | ECompare   (x1,xop,x2), ECompare   (y1,yop,y2)  
+     | EBoolArith (x1,xop,x2), EBoolArith (y1,yop,y2) -> xop=yop && equal x1 y1 && equal x2 y2
+  
+     | ELambda (aps,ae), ELambda (bps,be) -> eqlists (Pattern.equal) aps bps && equal ae be
+  
+     | EWhere (x1,x2), EWhere (y1,y2) -> equal x1 y1 && equal_edecl x2 y2
+   and equal_edecl x y =
+     match x.inst, y.inst with
+     | EDPat (xp,_,xe). EDPat (yp,_,ye) -> Pattern.equal xp yp && equal xe ye
+     | EDFun (xn,xps,_,xe) -> ...
+ *)
+ 
 let rec is_nilterminated e =
   match tinst e with
   | ENil        -> true

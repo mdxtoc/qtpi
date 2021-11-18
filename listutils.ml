@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
 
+open Functionutils
+
 exception Zip
 
 let zip xs ys = try List.combine xs ys with Invalid_argument _ -> raise Zip
@@ -139,3 +141,6 @@ let rec prepend pres posts =
   match pres with
   | pre::pres -> prepend pres (pre::posts)
   | []        -> posts
+
+let rec eqlists p xs ys = try List.for_all (uncurry2 p) (List.combine xs ys)
+                          with Invalid_argument _ -> false

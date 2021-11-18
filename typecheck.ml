@@ -1052,14 +1052,32 @@ and typecheck_process mon cxt p  =
            typecheck_process mon cxt proc
       )
   | GSum gs ->
+      let samechan x y = 
+        match tinst x, tinst y with
+        | EVar x, EVar y -> x=y
+        | _                -> false
+      in
+      let is_alt = List.length gs > 1 &&
+                   not (let step1 = fst (List.hd gs) in (* ok if all the alternatives _obviously_ use the same channel *)
+                        List.for_all (fun (step,_) -> match step1.inst, step.inst with
+                                                      | Read (ce1,_), Read (ce,_)   -> samechan ce1 ce
+                                                      | Write (ce1,_), Write (ce,_) -> samechan ce1 ce
+                                                      | _                           -> false
+                                     )
+                                     (List.tl gs)
+                       )
+      in
+      let newtv = if is_alt then newclasstv else newcommtv in (* no quantum channels in alts: this will get a crap error message, sigh *)
       let check_g (iostep,proc) =
         match iostep.inst with
          | Read (ce, pat) ->
-             let t = newcommtv ce.pos in
+             let t = newtv ce.pos in
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt t pat
          | Write (ce, e) ->
-             let t = newcommtv ce.pos in 
+             if is_alt then (* write guard in alt *)
+               raise (Error (iostep.pos, "write guard in alt (temporary prohibition while I think of how to fix the type system)"));
+             let t = newtv ce.pos in 
              let _ = assigntype_expr cxt (adorn ce.pos (Channel t)) ce in
              let _ = assigntype_expr cxt t e in
              typecheck_process mon cxt proc

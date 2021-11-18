@@ -17,7 +17,7 @@ proc W (c,n) =
        . (new c1) 
        | W (c1,k)     
        | . c1?(q0s)      
-         . out!["W "; show n; " has "; show (n/2); "\n"]
+         . out!["W "; show n; " has "; show k; "\n"]
          . (newqs q1s = |0>⊗⊗(n-k))   
          . (newq anc = |+>)        
          . 𝄆 i←ixs k: anc,q0s↓i,q1s↓i>>F . out!["."] . _0

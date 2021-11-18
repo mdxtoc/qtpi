@@ -247,9 +247,14 @@ let vrandbit () =
   if !Settings.checkrandombias then
     (if b then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
   b
+
+let vrandp p = (* 0<=p<=1 *)
+  let pf = Q.to_float p in
+  Random.float 1.0 < pf
   
 let _ = know ("randbit",  "() -> bit"                             , of_fun (of_bit <.> vrandbit <.> to_unit))
 let _ = know ("randbits", "num -> [bit]"                          , of_fun v_randbits)
+let _ = know ("randp", "num -> bool"                              , of_fun (of_bool <.> vrandp <.> to_num))
 
 let v_max a b =
   let a = to_num a in

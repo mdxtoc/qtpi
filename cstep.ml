@@ -58,7 +58,7 @@ let string_of_cqstep cqstep =
   match cqstep.inst with
   | CMeasure (plural,e,gopt,p)   -> Printf.sprintf "%s%s%s(%s)"
                                           (string_of_cexpr e)
-                                          (if plural then "-//-" else "-/-")
+                                          (if plural then "⌢⃫" else "⌢̸")
                                           (((fun g -> "[" ^ string_of_cexpr g ^ "]") ||~~ "") gopt)
                                           (string_of_cpattern p)
   | CThrough (plural,es,ge)      -> Printf.sprintf "%s%s%s"

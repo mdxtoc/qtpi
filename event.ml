@@ -51,10 +51,10 @@ let string_of_event = function
   | EVDispose (pn,(t,v))            -> Printf.sprintf "%s disposes %s" (string_of_name pn) (string_of_value t v)
   | EVGate (pn, ss, g, ss')         -> Printf.sprintf "%s %s >> %s; result %s" (string_of_name pn)
                                                                                (soqs ss)
-                                                                               (string_of_gate g)
+                                                                               (Value.string_of_gate g)
                                                                                (soqs ss')
   | EVMeasure (pn, qs, g, bs, aqs)  
-                                -> Printf.sprintf "%s: %s -/- %s; result %s%s" 
+                                -> Printf.sprintf "%s: %s ⌢̸ %s; result %s%s" 
                                      (string_of_name pn)
                                      (match qs with [q] -> q | _ -> soqs qs)
                                      (if g=g_I then "" else ("[" ^ string_of_gate g ^ "]"))

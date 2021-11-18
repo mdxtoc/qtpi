@@ -55,7 +55,7 @@ let string_of_qstep qstep =
   match qstep.inst with
   | Measure (plural,e,gopt,p)   -> Printf.sprintf "%s%s%s(%s)"
                                           (string_of_expr e)
-                                          (if plural then "-//-" else "-/-")
+                                          (if plural then "⌢⃫" else "⌢̸")
                                           (((fun g -> "[" ^ string_of_expr g ^ "]") ||~~ "") gopt)
                                           (string_of_pattern p)
   | Through (plural,es,ge)      -> Printf.sprintf "%s%s%s"

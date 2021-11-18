@@ -260,18 +260,19 @@ and so_runnerqueue optf sep rq =
 
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then
-                  (if g=g_I       then Some "I" else
-                   if g=g_X       then Some "X" else
-                   if g=g_Y       then Some "Y" else
-                   if g=g_Z       then Some "Z" else
-                   if g=g_H       then Some "H" else
-                   if g=g_Rz      then Some "Rz" else
-                   if g=g_Rx      then Some "Rx" else
-                   if g=g_Cnot    then Some "Cnot" else
-                   if g=g_Swap    then Some "Swap" else
-                   if g=g_Toffoli then Some "T" else 
-                   if g=g_Fredkin then Some "F" else 
-                   None
+                  (if g=g_I       then Some "I"     else
+                   if g=g_X       then Some "X"     else
+                   if g=g_Y       then Some "Y"     else
+                   if g=g_Z       then Some "Z"     else
+                   if g=g_ZX      then Some "Z*X"   else
+                   if g=g_H       then Some "H"     else
+                   if g=g_Rz      then Some "Rz"    else
+                   if g=g_Rx      then Some "Rx"    else
+                   if g=g_Cnot    then Some "Cnot"  else
+                   if g=g_Swap    then Some "Swap"  else
+                   if g=g_Toffoli then Some "T"     else 
+                   if g=g_Fredkin then Some "F"     else 
+                                       None
                   )
                 else None
   in

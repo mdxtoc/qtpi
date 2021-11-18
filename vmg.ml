@@ -616,6 +616,8 @@ let g_Y  = make_g   [[c_0       ; cneg c_i   ];
                      [c_i       ; c_0        ]]
 let g_Z  = make_g   [[c_1       ; c_0        ];
                      [c_0       ; cneg c_1   ]] 
+let g_ZX = make_g   [[c_0       ; c_1        ];
+                     [cneg c_1  ; c_0        ]] 
 let g_H  = make_g   [[c_h       ; c_h        ];
                      [c_h       ; cneg (c_h) ]]
                      

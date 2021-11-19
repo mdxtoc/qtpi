@@ -1,33 +1,31 @@
 (* a sophisticated eavesdropper. Plays Bob to Alice, Alice to Bob *)
 
-proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
+proc Eve (N, c, w, hksAE, hksEB, qA, qB, bsA, bsB, logAE,logEB) =
     (new measured) 
-    | . CopyQBits([],qcA,qcB,bcA,measured)
-    | . measured?(bs)                       (* bs, vs are what I saw and then sent *)
-      . measured?(vs)                      
+    | . CopyQBits(N,[],qA,qB,measured)
+    | . measured?(bvs)                       
+      . (let (bs,vs) = unzip bvs)           (* bs, vs are what I think I saw *) 
       . ⁁1
-     
-      .measured?_                           (* ignore Bob's hashes: I'm the villain here *)
-      .measured?(bsA)                       (* Alice's bases *)
-      . bcA!tagged hksAE 1 w bs             (* send my bases (as if Bob) to Alice *)
-      . bcB!tagged hksEB 0 w bs             (* and (as if Alice) to Bob *)   
-      . bcB?(_,basesB)                      (* receive his in return *)
+      . bsA?(h,basesA)                      (* receive Alice's bases *)
+      . bsA!tagged hksAE 1 w bs             (* send my bases (as if Bob) to Alice *)
+      . bsB!tagged hksEB 0 w bs             (* and (as if Alice) to Bob *)   
+      . bsB?(_,basesB)                      (* receive his in return *)
       . (let rvsB = reconcile basesB bs vs)
-      . bcB?(_,maskB) . bcB?(_,checkbitsB)  (* receive Bob's mask and check bits *)
+      . bsB?(_,maskB) . bsB?(_,checkbitsB)  (* receive Bob's mask and check bits *)
       . ⁁2
 
       (* like Bob, make a checkbit mask for Alice *)
-      . (let rvsA = reconcile bs bsA vs)
-      . (let maskA = tabulate (length rvsA) cb_choose)
+      . (let rvsA = reconcile bs basesA vs)
+      . (let maskA = tabulate (length rvsA) (cb_choose (c/length rvsA)))
       . (let codebitsA = mask_filter 0b0 maskA rvsA)
       . (let codebitsB = mask_filter 0b0 maskB rvsB)
       (* if Alice has more code bits than Bob then she might send me a message
          that I can't recrypt. I have to deal with that.
        *)
-      . bcA!tagged hksAE 2 w maskA          (* send Alice the mask and checkbits *)
+      . bsA!tagged hksAE 2 w maskA          (* send Alice the mask and checkbits *)
       . (let cbsA = mask_filter 0b1 maskA rvsA)
-      . bcA!tagged hksAE 3 w cbsA   
-      . bcA?(_,encrypted)                   (* receive her coded message *)
+      . bsA!tagged hksAE 3 w cbsA   
+      . bsA?(_,encrypted)                   (* receive her coded message *)
       . (let hkbsAE', codebitsA = split_codebits encrypted w codebitsA)
                                             (* split the codebits as Bob would *)
       . (let codeA = take (length encrypted) codebitsA)
@@ -39,7 +37,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, logAE, logEB) =
                                             (* split the codebits as Alice would *)
       . (let codeB = take (length encrypted) codebitsB)
       . (let messageB = xor_mask codeB (take (length codeB) messageA))
-      . bcB!tagged hksEB 4 w messageB      
+      . bsB!tagged hksEB 4 w messageB      
       . ⁁3
        . _0
 

@@ -12,9 +12,9 @@ But actually it was all codswallop. My 'security hole' involved Eve somehow know
 
 ## The scenario
 
-Alice has a message *M* which she wants to send to Bob. She has a quantum channel to him, and a [Wegman-Carter hash-tagged](#wegmancarter) two-way classical channel to him. She [calculates the number of qbits she will need](#enoughqbits), and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qbit, measures it in that basis, and records the results.
+Alice has a message *M* which she wants to send to Bob. She has a quantum channel to him, and a [Wegman-Carter hash-tagged](#wegmancarter) two-way classical channel to him. She [calculates the number of qubits she will need](#enoughqubits), and sends them, one at a time and picking measurement basis and value for each at random, to Bob. Bob separately picks a random basis for each qubit, measures it in that basis, and records the results.
 
-Then they do the QKD protocol dance: Alice sends the bases she chose to Bob through the classical channel and Bob sends the bases he chose back to Alice. They each select the subsequence of values for which they used the same basis, which will be about half of them, and throw the rest away. Now, supposing no interference with the qbits in transit, and no interference with the classical messages, they share the same sequence of code bits. Bob picks a subsequence of his code bits, sends a bit-mask to Alice to characterise it, and the subsequence itself. Alice looks at the corresponding subsequence of her own code bits: if they have the same code bits then the two subsequences should be identical. If the subsequences differ, and nothing is wrong with the classical communication, then something has interfered with Alice's quantum transmissions. If the subsequences are the same, then *probably* there's been no interference.
+Then they do the QKD protocol dance: Alice sends the bases she chose to Bob through the classical channel and Bob sends the bases he chose back to Alice. They each select the subsequence of values for which they used the same basis, which will be about half of them, and throw the rest away. Now, supposing no interference with the qubits in transit, and no interference with the classical messages, they share the same sequence of code bits. Bob picks a subsequence of his code bits, sends a bit-mask to Alice to characterise it, and the subsequence itself. Alice looks at the corresponding subsequence of her own code bits: if they have the same code bits then the two subsequences should be identical. If the subsequences differ, and nothing is wrong with the classical communication, then something has interfered with Alice's quantum transmissions. If the subsequences are the same, then *probably* there's been no interference.
 
 If all seems ok Alice deletes Bob's checkbits from her code bits, takes a prefix of what's left to exclusive-or mask the message *M*, and sends it down the classical channel to Bob. Bob, having deleted his checkbits from his own code bits, takes a prefix of the same length as Alice's communication, exclusive-or's the two, and he can see *M*. 
 
@@ -25,24 +25,24 @@ If there is an eavesdropper Eve, then the quantum and classical channels lead th
 
 In the simulation we log the steps of the protocol, so our Alice, Bob and Eve each have a classical bit-list channel back to a logging process. In reality Alice and/or Bob would fall silent if they detected interference, but in the simulation we complete each trial even if something seems to be wrong. So Alice sends a blank (zero-length) message instead of an encrypted *M* if she detects classical or quantum-channel interference. 
 
-In the real world Alice would make sure to pick enough qbits to ensure high probability that Bob can select enough check bits to reliably detect interference, and to give her enough code bits to encrypt *M* and refresh the hash keys. In the simulation she may be directed to pick too few. If so she doesn't pick new hash keys, and she sends only as much of *M* as she can encode. In practice not picking new hash keys would somewhat compromise the security of the classical channel, but this simulation doesn't try to exploit that.
+In the real world Alice would make sure to pick enough qubits to ensure high probability that Bob can select enough check bits to reliably detect interference, and to give her enough code bits to encrypt *M* and refresh the hash keys. In the simulation she may be directed to pick too few. If so she doesn't pick new hash keys, and she sends only as much of *M* as she can encode. In practice not picking new hash keys would somewhat compromise the security of the classical channel, but this simulation doesn't try to exploit that.
 
 In the past the exchange would be restarted if Alice found herself with too few code bits. But the way I did it messed up the analysis of the results, so it no longer happens. 
 
-<a name="enoughqbits"></a>
-## Picking enough qbits
+<a name="enoughqubits"></a>
+## Picking enough qubits
 
-(Simplified, 2021/11/18, to deal with a fixed number of checkbits.)
+(Simplified, 2021/11/18, to deal with a minimum number of checkbits.)
 
 Suppose Alice's message *M* is *m* bits long and the management have decided to use *c* checkbits and *w*-bit keys for the Wegman-Carter authentication. We know that there are five classical messages per trial, so she needs at least
 
 &emsp;&emsp;*k* = *m*+*c*+5*w*
 
-secret code bits: *m* to encrypt *M* and send it to Bob, *c* for checkbits, 5*w* to use for new hash keys. if *N* is the number of qbits she sends, then she can expect that about *N*/2 code bits will be agreed with Bob.
+secret code bits: *m* to encrypt *M* and send it to Bob, *c* for checkbits, 5*w* to use for new hash keys. if *N* is the number of qubits she sends, then she can expect that about *N*/2 code bits will be agreed with Bob.
 
 She must allow for statistical variation: sometimes she and Bob will agree fewer, sometimes more, code bits. She knows that the standard deviation &sigma; of the number of successes when choosing with probability *p* from a sequence length *n* is &radic;<span style="text-decoration:overline;">&nbsp;*np*(1-*p*)&nbsp;</span>. She wants the probability of choosing too few bits to be very small, so she must over-estimate. If she wants to be *s* &sigma;s away from trouble, well into the tail of the normal distribution, she can write some equations. 
 
-Alice and Bob will agree on the measurement basis for a qbit with probability 1/2. So she can calculate 
+Alice and Bob will agree on the measurement basis for a qubit with probability 1/2. So she can calculate 
 
 &emsp;&emsp;*N*/2 &ge; *k* + *s*&radic;<span style="text-decoration:overline;">&nbsp;*N*(1/2)(1/2)&nbsp;</span>
 
@@ -58,9 +58,9 @@ The calculation so far isn't quite right, because Bob chooses checkbits at rando
 
 &emsp;&emsp;*cmin* = *c*+*s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span>
 
--- possibly overkill, but safety first. But then we have to worry about Bob taking too many checkbits, and not leaving enough for Alice. So we ought to allow another *s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span> for that. At any rate, plug *cmax* in place of *c* in the quadratic above and we're likely to get the right number of checkbits.
+-- possibly overkill, but safety first. But then we have to worry about Bob taking too many checkbits, and not leaving enough for Alice. So we ought to allow another *s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span> for that. At any rate, plug *cmin*+*s*&radic;<span style="text-decoration:overline;">&nbsp;*c*&nbsp;</span> in place of *c* in the quadratic above and we're likely to get the right number of checkbits.
 
-The [no Eve trials](#noEve) show how many bits she uses for various values of *k*, *s* and *c*, and how it affects the repetition rate.
+The [no Eve trials](#noEve) show how many bits Alice uses for various values of *m*, *s*, *c* and *w*, and how it affects the repetition rate.
 
 <a name="wegmancarter"></a>
 ## Wegman-Carter hash-tagging
@@ -74,256 +74,185 @@ For a hash-key size *w* choose packet size *p* = *w*/3\*4+1. Divide the bit sequ
 <a name="noEve"></a>
 ## No Eve: just Alice and Bob
 
-Trials to see if Alice picks enough qbits. Interference never detected because Eve isn't there: command is
+Trials to see if Alice picks enough qubits. Interference never detected because there isn't any: command is
 
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
                                                     SystemAB.qtp)
 
-Note that in this simulation Bob doesn't know the length of *M*, still less the number of qbits Alice is going to send him. He reads qbits until he sees Alice's first message on the classical channel. Oh, the power of guarded sums!
+### Hash tags
 
-### With hash tags
-
-  * With hash tagging, the hash calculations are implemented in the qtpi functional language and therefore slowly interpreted.
-  But it works: Bob and Alice each agree that the other isn't spoofing classical messages.
+  * The hash calculations are implemented in the qtpi functional language and therefore slowly interpreted. But it works: Bob and Alice each agree that the other isn't spoofing classical messages.
   
-        length of message? 4000
-        length of a hash key? 12
-        minimum number of checkbits? 40
-        number of sigmas? 10
-        number of trials? 100
+        length of message? 1000
+        minimum number of checkbits? 100
+        length of a hash key? 40
+        number of sigmas? 5
+        number of trials? 1000
 
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 short messages; 0 keys reused;
-        average check bits  1664.61 minimum check bits 1562
-        histogram of check-bit lengths
-        [(1562,1);(1569,1);(1584,1);(1601,1);(1604,1);(1614,1);(1617,1);(1622,1);(1623,1);(1625,1);(1626,1);
-        (1627,1);(1628,1);(1629,1);(1631,2);(1632,1);(1633,1);(1635,3);(1636,1);(1639,1);(1640,3);(1641,4);(
-        1642,1);(1643,2);(1644,1);(1645,1);(1647,1);(1648,2);(1650,1);(1651,2);(1652,1);(1653,1);(1654,2);(
-        1655,1);(1656,1);(1661,1);(1662,1);(1663,3);(1664,2);(1665,2);(1666,1);(1667,1);(1668,1);(1670,3);(
-        1671,1);(1674,1);(1676,2);(1679,2);(1682,1);(1683,1);(1685,1);(1688,1);(1690,1);(1691,2);(1692,2);(
-        1694,1);(1697,2);(1700,1);(1703,1);(1705,1);(1706,1);(1709,2);(1713,1);(1718,2);(1719,1);(1721,1);(
-        1722,1);(1723,1);(1725,1);(1726,1);(1728,1);(1732,1);(1733,1);(1736,1);(1738,1)]
+        3078 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 0 short codebits; 
+            average check bits 150.01 minimum check bits 106
+        histogram of check-bit lengths 
+        [(106,1);(112,1);(116,1);(118,1);(121,4);(122,3);(123,3);(124,2);(125,4);(126,5)
+        ;(127,8);(128,8);(129,7);(130,7);(131,8);(132,16);(133,16);(134,17);(135,10);(
+        136,18);(137,14);(138,21);(139,19);(140,18);(141,22);(142,22);(143,26);(144,26);
+        (145,25);(146,42);(147,26);(148,39);(149,33);(150,26);(151,37);(152,37);(153,34)
+        ;(154,39);(155,26);(156,26);(157,38);(158,28);(159,27);(160,22);(161,21);(162,21
+        );(163,16);(164,20);(165,17);(166,14);(167,14);(168,9);(169,13);(170,6);(171,1);
+        (172,5);(173,4);(174,8);(175,3);(176,4);(177,3);(178,3);(179,1);(184,1);(185,1);
+        (186,1);(190,1)]
 
-        real    1m18.732s
-        user    0m48.742s
-        sys 0m0.518s
-  
-  * That's about 5 seconds for each trial, but it is 1.3M qbits in 50 seconds. It is a fifth faster without hash tagging (zero-length keys turn hash tagging off) or, if you like, a quarter slower with hash tagging.
+        15.10s user 0.04s system
 
-        length of message? 4000
+  * (Quite a lot faster than it used to be: 3M qubits in 15 seconds.) 
+  * It is now only about 25% faster with hash tagging turned off (which is what 0-length hash keys do).
+
+        length of message? 1000
+        minimum number of checkbits? 100
         length of a hash key? 0
-        minimum number of checkbits? 40
-        number of sigmas? 10
-        number of trials? 100
+        number of sigmas? 5
+        number of trials? 1000
 
-        13131 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 short messages; 0 keys reused; average check bits 1648.43 minimum check bits 1556
-        histogram of check-bit lengths [(1556,1);(1578,1);(1586,1);(1588,2);(1594,1);(1596,1);(1601,1);(1604,1);(1605,1);(1610,1);(1614,2);(1615,5);(1616,2);(1617,1);(1620,2);(1621,1);(1622,2);(1623,3);(1625,6);(1628,2);(1630,1);(1632,1);(1634,2);(1635,1);(1636,1);(1637,2);(1641,2);(1642,1);(1644,2);(1645,1);(1650,1);(1651,2);(1652,1);(1653,1);(1654,2);(1655,1);(1656,1);(1657,1);(1659,2);(1660,1);(1661,1);(1664,1);(1666,1);(1667,1);(1669,1);(1670,2);(1672,1);(1673,2);(1674,3);(1675,1);(1679,1);(1682,1);(1683,1);(1684,1);(1687,1);(1688,1);(1689,3);(1691,1);(1693,1);(1695,1);(1701,1);(1703,1);(1704,1);(1712,4);(1720,1);(1721,1);(1734,1)]
+        2658 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 0 short codebits; 
+            average check bits 150.51 minimum check bits 112
+        histogram of check-bit lengths 
+        [(112,1);(118,1);(119,1);(120,1);(121,1);(122,3);(123,1);(124,3);(125,5);(126,6)
+        ;(127,5);(128,4);(129,7);(130,12);(131,2);(132,4);(133,8);(134,9);(135,10);(136,
+        15);(137,19);(138,21);(139,26);(140,31);(141,26);(142,24);(143,21);(144,31);(145
+        ,34);(146,30);(147,44);(148,33);(149,34);(150,35);(151,41);(152,29);(153,39);(
+        154,30);(155,28);(156,32);(157,31);(158,20);(159,30);(160,25);(161,18);(162,15);
+        (163,21);(164,14);(165,12);(166,11);(167,11);(168,18);(169,12);(170,4);(171,13);
+        (172,6);(173,3);(174,8);(175,3);(176,2);(177,5);(178,5);(179,3);(180,1);(181,1);
+        (183,1)]
 
-        real	0m39.876s
-        user	0m39.027s
-        sys	0m0.415s
 
-  * Even though the hash tagging mechanism is affordable it's turned off in many of the experiments below.
+        11.86s user 0.03s system
   
 ### 0 Sigma  
-* Checking the *cmin* &rarr; *nmin* calculation, and the lower-bounding. It works, but note that with 0&sigma you can often get fewer checkbits than you asked for.
+* Checking the minimum qubits calculation. It works, but note that with 0&sigma; Alice runs out of bits as many times as not, and about half the time Bob uses fewer than the minimum number of checkbits.
 
-        length of message? 1
-        length of a hash key? 0
-        minimum number of checkbits? 20
-        number of sigmas? 0
-        number of trials? 100
-
-        161 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 0 short messages; 0 keys reused;
-        average check bits 20.23 minimum check bits 12
-        histogram of check-bit lengths
-        [(12,2);(13,2);(14,3);(15,5);(16,7);(17,11);(18,7);(19,9);(20,10);(21,5);(22,11);(23,4);(24,7);(25,5
-        );(26,3);(27,5);(28,2);(29,1);(30,1)]
-
-        real    0m14.853s
-        user    0m0.525s
-        sys 0m0.015s
-
-* With a medium-length message, no minimum number of checkbiits and 0&sigma; we get a lot of short messages (not enough codebits to encrypt *M*). We always have enough codebits to refresh the hash keys, because there aren't any hash keys. 
-
-        length of message? 100
-        length of a hash key? 0
-        minimum number of checkbits? 0
-        number of sigmas? 0
-        number of trials? 100
-
-        267 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 53 short messages; 0 keys reused;
-        average check bits 32.94 minimum check bits 19
-        histogram of check-bit lengths
-        [(19,1);(23,1);(24,4);(25,1);(26,3);(27,4);(28,6);(29,8);(30,3);(31,10);(32,7);(33,7);(34,8);(35,5);
-        (36,9);(37,4);(38,2);(39,5);(40,7);(41,2);(43,1);(45,1);(49,1)]
-
-        real    0m0.891s
-        user    0m0.853s
-        sys 0m0.018s
-
-* With small hash keys we allow enough leeway to almost always encrypt *M*, but quite often don't have enough codebits to generate new hash keys. 
-
-        length of message? 100
-        length of a hash key? 4
-        minimum number of checkbits? 0
-        number of sigmas? 0
-        number of trials? 100
-
-        321 qbits per trial
-        all done: 0 interfered with; 100 exchanges succeeded; 0 failed; 1 short messages; 41 keys reused;
-        average check bits 40.47 minimum check bits 25
-        histogram of check-bit lengths
-        [(25,1);(29,1);(30,1);(31,3);(32,4);(33,2);(34,3);(35,2);(36,9);(37,7);(38,7);(39,5);(40,7);(41,5);(
-        42,8);(43,8);(44,4);(45,6);(46,2);(47,3);(48,1);(49,1);(50,2);(51,2);(52,4);(53,1);(55,1)]
-
-        real    0m1.363s
-        user    0m1.320s
-        sys 0m0.021s
- 
-  * With a longer message, and therefore many more qbits, it's possible to see that the estimation of the number of qbits is working accurately. The short-message rate is ridiculous, but that's a consequence of using 0 sigmas. 
-   
         length of message? 1000
-        length of a hash key? 0
-        minimum number of checkbits? 0
+        minimum number of checkbits? 100
+        length of a hash key? 40
         number of sigmas? 0
         number of trials? 1000
 
-        2667 qbits per trial
-        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 488 short messages; 0 keys reused;
-        average check bits 334.48 minimum check bits 281
-        histogram of check-bit lengths
-        [(281,1);(283,1);(285,1);(287,1);(288,2);(291,1);(292,2);(293,2);(294,3);(295,3);(296,4);(297,1);(
-        299,3);(300,4);(301,3);(302,1);(303,4);(304,3);(305,5);(306,5);(307,10);(308,5);(309,7);(310,9);(311
-        ,4);(312,12);(313,7);(314,8);(315,11);(316,15);(317,11);(318,11);(319,18);(320,22);(321,14);(322,13)
-        ;(323,16);(324,33);(325,16);(326,23);(327,24);(328,20);(329,24);(330,22);(331,27);(332,29);(333,19);
-        (334,33);(335,17);(336,18);(337,31);(338,22);(339,17);(340,27);(341,23);(342,21);(343,27);(344,15);(
-        345,19);(346,10);(347,12);(348,27);(349,15);(350,15);(351,16);(352,18);(353,9);(354,11);(355,9);(356
-        ,10);(357,11);(358,7);(359,9);(360,6);(361,8);(362,11);(363,2);(364,6);(365,6);(366,1);(367,2);(368,
-        4);(369,3);(370,2);(371,4);(372,3);(375,2);(376,2);(377,1);(379,1);(380,1);(384,2);(385,1);(386,1);(
-        387,1);(397,1)]
+        2601 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 1010 short codebits; 
+            average check bits 97.36 minimum check bits 71
+        histogram of check-bit lengths 
+        [(71,2);(72,1);(74,1);(75,2);(76,1);(77,4);(78,9);(79,2);(80,12);(81,10);(82,10)
+        ;(83,10);(84,17);(85,12);(86,14);(87,17);(88,38);(89,28);(90,32);(91,23);(92,44)
+        ;(93,50);(94,41);(95,47);(96,48);(97,49);(98,42);(99,36);(100,43);(101,31);(102,
+        31);(103,38);(104,39);(105,31);(106,26);(107,34);(108,20);(109,16);(110,16);(111
+        ,15);(112,10);(113,9);(114,12);(115,3);(116,6);(117,5);(118,2);(119,4);(121,3);(
+        123,1);(127,1);(128,1);(135,1)]
 
-        real    1m19.995s
-        user    1m18.108s
-        sys 0m0.861s
+        24.68s user 0.05s system 99% cpu 24.770 total
+
         
 ### 1 Sigma
 
-  * A longer message but 1 &sigma;. The short-message rate is about 0.4%, which seems rather low. 
+  * A longer message but 1 &sigma;. The short-message rate is about 12%. Bob is below the minimum number of checkbits about 14% of the time.
   
         length of message? 1000
-        length of a hash key? 0
-        minimum number of checkbits? 0
+        minimum number of checkbits? 100
+        length of a hash key? 40
         number of sigmas? 1
         number of trials? 1000
 
-        2781 qbits per trial
-        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 41 short messages; 0 keys reused;
-        average check bits 347.10 minimum check bits 294
-        histogram of check-bit lengths
-        [(294,1);(298,1);(301,3);(302,2);(303,2);(304,1);(306,3);(307,1);(308,3);(310,3);(311,2);(313,6);(
-        314,3);(315,2);(316,7);(317,3);(318,4);(319,7);(320,6);(321,3);(322,9);(323,6);(324,13);(325,7);(326
-        ,15);(327,15);(328,10);(329,12);(330,13);(331,17);(332,11);(333,19);(334,14);(335,20);(336,30);(337,
-        25);(338,14);(339,15);(340,17);(341,19);(342,29);(343,31);(344,17);(345,21);(346,18);(347,27);(348,
-        10);(349,24);(350,30);(351,19);(352,24);(353,30);(354,27);(355,18);(356,27);(357,19);(358,19);(359,
-        13);(360,15);(361,12);(362,10);(363,27);(364,10);(365,17);(366,12);(367,13);(368,8);(369,10);(370,13
-        );(371,12);(372,9);(373,3);(374,7);(375,6);(376,7);(377,5);(378,5);(379,4);(380,4);(381,6);(382,3);(
-        383,4);(385,2);(386,1);(387,2);(388,1);(389,3);(392,1);(394,1)]
+        2692 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 116 short codebits; average check bits 109.34 minimum check bits 82
+        histogram of check-bit lengths 
+        [(82,1);(83,2);(84,1);(86,1);(87,2);(89,5);(90,5);(91,6);(92,8);(93,11);(94,11);(
+        95,19);(96,15);(97,16);(98,16);(99,28);(100,29);(101,40);(102,35);(103,26);(104,
+        34);(105,43);(106,47);(107,35);(108,42);(109,45);(110,50);(111,41);(112,25);(113
+        ,49);(114,20);(115,35);(116,38);(117,30);(118,19);(119,21);(120,22);(121,14);(
+        122,12);(123,19);(124,13);(125,19);(126,6);(127,6);(128,5);(129,11);(130,5);(131
+        ,7);(132,4);(133,1);(136,2);(137,2);(143,1)]
 
-        real    1m23.901s
-        user    1m21.833s
-        sys 0m0.948s
+        14.66s user 0.03s system
   
-### 3 Sigma
+### More Sigma
 
-* With a reasonably long message and small oodles of trials and only 3 &sigma; we see no short messages. Enough already: Alice is over-cautious. Which is good: it proves that she can definitely choose enough qbits to run the protocol reliably.
-* This test takes over 15 minutes. That's enough. I'm convinced.
+* With 3&sigma; we see no short messages, but Bob sometimes undercooks the checkbits. With 5&sigma; he never does.
 
         length of message? 1000
-        length of a hash key? 0
-        minimum number of checkbits? 0
+        minimum number of checkbits? 100
+        length of a hash key? 40
         number of sigmas? 3
-        number of trials? 10000
+        number of trials? 1000
 
-        3022 qbits per trial
-        all done: 0 interfered with; 10000 exchanges succeeded; 0 failed; 0 short messages; 0 keys reused;
-        average check bits 377.65 minimum check bits 315
-        histogram of check-bit lengths
-        [(315,1);(316,1);(320,1);(322,2);(323,1);(324,4);(325,6);(326,3);(327,2);(328,2);(329,5);(330,16);(
-        331,9);(332,7);(333,8);(334,8);(335,17);(336,14);(337,17);(338,20);(339,19);(340,25);(341,29);(342,
-        28);(343,32);(344,47);(345,44);(346,43);(347,59);(348,61);(349,65);(350,55);(351,73);(352,76);(353,
-        90);(354,104);(355,100);(356,116);(357,104);(358,126);(359,130);(360,134);(361,163);(362,163);(363,
-        172);(364,175);(365,182);(366,177);(367,161);(368,193);(369,211);(370,197);(371,206);(372,205);(373,
-        239);(374,213);(375,207);(376,232);(377,219);(378,215);(379,201);(380,224);(381,207);(382,203);(383,
-        220);(384,200);(385,201);(386,187);(387,198);(388,180);(389,168);(390,183);(391,172);(392,156);(393,
-        135);(394,128);(395,161);(396,123);(397,126);(398,130);(399,114);(400,112);(401,105);(402,81);(403,
-        77);(404,74);(405,58);(406,79);(407,58);(408,58);(409,46);(410,32);(411,38);(412,38);(413,35);(414,
-        42);(415,24);(416,27);(417,21);(418,24);(419,14);(420,18);(421,10);(422,12);(423,9);(424,8);(425,9);
-        (426,6);(427,8);(428,3);(429,5);(430,5);(431,3);(432,3);(437,1);(438,1);(440,2);(442,1);(446,1);(455
-        ,1)]
+        2882 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 0 short codebits; 
+            average check bits 130.38 minimum check bits 92
+        histogram of check-bit lengths 
+        [(92,1);(100,1);(101,1);(103,1);(104,3);(106,1);(107,5);(108,3);(109,3);(110,16)
+        ;(111,12);(112,10);(113,16);(114,7);(115,8);(116,15);(117,19);(118,13);(119,19);
+        (120,25);(121,29);(122,29);(123,31);(124,36);(125,25);(126,35);(127,37);(128,27)
+        ;(129,33);(130,40);(131,40);(132,38);(133,41);(134,27);(135,31);(136,18);(137,32
+        );(138,37);(139,30);(140,33);(141,26);(142,25);(143,18);(144,15);(145,19);(146,9
+        );(147,11);(148,7);(149,6);(150,7);(151,2);(152,1);(153,5);(154,2);(155,4);(156,
+        1);(157,2);(158,3);(159,2);(160,2);(163,2);(165,1);(166,1);(171,1)]
 
-        real    15m25.995s
-        user    15m2.982s
-        sys 0m9.305s
-            
+        14.13s user 0.04s system
+        
+        ...
+        length of message? 1000
+        minimum number of checkbits? 100
+        length of a hash key? 40
+        number of sigmas? 5
+        number of trials? 1000
+
+        3078 qubits per trial
+        all done: 0 interfered with; 1000 exchanges succeeded; 0 failed; 0 short codebits; 
+                average check bits 150.24 minimum check bits 117
+        histogram of check-bit lengths 
+        [(117,1);(118,1);(120,1);(121,1);(122,4);(123,2);(124,3);(125,5);(126,4);(127,3)
+        ;(128,2);(129,7);(130,6);(131,13);(132,13);(133,8);(134,12);(135,12);(136,24);(
+        137,31);(138,27);(139,21);(140,28);(141,14);(142,22);(143,23);(144,32);(145,41);
+        (146,25);(147,26);(148,26);(149,27);(150,31);(151,27);(152,32);(153,33);(154,42)
+        ;(155,33);(156,38);(157,30);(158,23);(159,22);(160,30);(161,27);(162,13);(163,27
+        );(164,14);(165,13);(166,21);(167,10);(168,10);(169,10);(170,8);(171,5);(172,9);
+        (173,6);(174,7);(175,2);(176,2);(177,3);(178,1);(179,1);(180,1);(181,2);(184,1);
+        (185,1)]
+
+        15.39s user 0.05s system
+
 <a name="naiveEve"></a>
 ## Alice, Bob and naive Eve
 
-This is the intervention everybody knows about -- intercept and resend. The quantum and classical channels that are connected to Alice in fact go to [Eve](#whyEve). She has quantum and classical channels connected to Bob. So she can potentially intervene on either of them, or just pass on messages from one to the other.
+This is the intervention everybody knows about -- intercept and resend. The quantum and classical channels that are connected to Alice in fact go to [Eve](#whyEve), who also has quantum and classical channels connected to Bob. So she can potentially intervene on either of them, or just pass on messages from one to the other.
 
-Eve knows the protocol, and she knows Alice's and Bob's implementation (but they don't know hers). Like Bob she doesn't need to know anything about *M* or *n*: she can read qbits until she sees Alice's first classical message. 
+Eve knows the protocol, and she knows Alice's and Bob's implementation (but they don't know hers). Like Alice and Bob she knows *N* (I used to program it differently: now I think it's more realistic if the packet size is part of the definition of the system). 
 
-If she passes on the qbits she sees without measuring them, and passes on classical messages likewise, she is undetectable, like a network node. If she measures the qbits before sending them, she will be detected with a probability of 1-3/4<sup>c</sup> where *c* is the number of checkbits Bob generates. If she tries to send messages on the classical channel, guessing the hash keys, she will be detected with a probability of 1-1/2<sup>5*w*</sup>. 
+If she passes on the qubits she sees without measuring them, and passes on classical messages likewise, she is undetectable, like a network node. If she measures the qubits before sending them, she will be detected with a probability of 1-(3/4)<sup>c</sup> where *c* is the number of checkbits Bob generates. If she tries to send messages on the classical channel, guessing the hash keys, she will be detected with a probability of 1-(1/2)<sup>5*w*</sup>. 
 
-My simulation of naive Eve does indeed measure and re-transmit the qbits she receives. She is, as a consequence, pretty much always detected. Once she's spotted, Alice doesn't encrypt and send *M*, so even if Eve could hack the classical channel it wouldn't do her much good. In my simulation naive Eve simply re-transmits classical messages.
+My simulation of naive Eve does indeed measure and re-transmit the qubits she receives. She is, as a consequence, pretty much always detected. Once she's spotted, Alice doesn't encrypt and send *M*, so even if Eve could hack the classical channel it wouldn't do her much good. In my simulation naive Eve simply re-transmits classical messages.
 
         (cd examples/BB84_QKD; time ../../Qtpi Alice.qtp Bob.qtp functions.qtp LogAlice.qtp LogBob.qtp 
                                                     naiveEve.qtp LogEve.qtp SystemAEB.qtp)
 
 Note that the simulation runs the exact same Alice, Bob and their loggers as the Eve-free simulation did. The SystemAEB file runs Alice, Bob and naive Eve in parallel with their three loggers.
 
-* If Alice goes for super-safety in the number of qbits she uses, then she detects interference _every_ time in the short simulations I have time to run. Her chance of evading detection with 124 checkbits -- the minimum number used in this example -- is about 3*10<sup>-16</sup>.
+* If Alice goes for super-safety in the number of qubits she uses, then she detects interference _every_ time in the short simulations I have time to run. Her chance of evading detection with 119 checkbits -- the minimum number Bob in this example -- is about 10<sup>-15</sup>.
   
-        length of message? 100
-        length of a hash key? 20
-        minimum number of checkbits? 40
-        number of sigmas? 10
+        length of message? 1000
+        minimum number of checkbits? 100
+        length of a hash key? 40
+        number of sigmas? 5
         number of trials? 1000
 
-        all done: 0 Eve's; 1000 Alice's; 0 successful evasions; 0 short messages; 0 keys reused; average
-        check bits (Alice/Eve) 163.72; minimum check bits (Alice/Eve) 124; average check bits (Eve/Bob)
-        163.72; minimum check bits (Eve/Bob) 124
-        histogram of check-bit lengths (Alice/Eve)
-        [(124,1);(128,1);(135,3);(136,1);(137,7);(138,5);(139,4);(140,5);(141,3);(142,8);(143,10);(144,12);(
-        145,8);(146,14);(147,14);(148,14);(149,10);(150,18);(151,20);(152,22);(153,22);(154,26);(155,22);(
-        156,28);(157,42);(158,31);(159,23);(160,27);(161,29);(162,33);(163,32);(164,40);(165,26);(166,39);(
-        167,30);(168,29);(169,26);(170,26);(171,29);(172,16);(173,23);(174,22);(175,12);(176,19);(177,23);(
-        178,20);(179,23);(180,19);(181,7);(182,16);(183,7);(184,13);(185,3);(186,7);(187,6);(188,4);(189,4);
-        (190,3);(191,4);(192,2);(193,4);(195,2);(196,1)]
-        histogram of check-bit lengths (Eve/Bob)
-        [(124,1);(128,1);(135,3);(136,1);(137,7);(138,5);(139,4);(140,5);(141,3);(142,8);(143,10);(144,12);(
-        145,8);(146,14);(147,14);(148,14);(149,10);(150,18);(151,20);(152,22);(153,22);(154,26);(155,22);(
-        156,28);(157,42);(158,31);(159,23);(160,27);(161,29);(162,33);(163,32);(164,40);(165,26);(166,39);(
-        167,30);(168,29);(169,26);(170,26);(171,29);(172,16);(173,23);(174,22);(175,12);(176,19);(177,23);(
-        178,20);(179,23);(180,19);(181,7);(182,16);(183,7);(184,13);(185,3);(186,7);(187,6);(188,4);(189,4);
-        (190,3);(191,4);(192,2);(193,4);(195,2);(196,1)]
-        histogram of evasions
-        [(124,0);(128,0);(135,0);(136,0);(137,0);(138,0);(139,0);(140,0);(141,0);(142,0);(143,0);(144,0);(
-        145,0);(146,0);(147,0);(148,0);(149,0);(150,0);(151,0);(152,0);(153,0);(154,0);(155,0);(156,0);(157,
-        0);(158,0);(159,0);(160,0);(161,0);(162,0);(163,0);(164,0);(165,0);(166,0);(167,0);(168,0);(169,0);(
-        170,0);(171,0);(172,0);(173,0);(174,0);(175,0);(176,0);(177,0);(178,0);(179,0);(180,0);(181,0);(182,
-        0);(183,0);(184,0);(185,0);(186,0);(187,0);(188,0);(189,0);(190,0);(191,0);(192,0);(193,0);(195,0);(
-        196,0)]
+        3078 qubits per trial
+        all done: 0 Eve's; 1000 Alice's; 0 successful evasions; 0 short codebits; 
+            average check bits (Alice/Eve) 150.25; minimum check bits (Alice/Eve) 119; 
+            average check bits (Eve/Bob) 150.25; minimum check bits (Eve/Bob) 119
 
-        real    1m29.229s
-        user    1m26.344s
-        sys 0m0.797s
+        25.96s user 0.08s system 
 
  * If Alice sends short messages and doesn't care about statistical variation, Eve can occasionally win. (It's safe, in this simulation, to use zero-length hash tags so as to increase the effect of statistical variation, because Eve isn't programmed to interfere with the classical channel.)  
-* Note that Eve wins in the sense of reading the message correctly and transmitting it on to Bob, only rarely. She is undetected, though corrupting the message, far more often -- almost half the time. But the settings are deliberately ridiculous, to provoke that kind of result.  
-* The number of evasions is as predicted by analysis, where Eve has 75% chance of evading detection on each checkbit.
+* The number of evasions -- trials where Eve goes undetected -- is as predicted by analysis, where Eve has 75% chance of evading detection on each checkbit. But note that Eve wins, in the sense of reading the message correctly and transmitting it on to Bob, far more rarely. The settings are deliberately ridiculous, to provoke that kind of result.  
 
         length of message? 10
         length of a hash key? 0
@@ -331,23 +260,34 @@ Note that the simulation runs the exact same Alice, Bob and their loggers as the
         number of sigmas? 0
         number of trials? 1000
 
-        27 qbits per trial
-        all done: 25 Eve's; 562 Alice's; 438 successful evasions; 143 short messages; 0 keys reused; average
-        check bits (Alice/Eve) 3.36; minimum check bits (Alice/Eve) 0; average check bits (Eve/Bob) 3.36;
-        minimum check bits (Eve/Bob) 0
-        histogram of check-bit lengths (Alice/Eve)
-        [(0,33);(1,119);(2,190);(3,213);(4,204);(5,128);(6,59);(7,33);(8,15);(9,5);(10,1)]
-        histogram of check-bit lengths (Eve/Bob)
-        [(0,33);(1,119);(2,190);(3,213);(4,204);(5,128);(6,59);(7,33);(8,15);(9,5);(10,1)]
-        histogram of evasions [(0,33);(1,85);(2,108);(3,90);(4,64);(5,36);(6,15);(7,7);(8,0);(9,0);(10,0)]
+        26 qubits per trial
+        all done: 35 Eve's; 483 Alice's; 517 successful evasions; 667 short codebits; 
+            average check bits (Alice/Eve) 2.42; minimum check bits (Alice/Eve) 0; 
+                average check bits (Eve/Bob) 2.42; minimum check bits (Eve/Bob) 0
+        histogram of check-bit lengths (Alice/Eve) [(0,63);(1,183);(2,296);(3,271);(4,122);(5,52);(6,12);(7,1)]
+        histogram of check-bit lengths (Eve/Bob) [(0,63);(1,183);(2,296);(3,271);(4,122);(5,52);(6,12);(7,1)]
+        histogram of evasions [(0,63);(1,135);(2,169);(3,110);(4,29);(5,9);(6,2);(7,0)]
 
-        real    0m2.611s
-        user    0m2.517s
-        sys 0m0.047s
+        0.47s user 0.01s system
 
-## No more witnesses, m'lud
+## A clever Eve
 
-In earlier versions of this document I searched for ways to hide an Eve who knows the Wegman-Carter hash codes from a vigilant Alice and Bob. That was silly, so I deleted it.
+If Eve knows the hash codes used on the classical channel then she can pretend to be Bob to Alice and Alice to Bob. In effect she becomes an intermediate node, and it's important to stress that *that's the way the protocol is supposed to work*, with intermediate trusted nodes playing Bob to one segment and Alice to the next, decrypting and re-encrypting each message as it passes, using distinct one-time codes on each segment.
+
+* It doesn't reveal anything about the protocol, but here are the results anyway: naturally, it takes about twice as long to simulate as a simple Alice to Bob setup (a bit more because it prints out more on each trial).
+
+        length of message? 1000
+        minimum number of checkbits? 100
+        length of a hash key? 40
+        number of sigmas? 5
+        number of trials? 1000
+
+        3078 qubits per trial
+        all done: 1000 Eve's; 0 Alice's; 1000 successful evasions; 0 short codebits; 
+            average check bits (Alice/Eve) 150.14; minimum check bits (Alice/Eve) 110; 
+            average check bits (Eve/Bob) 149.75; minimum check bits (Eve/Bob) 119
+
+        28.79s user 0.08s system
 
 <a name="whyEve"></a>
 ## Why "Eve"?

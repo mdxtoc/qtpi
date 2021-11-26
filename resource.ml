@@ -81,23 +81,21 @@ let rec is_resource_type t =
   | Bra
   | Ket
   | Gate            
-  | Matrix          -> false
-  | Qstate          -> false    (* really *)
+  | Matrix              -> false
+  | Qstate              -> false    (* really *)
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    
-                    -> is_resource_type t       
-  | Unknown (n, _)  -> let k = kind_of_unknown n in
-                       k=UnkAll || k=UnkComm      
-  | Known   n          (* can happen in Poly ... *)       
-                    -> let k = kind_of_unknown n in
-                       k=UnkAll || k=UnkComm
-  | Poly    (ns, t) -> is_resource_type t 
-  | List    t       -> is_resource_type t 
-  | Channel t       -> false
-  | Tuple   ts      -> List.exists is_resource_type ts
-  | Fun     (t1,t2) -> false (* yes *)
+                        -> is_resource_type t       
+  | Unknown ((_,k), _)  -> k=UnkAll || k=UnkComm      
+  | Known   (_,k)          (* can happen in Poly ... *)       
+                        -> k=UnkAll || k=UnkComm
+  | Poly    (ns, t)     -> is_resource_type t 
+  | List    t           -> is_resource_type t 
+  | Channel t           -> false
+  | Tuple   ts          -> List.exists is_resource_type ts
+  | Fun     (t1,t2)     -> false (* yes *)
                      
-  | Process _       -> false
+  | Process _           -> false
 
   
 (* *************** phase 1: resource check (rck_...) *************************** *)

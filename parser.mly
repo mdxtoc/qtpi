@@ -237,16 +237,16 @@ simple_typespec:
   | BRATYPE                             {adorn Bra}
   | KETTYPE                             {adorn Ket}
   
-  | typevar                             {adorn (Known ($1))}
+  | typevar                             {adorn (Known (uname_of_string $1))}
   
-/*  | INT DOTDOT INT                      {let low = int_of_string $1 in
+/*  | INT DOTDOT INT                    {let low = int_of_string $1 in
                                          let high = int_of_string $3 in
                                          if low<=high then adorn (Range (low,high))
                                          else raise (ParseError (get_sourcepos(), "low>high in range type"))
                                         } */
   | LPAR RPAR                           {adorn Unit}
   | LPAR typespectuple RPAR             {adorn (Type.delist $2)}
-  | FORALL typevars DOT typespec        {adorn (Poly ($2,$4))}
+  | FORALL typevars DOT typespec        {adorn (Poly (List.map uname_of_string $2,$4))}
   | LSQPAR typespec RSQPAR              {adorn (List ($2))}
   
 simple_typespecs:

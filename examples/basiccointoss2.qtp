@@ -1,0 +1,9 @@
+(* Meyer's Star Trek coin toss, where the coin is a |0> qbit. With a type error: can't receive qbit in an alt *)
+
+proc P(s) = + s?(y) . y>>X . s!y . _0
+            + s?(y) . y>>I . s!y . _0
+
+proc Q(x: qbit, s:^qbit) = x>>H . s!x . s?(x') . x'>>H . _0 
+
+proc System() = (newq q = |0>) (new s:^qbit) | P(s)
+                                             | Q(q,s)

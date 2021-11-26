@@ -1,8 +1,8 @@
 (* Meyer's Star Trek coin toss, where the coin is a qbit. Only |0> works: try alternative bases to see what happens *)
 
 proc P(s:^qbit, log) = 
-  + s?(y) . out!["P passive; "] . y>>I . s!y . log!() . _0        
-  + s?(y) . out!["P turns; "]   . y>>X . s!y . log!() . _0
+  s?(y) . if randbool() then out!["P passive; "] . y>>I . s!y . log!() . _0        
+                        else out!["P turns; "]   . y>>X . s!y . log!() . _0
                      
 proc Q(q: qbit, s:^qbit, log) = 
   out!["initially "] . outq!(qval q) . out!["; "] .

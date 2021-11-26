@@ -54,7 +54,7 @@ let string_of_typecxt = string_of_monenv "->" string_of_type
 
 let new_Unknown pos uk = adorn pos (Unknown (new_unknown uk))
 let ntv pos = new_Unknown pos UnkAll
-let newclasstv pos = new_Unknown pos (if !Settings.resourcecheck then UnkClass else UnkAll)
+let newclasstv ischan pos = new_Unknown pos (if !Settings.resourcecheck then UnkClass ischan else UnkAll)
 let commU = if !Settings.resourcecheck then UnkComm else UnkAll
 let newcommtv pos = new_Unknown pos commU
 let neweqtv pos = new_Unknown pos UnkEq
@@ -256,7 +256,16 @@ let rewrite_def def =
       rewrite_pattern pat; rewrite_expr e
      
 (* ********************************************** unification stuff ******************************** *)
+let explain_ukind = function
+  | UnkClass true  -> "the classical type of a value received in a guarded alt"
+  | UnkClass false -> "a classical type"
+  | UnkEq          -> "an equality type"
+  | UnkComm        -> "channel of (qbit or qbits or classical)"
+  | UnkAll         -> "any type"
 
+let explain_uname (n,k as u) =
+  Printf.sprintf "?%s is %s" (string_of_uname u) (explain_ukind k) 
+  
 (* useful in error messages *)
 let pickdiff t t1 t2 = 
   let t = evaltype t in
@@ -273,13 +282,13 @@ let rec unifytypes t1 t2 =
                   (Type.string_of_type t2); flush stdout);
   let exn = TypeUnifyError (t1,t2) in
   let ut n r t =
-    let kind = kind_of_unknown n in
+    let kind = kind_of_uname n in
     r:=Some t; if kind=UnkAll then () else force_kind kind t
   in
   (* because of evaltype above, Unknowns must be ref None *)
   match t1.inst, t2.inst with
   | Unknown (n1,r1)     , Unknown (n2,r2)       -> if n1<>n2 then
-                                                     (if kind_includes (kind_of_unknown n1) (kind_of_unknown n2) 
+                                                     (if kind_includes (kind_of_uname n1) (kind_of_uname n2) 
                                                       then r1:=Some t2 
                                                       else r2:=Some t1
                                                      )
@@ -304,20 +313,22 @@ and unifylists exn t1s t2s =
  *)  
 and canunifytype n t =
   let bad () = 
-    let s = match kind_of_unknown n with
-            | UnkClass -> "a classical type"
-            | UnkEq    -> "an equality type"
-            | UnkComm  -> "channel of (qbit or qbits or classical)"
-            | UnkAll   -> " (whoops: can't happen)"
+    let s = match kind_of_uname n with
+            | UnkClass _ -> "a classical type"
+            | UnkEq      -> "an equality type"
+            | UnkComm    -> "channel of (qbit or qbits or classical)"
+            | UnkAll     -> " (whoops: can't happen)"
     in
-    raise (Error (t.pos, string_of_type t ^ " is not " ^ s))
+    raise (Error (t.pos, match kind_of_uname n with
+                         | UnkClass true -> "channel in alt cannot carry non-classical values"
+                         | _             -> string_of_type t ^ " is not " ^ s))
   in
   let rec check kind t = 
     let rec cu t = 
       match kind, t.inst with
       | _       , Unknown (_, {contents=Some t'}) -> cu t'
       | _       , Unknown (n',_) -> n<>n' (* ignore kind: we shall force it later *)
-      | _       , Known n'       -> kind_includes kind (kind_of_unknown n')
+      | _       , Known n'       -> kind_includes kind (kind_of_uname n')
       
       (* everybody takes the basic ones *)
       | _       , Unit
@@ -339,7 +350,7 @@ and canunifytype n t =
       (* Comm takes Qbit or Qbits or otherwise behaves as Class *)
       | UnkComm , Qbit          -> true
       | UnkComm , Qbits         -> true
-      | UnkComm , _             -> check (if !Settings.resourcecheck then UnkClass else UnkAll) t
+      | UnkComm , _             -> check (if !Settings.resourcecheck then UnkClass false else UnkAll) t  (* false because not an alt-read ... *)
       
       (* there remain Class and Eq *)
       (* neither allows Qbit or Qbits *)
@@ -353,9 +364,9 @@ and canunifytype n t =
       | UnkEq   , Process _     -> bad ()
 
       (* but Class does *)
-      | UnkClass, Qstate      
-      | UnkClass, Fun     _        (* check the classical free-variable condition later *)
-      | UnkClass, Poly    _     -> true
+      | UnkClass _, Qstate      
+      | UnkClass _, Fun     _        (* check the classical free-variable condition later *)
+      | UnkClass _, Poly    _     -> true
       
       (* otherwise some recursions *)
       | _       , Tuple ts      -> List.for_all cu ts
@@ -372,7 +383,7 @@ and canunifytype n t =
     in
     cu t
   in
-  check (kind_of_unknown n) t
+  check (kind_of_uname n) t
 
 (* force_kind unifies the unknowns in t with appropriate unknowns *)  
 and force_kind kind t =
@@ -380,7 +391,7 @@ and force_kind kind t =
     match t.inst with
     | Unknown (n,{contents=Some t'})    
                     -> fk t'
-    | Unknown (n,r) -> if kind_includes kind (kind_of_unknown n) 
+    | Unknown (n,r) -> if kind_includes kind (kind_of_uname n) 
                        then () 
                        else (let u' = new_Unknown t.pos kind in r:=Some u')
     | Tuple ts      -> List.iter fk ts
@@ -406,8 +417,29 @@ and force_kind kind t =
     | Poly _        -> () 
   in
   fk t
-  
+
 (* *************************** typechecker starts here ********************************* *)
+
+let force_type pos t t' = (* force t to be t' -- t' determined by stuff at position pos *)
+  try unifytypes t t' with _ ->
+     let t = evaltype t in
+     let t' = evaltype t' in
+     let tvs = UnameSet.elements (freetvs t) @ UnameSet.elements (freetvs t') in
+     let explain_tvs () = 
+       Printf.sprintf " (where %s)" (Stringutils.phrase (List.map explain_uname tvs))
+     in
+     raise (Error (pos, Printf.sprintf "should be type %s; type %s doesn't fit%s"
+                                       (string_of_type (evaltype t'))
+                                       (string_of_type (evaltype t))
+                                       (if tvs=[] then "" else explain_tvs ())
+                  )
+           )
+
+let make_toptr x t =
+  match !(toptr x) with
+     | Some pt -> force_type x.pos pt t
+     | None    -> toptr x := Some t
+;;
 
 let rec typecheck_pats tc cxt t pxs : unit =
    if !verbose then 
@@ -423,33 +455,30 @@ and assigntype_pat contn cxt t p : unit =
                   (short_string_of_typecxt cxt)
                   (string_of_type t)
                   (string_of_pattern p);
-  (match !(toptr p) with
-   | Some pt -> unifytypes t pt
-   | None    -> toptr p := Some t
-  );
+  make_toptr p t;
   try match tinst p with
       | PatAny          -> contn cxt
       | PatName n       -> contn (cxt <@+> (n,t)) 
-      | PatUnit         -> unifytypes t (adorn p.pos Unit); contn cxt
+      | PatUnit         -> force_type p.pos t (adorn p.pos Unit); contn cxt
       | PatNil          -> let vt = ntv p.pos in
                            let lt = adorn p.pos (List vt) in
-                           unifytypes t lt; contn cxt
-      | PatInt _        -> unifytypes t (adorn p.pos Num); contn cxt
-      | PatBit _        -> unifytypes t (adorn p.pos Bit); contn cxt
-      | PatBool _       -> unifytypes t (adorn p.pos Bool); contn cxt
-      | PatChar _       -> unifytypes t (adorn p.pos Char); contn cxt
-      | PatString _     -> unifytypes t (adorn p.pos (List (adorn p.pos Char))); contn cxt
-      | PatBra _        -> unifytypes t (adorn p.pos Bra); contn cxt
-      | PatKet _        -> unifytypes t (adorn p.pos Ket); contn cxt
+                           force_type p.pos t lt; contn cxt
+      | PatInt _        -> force_type p.pos t (adorn p.pos Num); contn cxt
+      | PatBit _        -> force_type p.pos t (adorn p.pos Bit); contn cxt
+      | PatBool _       -> force_type p.pos t (adorn p.pos Bool); contn cxt
+      | PatChar _       -> force_type p.pos t (adorn p.pos Char); contn cxt
+      | PatString _     -> force_type p.pos t (adorn p.pos (List (adorn p.pos Char))); contn cxt
+      | PatBra _        -> force_type p.pos t (adorn p.pos Bra); contn cxt
+      | PatKet _        -> force_type p.pos t (adorn p.pos Ket); contn cxt
       | PatCons (ph,pt) -> let vt = ntv ph.pos in
                            let lt = adorn p.pos (List vt) in
                            let cf cxt = 
                              assigntype_pat contn cxt t pt
                            in
-                           unifytypes t lt;
+                           force_type p.pos t lt;
                            assigntype_pat cf cxt vt ph
       | PatTuple ps     -> let ts = List.map (fun p -> ntv p.pos) ps in
-                           unifytypes t (adorn p.pos (Tuple ts));
+                           force_type p.pos t (adorn p.pos (Tuple ts));
                            let rec tc cxt = function
                              | (p,t)::pts -> assigntype_pat ((revargs tc) pts) cxt t p
                              | []         -> contn cxt
@@ -468,7 +497,7 @@ let rec assigntype_name pos cxt t n =
   match eval cxt n with
   | Some t' -> 
       let t' = Type.instantiate t' in
-      (try unifytypes t t' 
+      (try force_type pos t' t 
        with 
        | TypeUnifyError(t1,t2) -> 
            raise (Error (pos,
@@ -490,14 +519,11 @@ and assigntype_expr cxt t e =
                   (short_string_of_typecxt cxt)
                   (string_of_type (evaltype t))
                   (string_of_expr e);
-  (match !(toptr e) with
-   | Some t' -> unifytypes t t'
-   | None    -> toptr e := Some t; (* for rewriting later *)
-  );
+  make_toptr e t;
   let utaf cxt = uncurry2 (assigntype_expr cxt) in
   try 
     let unary cxt tout tin e = 
-       unifytypes t tout;
+       force_type e.pos t tout;
        try assigntype_expr cxt tin e 
        with TypeUnifyError (t1,t2) -> 
          raise (Error(e.pos,
@@ -535,8 +561,8 @@ and assigntype_expr cxt t e =
                      )
      in
      match tinst e with
-     | EUnit                -> unifytypes t (adorn_x e Unit)
-     | ENil                 -> unifytypes t (adorn_x e (List (ntv e.pos)))
+     | EUnit                -> force_type e.pos t (adorn_x e Unit)
+     | ENil                 -> force_type e.pos t (adorn_x e (List (ntv e.pos)))
      | ERes w               -> (let ft = 
                                   match w with
                                   | ResShow    -> adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char))))
@@ -546,38 +572,38 @@ and assigntype_expr cxt t e =
                                                                  )
                                                             )
                                 in
-                                unifytypes t ft
+                                force_type e.pos t ft
                                )
      | ENum i               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Bit              -> if i=/zero||i=/one then ()
-                                                       else unifytypes t (adorn_x e Num)
+                                                       else force_type e.pos t (adorn_x e Num)
                                  (* | Range (j,k) as t -> if j<=i && i<=k then () 
-                                                       else unifytypes (adorn_x e t) (adorn_x e Num) *)
-                                 | t                -> unifytypes (adorn_x e t) (adorn_x e Num)
+                                                       else force_type e.pos (adorn_x e t) (adorn_x e Num) *)
+                                 | t                -> force_type e.pos (adorn_x e t) (adorn_x e Num)
                                 )
                                 *)
-                               unifytypes t (adorn_x e Num) 
-     | EBool _              -> unifytypes t (adorn_x e Bool)
-     | EChar _              -> unifytypes t (adorn_x e Char)
-     | EString _            -> unifytypes t (adorn_x e (List (adorn_x e Char)))
+                               force_type e.pos t (adorn_x e Num) 
+     | EBool _              -> force_type e.pos t (adorn_x e Bool)
+     | EChar _              -> force_type e.pos t (adorn_x e Char)
+     | EString _            -> force_type e.pos t (adorn_x e (List (adorn_x e Char)))
      | EBit b               -> (* no longer is Bit a subtype of Num
                                 (match (evaltype t).inst with 
                                  | Num              -> ()
                                  (* | Range (j,k) as t -> let i = if b then 1 else 0 in
                                                        if j<=i && i<=k then cxt 
-                                                       else unifytypes (adorn_x e t) (adorn_x e Bit) *)
-                                 | t                -> unifytypes (adorn_x e t) (adorn_x e Bit)
+                                                       else force_type e.pos (adorn_x e t) (adorn_x e Bit) *)
+                                 | t                -> force_type e.pos (adorn_x e t) (adorn_x e Bit)
                                 )
                                 *)
-                               unifytypes t (adorn_x e Bit) 
-     | EBra    _            -> unifytypes t (adorn_x e Bra)
-     | EKet    _            -> unifytypes t (adorn_x e Ket)
+                               force_type e.pos t (adorn_x e Bit) 
+     | EBra    _            -> force_type e.pos t (adorn_x e Bra)
+     | EKet    _            -> force_type e.pos t (adorn_x e Ket)
      | EVar    n            -> assigntype_name e.pos cxt t n
      | EJux    (e1,e2)      -> let atype = ntv e2.pos in (* arguments can be non-classical: loophole for libraries *)
-                               let rtype = newclasstv e.pos in (* result always classical *)
+                               let rtype = newclasstv false e.pos in (* result always classical *)
                                let ftype = adorn_x e1 (Fun (atype, rtype)) in
-                               let _ = unifytypes rtype t in
+                               let _ = force_type e.pos rtype t in
                                let _ = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
      | EMinus  e            -> (* even this is overloaded now, beacause of sxnum *)
@@ -597,7 +623,7 @@ and assigntype_expr cxt t e =
                                 | Sxnum     -> ()
                                 | Unknown _ -> let t = adorn e.pos Num in
                                                ovld_warn ("unary " ^ Expr.string_of_uminus) e t;
-                                               unifytypes te t
+                                               force_type e.pos te t
                                 | _         -> bad()
                                )
      | ENot    e            -> unary cxt (adorn_x e Bool) (adorn_x e Bool) e
@@ -616,7 +642,7 @@ and assigntype_expr cxt t e =
                                 | Gate     , _
                                 | _        , Gate
                                 | Matrix   , _
-                                | _        , Matrix     -> (try unifytypes te tout with _ -> bad ())
+                                | _        , Matrix     -> (try force_type e.pos te tout with _ -> bad ())
                                 | Unknown _, Unknown _  -> 
                                       raise (Error (e.pos, Printf.sprintf "overloaded † can be gate->gate or matrix->matrix: \
                                                                            cannot deduce type (use some type constraints)"
@@ -627,12 +653,12 @@ and assigntype_expr cxt t e =
      | ETuple  es           -> let ts = List.map (fun e -> ntv e.pos) es in
                                let tes = List.combine ts es in
                                let _ = List.iter (utaf cxt) tes in
-                               unifytypes t (adorn_x e (Tuple ts))
+                               force_type e.pos t (adorn_x e (Tuple ts))
      | ECons   (hd,tl)      -> let t' = ntv e.pos in
                                let _ = assigntype_expr cxt t' hd in
                                let t'' = (adorn_x e (List t')) in
                                let _ = assigntype_expr cxt t'' tl in
-                               unifytypes t t''
+                               force_type e.pos t t''
      | EMatch (e,ems)       -> let et = ntv e.pos in
                                let _ = assigntype_expr cxt et e in
                                let tc cxt e = assigntype_expr cxt t e in
@@ -699,22 +725,22 @@ and assigntype_expr cxt t e =
                                      | Gate     , _        , Gate
                                      | Matrix   , _        , Matrix   
                                      | _        , Sxnum    , Sxnum 
-                                     | _        , Gate     , Gate      -> (try unifytypes t1 tout; unifytypes t2 tout
+                                     | _        , Gate     , Gate      -> (try force_type e.pos t1 tout; force_type e.pos t2 tout
                                                                            with _ -> bad ()
                                                                           )
 
                                      | Matrix   , Sxnum    , _         
-                                     | Sxnum    , Matrix   , _        -> (try unifytypes tout (adorn_x e Matrix)
+                                     | Sxnum    , Matrix   , _        -> (try force_type e.pos tout (adorn_x e Matrix)
                                                                            with _ -> bad ()
                                                                           )
-                                     | Ket      , Bra      , _         -> (try unifytypes tout (adorn_x e Matrix)
+                                     | Ket      , Bra      , _         -> (try force_type e.pos tout (adorn_x e Matrix)
                                                                            with _ -> bad ()
                                                                           )
-                                     | Bra      , Ket      , _         -> (try unifytypes tout (adorn_x e Sxnum)
+                                     | Bra      , Ket      , _         -> (try force_type e.pos tout (adorn_x e Sxnum)
                                                                            with _ -> bad ()
                                                                           )
 
-                                     | _        , Matrix   , Matrix    -> (try unifytypes t1 tout; unifytypes t2 tout;
+                                     | _        , Matrix   , Matrix    -> (try force_type e.pos t1 tout; force_type e.pos t2 tout;
                                                                                ovld_warn e1 t2
                                                                            with _ -> bad ()
                                                                           )                                       
@@ -781,7 +807,7 @@ and assigntype_expr cxt t e =
                                      | Matrix    -> ()
                                      | Unknown _ -> let t = adorn e.pos Num in
                                                     ovld_warn2 e1 e2 t; 
-                                                    unifytypes t1 t
+                                                    force_type e.pos t1 t
                                      | _         -> bad ()
                                     )
                                 | _           -> ()
@@ -795,10 +821,10 @@ and assigntype_expr cxt t e =
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
      | ESub (e1,e2)         -> binary cxt (adorn_x e Qbit) (adorn_x e1 Qbits) (adorn_x e2 Num) e1 e2
-     | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv e.pos)) in (* append has to deal in classical lists *)
+     | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv false e.pos)) in (* append has to deal in classical lists *)
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
-                               unifytypes t t'
+                               force_type e.pos t t'
      | ELambda (pats, e)    -> check_distinct_fparams pats; assigntype_fun cxt t pats e
      | EWhere  (e, ed)      -> assigntype_edecl cxt t e ed
   with 
@@ -821,15 +847,13 @@ and assigntype_edecl cxt t e ed =
                                     assigntype_typedname tf wfn;
                                     let cxt = cxt <@+> (tinst wfn,tf) in
                                     let _ = assigntype_fun cxt tf wfpats we in
-                                    let rt = newclasstv we.pos in
-                                    let _ = unifytypes rt tr in
+                                    let rt = newclasstv false we.pos in
+                                    let _ = force_type e.pos rt tr in
                                     let cxt = (cxt <@-> tinst wfn) <@+> (tinst wfn, generalise tf) in
                                     assigntype_expr cxt t e
 
 and assigntype_typedname t n =
-  match !(toptr n) with
-  | Some t' -> unifytypes t t'
-  | None    -> toptr n := Some t
+  make_toptr n t
   
 and assigntype_param t n = assigntype_typedname t n
   
@@ -843,7 +867,7 @@ and read_funtype pats toptr e =
                    let tr, trall = itf pats' in
                    adorn (pos_of_instances pats) (Fun (ta,tr)), trall
   | []          -> let tr = match !toptr with 
-                            | None   -> let t = newclasstv e.pos in toptr := Some t; t (* result must be classical *)
+                            | None   -> let t = newclasstv false e.pos in toptr := Some t; t (* result must be classical *)
                             | Some t -> t
                    in tr, tr
   and inventtype_pat pat =
@@ -883,10 +907,10 @@ and assigntype_fun cxt t pats e =
                   (string_of_list string_of_fparam " " pats)
                   (string_of_expr e);
   match pats with
-  | pat::pats'  -> let ta = newclasstv pat.pos in (* function arguments must be classical *)
-                   let tr = newclasstv (pos_of_instances pats') in
+  | pat::pats'  -> let ta = newclasstv false pat.pos in (* function arguments must be classical *)
+                   let tr = newclasstv false (pos_of_instances pats') in
                    let tf = adorn (pos_of_instances pats) (Fun (ta,tr)) in
-                   let _ = unifytypes t tf in
+                   let _ = force_type e.pos t tf in
                    let contn cxt () = assigntype_fun cxt tr pats' e in
                    typecheck_pats contn cxt ta [pat,()]
   | []          -> assigntype_expr cxt t e
@@ -967,9 +991,9 @@ let fix_paramtype fnew par =
   | Some t -> t
   | None   -> let t = fnew par.pos in toptr par := Some t; t (* process params are, like messages, qbits or classical *)
   
-let unify_paramtype rt t =
+let unify_paramtype pos rt t =
   match !rt with
-  | Some t' -> unifytypes t t'
+  | Some t' -> force_type pos t t'
   | None    -> rt := Some t
   
 let process_param fnew par = name_of_param par, fix_paramtype fnew par
@@ -1003,7 +1027,7 @@ and typecheck_process mon cxt p  =
                                     );
                              ts
              | _          -> let ts = tabulate arglength (fun _ -> newcommtv p.pos) in
-                             unifytypes t (adorn p.pos (Process ts));
+                             force_type p.pos t (adorn p.pos (Process ts));
                              ts
          with Not_found -> raise (Error (pn.pos, "undefined process " ^ string_of_name (tinst pn)))
         )
@@ -1013,7 +1037,7 @@ and typecheck_process mon cxt p  =
       (* all the params have to be channels *)
       let _ = 
         List.iter (fun par -> 
-                     unify_paramtype (toptr par) (adorn par.pos (Channel (newcommtv par.pos))) 
+                     unify_paramtype p.pos (toptr par) (adorn par.pos (Channel (newcommtv par.pos))) 
                   )
                   params
       in
@@ -1022,7 +1046,7 @@ and typecheck_process mon cxt p  =
   | WithQbit (plural,qss,proc) -> 
       let tqnode = if plural then Qbits else Qbit in
       let typecheck_qspec cxt (par, kopt) =
-        let _ = unify_paramtype (toptr par) (adorn par.pos tqnode) in
+        let _ = unify_paramtype p.pos (toptr par) (adorn par.pos tqnode) in
         match kopt with
         | Some k   -> assigntype_expr cxt (adorn k.pos Ket) k
         | None     -> ()
@@ -1052,12 +1076,12 @@ and typecheck_process mon cxt p  =
            typecheck_process mon cxt proc
       )
   | GSum gs ->
-      let samechan x y = 
-        match tinst x, tinst y with
-        | EVar x, EVar y -> x=y
-        | _                -> false
-      in
-      let is_alt = List.length gs > 1 &&
+      (* let samechan x y = 
+           match tinst x, tinst y with
+           | EVar x, EVar y -> x=y
+           | _                -> false
+      in *)
+      let is_alt = List.length gs > 1 (* && what a filthy hack
                    not (let step1 = fst (List.hd gs) in (* ok if all the alternatives _obviously_ use the same channel *)
                         List.for_all (fun (step,_) -> match step1.inst, step.inst with
                                                       | Read (ce1,_), Read (ce,_)   -> samechan ce1 ce
@@ -1065,9 +1089,9 @@ and typecheck_process mon cxt p  =
                                                       | _                           -> false
                                      )
                                      (List.tl gs)
-                       )
+                       ) *)
       in
-      let newtv = if is_alt then newclasstv else newcommtv in (* no quantum channels in alts: this will get a crap error message, sigh *)
+      let newtv = if is_alt then newclasstv true else newcommtv in (* no quantum channels in alts: this will get a crap error message, sigh *)
       let check_g (iostep,proc) =
         match iostep.inst with
          | Read (ce, pat) ->
@@ -1086,7 +1110,7 @@ and typecheck_process mon cxt p  =
   | JoinQs (qs,q,proc) ->
       let do_q qn = let t = try cxt<@>tinst qn with Not_found -> raise (Error (qn.pos, Printf.sprintf "undeclared %s" (string_of_typedname qn)))
                     in
-                    unifytypes t (adorn qn.pos Qbits);
+                    force_type qn.pos t (adorn qn.pos Qbits);
                     assigntype_typedname t qn 
       in
       List.iter do_q qs; 
@@ -1113,7 +1137,7 @@ and typecheck_process mon cxt p  =
       );
       typecheck_process mon cxt proc
   | Iter (pat, expr, proc, p) -> 
-      let t = newclasstv expr.pos in
+      let t = newclasstv false expr.pos in
       let _ = assigntype_expr cxt (adorn expr.pos (List t)) expr in
       assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt t pat;
       typecheck_process mon cxt p
@@ -1121,13 +1145,13 @@ and typecheck_process mon cxt p  =
       let _ = assigntype_expr cxt (adorn e.pos Bool) e in
       let _ = typecheck_process mon cxt p1 in
       typecheck_process mon cxt p2
-  | PMatch (e,pms)  -> let et = newclasstv e.pos in
+  | PMatch (e,pms)  -> let et = newclasstv false e.pos in
                        let _ = assigntype_expr cxt et e in
                        typecheck_pats (typecheck_process mon) cxt et pms
   | Par (ps)        -> List.iter (typecheck_process mon cxt) ps
   
 and typecheck_letspec contn cxt pat e =
-  let t = newclasstv e.pos in
+  let t = newclasstv false e.pos in
   let _ = assigntype_expr cxt t e in
   (* Inconvenient though it may occasionally be, we can't do this mid-process ...
      let t = generalise t in
@@ -1135,7 +1159,7 @@ and typecheck_letspec contn cxt pat e =
   assigntype_pat contn cxt t pat
 
 and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
-  let tparams = List.map (fix_paramtype newclasstv) params in (* not newcommtv: internal processes can't take qbit arguments *)
+  let tparams = List.map (fix_paramtype (newclasstv false)) params in (* not newcommtv: internal processes can't take qbit arguments *)
   let tp = adorn pn.pos (Process tparams) in
   assigntype_typedname tp pn;
   let cxt = if brec then cxt<@+>(tinst pn,tp) else cxt in
@@ -1175,8 +1199,8 @@ let typecheck_fdefs assoc fdefs =
     let env_type = assoc<%@>tinst fn in
     (* force classical result type *)
     let rt = result_type fn.pos pats env_type in
-    let rtv = newclasstv rt.pos in
-    let _ = unifytypes rtv rt in
+    let rtv = newclasstv false rt.pos in
+    let _ = force_type expr.pos rtv rt in
     assigntype_fun assoc (Type.instantiate env_type) pats expr;
     evalassoc assoc
   in
@@ -1197,7 +1221,7 @@ let typecheck_pdefs assoc pdefs =
         match !rt with
         | None   -> adorn param.pos (Unknown unknown)
         | Some t -> if (match t.inst with Poly _ -> true | _ -> false) ||
-                       not (NameSet.is_empty (Type.freetvs t)) 
+                       not (UnameSet.is_empty (Type.freetvs t)) 
                     then raise (Error (t.pos, "process parameter cannot be given a polytype or an unknown type"))
                     else
                     if not (canunifytype (fst unknown) t) 
@@ -1236,7 +1260,7 @@ let typecheck_pdefs assoc pdefs =
     typecheck_process mon (monenv_of_lg locals (globalise assoc)) proc;
     let assoc = evalassoc assoc in
     let tps = zip env_types params in
-    let _ = List.iter (fun (t, par) -> unifytypes t (type_of_typedname par)) tps in
+    let _ = List.iter (fun (t, par) -> force_type par.pos t (type_of_typedname par)) tps in
     if !verbose then
       (rewrite_pdef pdef;
        Printf.printf "after tc_pdef, pdef = %s\n\nglobal_assoc = %s\n\n" 

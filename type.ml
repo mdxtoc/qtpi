@@ -50,9 +50,9 @@ and tnode =
   | Ket
   | Gate                            (* arity is no longer a static property, because of multiplication *)
   | Matrix                          (* Gate is a square unitary Matrix; matrices can be calculated *)
-  | Unknown of unknown          
-  | Known   of name                 (* knowns start with '\'', which doesn't appear in parseable names *)
-  | Poly    of name list * _type    (* oh dear this could be Poly of Poly ... would that be ok? *)
+  | Unknown of unknown         
+  | Known   of uname                (* knowns start with '\'', which doesn't appear in parseable names *)
+  | Poly    of uname list * _type   (* oh dear this could be Poly of Poly ... would that be ok? *)
 (*| Range   of int * int *)
   | List    of _type
   | Tuple   of _type list
@@ -60,11 +60,21 @@ and tnode =
   | Fun     of _type * _type
   | Process of _type list
 
-and unknown = name * _type option ref (* unknowns start with '?', which doesn't appear in parseable names *)
+and unknown = uname * _type option ref (* unknowns start with '?', which doesn't appear in parseable names *)
+and uname = string * ukind             
 
 and 'a typedinstance = 'a tinst instance
 
 and 'a tinst = {toptr: _type option ref; tinst: 'a}
+
+and ukind = 
+  | UnkAll              (* anything *)
+  | UnkEq               (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
+  | UnkClass of bool    (* classical: can't have qbit or value containing qbit.
+                           boolean says whether is alt (true) or functional (false) restriction
+                         *)
+  | UnkComm             (* simply a qbit, or classical *)
+
 
 let twrap opt tinst = {toptr=ref opt; tinst=tinst}
 let tadorn pos = adorn pos <.> twrap None
@@ -144,10 +154,11 @@ and string_of_tnode = function
   | Ket              -> "ket"
   | Gate             -> "gate"
   | Matrix           -> "matrix"
-  | Unknown (_, {contents=Some t})        -> string_of_type t
-  | Unknown u                             -> (*"Unknown " ^*) string_of_unknown u
-  | Known   n        -> (*"Known " ^*) string_of_name n
-  | Poly    (ns,ut)  -> let nstrings = List.map string_of_name ns in
+  | Unknown (_, {contents=Some t})   
+                     -> string_of_type t
+  | Unknown (n, _)   -> (*"Unknown " ^*) "?" ^ string_of_uname n
+  | Known   n        -> (*"Known " ^*) "'" ^ string_of_uname n
+  | Poly    (ns,ut)  -> let nstrings = List.map string_of_uname ns in
                         Printf.sprintf "forall %s.%s" (String.concat "," nstrings) (string_of_type ut)
 (*| Range   (l,h)    -> Printf.sprintf "%s..%s" (string_of_int l) (string_of_int h) *)
   | List    t        -> if t.inst=Char then "string" else Printf.sprintf "[%s]" (string_of_type t)
@@ -158,8 +169,12 @@ and string_of_tnode = function
                                        (possbracket false funprio t2)
   | Process ts       -> Printf.sprintf "%s process" (string_of_tnode (delist ts))
 
-and string_of_unknown = function    (* unknowns are transparent *)
-  | n, _                 -> string_of_name n
+and string_of_uname (n,k) = (* unknowns are transparent *)
+  (match k with
+  | UnkEq      -> "'"
+  | UnkAll     -> "*"
+  | UnkComm    -> "^"
+  |UnkClass _  -> "") ^ n 
 
 and possbracket ifeq supprio t = 
   possbracket' ifeq supprio (typeprio t) (string_of_type t)
@@ -200,6 +215,12 @@ let exists : (_type -> bool) -> _type -> bool = fun p t ->
   in
   ee t
   
+module OrderedUname = struct type t = uname 
+                        let compare (n1,_) (n2,_) = Stdlib.compare n1 n2 
+                        let to_string = string_of_uname
+                      end
+module UnameSet = MySet.Make(OrderedUname)
+
 let rec freetvs t = 
   let rec _freetvs s t = 
     match t.inst with
@@ -219,19 +240,16 @@ let rec freetvs t =
     | Matrix                -> s
     | Unknown (_, {contents=Some t'})    
                             -> _freetvs s t'      
-    | Unknown (n, _)        -> NameSet.add n s      
-    | Known   n             -> NameSet.add n s 
-    | Poly    (ns,t)        -> let vs = freetvs t in NameSet.union s (NameSet.diff vs (NameSet.of_list ns))
+    | Unknown (u, _)        -> UnameSet.add u s      
+    | Known   u             -> UnameSet.add u s 
+    | Poly    (us,t)        -> let vs = freetvs t in UnameSet.union s (UnameSet.diff vs (UnameSet.of_list us))
     | Channel t   
     | List    t             -> _freetvs s t  
     | Process ts   
     | Tuple   ts            -> List.fold_left _freetvs s ts
     | Fun     (t1,t2)       -> _freetvs (_freetvs s t1) t2
   in
-  _freetvs NameSet.empty t
-
-module OrderedUnknown = struct type t = unknown let compare (n1,_) (n2,_) = Stdlib.compare n1 n2 let to_string = string_of_unknown end
-module UnknownSet = MySet.Make(OrderedUnknown)
+  _freetvs UnameSet.empty t
 
 let freeunknowns t = 
   let rec _freeuks s t = 
@@ -252,8 +270,8 @@ let freeunknowns t =
     | Matrix          -> s
     | Unknown (_, {contents=Some t'})    
                       -> _freeuks s t'      
-    | Unknown u       -> UnknownSet.add u s      
-    | Known   n       -> s 
+    | Unknown (u, _)  -> UnameSet.add u s      
+    | Known   _       -> s 
     | Poly    (ns,t)  -> raise (Invalid_argument ("freeunknowns " ^ string_of_type t))
     | Channel t   
     | List    t       -> _freeuks s t  
@@ -261,32 +279,22 @@ let freeunknowns t =
     | Tuple   ts      -> List.fold_left _freeuks s ts
     | Fun     (t1,t2) -> _freeuks (_freeuks s t1) t2
   in
-  _freeuks UnknownSet.empty t
+  _freeuks UnameSet.empty t
 
-type unknownkind = 
-  | UnkAll       (* anything *)
-  | UnkEq        (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
-  | UnkClass     (* classical: can't have qbit or value containing *)
-  | UnkComm      (* simply a qbit, or classical *)
+let kind_of_uname (n,k) = k
 
-let string_of_unknownkind = function
+let string_of_ukind = function
   | UnkAll       -> "(any type)"
   | UnkEq        -> "(equality type)"
-  | UnkClass     -> "(classical type)"
+  | UnkClass b   -> "(classical type" ^ (if b then " from alt" else "") ^ ")"
   | UnkComm      -> "(qbit or classical)"
   
-let new_unknown = (* hide the reference *)
+let new_unknown = (* hide the count *)
   (let ucount = ref 0 in
    let new_unknown uk = 
      let n = !ucount in
      ucount := n+1;
-     (match uk with
-     | UnkEq        -> "?'"
-     | UnkClass     -> "?"
-     | UnkComm      -> "?^"
-     | UnkAll       -> "?*"
-     ) ^ string_of_int n, 
-     ref None
+     (string_of_int n, uk), ref None
    in
    new_unknown
   )
@@ -300,26 +308,31 @@ let new_unknown = (* hide the reference *)
    This means restrictions on function definitions, 
    and restrictions on partial applications -- f q is non-classical if q is a qbit.
    
-   But I think functions can take non-classical arguments.
+   But library functions can take non-classical arguments (at least show and qstate), so 
+   function calls can take non-classical arguments.
  *)
  
-let kind_of_unknown n = 
-  match n.[1] with
-  | '\'' -> UnkEq
-  | '*'  -> UnkAll
-  | '^'  -> UnkComm
-  | _    -> UnkClass
-
 let kind_includes k1 k2 =
   if k1=k2 then true else
   match k1, k2 with
-  | UnkAll    , _       -> true
-  | _      , UnkAll     -> false
-  | UnkComm, _       -> true
-  | _      , UnkComm -> false
-  | UnkClass, _      -> true
-  | _                -> false
+  | UnkAll       , _                -> true
+  | _            , UnkAll           -> false
+  | UnkComm      , _                -> true
+  | _            , UnkComm          -> false
+  | UnkClass true, UnkClass false   -> false (* has to be the other way round *) 
+  | UnkClass _   , _                -> true
+  | _                               -> false
   
+(* a service to the parser *)
+let uname_of_string s =
+  let rest () = String.sub s 1 (String.length s - 1) in
+  match s.[1] with
+  | '\'' -> rest (), UnkEq
+  | '*'  -> rest (), UnkAll
+  | '^'  -> rest (), UnkComm
+  | _    -> s, UnkClass false
+
+
 let result_type pos pars ft =
   let bad () = raise (Can'tHappen (Printf.sprintf "%s: result_type (%d) %s"
                                                   (string_of_sourcepos pos)
@@ -359,10 +372,10 @@ let generalise t0 =
   (*| Range   _ *)
     | Gate              
     | Matrix            -> t
-    | Unknown (n, {contents=Some t'})  
+    | Unknown (_, {contents=Some t'})  
                         -> replace (unknown_to_known t').inst  
-    | Unknown (n, _)    -> let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in
-                           replace (Known n')
+    | Unknown (u, _)    -> (* let n' = String.concat "" ["'"; String.sub n 1 (String.length n - 1)] in *)
+                           replace (Known u)
     | Known   _         -> t
     | Poly    _         -> raise (Invalid_argument ("Type.generalise polytype " ^ string_of_type t0))
     | List    t         -> replace (List (unknown_to_known t))  
@@ -373,8 +386,8 @@ let generalise t0 =
   in
   let t = unknown_to_known t0 in
   let nset = freetvs t in
-  if NameSet.is_empty nset then t 
-  else adorn t.pos (Poly(NameSet.elements nset,t))
+  if UnameSet.is_empty nset then t 
+  else adorn t.pos (Poly(UnameSet.elements nset,t))
 
 let instantiate t =
   let rec rename assoc t = 
@@ -394,7 +407,7 @@ let instantiate t =
   (*| Range   _ *)
     | Gate            
     | Matrix          -> t
-    | Known n         -> replace (let n' = assoc<@>n in Unknown n') 
+    | Known u         -> replace (let u' = assoc<@>u in Unknown u') 
     | Unknown _       
     | Poly    _       -> raise (Invalid_argument ("Type.rename " ^ string_of_type t))
     | List    t       -> replace (List (rename assoc t))   
@@ -404,7 +417,7 @@ let instantiate t =
     | Fun     (t1,t2) -> replace (Fun (rename assoc t1, rename assoc t2))
   in
   match t.inst with
-  | Poly (ns, t)  -> let newns = List.map (fun n -> new_unknown (kind_of_unknown n)) ns in
+  | Poly (ns, t)  -> let newns = List.map (fun n -> new_unknown (kind_of_uname n)) ns in
                      (try rename (zip ns newns) t
                       with Zip -> raise (Invalid_argument ("Type.instantiate " ^ string_of_type t))
                      )
@@ -412,6 +425,7 @@ let instantiate t =
 
 (* a service to compilation of monitor processes *)
 let rec is_classical t =
+  let is_cu k = (match k with UnkClass _ |  UnkEq -> true | _ -> false) in
   match t.inst with
   | Qbit                  
   | Qbits           -> false            
@@ -428,13 +442,11 @@ let rec is_classical t =
   | Qstate          -> true    (* really *)
   (* | Range   _ *)
   | Unknown (_, {contents=Some t})    
-                    -> is_classical t       
-  | Unknown (n, _)  -> let k = kind_of_unknown n in
-                       k=UnkClass || k=UnkEq      
-  | Known   n          (* can happen in Poly ... *)       
-                    -> let k = kind_of_unknown n in
-                       k=UnkClass || k=UnkEq
-  | Poly    (ns, t) -> is_classical t 
+                      -> is_classical t       
+  | Unknown ((_, k), _) -> is_cu k      
+  | Known   (_, k)     (* can happen in Poly ... *)       
+                    -> is_cu k
+  | Poly    (_, t)  -> is_classical t 
   | List    t       -> is_classical t 
   | Channel t       -> is_classical t
   | Tuple   ts      -> List.for_all is_classical ts

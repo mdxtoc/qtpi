@@ -63,6 +63,8 @@ time ./Qtpi examples/functionspeedtest.qtp
 # collection of more recognisable examples
 
 ./Qtpi -trace examples/basiccointoss.qtp
+./Qtpi -trace examples/basiccointoss2.qtp
+./Qtpi -trace examples/basiccointoss3.qtp
 ./Qtpi examples/cointoss.qtp
 ./Qtpi examples/cointoss_tidied.qtp
 ./Qtpi examples/entanglement.qtp

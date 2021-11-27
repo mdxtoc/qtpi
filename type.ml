@@ -33,7 +33,7 @@ exception Error of sourcepos * string
 
 type _type = tnode instance
 
-(* at present I can't find any simpler way to distinguish singleton Qbit and multiple Qbits than to have two types. *)
+(* at present I can't find any simpler way to distinguish singleton Qubit and multiple Qubits than to have two types. *)
 (* string is now [char], as in Miranda, but the parser still recognises the string word *)
 
 and tnode =
@@ -43,8 +43,8 @@ and tnode =
   | Char
   | Bit
   | Sxnum
-  | Qbit    
-  | Qbits    
+  | Qubit    
+  | Qubits    
   | Qstate
   | Bra
   | Ket
@@ -69,11 +69,11 @@ and 'a tinst = {toptr: _type option ref; tinst: 'a}
 
 and ukind = 
   | UnkAll              (* anything *)
-  | UnkEq               (* equality: can't have qbit, qstate, channel, function, process (or value containing etc.) *)
-  | UnkClass of bool    (* classical: can't have qbit or value containing qbit.
+  | UnkEq               (* equality: can't have qubit, qstate, channel, function, process (or value containing etc.) *)
+  | UnkClass of bool    (* classical: can't have qubit or value containing qubit.
                            boolean says whether is alt (true) or functional (false) restriction
                          *)
-  | UnkComm             (* simply a qbit, or classical *)
+  | UnkComm             (* simply a qubit, or classical *)
 
 
 let twrap opt tinst = {toptr=ref opt; tinst=tinst}
@@ -110,8 +110,8 @@ let typeprio t =
   | Bit           
   | Unit
   | Sxnum
-  | Qbit   
-  | Qbits   
+  | Qubit   
+  | Qubits   
   | Qstate
   | Bra
   | Ket
@@ -147,8 +147,8 @@ and string_of_tnode = function
   | Bool             -> "bool"
   | Unit             -> "()"
   | Sxnum            -> "sxnum"
-  | Qbit             -> "qbit" 
-  | Qbits            -> "qbits" 
+  | Qubit             -> "qubit" 
+  | Qubits            -> "qubits" 
   | Qstate           -> "qstate"
   | Bra              -> "bra"
   | Ket              -> "ket"
@@ -197,8 +197,8 @@ let exists : (_type -> bool) -> _type -> bool = fun p t ->
                 | Char
                 | Bit
                 | Sxnum
-                | Qbit    
-                | Qbits    
+                | Qubit    
+                | Qubits    
                 | Qstate
                 | Bra
                 | Ket
@@ -230,8 +230,8 @@ let rec freetvs t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit               
-    | Qbits               
+    | Qubit               
+    | Qubits               
     | Qstate
     | Bra
     | Ket
@@ -260,8 +260,8 @@ let freeunknowns t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit     
-    | Qbits     
+    | Qubit     
+    | Qubits     
     | Qstate
     | Bra
     | Ket
@@ -287,7 +287,7 @@ let string_of_ukind = function
   | UnkAll       -> "(any type)"
   | UnkEq        -> "(equality type)"
   | UnkClass b   -> "(classical type" ^ (if b then " from alt" else "") ^ ")"
-  | UnkComm      -> "(qbit or classical)"
+  | UnkComm      -> "(qubit or classical)"
   
 let new_unknown = (* hide the count *)
   (let ucount = ref 0 in
@@ -301,12 +301,12 @@ let new_unknown = (* hide the count *)
 
 (* 
    Eq(ality)       < Class(ical)     (because Class includes functions)
-   Class(ical)     < Comm(unication) (because Comm includes single qbits)
-   Comm(unication) < All             (because All allows qbits in lists and tuples, heaven forbid)
+   Class(ical)     < Comm(unication) (because Comm includes single qubits)
+   Comm(unication) < All             (because All allows qubits in lists and tuples, heaven forbid)
    
-   We require that functional values are classical, and so cannot have free qbit variables.
+   We require that functional values are classical, and so cannot have free qubit variables.
    This means restrictions on function definitions, 
-   and restrictions on partial applications -- f q is non-classical if q is a qbit.
+   and restrictions on partial applications -- f q is non-classical if q is a qubit.
    
    But library functions can take non-classical arguments (at least show and qstate), so 
    function calls can take non-classical arguments.
@@ -364,8 +364,8 @@ let generalise t0 =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit     
-    | Qbits     
+    | Qubit     
+    | Qubits     
     | Qstate
     | Bra
     | Ket
@@ -399,8 +399,8 @@ let instantiate t =
     | Bit 
     | Unit
     | Sxnum
-    | Qbit     
-    | Qbits     
+    | Qubit     
+    | Qubits     
     | Qstate
     | Bra
     | Ket
@@ -427,8 +427,8 @@ let instantiate t =
 let rec is_classical t =
   let is_cu k = (match k with UnkClass _ |  UnkEq -> true | _ -> false) in
   match t.inst with
-  | Qbit                  
-  | Qbits           -> false            
+  | Qubit                  
+  | Qubits           -> false            
   | Unit          
   | Num 
   | Bool

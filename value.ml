@@ -57,10 +57,10 @@ let string_of_queue string_of sep q =
   "{" ^ string_of_list string_of sep vs ^ "}"
 
 
-(* at present I can't think of how to deal with singleton qbits and qbit collections than to have two kinds of value. 
+(* at present I can't think of how to deal with singleton qubits and qubit collections than to have two kinds of value. 
    One is an int, the other an int list
  *)
-type qbit = int
+type qubit = int
 
 type procv = vt list -> procname * rtenv * cprocess             (* procname is for tracing *)
 
@@ -82,13 +82,13 @@ and rwaiter = procname * rtenv cpattern * cprocess * rtenv
 
 and wwaiter = procname * vt * cprocess * rtenv
 
-let string_of_qbit i = "#" ^ string_of_int i
+let string_of_qubit i = "#" ^ string_of_int i
 
-let short_string_of_qbit = string_of_qbit
+let short_string_of_qubit = string_of_qubit
 
-let string_of_qbits = bracketed_string_of_list string_of_qbit
+let string_of_qubits = bracketed_string_of_list string_of_qubit
 
-let short_string_of_qbits = string_of_qbits
+let short_string_of_qubits = string_of_qubits
 
 let string_of_bit b = if b then "1" else "0"
 
@@ -107,8 +107,8 @@ let to_matrix  : vt -> matrix       = Obj.magic
 let to_num     : vt -> num          = Obj.magic
 let to_nv      : vt -> nv           = Obj.magic
 let to_procv   : vt -> procv        = Obj.magic 
-let to_qbit    : vt -> qbit         = Obj.magic
-let to_qbits   : vt -> qbit list    = Obj.magic
+let to_qubit    : vt -> qubit         = Obj.magic
+let to_qubits   : vt -> qubit list    = Obj.magic
 let to_uchar   : vt -> Uchar.t      = Obj.magic
 let to_uchars  : vt -> Uchar.t list = Obj.magic
 let to_unit    : vt -> unit         = Obj.magic
@@ -127,8 +127,8 @@ let of_matrix  : matrix       -> vt = Obj.magic
 let of_num     : num          -> vt = Obj.magic
 let of_nv      : nv           -> vt = Obj.magic
 let of_procv   : procv        -> vt = Obj.magic
-let of_qbit    : qbit         -> vt = Obj.magic
-let of_qbits   : qbit list    -> vt = Obj.magic
+let of_qubit    : qubit         -> vt = Obj.magic
+let of_qubits   : qubit list    -> vt = Obj.magic
 let of_uchar   : Uchar.t      -> vt = Obj.magic
 let of_uchars  : Uchar.t list -> vt = Obj.magic
 let of_tuple   : vt list      -> vt = Obj.magic
@@ -180,8 +180,8 @@ let rec so_value optf t v =
                | Matrix        -> string_of_matrix (to_matrix v)
                | Gate          -> string_of_gate (to_gate v)
                | Char          -> Printf.sprintf "'%s'" (Utf8.escaped (to_uchar v))
-               | Qbit          -> "Qbit " ^ string_of_qbit (to_qbit v)
-               | Qbits         -> "Qbits " ^ string_of_qbits (to_qbits v)
+               | Qubit          -> "Qubit " ^ string_of_qubit (to_qubit v)
+               | Qubits         -> "Qubits " ^ string_of_qubits (to_qubits v)
                | Qstate        -> to_qstate v
                | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
@@ -197,8 +197,8 @@ and short_so_value optf t v =
   match optf t with
   | Some s -> s
   | None   -> (match t.inst with
-               | Qbit          -> "Qbit " ^ short_string_of_qbit (to_qbit v)
-               | Qbits         -> "Qbits " ^ short_string_of_qbits (to_qbits v)
+               | Qubit          -> "Qubit " ^ short_string_of_qubit (to_qubit v)
+               | Qubits         -> "Qubits " ^ short_string_of_qubits (to_qubits v)
                | Channel t     -> let c = to_chan v in
                                   "Chan " ^ short_so_chan optf t c ^ if c.traced then "" else "(untraced)"
                | Tuple ts      -> "(" ^ string_of_list (uncurry2 (short_so_value optf)) "," (zip ts (to_list v)) ^ ")"

@@ -79,8 +79,8 @@ and evaltype t =
   | Ket
   | Gate
   | Matrix
-  | Qbit                    
-  | Qbits                    
+  | Qubit                    
+  | Qubits                    
   | Qstate          -> t
   | Unknown u       -> evu u 
   | Known n         -> t
@@ -205,7 +205,7 @@ let rec rewrite_process mon proc =
   | GoOnAs    (n,es)        -> rewrite_typedname n; List.iter rewrite_expr es
   | WithNew   ((_,params), p)   
                             -> rewrite_params params; rewrite_process mon p
-  | WithQbit  (_,qss, p)    -> List.iter rewrite_qspec qss; rewrite_process mon p
+  | WithQubit  (_,qss, p)    -> List.iter rewrite_qspec qss; rewrite_process mon p
   | WithLet   ((pat,e), p)  -> rewrite_pattern pat; rewrite_expr e; rewrite_process mon p
   | WithProc  (pdecl, p)    -> rewrite_pdecl mon pdecl; rewrite_process mon p
   | WithQstep (qstep, p)    -> rewrite_qstep qstep; rewrite_process mon p
@@ -260,7 +260,7 @@ let explain_ukind = function
   | UnkClass true  -> "the classical type of a value received in a guarded alt"
   | UnkClass false -> "a classical type"
   | UnkEq          -> "an equality type"
-  | UnkComm        -> "channel of (qbit or qbits or classical)"
+  | UnkComm        -> "channel of (qubit or qubits or classical)"
   | UnkAll         -> "any type"
 
 let explain_uname (n,k as u) =
@@ -308,15 +308,15 @@ and unifylists exn t1s t2s =
   let pairs = try List.combine t1s t2s with Invalid_argument _ -> raise exn in
   List.iter unifypair pairs
 
-(* canunify checks that a type doesn't contain Unknown n; also that equnknowns don't get unified with qbits, functions and such;
-   and now also that channel types are qbit or classical and that classicals are classical. ISWIM
+(* canunify checks that a type doesn't contain Unknown n; also that equnknowns don't get unified with qubits, functions and such;
+   and now also that channel types are qubit or classical and that classicals are classical. ISWIM
  *)  
 and canunifytype n t =
   let bad () = 
     let s = match kind_of_uname n with
             | UnkClass _ -> "a classical type"
             | UnkEq      -> "an equality type"
-            | UnkComm    -> "channel of (qbit or qbits or classical)"
+            | UnkComm    -> "channel of (qubit or qubits or classical)"
             | UnkAll     -> " (whoops: can't happen)"
     in
     raise (Error (t.pos, match kind_of_uname n with
@@ -347,15 +347,15 @@ and canunifytype n t =
       | UnkAll  , _             -> true
       
       (* there remain Comm, Class, Eq *)
-      (* Comm takes Qbit or Qbits or otherwise behaves as Class *)
-      | UnkComm , Qbit          -> true
-      | UnkComm , Qbits         -> true
+      (* Comm takes Qubit or Qubits or otherwise behaves as Class *)
+      | UnkComm , Qubit          -> true
+      | UnkComm , Qubits         -> true
       | UnkComm , _             -> check (if !Settings.resourcecheck then UnkClass false else UnkAll) t  (* false because not an alt-read ... *)
       
       (* there remain Class and Eq *)
-      (* neither allows Qbit or Qbits *)
-      |_        , Qbit          -> bad ()
-      |_        , Qbits         -> bad ()
+      (* neither allows Qubit or Qubits *)
+      |_        , Qubit          -> bad ()
+      |_        , Qubits         -> bad ()
       (* Eq doesn't allow several things *)
       | UnkEq   , Qstate      
       | UnkEq   , Channel _   
@@ -408,8 +408,8 @@ and force_kind kind t =
  (* | Range   _ *)
     | Gate   
     | Matrix
-    | Qbit            
-    | Qbits           
+    | Qubit            
+    | Qubits           
     | Qstate          
     | Fun _           
     | Process _       
@@ -820,7 +820,7 @@ and assigntype_expr cxt t e =
                                        binary cxt (adorn_x e Bool) (adorn_x e1 Num) (adorn_x e2 Num) e1 e2
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
-     | ESub (e1,e2)         -> binary cxt (adorn_x e Qbit) (adorn_x e1 Qbits) (adorn_x e2 Num) e1 e2
+     | ESub (e1,e2)         -> binary cxt (adorn_x e Qubit) (adorn_x e1 Qubits) (adorn_x e2 Num) e1 e2
      | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv false e.pos)) in (* append has to deal in classical lists *)
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
@@ -989,7 +989,7 @@ let check_monlabels proc mon =
 let fix_paramtype fnew par =
   match !(toptr par) with
   | Some t -> t
-  | None   -> let t = fnew par.pos in toptr par := Some t; t (* process params are, like messages, qbits or classical *)
+  | None   -> let t = fnew par.pos in toptr par := Some t; t (* process params are, like messages, qubits or classical *)
   
 let unify_paramtype pos rt t =
   match !rt with
@@ -1043,8 +1043,8 @@ and typecheck_process mon cxt p  =
       in
       check_distinct_params params;
       do_procparams "WithNew" newcommtv cxt params proc [] mon
-  | WithQbit (plural,qss,proc) -> 
-      let tqnode = if plural then Qbits else Qbit in
+  | WithQubit (plural,qss,proc) -> 
+      let tqnode = if plural then Qubits else Qubit in
       let typecheck_qspec cxt (par, kopt) =
         let _ = unify_paramtype p.pos (toptr par) (adorn par.pos tqnode) in
         match kopt with
@@ -1054,21 +1054,21 @@ and typecheck_process mon cxt p  =
       let _ = List.iter (typecheck_qspec cxt) qss in
       let params = List.map fst qss in
       check_distinct_params params;
-      do_procparams "WithQbit" ntv cxt params proc [] mon
+      do_procparams "WithQubit" ntv cxt params proc [] mon
   | WithLet ((pat,e),proc) ->
       typecheck_letspec (fun cxt -> typecheck_process mon cxt proc) cxt pat e
   | WithProc (pdecl, proc) -> typecheck_pdecl (fun cxt -> typecheck_process mon cxt proc) mon cxt pdecl
   | WithQstep (qstep,proc) ->
       (match qstep.inst with
-       | Measure (plural, e, gopt, pat) -> (* no longer overloaded: plural distinguishes qbits -> [bit] from qbit -> bit *)
-           let te = adorn e.pos (if plural then Qbits else Qbit) in
+       | Measure (plural, e, gopt, pat) -> (* no longer overloaded: plural distinguishes qubits -> [bit] from qubit -> bit *)
+           let te = adorn e.pos (if plural then Qubits else Qubit) in
            let tpat = adorn pat.pos (if plural then List (adorn pat.pos Bit) else Bit) in
            let _ = assigntype_expr cxt te e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
            assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt tpat pat
-       | Through (plural, es, ge) -> (* no longer overloaded: plural distinguishes qbits from qbit *)
+       | Through (plural, es, ge) -> (* no longer overloaded: plural distinguishes qubits from qubit *)
            let do_e e = 
-             let te = adorn e.pos (if plural then Qbits else Qbit) in
+             let te = adorn e.pos (if plural then Qubits else Qubit) in
              assigntype_expr cxt te e
            in
            let _ = List.iter do_e es in
@@ -1110,17 +1110,17 @@ and typecheck_process mon cxt p  =
   | JoinQs (qs,q,proc) ->
       let do_q qn = let t = try cxt<@>tinst qn with Not_found -> raise (Error (qn.pos, Printf.sprintf "undeclared %s" (string_of_typedname qn)))
                     in
-                    force_type qn.pos t (adorn qn.pos Qbits);
+                    force_type qn.pos t (adorn qn.pos Qubits);
                     assigntype_typedname t qn 
       in
       List.iter do_q qs; 
-      let tq = adorn q.pos Qbits in
+      let tq = adorn q.pos Qubits in
       assigntype_param tq q;
       typecheck_process mon (cxt<@+>(tinst q,tq)) proc
   | SplitQs (qn,sss,proc) ->
-      assigntype_typedname (adorn qn.pos Qbits) qn;
+      assigntype_typedname (adorn qn.pos Qubits) qn;
       let do_splitspec cxt (qp, eopt) =
-        let tq = adorn qp.pos Qbits in
+        let tq = adorn qp.pos Qubits in
         assigntype_param tq qp;
         (match eopt with
          | Some e -> assigntype_expr cxt (adorn e.pos Num) e
@@ -1159,7 +1159,7 @@ and typecheck_letspec contn cxt pat e =
   assigntype_pat contn cxt t pat
 
 and typecheck_pdecl contn mon cxt (brec, pn, params, proc) =
-  let tparams = List.map (fix_paramtype (newclasstv false)) params in (* not newcommtv: internal processes can't take qbit arguments *)
+  let tparams = List.map (fix_paramtype (newclasstv false)) params in (* not newcommtv: internal processes can't take qubit arguments *)
   let tp = adorn pn.pos (Process tparams) in
   assigntype_typedname tp pn;
   let cxt = if brec then cxt<@+>(tinst pn,tp) else cxt in
@@ -1171,7 +1171,7 @@ let make_library_assoc () =
   let assoc = List.map (fun (n,t,_) -> n, generalise (Parseutils.parse_typestring t)) !Library.knowns in
   let typ = adorn dummy_spos in
   let typstring = typ (List (typ Char)) in
-  let assoc = if assoc <%@?> "dispose" then assoc else assoc <%@+> ("dispose", typ (Channel (typ Qbit))) in
+  let assoc = if assoc <%@?> "dispose" then assoc else assoc <%@+> ("dispose", typ (Channel (typ Qubit))) in
   let assoc = if assoc <%@?> "out"     then assoc else assoc <%@+> ("out"    , typ (Channel (typ (List typstring)))) in
   let assoc = if assoc <%@?> "outq"    then assoc else assoc <%@+> ("outq"   , typ (Channel (typ Qstate))) in
   let assoc = if assoc <%@?> "in"      then assoc else assoc <%@+> ("in"     , typ (Channel typstring)) in
@@ -1225,7 +1225,7 @@ let typecheck_pdefs assoc pdefs =
                     then raise (Error (t.pos, "process parameter cannot be given a polytype or an unknown type"))
                     else
                     if not (canunifytype (fst unknown) t) 
-                    then raise (Error (t.pos, "parameter type must be qbit, ^qbit or classical"))
+                    then raise (Error (t.pos, "parameter type must be qubit, ^qubit or classical"))
                     else t
       in
       let process_params = List.map process_param in

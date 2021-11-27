@@ -21,7 +21,7 @@
     (or look at http://www.gnu.org).
 *)
 
-(* Resources in quantum protocols are qbits. A qbit is owned by a single process.
+(* Resources in quantum protocols are qubits. A qubit is owned by a single process.
    Resources are received in process invocations and in reads; they are transmitted
    in process calls and in sends.
    
@@ -31,15 +31,15 @@
    tuples of arguments in its process calls are non-overlapping, if the tuples of process
    calls in its parallel calls are non-overlapping -- then we shall have correct resourcing.
    
-   Provided, of course, we police the use of qbits that are sent away down channels.
+   Provided, of course, we police the use of qubits that are sent away down channels.
    
-   Channels take either a single qbit or a classical value. This is a simplification of
+   Channels take either a single qubit or a classical value. This is a simplification of
    the language, and seems to suit the needs of clear description of quantum protocols. 
    
-   Function applications must not deliver a qbit, or a value containing a qbit. 
+   Function applications must not deliver a qubit, or a value containing a qubit. 
    
-   Functional values may not have free variables which are a qbit or a value containing
-   a qbit. That's hard to assess during typechecking (or at least, the error messages
+   Functional values may not have free variables which are a qubit or a value containing
+   a qubit. That's hard to assess during typechecking (or at least, the error messages
    make sense if we delay the check until now).
    
    This is all done with a symbolic execution, which made sense when I was trying to do
@@ -70,8 +70,8 @@ exception Disaster of sourcepos * string
 
 let rec is_resource_type t =
   match t.inst with
-  | Qbit                       
-  | Qbits           -> true            
+  | Qubit                       
+  | Qubits           -> true            
   | Unit          
   | Num 
   | Bool
@@ -100,7 +100,7 @@ let rec is_resource_type t =
   
 (* *************** phase 1: resource check (rck_...) *************************** *)
 
-(* with the new restrictions on process arguments, qbit-valued conditionals, bindings, 
+(* with the new restrictions on process arguments, qubit-valued conditionals, bindings, 
    all this can be done _very_ simply. And will be done, when I get round to it.
  *)
  
@@ -111,7 +111,7 @@ let rec is_resource_type t =
  
 type resource =
   | RNull
-  | RQbit of resourceid                
+  | RQubit of resourceid                
   | RTuple of resource list
   | RList of resourceid             (* for stuff that hasn't been taken apart *)
   | RCons of resource * resource    (* using RNull at the end of the list ... *)
@@ -124,7 +124,7 @@ type env = resource NameMap.t
 let rec string_of_resource r =
   match r with
   | RNull               -> "RNull"
-  | RQbit  rid          -> Printf.sprintf "RQbit %s" (string_of_resourceid rid)
+  | RQubit  rid          -> Printf.sprintf "RQubit %s" (string_of_resourceid rid)
   | RTuple rs           -> Printf.sprintf "RTuple (%s)" (string_of_list string_of_resource "*" rs)
   | RList  rid          -> Printf.sprintf "RList %s" (string_of_resourceid rid)
   | RCons  (rh,rt)      -> Printf.sprintf "RCons (%s,%s)" (string_of_resource rh) (string_of_resource rt)
@@ -139,7 +139,7 @@ module OrderedResource = struct type t = resource let compare = Stdlib.compare l
 module ResourceSet = MySet.Make(OrderedResource)  
 
 module OrderedRid = struct type t = resourceid let compare=Stdlib.compare let to_string=string_of_resourceid end
-module State = MyMap.Make(OrderedRid) (* to tell if qbits have been sent away *)
+module State = MyMap.Make(OrderedRid) (* to tell if qubits have been sent away *)
 
 let string_of_state = State.to_string string_of_bool
 let string_of_env = NameMap.to_string string_of_resource
@@ -162,7 +162,7 @@ let (<@?>) env n     = NameMap.mem n env
 (* option version of binding *)
 let (<@@>) env n = try Some (NameMap.find n env) with _ -> None        
 
-(* use: what a (qbit in an) expression is used for *)
+(* use: what a (qubit in an) expression is used for *)
 
 type use =
   | URead       (* e.g. argument *)
@@ -178,7 +178,7 @@ let string_of_use = function
   | UMeasure    -> "UMeasure"
   | UPass       -> "UPass"
 
-(* qstop: things you _can't_ do with a qbit *)  
+(* qstop: things you _can't_ do with a qubit *)  
 
 type qstop =
   | StopNowt
@@ -192,11 +192,11 @@ let string_of_qstop = function
   | StopAllButRead -> "StopAllButRead"
   | StopNowt       -> "StopNowt"
 
-(* we stop qbit operations by attaching a qstop to an environment *)
+(* we stop qubit operations by attaching a qstop to an environment *)
 (* stoppers are lists of (env,qstop) pairs: successive environments should be distinct.
-   This enables us to control use of free qbits.
+   This enables us to control use of free qubits.
    
-   We can stop all use of qbits in an environment with the stopper [(env,StopUse)] 
+   We can stop all use of qubits in an environment with the stopper [(env,StopUse)] 
  *)
 
 let string_of_stoppers = 
@@ -218,7 +218,7 @@ let oktouse stoppers n res use =
   in
   findlevel stoppers
 
-let nouseqbits env = [(env,StopUse)]
+let nousequbits env = [(env,StopUse)]
 
 (* resource-checking, here we go *)                                
 
@@ -242,8 +242,8 @@ let rec resource_of_type rid state t = (* makes new resource: for use in paramet
   | Gate      
   | Matrix
   | Qstate          -> state, RNull
-  | Qbit               (* treat singleton qbit and qbit collection each as a single resource *)
-  | Qbits           -> let state, q = newqid rid state in state, RQbit q
+  | Qubit               (* treat singleton qubit and qubit collection each as a single resource *)
+  | Qubits           -> let state, q = newqid rid state in state, RQubit q
   | Unknown _       
   | Known   _       -> state, RNull  
   | Poly _          -> state, RNull  
@@ -294,7 +294,7 @@ let rec resources_of_resource disjoint r =
   in
   match r with
   | RNull           -> ResourceSet.empty
-  | RQbit _         -> rsingleton r                
+  | RQubit _         -> rsingleton r                
   | RTuple rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
                        (try List.fold_left (runion disjoint) ResourceSet.empty rsets 
                         with OverLap _ -> bad()
@@ -410,12 +410,12 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       | ECompare    (e1,_,e2) 
       | EBoolArith  (e1,_,e2) -> let rs, used = do_list URead [e1;e2] in 
                                  if List.exists (fun r -> r<>RNull) rs then
-                                   raise (Error (e.pos, "cannot manipulate qbits with arith/compare/bool expressions"));
+                                   raise (Error (e.pos, "cannot manipulate qubits with arith/compare/bool expressions"));
                                  RNull, used
       | EVar        n         -> let r = env <@> n in
                                  (match r with
                                   | RNull   -> RNull, ResourceSet.empty
-                                  | RQbit q -> resources_of_q e.pos use state stoppers r (type_of_expr e) n q
+                                  | RQubit q -> resources_of_q e.pos use state stoppers r (type_of_expr e) n q
                                   | _       -> r, resources_of_resource disjoint r
                                  )
       | ETuple      es        -> let rs, used = do_list use es in
@@ -425,7 +425,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
       | ECons       (hd,tl)   -> let r1, u1 = re use hd in
                                  let r2, u2 = re use tl in
                                  (match r1, r2 with
-                                  | RNull, _        (* if the hd has no resource, neither can the list (either it has qbit or it doesn't)*)
+                                  | RNull, _        (* if the hd has no resource, neither can the list (either it has qubit or it doesn't)*)
                                   | _    , RNull -> (* likewise the tail *)
                                                     RNull
                                   | _            -> try_disjoint (RCons (r1,r2))
@@ -451,7 +451,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                  ResourceSet.union used0 (ResourceSet.union used1 used2)
       | ESub        (e1,e2)   -> if use=UMeasure then
                                    raise (Error (e.pos, "measuring element of collection"));
-                                 (* at present this is qbits -> num -> qbit, so e2 had better be RNull *)
+                                 (* at present this is qubits -> num -> qubit, so e2 had better be RNull *)
                                  let r1, used1 = re URead e1 in
                                  let r2, used2 = re URead e2 in
                                  (match r2 with
@@ -488,7 +488,7 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
   re_env use env stoppers e
   
 and rck_fun state env pats expr = (* note: no stoppers *)
-  let stoppers = nouseqbits env in
+  let stoppers = nousequbits env in
   (* this works because we only have bpats as params *)
   let pos = pos_of_instances pats in
   rck_pat (fun state env stoppers -> resources_of_expr URead state env stoppers expr) runbind2 
@@ -501,7 +501,7 @@ and disjoint_resources_of_expr use = r_o_e true use
 
 and resources_of_q pos use state stoppers r t n q =
   if not (oktouse stoppers n r use) then
-    raise (Error (pos, Printf.sprintf "cannot %s free qbit %s"
+    raise (Error (pos, Printf.sprintf "cannot %s free qubit %s"
                                          (match use with 
                                           | URead      -> "use"
                                           | UGate      -> "gate"
@@ -515,10 +515,10 @@ and resources_of_q pos use state stoppers r t n q =
   else
   if State.find q state then r, rsingleton r
   else
-    raise (Error (pos, Printf.sprintf "use of sent-away%s%s qbit%s %s" 
+    raise (Error (pos, Printf.sprintf "use of sent-away%s%s qubit%s %s" 
                                         (if !measuredestroys then "/measured" else "")
-                                        (if t.inst=Qbits then "/joined" else "")
-                                        (if t.inst=Qbits then "s" else "")
+                                        (if t.inst=Qubits then "/joined" else "")
+                                        (if t.inst=Qubits then "s" else "")
                                         (string_of_name n)
                  )
           )
@@ -549,21 +549,21 @@ and rck_proc mon state env stoppers proc =
     let r =
       match proc.inst with
       | Terminate               -> ResourceSet.empty
-      | GoOnAs (n, es)          -> (* disjoint resources in the arguments, no dead qbits used *)
+      | GoOnAs (n, es)          -> (* disjoint resources in the arguments, no dead qubits used *)
                                    let ers = List.map (snd <.> disjoint_resources_of_expr UPass state env stoppers) es in
                                    (try disju ers with OverLap s -> badproc s)
       | WithNew ((_,params), proc)  
                                 -> (* all channels, no new resource, nothing used *)
                                    let env = List.fold_left (fun env param -> env <@+> (name_of_param param, RNull)) env params in
                                    rp state env stoppers proc
-      | WithQbit (_,qspecs, proc) 
+      | WithQubit (_,qspecs, proc) 
                                 -> rqspecs state env stoppers qspecs proc
       | JoinQs (qns, qp, proc)  -> let do_q (state,used) qn = rqs state env stoppers used qn in
                                    let state, used = List.fold_left do_q (state, ResourceSet.empty) qns
                                    in
                                    let n = name_of_param qp in
                                    let state, q = newqid (qp.pos,n) state in 
-                                   let r = RQbit q in
+                                   let r = RQubit q in
                                    runbind r (ResourceSet.union used (rp state (env<@+>(n,r)) stoppers proc))
       | SplitQs (qn, qspecs, proc) 
                                 -> let state, used = rqs state env stoppers ResourceSet.empty qn in
@@ -595,9 +595,9 @@ and rck_proc mon state env stoppers proc =
                                         let state = 
                                           match destroys, rq with
                                           | false, _       -> state
-                                          | true , RQbit q -> State.add q false state
+                                          | true , RQubit q -> State.add q false state
                                           | true , _       -> (* belt and braces ... *)
-                                              raise (Error (qe.pos, "ambiguous qbit expression (which qbit is destroyed?)"))
+                                              raise (Error (qe.pos, "ambiguous qubit expression (which qubit is destroyed?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' stoppers proc))
                                     | Through (_, qes, ug)    -> 
@@ -636,14 +636,14 @@ and rck_proc mon state env stoppers proc =
                                 ResourceSet.union usedce used
             | Write (ce,e)   -> (try let _, usedce = resources_of_expr URead state env stoppers ce in
                                      let r, usede = disjoint_resources_of_expr USend state env stoppers e in
-                                     (* if it's a channel of qbit, then it sends away a qbit *)
+                                     (* if it's a channel of qubit, then it sends away a qubit *)
                                      let state = 
                                        match (type_of_expr ce).inst with
-                                       | Channel {inst=Qbit} ->
+                                       | Channel {inst=Qubit} ->
                                            (match r with
-                                            | RQbit q   -> State.add q false state
+                                            | RQubit q   -> State.add q false state
                                             | _         ->
-                                               raise (Error (e.pos, "ambiguous qbit expression (which qbit is sent?)"))
+                                               raise (Error (e.pos, "ambiguous qubit expression (which qubit is sent?)"))
                                            )
                                        | _              -> state
                                      in
@@ -665,8 +665,8 @@ and rck_proc mon state env stoppers proc =
     let n = tinst qn in
     let r = env<@>n in
     let q = match r with
-            | RQbit q -> q
-            | _       -> raise (Disaster (qn.pos, "not qbit/qbits resource"))
+            | RQubit q -> q
+            | _       -> raise (Disaster (qn.pos, "not qubit/qubits resource"))
     in
     let _, u = resources_of_q qn.pos URead state stoppers r (type_of_typedname qn) n q in
     State.add q false state, ResourceSet.union used u
@@ -679,7 +679,7 @@ and rck_proc mon state env stoppers proc =
       in
       let n = name_of_param param in
       let state, q = newqid (param.pos,n) state in
-      let r = RQbit q in
+      let r = RQubit q in
       r::rs, ResourceSet.union used usede, state, env <@+> (n,r)
     in
     let rs, used, state, env = List.fold_left do_spec ([], ResourceSet.empty, state, env) specs in
@@ -790,7 +790,7 @@ and ffv_proc mon proc =
   | Terminate                      -> ()
   | GoOnAs    (pn,es)              -> List.iter ffv_expr es
   | WithNew   ((_,params), proc)   -> ffv_proc mon proc
-  | WithQbit  (_,qspecs, proc)     -> List.iter ffv_qspec qspecs; ffv_proc mon proc
+  | WithQubit  (_,qspecs, proc)     -> List.iter ffv_qspec qspecs; ffv_proc mon proc
   | WithLet   (letspec, proc)      -> ffv_letspec letspec; ffv_proc mon proc
   | WithProc  (pdecl, proc)        -> let (_,_,_,p) = pdecl in
                                       ffv_proc mon p; ffv_proc mon proc

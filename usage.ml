@@ -38,13 +38,13 @@ let opts = Arg.align
               ("-checkrandombias"  , Arg.Set checkrandombias, 
                     " print out simple stats on random choices");
               ("-complexunknowns" , Arg.Bool (set_arg complexunknowns), 
-                    Printf.sprintf " unnown qbit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
+                    Printf.sprintf " unnown qubit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
-                    Printf.sprintf " binding a measured qbit's value disposes the qbit (default %B)" !detectdisposes); *)
+                    Printf.sprintf " binding a measured qubit's value disposes the qubit (default %B)" !detectdisposes); *)
               ("-fancynum"  , Arg.Symbol (List.map (fun (x,_) -> x) fancynumopts, setfancynum), 
                     Printf.sprintf " fancy printing of symbolic numbers (default %s)" (decode_fancynum ()));
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
-                    Printf.sprintf " fancy printing of qbit vectors (default %B)" !fancyvec);
+                    Printf.sprintf " fancy printing of qubit vectors (default %B)" !fancyvec);
               ("-func_matrices" , Arg.Bool (set_arg func_matrices), 
                     Printf.sprintf " some matrices, such as I⊗⊗n and H⊗⊗n, are represented by functions (default %B)" !func_matrices);
               ("-interpret"  , Arg.Bool (set_arg interpret), 
@@ -52,25 +52,25 @@ let opts = Arg.align
               ("-matchcheck" , Arg.Bool (set_arg matchcheck), 
                     Printf.sprintf " matchcheck the program (default %B)" !matchcheck);
               ("-measuredestroys" , Arg.Bool (set_arg measuredestroys), 
-                    Printf.sprintf " measurement destroys a qbit (default %B)" !measuredestroys);
+                    Printf.sprintf " measurement destroys a qubit (default %B)" !measuredestroys);
               ("-memoise" , Arg.Bool (set_arg memoise), 
                     Printf.sprintf " memoise calculator operations mult and sum (default %B)" !memoise);
               ("-qvalsimplifies"  , Arg.Bool (set_arg qvalsimplifies), 
                     Printf.sprintf " qval simplifies entanglements when possible (default %B)" !qvalsimplifies);
               ("-show_final"  , Arg.Set show_final, 
-                    " show final state -- channels, stuck processes, qbit states");
+                    " show final state -- channels, stuck processes, qubit states");
               ("-showabvalues"  , Arg.Bool (set_arg showabvalues), 
-					 Printf.sprintf " show actual value of a_i, b_i in random qbit choice (default %B)" !showabvalues);
+					 Printf.sprintf " show actual value of a_i, b_i in random qubit choice (default %B)" !showabvalues);
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-symbolic_ht"  , Arg.Bool (set_arg symbolic_ht), 
 					 Printf.sprintf " print r(1/2) as h, r(1/3) as t (default %B)" !symbolic_ht);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
-                    Printf.sprintf " new unspecified qbits have symbolic values (default %B)" !symbq);
+                    Printf.sprintf " new unspecified qubits have symbolic values (default %B)" !symbq);
               (* ("-pstep"     , Arg.Set pstep, 
 					" step through protocol execution"); *)
               ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
-					 Printf.sprintf " static resource check of correct use of qbits (default %B)" !Settings.resourcecheck);
+					 Printf.sprintf " static resource check of correct use of qubits (default %B)" !Settings.resourcecheck);
               ("-stepcount"  , Arg.Set showstepcount, 
 					 Printf.sprintf " show interpreter stepcount");
               ("-trace"       , Arg.Set traceevents, 
@@ -78,7 +78,7 @@ let opts = Arg.align
               ("-traceId"     , Arg.Set traceId, 
 					" show trace of process ids (probably unnecessary), at end of execution");
               ("-try_rotate"  , Arg.Bool (set_arg try_rotate), 
-					 Printf.sprintf " when splitting state, try every qbit (default %B)" !Settings.try_rotate);
+					 Printf.sprintf " when splitting state, try every qubit (default %B)" !Settings.try_rotate);
               ("-trydiag"  , Arg.Bool (set_arg trydiag), 
 					 Printf.sprintf " use diagonal matrix optimisation in calculations (default %B)" !Settings.trydiag);
               ("-typereport"  , Arg.Set typereport, 

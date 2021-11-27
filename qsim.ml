@@ -27,7 +27,7 @@ open Listutils
 open Functionutils
 open Optionutils
 open Tupleutils
-open Value (* for ugv and qbit *)
+open Value (* for ugv and qubit *)
 open Vmg
 open Snum
 open Forutils
@@ -36,13 +36,13 @@ open Number (* for num *)
 
 exception Error of string
 
-type qval = qbit list * nv (* with n qbits, 2^n probs in the vector; and it's a ket *)
+type qval = qubit list * nv (* with n qubits, 2^n probs in the vector; and it's a ket *)
 
 let string_of_qval_full full (qs,v) =
   match full, qs with
   | false, [_] -> string_of_ket v
   | _          -> Printf.sprintf "[%s]%s"
-                          (string_of_list string_of_qbit ";" qs)
+                          (string_of_list string_of_qubit ";" qs)
                           (string_of_ket v)
                 
 let string_of_qval = string_of_qval_full false
@@ -54,11 +54,11 @@ let init () = Hashtbl.reset qstate
 let string_of_qstate () = 
   let qqvs = Hashtbl.fold (fun q qv ss -> (q,qv) :: ss) qstate []
   in
-  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qbit string_of_qval " -> ") "; " (List.sort Stdlib.compare qqvs))
+  Printf.sprintf "{%s}" (string_of_list (string_of_pair string_of_qubit string_of_qval " -> ") "; " (List.sort Stdlib.compare qqvs))
 
 let qval q =  try Hashtbl.find qstate q
               with Not_found -> raise (Error (Printf.sprintf "** Disaster: qval with q=%s qstate=%s"
-                                                             (string_of_qbit q)
+                                                             (string_of_qubit q)
                                                              (string_of_qstate ())
                                              )
                                       )
@@ -108,7 +108,7 @@ let tensor_n_gs n g = tensorpow_g g n
                  mtn (n,g)
 *)
 
-(* ****************** new and dispose for qbits ******************************* *)
+(* ****************** new and dispose for qubits ******************************* *)
 
 let qcopy (n,v) = (* nobody ought to know about this: I need a .mli for this file *)
   match v with
@@ -120,8 +120,8 @@ let idx q qs =
   let rec f i = function
     | q'::qs -> if q = q' then i else f (i+1) qs
     | []     -> raise (Error (Printf.sprintf "** Disaster: %s not in (%s)" 
-                                             (string_of_qbit q) 
-                                             (string_of_list string_of_qbit "," qs)
+                                             (string_of_qubit q) 
+                                             (string_of_list string_of_qubit "," qs)
                  
                              )
                       )
@@ -142,13 +142,13 @@ let ibit q qs :zint = let iq = idx q qs in onebitmask iq qs
 let make_nth qs (vm,vv as v) n iq = 
   let bad s = 
     raise (Disaster (Printf.sprintf "make_nth qs=%s v=%s n=%d iq=%d -- %s"
-                                        (bracketed_string_of_list string_of_qbit qs)
+                                        (bracketed_string_of_list string_of_qubit qs)
                                         (string_of_ket v) n iq s
                     )
           )
   in
   if !verbose || !verbose_qcalc then Printf.printf "make_nth qs=%s v=%s n=%d iq=%d "
-                                                        (bracketed_string_of_list string_of_qbit qs)
+                                                        (bracketed_string_of_list string_of_qubit qs)
                                                         (string_of_ket v) n iq;
   let nqs = List.length qs in
   if n<0 || n>=nqs then bad "bad n";
@@ -205,7 +205,7 @@ let make_nth qs (vm,vv as v) n iq =
                     hdseg@midseg@[q]@tlseg
      in
      if !verbose || !verbose_qcalc then Printf.printf "-> qs' %s v' %s\n" 
-                                                        (bracketed_string_of_list string_of_qbit qs')
+                                                        (bracketed_string_of_list string_of_qubit qs')
                                                         (string_of_ket v');
      qs', v'
     )
@@ -248,30 +248,30 @@ let try_split rotate qs (vm,vv as v) =
      if !verbose_qcalc then
        Printf.printf "try_split %B %s%s (nzs=%s, nvs=%s, worth_a_try=%B) => %s\n" 
                      rotate
-                     (string_of_qbits qs) (string_of_ket v)
+                     (string_of_qubits qs) (string_of_ket v)
                      (string_of_zint nzs) (string_of_zint nvs) worth_a_try
                      (string_of_option (fun (q,k1,qs,k2) -> Printf.sprintf "%s:%s; %s:%s"
-                                                                           (string_of_qbit q) (string_of_ket k1) 
-                                                                           (string_of_qbits qs) (string_of_ket k2) 
+                                                                           (string_of_qubit q) (string_of_ket k1) 
+                                                                           (string_of_qubits qs) (string_of_ket k2) 
                                        )
                                        r
                      );
      r
     )
   
-let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide the references *)
-  let qbitcount = ref 0 in
-  let qfrees = (Queue.create() : qbit Queue.t) in (* for disposed single qbits *)
+let newqubits, disposequbits, record, string_of_qfrees, string_of_qlimbo = (* hide the references *)
+  let qubitcount = ref 0 in
+  let qfrees = (Queue.create() : qubit Queue.t) in (* for disposed single qubits *)
   let qlimbo = ref [] in (* for disposed entangled bits *)
-  let newqbits pn vopt : qbit list =
+  let newqubits pn vopt : qubit list =
     let single () =
-      let q =  let fresh () = let q = !qbitcount in qbitcount := q+1; q in
+      let q =  let fresh () = let q = !qubitcount in qubitcount := q+1; q in
                let tryfrees () = try Queue.take qfrees with Queue.Empty -> fresh() in
                match vopt, !qlimbo with
-               | None, _     -> fresh () (* a qbit with symbolic probabilities must be fresh, or
+               | None, _     -> fresh () (* a qubit with symbolic probabilities must be fresh, or
                                             we might re-use symbolic variables which are still in
                                             use. Note this is a space leak, but a small one.
-                                            But it makes too many qbits in some demos.
+                                            But it makes too many qubits in some demos.
                                             If I could devise a cheap lookup for free variables 
                                             in the qstate, I'd do it.
                                           *)
@@ -308,7 +308,7 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
                 | Some (_,v) -> 
                     try log_2 (vsize v) 
                     with Invalid_argument _ ->  
-                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqbits %s %s"
+                      raise (Error (Printf.sprintf "ket size %s is not power of 2 in newqubits %s %s"
                                       (string_of_zint (vsize v)) pn
                                       (string_of_option string_of_ket vopt)
                                    )
@@ -316,40 +316,40 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
 
     in 
     let qs, qv = match qsize with
-                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqbits %s %s" pn (string_of_option string_of_ket vopt)))
+                 | 0 -> raise (Error (Printf.sprintf "zero size ket in newqubits %s %s" pn (string_of_option string_of_ket vopt)))
                  | _ -> let qs, vs = Listutils.unzip (Listutils.tabulate qsize (fun _ -> single())) in
                         let qv = qs, List.hd vs in
                         List.iter (fun q -> Hashtbl.add qstate q qv) qs;
                         qs, qv
     in
     if !verbose || !verbose_qsim then
-        Printf.printf "%s newqbits %s %s; now %s|->%s\n"
+        Printf.printf "%s newqubits %s %s; now %s|->%s\n"
                       (Name.string_of_name pn)
                       (string_of_option (string_of_ket) vopt)
-                      (string_of_qbits qs)
-                      (string_of_qbits qs)
+                      (string_of_qubits qs)
+                      (string_of_qubits qs)
                       (string_of_qval qv);
     qs
   in
-  let rec disposeqbits pn qs = 
+  let rec disposequbits pn qs = 
     if !verbose || !verbose_qsim then
-      Printf.printf "%s disposes %s " (Name.string_of_name pn) (string_of_qbits qs);
+      Printf.printf "%s disposes %s " (Name.string_of_name pn) (string_of_qubits qs);
     let single q = 
       match Hashtbl.find qstate q with
                         | [q],_ -> Hashtbl.remove qstate q; Queue.add q qfrees;
                                    if !verbose || !verbose_qsim then
-                                     Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qbit (queue_elements qfrees))
-                        | qs,v  -> (* don't dispose entangled qbits *)
+                                     Printf.printf "to qfrees %s\n" (bracketed_string_of_list string_of_qubit (queue_elements qfrees))
+                        | qs,v  -> (* don't dispose entangled qubits *)
                                    (* so why not try to disentangle them? *)
                                    let qs, v = make_first qs v (idx q qs) in
                                    match try_split false qs v with
                                    | Some (q',v,qs',v') when q'=q -> 
-                                       record false ([q],v); record false (qs',v'); disposeqbits pn [q] 
+                                       record false ([q],v); record false (qs',v'); disposequbits pn [q] 
                                    | _                            -> 
                                        if !verbose || !verbose_qsim then
                                          Printf.printf "to qlimbo %s\n" (bracketed_string_of_list 
                                                                            (fun q -> Printf.sprintf "%s|->%s"
-                                                                                                    (string_of_qbit q)
+                                                                                                    (string_of_qubit q)
                                                                                                     (string_of_qval (Hashtbl.find qstate q))
                                                                            )
                                                                            !qlimbo
@@ -361,8 +361,8 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
   and record split ((qs, vq) as qv) =
     let report () = if !verbose || !verbose_qsim then
                      Printf.printf "recording %s|->%s\n" (match qs with 
-                                                          | [q] -> string_of_qbit q
-                                                          | _   -> bracketed_string_of_list string_of_qbit qs
+                                                          | [q] -> string_of_qubit q
+                                                          | _   -> bracketed_string_of_list string_of_qubit qs
                                                          ) 
                                                          (string_of_qval qv)
     in
@@ -378,9 +378,9 @@ let newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo = (* hide
                 else default ()
 
    in
-  let string_of_qfrees () = bracketed_string_of_list string_of_qbit (queue_elements qfrees) in
-  let string_of_qlimbo () = bracketed_string_of_list string_of_qbit !qlimbo in
-  newqbits, disposeqbits, record, string_of_qfrees, string_of_qlimbo
+  let string_of_qfrees () = bracketed_string_of_list string_of_qubit (queue_elements qfrees) in
+  let string_of_qlimbo () = bracketed_string_of_list string_of_qubit !qlimbo in
+  newqubits, disposequbits, record, string_of_qfrees, string_of_qlimbo
   
 let strings_of_qsystem () = [Printf.sprintf "qstate=%s" (string_of_qstate ());
                              Printf.sprintf "qfrees=%s" (string_of_qfrees ());
@@ -399,7 +399,7 @@ let ugstep_padded pn qs g gpad =
   if !verbose || !verbose_qcalc then
     (Printf.printf "ugstep_padded %s %s %s %s\n" 
                     pn 
-                    (bracketed_string_of_list (fun q -> string_of_pair string_of_qbit string_of_qval ":" (q,qval q)) qs)
+                    (bracketed_string_of_list (fun q -> string_of_pair string_of_qubit string_of_qval ":" (q,qval q)) qs)
                     (string_of_gate g)
                     (string_of_gate gpad);
      flush_all ()
@@ -407,7 +407,7 @@ let ugstep_padded pn qs g gpad =
   if g=g_I && (gpad=g_I || List.length qs=1) then () else 
     (let bad s = raise (Disaster (Printf.sprintf "** ugstep %s %s %s -- %s"
                                                        pn
-                                                       (bracketed_string_of_list string_of_qbit qs)
+                                                       (bracketed_string_of_list string_of_qubit qs)
                                                        (string_of_gate g)
                                                        s
                                  )
@@ -415,17 +415,17 @@ let ugstep_padded pn qs g gpad =
      in
   
      (* qs must be distinct *)
-     let rec check_distinct_qbits = function
-       | q::qs -> if List.mem q qs then bad "repeated qbit" else check_distinct_qbits qs
+     let rec check_distinct_qubits = function
+       | q::qs -> if List.mem q qs then bad "repeated qubit" else check_distinct_qubits qs
        | []    -> ()
      in
-     check_distinct_qbits qs;
+     check_distinct_qubits qs;
   
      (* size of gate must be 2^(length qs) *)
      let nqs = List.length qs in
      let veclength = Z.(z_2**nqs) in
      (* gates are square *)
-     if veclength<>:gsize g then bad (Printf.sprintf "qbit/gate mismatch (%d qbits, %s*%s gate)"
+     if veclength<>:gsize g then bad (Printf.sprintf "qubit/gate mismatch (%d qubits, %s*%s gate)"
                                                                             nqs
                                                                             (string_of_zint (gsize g)) (string_of_zint (gsize g))
                                     );
@@ -433,19 +433,19 @@ let ugstep_padded pn qs g gpad =
      let show_change qs' v' g' =
        Printf.printf "we took ugstep_padded %s %s %s %s and made %s*(%s,%s)\n"
                            pn
-                           (bracketed_string_of_list (fun q -> string_of_pair string_of_qbit string_of_qval ":" (q,qval q)) qs)
+                           (bracketed_string_of_list (fun q -> string_of_pair string_of_qubit string_of_qval ":" (q,qval q)) qs)
                            (string_of_gate g)
                            (string_of_gate gpad)
                            (string_of_gate g')
-                           (string_of_qbits qs')
+                           (string_of_qubits qs')
                            (string_of_ket v');
        flush_all ()
      in
   
-     (* because of the way qbit state works, values of qbits will either be disjoint or identical *)
+     (* because of the way qubit state works, values of qubits will either be disjoint or identical *)
      let qs', v' = qval_of_qs qs in
   
-     (* now, because of removing duplicates, the qbits may not be in the right order in qs'. So we put them in the right order *)
+     (* now, because of removing duplicates, the qubits may not be in the right order in qs'. So we put them in the right order *)
      (* Now that we have an efficient representation of I⊗⊗n, just put them first *)
      let numbered_qs = Listutils.numbered qs in
      let qs', v' = List.fold_left (fun (qs',v') (n,q) -> make_nth qs' v' n (idx q qs')) (qs',v') numbered_qs in
@@ -503,8 +503,8 @@ let rec qmeasure disposes pn gate q =
      if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
        Printf.printf "%s qmeasure [] %s; %s|->%s; nv=%s ;nvhalf=%s; prob_1 = %s; prob_0=%s;"
                      (Name.string_of_name pn)
-                     (string_of_qbit q)
-                     (string_of_qbit q)
+                     (string_of_qubit q)
+                     (string_of_qubit q)
                      (string_of_qval (qs,(vm,vv)))
                      (string_of_zint nv) (string_of_zint nvhalf)
                      (string_of_snum prob_1)
@@ -544,7 +544,7 @@ let rec qmeasure disposes pn gate q =
      in
      if !verbose_qcalc || !verbose_qsim then 
        (Printf.printf " %s->%s; (un-normalised %s modulus %s vm_sq %s);" 
-                        (string_of_qbit measured_q) (string_of_qval measured_qv)
+                        (string_of_qubit measured_q) (string_of_qval measured_qv)
                         (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
@@ -583,14 +583,14 @@ let rec qmeasure disposes pn gate q =
      let qv = qs, (vm',vv) in
      if !verbose || !verbose_qsim || !verbose_measure then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 
-                                                                                     (string_of_qbit q)
+                                                                                     (string_of_qubit q)
                                                                                      (string_of_qval qv)
                                                                        ) 
                                                                        qs
                                              );
      record false measured_qv;
      if qs<>[] then record true qv; 
-     if disposes then disposeqbits pn [q];
+     if disposes then disposequbits pn [q];
      r
     )
   else (* in gate-defined basis *)
@@ -598,7 +598,7 @@ let rec qmeasure disposes pn gate q =
        raise (Error (Printf.sprintf "** Disaster: (basis arity) qmeasure %s %s %s"
                                     pn
                                     (string_of_gate gate)
-                                    (string_of_qbit q)
+                                    (string_of_qubit q)
                     )
              );
      let gate' = dagger_g gate in  (* cjtransposed gate *)

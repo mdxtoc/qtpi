@@ -40,8 +40,8 @@ and ciostumble = (* type needed for tracing. Sorry *)
 type cqstep = cqstumble instance
 
 and cqstumble =
-  | CMeasure of bool * cexpr * cexpr option * rtenv cpattern    (* plural, qbit, basis gate, cpattern *)
-  | CThrough of bool * cexpr list * cexpr                       (* plural, qbits, gate *)
+  | CMeasure of bool * cexpr * cexpr option * rtenv cpattern    (* plural, qubit, basis gate, cpattern *)
+  | CThrough of bool * cexpr list * cexpr                       (* plural, qubits, gate *)
   
 let string_of_ciostep ciostep =
   match ciostep.inst with

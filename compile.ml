@@ -254,8 +254,8 @@ let rec deepcompare : _type -> vt -> vt -> int = fun t v1 v2 ->
           | Process _  
           | Channel _  
           | Qstate   
-          | Qbit
-          | Qbits     
+          | Qubit
+          | Qubits     
           | Unknown _
           | Known   _
           | Poly    _ -> raise (Can'tHappen (Printf.sprintf "deepcompare type %s" (string_of_type t)))
@@ -347,7 +347,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
            (match w with
             | ResShow -> 
                 let optf t = match t.inst with
-                                     | Qbits     -> Some "<qbit>"
+                                     | Qubits     -> Some "<qubit>"
                                      | Qstate    -> Some "<qstate>"
                                      | Fun     _ -> Some "<function>"
                                      | Channel _ -> Some "<channel>"
@@ -494,7 +494,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
        ctenv, fun rtenv -> let qs = to_list (f1 rtenv) in
                            let i = nonnegintc e2.pos "subscript" (f2 rtenv) in
                            (try List.nth qs i 
-                            with _ -> raise (ExecutionError (e.pos, Printf.sprintf "subscript %d not in range of qbits collection length %d"
+                            with _ -> raise (ExecutionError (e.pos, Printf.sprintf "subscript %d not in range of qubits collection length %d"
                                                                       i
                                                                       (List.length qs)
                                                    )
@@ -582,10 +582,10 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
                            let ctenvps, is = compile_multi compile_p ctenv ps in (* no tidemarking! *)
                            let ctenvc, ccontn = compile_proc pn ctenvps contn in
                            tidemark ctenv ctenvc, adorn (CWithNew ((b,is), ccontn))
-  | WithQbit (plural, qspecs, contn)
+  | WithQubit (plural, qspecs, contn)
                         -> let ctenvqs, cqspecs = compile_multi compile_qspec ctenv qspecs in (* no tidemarking! *)
                            let ctenvc, ccontn = compile_proc pn ctenvqs contn in
-                           tidemark ctenv ctenvc, adorn (CWithQbit (plural, cqspecs, ccontn))
+                           tidemark ctenv ctenvc, adorn (CWithQubit (plural, cqspecs, ccontn))
   | WithLet (lsc, contn) 
                         -> let ctenvl, clsc = compile_letspec ctenv lsc in
                            let ctenvc, ccontn = compile_proc pn ctenvl contn in
@@ -739,7 +739,7 @@ let insert_returns check rc proc =
     | GoOnAs _      -> if check then bad spos "process invocation" else None
     | Par _         -> if check then bad spos "parallel sum" else None
     | WithNew _     
-    | WithQbit _    
+    | WithQubit _    
     | WithLet _
     | WithProc _    
     | WithQstep _ 
@@ -756,7 +756,7 @@ let insert_returns check rc proc =
 (* Here is where we apply restrictions on monitor processes:
     no Reading   (it's outside the protocol, so no input)
     no Calling
-    no new qbits (it's outside the protocol, so no quantum stuff)
+    no new qubits (it's outside the protocol, so no quantum stuff)
     no gating    (ditto)
     no measuring (ditto)
     no Testpoint (come along now)
@@ -776,11 +776,11 @@ let precompile_monbody tpnum proc =
                        in
                        List.iter ciop iops; None
     | GoOnAs _      -> bad proc.pos "process invocation"
-    | WithQbit _    -> bad proc.pos "qbit creation"
-    | WithQstep _   -> bad proc.pos "qbit gating/measuring"
+    | WithQubit _    -> bad proc.pos "qubit creation"
+    | WithQstep _   -> bad proc.pos "qubit gating/measuring"
     | WithProc _    -> bad proc.pos "process definition"
-    | JoinQs _      -> bad proc.pos "joining qbit collections"
-    | SplitQs _     -> bad proc.pos "splitting qbit collection"
+    | JoinQs _      -> bad proc.pos "joining qubit collections"
+    | SplitQs _     -> bad proc.pos "splitting qubit collection"
     | TestPoint _   -> bad proc.pos "test point"
     | Iter _        -> raise (CompileError (proc.pos, "Can't compile Iter in precompile_monbody yet"))
     | Par _         -> bad proc.pos "parallel sum"
@@ -845,7 +845,7 @@ let precompile_proc ctenv pn mon proc =
     | Terminate 
     | GoOnAs    _      
     | WithNew   _
-    | WithQbit  _
+    | WithQubit  _
     | WithLet   _
     | WithQstep _
     | JoinQs    _

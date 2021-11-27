@@ -40,8 +40,8 @@ and iostumble =
 type qstep = qstumble instance
 
 and qstumble =
-  | Measure of bool * expr * expr option * pattern  (* plural, qbit, basis gate, pattern (restricted: see parser) *)
-  | Through of bool * expr list * expr              (* plural, qbits, gate *)
+  | Measure of bool * expr * expr option * pattern  (* plural, qubit, basis gate, pattern (restricted: see parser) *)
+  | Through of bool * expr list * expr              (* plural, qubits, gate *)
   
 let string_of_iostep iostep =
   match iostep.inst with

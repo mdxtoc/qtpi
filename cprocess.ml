@@ -41,7 +41,7 @@ and cprocnode =
   | CTerminate
   | CGoOnAs of int * cexpr list                                 (* GoOnAs: homage to Laski *)
   | CWithNew of (bool * int list) * cprocess                    (* bool is traced *)
-  | CWithQbit of bool * cqspec list * cprocess                  (* false: newq; true: newqs *)
+  | CWithQubit of bool * cqspec list * cprocess                  (* false: newq; true: newqs *)
   | CWithLet of cletspec * cprocess
   | CWithProc of int * cpdecl * cprocess
   | CWithQstep of cqstep * cprocess
@@ -82,7 +82,7 @@ let cheadpos pos pinst = match pinst with
                          | CGSum       [(_,p)]   -> spdiff pos p.pos
                          | CGSum       _         -> pos
                          | CWithNew    (_, p) 
-                         | CWithQbit   (_, _, p) 
+                         | CWithQubit   (_, _, p) 
                          | CWithLet    (_, p) 
                          | CWithProc   (_, _, p)
                          | CWithQstep  (_, p)
@@ -102,7 +102,7 @@ let rec so_cp proc =
                                             (if traced then "newuntraced" else "new")
                                             (commasep (List.map string_of_int is))
                                             (trailing_csop p)
-  | CWithQbit (plural,qs,p) -> Printf.sprintf "(%s %s).%s"
+  | CWithQubit (plural,qs,p) -> Printf.sprintf "(%s %s).%s"
                                             (if plural then "newqs" else "newq")
                                             (commasep (List.map string_of_cqspec qs))
                                             (trailing_csop p)
@@ -153,7 +153,7 @@ and short_so_cp proc =
                           -> Printf.sprintf "(%s %s) ..."
                                             (if traced then "new" else "newuntraced")
                                             (commasep (List.map string_of_int is))
-  | CWithQbit (plural,xs,p) -> Printf.sprintf "(%s %s) ..."
+  | CWithQubit (plural,xs,p) -> Printf.sprintf "(%s %s) ..."
                                             (if plural then "newqs" else "newq")
                                             (commasep (List.map string_of_cqspec xs))
   | CWithLet (lsc,p)       -> Printf.sprintf "(let %s) ..."

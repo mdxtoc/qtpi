@@ -442,7 +442,7 @@ let rec matchcheck_proc mon proc =
   | Terminate               -> ()
   | GoOnAs          (pn,es) -> List.iter matchcheck_expr es
   | WithNew        (_,proc) -> matchcheck_proc mon proc    
-  | WithQbit  (_,qspecs,proc) 
+  | WithQubit  (_,qspecs,proc) 
                             -> List.iter matchcheck_qspec qspecs; matchcheck_proc mon proc
   | WithLet   ((_,e), proc) -> matchcheck_expr e; matchcheck_proc mon proc (* binding pattern doesn't need check *)
   | WithProc  ((_,_,_,p),proc) -> matchcheck_proc mon p; matchcheck_proc mon proc

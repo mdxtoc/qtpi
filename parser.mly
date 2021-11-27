@@ -230,8 +230,8 @@ simple_typespec:
   | BITTYPE                             {adorn Bit}
   | GATETYPE                            {adorn Gate}
   | SXNUMTYPE                           {adorn Sxnum}
-  | QBITTYPE                            {adorn Qbit}
-  | QBITSTYPE                           {adorn Qbits} 
+  | QBITTYPE                            {adorn Qubit}
+  | QBITSTYPE                           {adorn Qubits} 
   | QSTATETYPE                          {adorn Qstate}
   | MATRIXTYPE                          {adorn Matrix}
   | BRATYPE                             {adorn Bra}
@@ -324,9 +324,9 @@ simpleprocess:
   | LPAR NEWDEC UNTRACED paramseq RPAR process   
                                         {adorn (WithNew ((false,$4),$6))}
   | LPAR QBITDEC qspecs RPAR process    
-                                        {adorn (WithQbit (false,$3,$5))}
+                                        {adorn (WithQubit (false,$3,$5))}
   | LPAR QBITSDEC qspecs RPAR process    
-                                        {adorn (WithQbit (true,$3,$5))}
+                                        {adorn (WithQubit (true,$3,$5))}
   | LPAR LETDEC letspec RPAR process    
                                         {adorn (WithLet ($3,$5))}
   | LPAR QBITSJOIN typednames RIGHTARROW param RPAR process

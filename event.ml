@@ -69,9 +69,9 @@ let tev qs =
   let rec tqs prevqs qs =
     match qs with 
     | q::qs -> (try let prevq = List.find (fun q' -> Qsim.qval q=Qsim.qval q') prevqs in
-                    Printf.sprintf "%s=%s" (string_of_qbit q) (string_of_qbit prevq)
+                    Printf.sprintf "%s=%s" (string_of_qubit q) (string_of_qubit prevq)
                 with Not_found -> 
-                    Printf.sprintf "%s:%s" (string_of_qbit q) (Qsim.string_of_qval (Qsim.qsort (Qsim.qval q)))
+                    Printf.sprintf "%s:%s" (string_of_qubit q) (Qsim.string_of_qval (Qsim.qsort (Qsim.qval q)))
                ) :: tqs (prevqs@[q]) qs (* why append??? *)
     | _     -> []
   in

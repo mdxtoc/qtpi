@@ -228,16 +228,16 @@ let rec interp pn rtenv procstart =
                (* if !pstep then 
                  show_pstep (Printf.sprintf "(new %s)" (commasep (List.map string_of_param ps))); *)
                microstep rtenv contn
-           | CWithQbit (plural, qss, contn) -> 
+           | CWithQubit (plural, qss, contn) -> 
                let ket_eval fopt = fopt &~~ fun kf -> Some (to_ket (kf rtenv)) in
                List.iter (fun (i,fopt) -> let kopt = ket_eval fopt in
-                                          let qs = newqbits (name_of_procname pn) kopt in
+                                          let qs = newqubits (name_of_procname pn) kopt in
                                           if !verbose || !verbose_interpret then 
-                                            (Printf.printf "%s: CWithQbit initialises qbit(s) at %d\n" (string_of_sourcepos (csteppos rproc))
+                                            (Printf.printf "%s: CWithQubit initialises qubit(s) at %d\n" (string_of_sourcepos (csteppos rproc))
                                                                                                       i;
                                              flush_all ()
                                             );
-                                          rtenv.(i) <- if plural then of_qbits qs else of_qbit (List.hd qs)
+                                          rtenv.(i) <- if plural then of_qubits qs else of_qubit (List.hd qs)
                          ) 
                          qss; 
                (* if !pstep then 
@@ -258,7 +258,7 @@ let rec interp pn rtenv procstart =
                rtenv.(i) <- of_procv (procf rtenv); 
                microstep rtenv contn
            | CWithQstep (qstep, contn) ->
-               (let qeval plural e = (if plural then to_qbits else (fun v -> [to_qbit v])) (evale rtenv e) in
+               (let qeval plural e = (if plural then to_qubits else (fun v -> [to_qubit v])) (evale rtenv e) in
                 match qstep.inst with
                 | CMeasure (plural, e, gopt, patf) -> 
                     let qs = qeval plural e in
@@ -296,27 +296,27 @@ let rec interp pn rtenv procstart =
                     microstep rtenv contn
                )
            | CJoinQs (qns, qp, contn) ->
-               let do_qn qn = to_qbits (rtenv.(qn)) in
+               let do_qn qn = to_qubits (rtenv.(qn)) in
                let qs = List.concat (List.map do_qn qns) in
                if !verbose || !verbose_interpret then 
-                 (Printf.printf "%s: CJoinQs initialises qbits at %d\n" (string_of_sourcepos (csteppos rproc))
+                 (Printf.printf "%s: CJoinQs initialises qubits at %d\n" (string_of_sourcepos (csteppos rproc))
                                                                             qp;
                   flush_all ()
                  );
-               rtenv.(qp) <- of_qbits qs;
+               rtenv.(qp) <- of_qubits qs;
                (* if !pstep then
                  show_pstep (Printf.sprintf "(joinqs %s→%s)\n%s" (string_of_list string_of_typedname "," qns) 
                                                                  (string_of_param qp) (pstep_state env)
                             ); *)
                microstep rtenv contn
            | CSplitQs (qi, qspecs, contn) -> 
-               let qvs = to_qbits rtenv.(qi) in
+               let qvs = to_qubits rtenv.(qi) in
                let do_spec qns (qp, eopt) =
                  let numopt = eopt &~~ (_Some <.> to_num <.> evale rtenv) in
                  let n = match numopt with 
                          | None   -> 0 
                          | Some n -> if n<=/num_0 || not (is_int n) then
-                                        raise (Error (rproc.pos, Printf.sprintf "%s is invalid qbits size" (string_of_num n)))
+                                        raise (Error (rproc.pos, Printf.sprintf "%s is invalid qubits size" (string_of_num n)))
                                      else int_of_num n
                  in
                  (qp,n)::qns
@@ -326,13 +326,13 @@ let rec interp pn rtenv procstart =
                let total = List.fold_left (fun total (_,n) -> total+n) 0 qpns in
                let zeroes = List.length (List.filter (fun (_,n) -> n=0) qpns) in
                if zeroes > 1 then 
-                 raise (Error (rproc.pos, "** Disaster: more than one un-sized qbits sub-collection"))
+                 raise (Error (rproc.pos, "** Disaster: more than one un-sized qubits sub-collection"))
                else
                if zeroes = 0 && total<>avail then
-                  raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d" avail total))
+                  raise (Error (rproc.pos, Printf.sprintf "%d qubits split into total of %d" avail total))
                else
                if total>=avail then 
-                  raise (Error (rproc.pos, Printf.sprintf "%d qbits split into total of %d and then one more" avail total))
+                  raise (Error (rproc.pos, Printf.sprintf "%d qubits split into total of %d and then one more" avail total))
                ;
                let spare = avail-total in
                let carve qvs (qp,n) =
@@ -341,11 +341,11 @@ let rec interp pn rtenv procstart =
                    raise (Disaster (rproc.pos, "taken too many in carve"));
                  let qvs1, qvs = take k qvs, drop k qvs in
                  if !verbose || !verbose_interpret then 
-                   (Printf.printf "%s: CSplitQs.spare initialises qbits at %d\n" (string_of_sourcepos (csteppos rproc))
+                   (Printf.printf "%s: CSplitQs.spare initialises qubits at %d\n" (string_of_sourcepos (csteppos rproc))
                                                                               qp;
                     flush_all ()
                    );
-                 rtenv.(qp) <- of_qbits qvs1;
+                 rtenv.(qp) <- of_qubits qvs1;
                  qvs
                in
                let qvs = List.fold_left carve qvs qpns in
@@ -398,7 +398,7 @@ let rec interp pn rtenv procstart =
                  if c.cname = in_c then can'twrite "input"
                  else
                  if c.cname = dispose_c then 
-                    (disposeqbits (name_of_procname pn) [to_qbit v]; 
+                    (disposequbits (name_of_procname pn) [to_qubit v]; 
                      if !traceevents then trace (EVDispose (name_of_procname pn,(t,v)));
                      true
                     )

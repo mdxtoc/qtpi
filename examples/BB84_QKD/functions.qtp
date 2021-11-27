@@ -9,14 +9,14 @@ fun ket_of_bits b v = match (b,v) .
                       + (0b1,0b1) . |-> 
 
 (* send encoded (bit, value) pairs down channel qc *)
-proc SendQbits (bvs,qc,sent) =   
+proc SendQubits (bvs,qc,sent) =   
     match bvs .
     + []         . sent!() . _0
     + (b,v)::bvs . (newq q = ket_of_bits b v)
                      qc!q    .
-                     SendQbits (bvs,qc,sent)
+                     SendQubits (bvs,qc,sent)
 
-(* receive N qbits on channel qc, measure them, return the results *)
+(* receive N qubits on channel qc, measure them, return the results *)
 proc ReceiveQBits (N, bvs, qc, results) =
   if N=0 then results!rev bvs . _0
   else . qc?(q)                  
@@ -25,7 +25,7 @@ proc ReceiveQBits (N, bvs, qc, results) =
        . ReceiveQBits(N-1, (b,v)::bvs, qc, results) 
         
 
-(* Read N qbits from qA, measure them in a random basis, send the measured bits on qB. 
+(* Read N qubits from qA, measure them in a random basis, send the measured bits on qB. 
    Return measurements.
  *)
 proc CopyQBits (N, bvs, qA, qB, results) =
@@ -123,7 +123,7 @@ fun checkhash hks w (i,(h,m)) = hwc m hks i w = h
 
 fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
 
-fun min_qbits k (s:num)
+fun min_qubits k (s:num)
   = ceiling (rootn*rootn) 
     where rootn = pos_root (1/2) (-s*(1/2)) (-k)
     

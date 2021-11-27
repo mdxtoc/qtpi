@@ -66,7 +66,7 @@ proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
     (let bs = randbits n)
     (let vs = randbits n)
     (new done)
-    | SendQbits (zip bs vs,qcB,done)
+    | SendQubits (zip bs vs,qcB,done)
     | mc!M . _0
     | done?_ . AsAlice (w, hks, bs, vs, qcB, bcB, againB, mc, log)
   else 

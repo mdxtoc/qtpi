@@ -78,7 +78,7 @@ Bob(n:num, r:^bit, qA, bsA) =
         out!["Bob's code is "; show code; "\n"] .                                
         _0
 
-(* receive qbits down qA, measure them, record the results *)
+(* receive qubits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q) .
@@ -89,6 +89,6 @@ BobReceive(n,bvs,qA,r,done) =
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
 
-System() = (let n = read_num "number of qbits")
+System() = (let n = read_num "number of qubits")
                 (new r,qc,bsc)
                 | Alice(n,r,qc,bsc) | Bob(n,r,qc,bsc) | Random(r)

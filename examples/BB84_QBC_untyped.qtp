@@ -1,4 +1,4 @@
-(* send values encoded in [basis] as qbits down channel [qB] *)
+(* send values encoded in [basis] as qubits down channel [qB] *)
 proc AliceSendBits (vs,basis,qB,done) =   
     match vs .
     + []    . done!() . _0
@@ -20,7 +20,7 @@ proc Alice(n, r, qB, vB, log) =
     | AliceSendBits (vs,basis,qB,done)
     | done?(_) . vB!basis,vs . _0
 
-(* receive qbits down qA, measure them, record the results *)
+(* receive qubits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
   if n=0 then done!rev bvs . _0
   else qA?(q).
@@ -103,7 +103,7 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
 proc Run (k, verbose, n, r) = Control (k, 0, verbose, 0, 0, 0, n, r)
 
 proc System() = (let k = read_num "number of trials")
-                (let n = read_num "number of qbits")
+                (let n = read_num "number of qubits")
                 (let verbose = read_bool "with commentary" "y" "n")
                 (new r)
                 | Run (k, verbose, n, r)

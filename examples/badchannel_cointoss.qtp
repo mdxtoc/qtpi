@@ -1,12 +1,12 @@
-(* this has a channel which carries both a qbit and
+(* this has a channel which carries both a qubit and
    a channel: no longer allowed.
  *)
 
-proc P(s:^(qbit,^qbit)) =  | s?(y,t) .        t!y . _0
-                            | s?(y,t) . y>>X . t!y . _0
+proc P(s:^(qubit,^qubit)) =  | s?(y,t) .        t!y . _0
+                             | s?(y,t) . y>>X . t!y . _0
                      
-proc Q(x: qbit, s:^(qbit,^qbit)) = 
-  x>>H . (new t:^qbit) s!x,t . t?(z) . z>>H . _0 
+proc Q(x: qubit, s:^(qubit,^qubit)) = 
+  x>>H . (new t:^qubit) s!x,t . t?(z) . z>>H . _0 
 
-proc System() = (newq x) (new s:^(qbit,^qbit)) | P(s) 
-                                               | Q(x,s)
+proc System() = (newq x) (new s:^(qubit,^qubit)) | P(s) 
+                                                 | Q(x,s)

@@ -1,11 +1,11 @@
 proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) = 
   
-  (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+  (* Decide on a number of qubits large enough to generate the code bits to encrypt M, 
      plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
-     message). We don't want the protocol to fail because we pick too few qbits, and 
+     message). We don't want the protocol to fail because we pick too few qubits, and 
      nSigma is the number of standard deviations we want to be away from that possibility.
      
-     In this simulation we can set nSigma so that Alice doesn't calculate enough qbits, 
+     In this simulation we can set nSigma so that Alice doesn't calculate enough qubits, 
      and when it does Alice just sends an empty message -- the againc channel is not 
      used.
           
@@ -34,17 +34,17 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
    *)
   
   
-  (* choose the basis and value for each qbit at random *)
+  (* choose the basis and value for each qubit at random *)
   (let bs = randbits n) 
   (let vs = randbits n)
   log!bs . log!vs                           .
   
-  (* send Bob the qbits I chose, tell me when it's done *)
+  (* send Bob the qubits I chose, tell me when it's done *)
   (new sent)
-  | SendQbits (zip bs vs, qc, sent)
+  | SendQubits (zip bs vs, qc, sent)
   | sent?(_)                               .
     
-    (* tell each other the qbit bases we used - me first *)
+    (* tell each other the qubit bases we used - me first *)
     (let h0 = hwc bs hks 0 w)
     bsc!h0,bs                              . (* send Bob my bases *)
     bsc?(h1,bBs)                           . (* receive his bases *)

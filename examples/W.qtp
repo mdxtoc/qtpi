@@ -36,7 +36,7 @@ proc Wmake (c,n) =
     . out!["W "; show k; " = "] . outq!qvals qs . out!["\n"]
     . if k=n then _0
       else 
-        . out!["discarding "; show (k-n); " qbits "]
+        . out!["discarding "; show (k-n); " qubits "]
         . (splitqs qs → q0s(k-n),qs)
         . q0s⌢⃫(bs)
         . out!["which measured "; show bs; ", leaving "] . outq!qvals qs 
@@ -45,5 +45,5 @@ proc Wmake (c,n) =
 
 proc System () =
   . (new c)
-  . (let n = read_num "how many qbits") 
+  . (let n = read_num "how many qubits") 
   . Wmake (c,n)

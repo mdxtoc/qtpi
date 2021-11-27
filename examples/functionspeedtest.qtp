@@ -11,12 +11,12 @@ fun read_min_int m s
     
 fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
 
-fun min_qbits k (s:num) cmin
+fun min_qubits k (s:num) cmin
   = ceiling (max (rootn*rootn) (rootnmin*rootnmin))
     where rootn = pos_root (3/8) (-s*(sqrt(3/32)+1/2)) (-k)
     where rootnmin = pos_root (1/8) (-s*sqrt(3/32)) (-cmin)
     
-fun calc n k nSigma cMin = if n=0 then 0 else calc (n-1) (q+k-q) nSigma cMin where q = min_qbits k nSigma cMin
+fun calc n k nSigma cMin = if n=0 then 0 else calc (n-1) (q+k-q) nSigma cMin where q = min_qubits k nSigma cMin
 
 proc Calc (n, M, w, cMin, nSigma) =
   (let k = calc n (length M + 5*w) nSigma cMin)

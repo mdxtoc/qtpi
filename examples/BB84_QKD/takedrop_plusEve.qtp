@@ -100,7 +100,7 @@ Bob(k, verbose, n, r:^bit, qA, bsA) =
         out!if verbose then ["Bob's code is "; show code; "\n"] else [] .                                
         Bob (k-1, verbose, n, r, qA, bsA)
   
-(* receive qbits down qA, measure them, record the results *)
+(* receive qubits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
     if n=0 then done!rev bvs . _0
     else qA?(q).
@@ -136,7 +136,7 @@ EvesDrop (n, bvs, r:^bit, qA, qB, done) =
 Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
 
 System() = (let k = read_num "number of trials")
-                (let n = read_num "number of qbits")
+                (let n = read_num "number of qubits")
                 (let s = read_string "with commentary (y/n)")
                 (let verbose = match s . 
                                + "y" . true 

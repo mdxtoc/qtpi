@@ -1,11 +1,11 @@
 
 proc 
-  Alice (x:qbit, c:^(bit,bit), z:qbit, log) = 
+  Alice (x:qubit, c:^(bit,bit), z:qubit, log) = 
     out!["initially Alice's z is "] . outq!(qval z) . out!["\n"] .
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . c!vz,vx . 
     log!() . _0 
 
-  Bob(y:qbit, c:^(bit,bit), log) = 
+  Bob(y:qubit, c:^(bit,bit), log) = 
     c?(b1,b2) . y>>phi (match (b1,b2) .
                          + (0b0,0b0) . 0
                          + (0b0,0b1) . 1
@@ -22,7 +22,7 @@ proc
     (let standard = read_bool "standard initial state or random" "s" "r")
     out!if standard then []
                     else ["\nThat, as you will see, can provoke some interesting results from the symbolic quantum calculator\n\n"] .
-    out!["See output for results -- can print but can't examine qbit state\n"] .
+    out!["See output for results -- can print but can't examine qubit state\n"] .
     Run (k, standard, 0)
 
   Run (k, standard, i) =
@@ -33,7 +33,7 @@ proc
          | log?(_) .
            Run (k, standard, i+1)
   
-  Experiment (x:qbit, y:qbit, log) =
+  Experiment (x:qubit, y:qubit, log) =
     x>>H . x,y>>CNot . 
     (new c:^(bit,bit))
     (newq z)

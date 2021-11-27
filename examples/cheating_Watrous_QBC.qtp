@@ -1,4 +1,4 @@
-proc Alice(qc:^qbit, bbc:^(bit,bit)) =
+proc Alice(qc:^qubit, bbc:^(bit,bit)) =
     (newq qx=|0>,qw=|0>)
     qx >> H . qx,qw >> CNot .
     qc!qx           .
@@ -8,7 +8,7 @@ proc Alice(qc:^qbit, bbc:^(bit,bit)) =
     bbc!value,basis . 
     _0
         
-proc Bob(qc:^qbit, bbc:^(bit,bit)) =
+proc Bob(qc:^qubit, bbc:^(bit,bit)) =
     qc?(qx)             .
     bbc?(value,basis)   .
     qx -/- [if basis=0b1 then H else I] (measure) .
@@ -16,5 +16,5 @@ proc Bob(qc:^qbit, bbc:^(bit,bit)) =
     _0
     
 proc System() = 
-    (new qc:^qbit, bbc:^((bit,bit)))
+    (new qc:^qubit, bbc:^((bit,bit)))
     | Alice(qc,bbc) | Bob(qc,bbc) 

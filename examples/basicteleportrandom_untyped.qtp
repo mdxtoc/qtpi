@@ -8,7 +8,7 @@ proc
     (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
   
   Alice (cA, cAB) = 
-    cA?(x:qbit) .
+    cA?(x:qubit) .
     (newq z) ⁁1
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
     cAB!vz,vx . 
@@ -17,7 +17,7 @@ proc
                                                         outq!(qval z) . out!["\n"] . _0
 
   Bob(cB, cAB) = 
-    cB?(y:qbit) .
+    cB?(y:qubit) .
     cAB?(pair) . 
     y >> match pair . + (0b0,0b0) . I
                       + (0b0,0b1) . X

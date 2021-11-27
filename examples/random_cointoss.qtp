@@ -1,15 +1,15 @@
-(* given a random qbit (a|0>+b|1>), this may terminate with
+(* given a random qubit (a|0>+b|1>), this may terminate with
    either a|0>+b|1> or a|0>-b|1>. Interesting, eh? Only 
-   'really' works if the initial qbit is |0> or |+> 
+   'really' works if the initial qubit is |0> or |+> 
    -- i.e. an unfair coin.
  *)
 
-proc P(fromQ:^qbit, toQ:^qbit) = + fromQ?(y) . toQ!y . _0
-                                 + fromQ?(y) . y>>X . toQ!y . _0
+proc P(fromQ:^qubit, toQ:^qubit) = + fromQ?(y) . toQ!y . _0
+                                   + fromQ?(y) . y>>X . toQ!y . _0
                      
-proc Q(x: qbit, toP:^qbit, fromP:^qbit) = 
+proc Q(x: qubit, toP:^qubit, fromP:^qubit) = 
   x>>H . toP!x . fromP?(z) . z>>H . _0 
 
 proc System() = (newq x) 
-                (new s:^qbit, r:^qbit) 
+                (new s:^qubit, r:^qubit) 
                 | P(s, r) | Q(x,s,r)

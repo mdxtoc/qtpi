@@ -6,7 +6,7 @@ proc
     . | Alice(x,c) 
       | Bob(y,c)
 
-  Alice (x:qbit, c:^(bit,bit)) = 
+  Alice (x:qubit, c:^(bit,bit)) = 
     . (newq z) . ⁁ 1
     . z,x>>CNot . z>>H . z⌢̸(vz) . x⌢̸(vx) . ⁁ 2 
     . c!vz,vx
@@ -17,7 +17,7 @@ proc
                              2: out!["Alice measured "; show (vz,vx); "\n"] .
                                 _0
 
-  Bob(y:qbit, c:^(bit,bit)) = 
+  Bob(y:qubit, c:^(bit,bit)) = 
     . c?(pair) 
     . y >> match pair . + (0b0,0b0) . I
                         + (0b0,0b1) . X

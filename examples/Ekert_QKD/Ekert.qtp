@@ -8,7 +8,7 @@ proc System() =
   (let n = read_num "number of trials")
   (let m = read_num "length of message")
   (let verbose = read_bool "with commentary" "y" "n")
-  (let nq = ceiling (min_qbits m (2/9) 8))
-  out![show nq; " qbit pairs per trial\n"] .
+  (let nq = ceiling (min_qubits m (2/9) 8))
+  out![show nq; " qubit pairs per trial\n"] .
   (new qcA,qcB) | Source(qcA,qcB)
                 | Control(qcA,qcB,n,0,nq,m,verbose)

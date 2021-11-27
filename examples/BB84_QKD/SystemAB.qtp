@@ -10,15 +10,15 @@ proc System() =
   (let nSigma = read_min_int 0 "number of sigmas")
   (let k = read_min_int 1 "number of trials")
   (let verbose = read_bool "with commentary" "y" "n")
-  (* Decide on a number of qbits large enough to generate the code bits to encrypt M, 
+  (* Decide on a number of qubits large enough to generate the code bits to encrypt M, 
      plus enough to generate 5 Wegman-Carter hash keys (each w bits, one for each protocol 
-     message). We don't want the protocol to fail because we pick too few qbits, and 
+     message). We don't want the protocol to fail because we pick too few qubits, and 
      nSigma is the number of standard deviations we want to be away from that possibility.
    
-     For the basis of the calculation in min_qbits, see QKD_results.md 
+     For the basis of the calculation in min_qubits, see QKD_results.md 
    *)
   . (let cmin = c+nSigma*sqrt c) 
-  . (let N = min_qbits (m+cmin+nSigma*sqrt c+5*w) nSigma)  
+  . (let N = min_qubits (m+cmin+nSigma*sqrt c+5*w) nSigma)  
   . Run (k, verbose, N, m, cmin, w)
            
 Run (k, verbose, N, m, c, w) = 

@@ -1,11 +1,11 @@
 proc
-System() = (new cA:^qbit,cB:^qbit,cAB:^qbit) 
+System() = (new cA:^qubit,cB:^qubit,cAB:^qubit) 
                 | Alice(cA,cAB) | Bob(cB,cAB) | EPR(cA,cB)
 
-EPR(cA:^qbit,cB:^qbit) = 
+EPR(cA:^qubit,cB:^qubit) = 
   (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
 
-Alice (cA:^qbit, cAB:^qbit) =
+Alice (cA:^qubit, cAB:^qubit) =
   (let pair:(bit,bit) = (randbit(), randbit())) ⁁1
   cA?(x) . x >> match pair .
                + (0b0,0b0) . I
@@ -15,7 +15,7 @@ Alice (cA:^qbit, cAB:^qbit) =
   cAB!x . _0
                                 with 1: out!["Alice decides to send "; show pair; "\n"] . _0
 
-Bob(cB:^qbit, cAB:^qbit) =
+Bob(cB:^qubit, cAB:^qubit) =
   cB?(y) . cAB?(x) . 
   x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . ⁁2
   _0

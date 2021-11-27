@@ -1,17 +1,17 @@
 proc Alice(M, N, w, hks, qc, bsc, log) = 
   (* M: message; N: number of qubits *)
   
-  (* choose the basis and value for each qbit at random *)
+  (* choose the basis and value for each qubit at random *)
   . (let bs = randbits N) 
   . (let vs = randbits N)
   . ⁁1
   
-  (* send Bob the qbits I chose, tell me when it's done *)
+  (* send Bob the qubits I chose, tell me when it's done *)
   . (new sent)
-  | . SendQbits (zip bs vs, qc, sent)
+  | . SendQubits (zip bs vs, qc, sent)
   | . sent?(_)
     
-    (* tell each other the qbit bases we used - me first *)
+    (* tell each other the qubit bases we used - me first *)
     . (let h0 = hwc bs hks 0 w)
     . bsc!h0,bs                              (* send Bob my bases *)
     . bsc?(h1,bBs)                           (* receive his bases *)

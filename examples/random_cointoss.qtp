@@ -4,8 +4,7 @@
    -- i.e. an unfair coin.
  *)
 
-proc P(fromQ:^qubit, toQ:^qubit) = + fromQ?(y) . toQ!y . _0
-                                   + fromQ?(y) . y>>X . toQ!y . _0
+proc P(fromQ:^qubit, toQ:^qubit) = fromQ?(y) . y>>(if randbool () then X else I) . toQ!y . _0
                      
 proc Q(x: qubit, toP:^qubit, fromP:^qubit) = 
   x>>H . toP!x . fromP?(z) . z>>H . _0 

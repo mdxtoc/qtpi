@@ -1,7 +1,7 @@
 (* bad use of x in Q -- even though it's the same qubit really *)
 
-proc P(fromQ:^qubit, toQ:^qubit) = | fromQ?(y) . toQ!y . _0
-                                   | fromQ?(y) . y>>X . toQ!y . _0
+proc P(fromQ:^qubit, toQ:^qubit) = + fromQ?(y) . toQ!y . _0
+                                   + fromQ?(y) . y>>X . toQ!y . _0
                      
 proc Q(x: qubit, toP:^qubit, fromP:^qubit) = 
   x>>H . toP!x . fromP?(z) . x>>H . _0 

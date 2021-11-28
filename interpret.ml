@@ -179,10 +179,7 @@ let rec interp pn rtenv procstart =
           *)
            Printf.printf "\n%s\n" (string_of_stepcount ());
          if !traceevents then
-           (Printf.printf "\nEvent Trace:\n\n";
-            Event.show_trace ();
-            Printf.printf "\n"
-           )
+           Event.show_trace ()
         )
       else
         (if !verbose || !verbose_interpret then

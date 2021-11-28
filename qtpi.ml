@@ -98,6 +98,8 @@ let _ = ((match !Usage.files with
                   | exn                    -> Printf.eprintf "\n\n** unexpected exception %s **\n"
                                                             (Printexc.to_string exn)
          ); (* end of match *)
+         if !traceevents then
+           Event.show_trace ();
          exit 1
         )
         

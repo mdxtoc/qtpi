@@ -217,7 +217,10 @@ and so_chan optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq}
 and short_so_chan optf t {cname=i} =
     string_of_zint i
     
-and so_env optf (rtenv:rtenv) = "{<rtenv>}"
+and so_env optf (rtenv:rtenv) = 
+  Printf.sprintf "{%x❮%s❯}" 
+                 (Obj.magic rtenv: int)
+                 (String.concat "," (List.map (fun v -> Printf.sprintf "%x" (to_qubit v))(Array.to_list rtenv)))
 
 and short_so_env optf = so_env optf 
   

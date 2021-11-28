@@ -469,7 +469,12 @@ let _ones = ref z_0
 
 let rec qmeasure disposes pn gate q = 
   if gate = g_I then (* computational measure *)
-    (let qs, (vm,vv as v) = qval q in
+    ((* Printf.printf "qmeasure %B %s %s %s\n"
+                     disposes
+                     (Name.string_of_name pn)
+                     (string_of_gate gate)
+                     (string_of_qubit q); *)
+     let qs, (vm,vv as v) = qval q in
      let nv = vsize vv in
      (* make q first in qs: it simplifies life no end *)
      let qs, (_, vv) = make_first qs v (idx q qs) in

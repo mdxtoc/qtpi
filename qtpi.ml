@@ -41,7 +41,8 @@ exception Error of string
 let parsefile opts usage filename =
   Parseutils.parse_program filename
 
-let _ = ((match !Usage.files with 
+let _ = (let execute = ref false in
+         (match !Usage.files with 
           | [] -> if not !Usage.ok_nofiles then print_string ("\nno file specified") 
           | fs -> try (* check the library has parseable types *)
                       (try List.iter (fun (n,s,v) -> ignore (Parseutils.parse_typestring s)) !Library.knowns
@@ -56,12 +57,14 @@ let _ = ((match !Usage.files with
                       if !Settings.resourcecheck then
                         Resource.resourcecheck defs;
                       if !Settings.interpret then
-                        interpret defs;
-                      if !Settings.checkrandombias then
-                        Number.(Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
-                                                     (string_of_zint !Library._zeroes) (string_of_zint !Library._ones)
-                                                     (string_of_zint !Qsim._zeroes) (string_of_zint !Qsim._ones)
-                               );
+                        (execute := true;
+                         interpret defs;
+                         if !Settings.checkrandombias then
+                           Number.(Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
+                                                        (string_of_zint !Library._zeroes) (string_of_zint !Library._ones)
+                                                        (string_of_zint !Qsim._zeroes) (string_of_zint !Qsim._ones)
+                                  )
+                        );
                       exit 0
                   with 
                   | Interpret.Disaster (pos, s) -> Printf.eprintf "\n\n** interpret disaster ** %s: %s\n"
@@ -98,7 +101,7 @@ let _ = ((match !Usage.files with
                   | exn                    -> Printf.eprintf "\n\n** unexpected exception %s **\n"
                                                             (Printexc.to_string exn)
          ); (* end of match *)
-         if !traceevents then
+         if !execute && !traceevents then
            Event.show_trace ();
          exit 1
         )

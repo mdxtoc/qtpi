@@ -501,7 +501,7 @@ let rec interp pn rtenv procstart =
                deleteactive pn;
                let npns = 
                  List.fold_left  (fun ns (i,proc) -> let n = name_of_procname pn ^ "." ^ string_of_int i, ref_of_procname pn in
-                                                     addrunner true (n, proc, Array.copy rtenv);
+                                                     addrunner true (n, proc, rtenv); (* parallel processes now share an environment! See tidemark_par in Compile *)
                                                      name_of_procname n::ns
                                  ) 
                                  []

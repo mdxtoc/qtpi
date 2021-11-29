@@ -106,6 +106,12 @@ let tidemark_f : (ctenv -> 'x -> ctenv * 'r) -> ctenv -> 'x -> ctenv * 'r =
     let ctenv', r = compile ctenv x in
     tidemark ctenv ctenv', r
     
+(* but in Par it's different: the next parallel process has to start binding from the tidemark of the previous *)
+let tidemark_par : (ctenv -> 'x -> ctenv * 'r) -> ctenv -> 'x -> ctenv * 'r =
+  fun compile ctenv x ->
+    let ctenv', r = compile {ctenv with hw=ctenv.nx} x in
+    {(tidemark ctenv ctenv') with nx=ctenv'.hw}, r
+    
 let rtenv_init pos n frees ctenv =
   let ctenvl = add_ctnames empty_ctenv frees in
   let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
@@ -633,7 +639,7 @@ let rec compile_proc : name -> ctenv -> process -> ctenv * cprocess = fun pn cte
                            tidemark ctenv ctenvc, adorn (CPMatch (ef, fcpm))
   | GSum ioprocs        -> let ctenv, cioprocs = compile_multi (tidemark_f (compile_ioproc pn)) ctenv ioprocs in
                            ctenv, adorn (CGSum cioprocs)
-  | Par procs           -> let ctenv, cprocs = compile_multi (tidemark_f (compile_proc pn)) ctenv procs in
+  | Par procs           -> let ctenv, cprocs = compile_multi (tidemark_par (compile_proc pn)) ctenv procs in
                            let isCGoOnAs cp = match cp.inst with CGoOnAs _ -> true | _ -> false in
                            let contns = List.filter (not <.> isCGoOnAs) cprocs in
                            ctenv, (match contns with

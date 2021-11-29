@@ -56,15 +56,13 @@ let _ = (let execute = ref false in
                       matchcheck defs;
                       if !Settings.resourcecheck then
                         Resource.resourcecheck defs;
-                      if !Settings.interpret then
-                        (execute := true;
-                         interpret defs;
-                         if !Settings.checkrandombias then
-                           Number.(Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
-                                                        (string_of_zint !Library._zeroes) (string_of_zint !Library._ones)
-                                                        (string_of_zint !Qsim._zeroes) (string_of_zint !Qsim._ones)
-                                  )
-                        );
+                      execute := !Settings.interpret;
+                      interpret !Settings.interpret defs; (* always call interpret because it calls compile *)
+                      if !Settings.interpret && !Settings.checkrandombias then
+                        Number.(Printf.printf "randbit bias %s/%s; measure bias %s/%s\n"
+                                                     (string_of_zint !Library._zeroes) (string_of_zint !Library._ones)
+                                                     (string_of_zint !Qsim._zeroes) (string_of_zint !Qsim._ones)
+                               );
                       exit 0
                   with 
                   | Interpret.Disaster (pos, s) -> Printf.eprintf "\n\n** interpret disaster ** %s: %s\n"

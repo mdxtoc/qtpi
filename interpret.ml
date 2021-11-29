@@ -582,7 +582,7 @@ let compile_def : defassoc -> def -> defassoc = fun (ctenv, ds) ->
                            let ctenv, fpat = env_cpat ctenv pat in
                            ctenv, CDlet (fe, fpat)::ds
 
-let interpret defs =
+let interpret execute defs =
   Random.self_init(); (* for all kinds of random things *)
   (* add the library stuff *)
   let ctenv, ds = 
@@ -637,8 +637,11 @@ let interpret defs =
                                          rtenv.(i) <- v
             )
             (List.rev ds);
-  (* typecheck has ensured that System exists and has a null parameter list *)
-  let sys_f = to_procv (rtenv.(ctenv<?>(dummy_spos,"System"))) in 
-  let pn, rtenv, sys_proc = sys_f [] in 
-  flush_all(); 
-  interp pn rtenv sys_proc
+  (* here we go: this is where interpretation starts *)
+  if execute then 
+  ((* typecheck has ensured that System exists and has a null parameter list *)
+   let sys_f = to_procv (rtenv.(ctenv<?>(dummy_spos,"System"))) in 
+   let pn, rtenv, sys_proc = sys_f [] in 
+   flush_all(); 
+   interp pn rtenv sys_proc
+  )

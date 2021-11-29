@@ -595,9 +595,11 @@ let interpret defs =
   in
   (* add standard channels *)
   let definitely_add (ctenv,ds) (name, c) =
-    if List.mem name (snd ctenv) then raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name))
-    else let ctenv, i = ctenv<+?>name in
-         ctenv, CDlib (i, of_chan (mkchan c true))::ds
+    (try let _ = ctenv<?>(dummy_spos,name) in raise (LibraryError ("Whoops! Library has re-defined standard channel " ^ name)) 
+     with CompileError _ -> ()
+    );
+    let ctenv, i = ctenv<+?>name in
+    ctenv, CDlib (i, of_chan (mkchan c true))::ds
   in
   let ctenv,ds = List.fold_left definitely_add (ctenv, ds) 
                                                [("dispose", dispose_c); 
@@ -615,7 +617,7 @@ let interpret defs =
   if !verbose || !verbose_interpret then
     Printf.printf "from definitions ctenv = %s\n\n" (string_of_ctenv ctenv);
   (* now make an rtenv out of it ... *)
-  let rtenv = Array.make (fst ctenv) (of_unit ()) in
+  let rtenv = Array.make ctenv.hw (of_unit ()) in
   List.iter (function 
              | CDproc (i,(name,envf)) -> if !verbose || !verbose_interpret then 
                                            (Printf.printf "CDproc initialises process %s at %d(%s)\n" name i (ctenv<-?>(dummy_spos,i));

@@ -51,31 +51,39 @@ open Vt
 exception CompileError of sourcepos * string
 exception ExecutionError of sourcepos * string
 
-type ctenv = int * name list    (* int is maxextent of environment *)
+(* ctenv type has changed, because Par needs more careful treatment. 
+   nx: next free slot
+   hw: highwater mark
+   slots: assoc list
+ *)
+ 
+type ctenv = { nx: int; hw: int; slots: (name*int) list}    
 
-let string_of_ctenv = bracketed_string_of_pair string_of_int (bracketed_string_of_list string_of_name)
+let string_of_ctenv ctenv = 
+  Printf.sprintf "{nx=%d;hw=%d;slots=(%s)}" 
+       ctenv.nx ctenv.hw
+       (string_of_assoc string_of_name string_of_int ":" ";" ctenv.slots)
 
-let empty_ctenv = (0,[])
+let empty_ctenv = {nx=0;hw=0;slots=[]}
 
-let (<+>) ctenv name =
-  let n, names = ctenv in
-  max n (List.length names + 1), name::names
+let (<+>) {nx=nx;hw=hw;slots=slots} name =
+  {nx=nx+1; hw=Stdlib.max hw (nx+1); slots=(name,nx)::slots} 
   
-let (<?>) (n, names as ctenv) (pos,name) = 
-  let tail = dropwhile ((<>)name) names in
-  match tail with
-  | [] -> raise (CompileError (pos, Printf.sprintf "%s not in ctenv %s" (string_of_name name) (string_of_ctenv ctenv)))
-  | _  -> List.length tail - 1
+let (<?>) ctenv (pos,name) = 
+  try ctenv.slots <@> name 
+  with Not_found ->
+    raise (CompileError (pos, Printf.sprintf "%s not in ctenv %s" (string_of_name name) (string_of_ctenv ctenv)))
 
 let (<+?>) ctenv name =
   let ctenv = ctenv<+> name in
   ctenv, ctenv<?>(dummy_spos,name)
 
 (* reverse lookup *)
-let (<-?>) (_,names as ctenv) (pos,i) =
-  try List.nth (List.rev names) i
-  with _ -> raise (CompileError (pos, Printf.sprintf "%s<-?>%d" (string_of_ctenv ctenv) i))
-let tidemark (n,names) (n',_) = max n n', names
+let (<-?>) ctenv (pos,i) =
+  try invassoc ctenv.slots i
+  with Not_found -> raise (CompileError (pos, Printf.sprintf "%s<-?>%d" (string_of_ctenv ctenv) i))
+
+let tidemark ctenv ctenv' = {ctenv with hw=max ctenv.hw ctenv'.hw}
 
 let add_ctnames = List.fold_left (<+>)
 
@@ -99,7 +107,7 @@ let tidemark_f : (ctenv -> 'x -> ctenv * 'r) -> ctenv -> 'x -> ctenv * 'r =
     tidemark ctenv ctenv', r
     
 let rtenv_init pos n frees ctenv =
-  let ctenvl = add_ctnames (n,[]) frees in
+  let ctenvl = add_ctnames empty_ctenv frees in
   let pairs = List.map (fun f -> ctenvl<?>(pos,f), ctenv<?>(pos,f)) frees in
   fun rtenv -> 
     let rtenv' = Array.make n (of_unit ()) in
@@ -546,7 +554,7 @@ and compile_fun : sourcepos -> ctenv -> pattern list -> expr -> (rtenv -> vt -> 
     let frees = NameSet.elements (Expr.frees_lambda pats expr) in
     let ctenvl = add_ctnames empty_ctenv frees in
     let ctenvl, lf = cl ctenvl pats in (* we need the tidemark *)
-    let mkenv = rtenv_init pos (fst ctenvl) frees ctenv in
+    let mkenv = rtenv_init pos ctenvl.hw frees ctenv in
     fun rtenv v -> let rtenv' = mkenv rtenv in lf rtenv' v (* delay the new-environment creation, for the sake of recursive functions *)
 
 and hide_fun : (rtenv -> vt -> vt) -> (rtenv -> vt) = Obj.magic
@@ -689,7 +697,7 @@ and compile_pdecl pos prefix ctenv (brec,pn,params,proc as pdecl) = (* doesn't r
   let ctenvp, cproc = compile_proc pn ctenvp proc in
   let offset = List.length frees in
   let nums = tabulate (List.length params) (fun i -> i+offset) in
-  let mkenv = rtenv_init pos (fst ctenvp) frees ctenv in
+  let mkenv = rtenv_init pos ctenvp.hw frees ctenv in
   let airef = ref (0,0) in
   let newpn () = 
     match !airef with

@@ -62,6 +62,11 @@ let (<@@+>)       = (<@+>)
 let (<@->) xys x = List.remove_assoc x xys
 let (<@@->) xys x = List.remove_assq x xys
 
+let rec invassoc xys y =
+  match xys with 
+  | [] -> raise Not_found
+  | (x,y')::xys -> if y=y' then x else invassoc xys y
+
 let string_of_list fx sep xs = String.concat sep (List.map fx xs)
 
 let bracketed_string_of_list fx xs = "[" ^ string_of_list fx ";" xs ^ "]"

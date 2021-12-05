@@ -21,6 +21,8 @@
     (or look at http://www.gnu.org).
 *)
 
+(* should be called srational *)
+
 open Settings
 open Forutils
 open Listutils
@@ -76,10 +78,22 @@ type s_el =
   | S_g 
   | S_symb of s_symb                 
 
-and s_symb = { id: int; alpha: bool; conj: bool; secret: float*float}
-             (* k,      false=a_k, true=b_k, 
-                                     conjugated, both random floats s.t. a_k**2+b_k**2 = 1; 
-                                                      each s.t. 0<=float<=1.0 *)
+and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
+           (* false=a /true=b,
+                           false=real / true=imaginary, (* only true when !complexunknowns *)
+                                      shared inf.
+              -- note choice of false/true alternatives because false sorts before true,
+                 so a before b, real before imaginary
+            *)
+
+and symrec = {id: int; secret: (float*float)*(float*float)} 
+             (* k,     
+                       secret amplitudes for a (re,im) and b (re,im)
+                       -- note a before b, real before imaginary
+                       -- never used in simplifying
+                       -- total of the four must be 1.0
+                       -- if not !complexunknowns then im parts will be 0.0
+              *)
              
 and sprod = num * s_el list         (* a product*)
 
@@ -119,7 +133,7 @@ let snum_h :snum = [sprod_h]
 let snum_t :snum = [(num_1,[S_sqrt third])]
 
 let sprod_f      = (num_1,[S_f])
-let sprod_hf     = (num_1,[s_el_h; S_f])
+let sprod_fh     = (num_1,[S_f; s_el_h])
 
 let snum_f :snum = [sprod_f]
 
@@ -136,13 +150,33 @@ let snum_symb symb :snum = [(num_1,[S_symb symb])]
      | []       -> false (* because it's zero *)
  *)  
 
+let fp_h2 = 0.5
+let fp_h = sqrt fp_h2
+let fp_f2 = (1.0 +. fp_h) /. 2.0
+let fp_f = sqrt fp_f2
+let fp_g2 = (1.0 -. fp_h) /. 2.0
+let fp_g = sqrt fp_g2
+
+let float_of_el = function
+  | S_sqrt x    -> sqrt (Q.to_float x)
+  | S_f         -> fp_f
+  | S_g         -> fp_g
+  | S_symb symb -> let a,b = symb.idsecret.secret in 
+                   let re,im = if symb.alpha then b else a in (* false is a *)
+                   if symb.imr then im else re                (* false is re *)
+
+let string_of_symrec symrec =
+  Printf.sprintf "{id=%d; secret=((%f,%f),(%f,%f))}"
+                   symrec.id
+                   (fst(fst symrec.secret)) (snd(fst symrec.secret))
+                   (fst(snd symrec.secret)) (snd(snd symrec.secret))
+                   
 let string_of_el_struct = function
   | S_sqrt n    -> Printf.sprintf "r(%s)" (string_of_num n)
   | S_f         -> "f"            
   | S_g         -> "g"
-  | S_symb symb -> let a,b = symb.secret in
-                   Printf.sprintf "{id=%d; alpha=%B; conj=%B secret=(%f,%f)}" 
-                            symb.id symb.alpha symb.conj a b
+  | S_symb symb -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
+                             symb.alpha symb.imr (string_of_symrec symb.idsecret)
 
 let string_of_els_struct = bracketed_string_of_list string_of_el_struct
 
@@ -151,6 +185,10 @@ let string_of_prod_struct = bracketed_string_of_pair string_of_num string_of_els
 let string_of_snum_struct = bracketed_string_of_list string_of_prod_struct 
 
 let string_of_snum_structs = bracketed_string_of_list string_of_snum_struct 
+
+let dagger_string = "†"
+let re_string = "𝕣"
+let im_string = "𝕚"
 
 let string_of_el e = 
   match !fancynum with
@@ -162,11 +200,11 @@ let string_of_el e =
                                                         Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
-      | S_symb symb -> Printf.sprintf "%s%s%s%s" 
+      | S_symb symb -> Printf.sprintf "%s%d%s%s" 
                                   (if symb.alpha then "b" else "a") 
-                                  (string_of_int symb.id) 
-                                  (if symb.conj then "†" else "")
-                                  (if !showabvalues then let a, b = symb.secret in Printf.sprintf "[%f,%f]" a b else "")
+                                  symb.idsecret.id 
+                                  (if symb.imr then im_string else re_string)
+                                  (if !showabvalues then Printf.sprintf "[%f]" (float_of_el e) else "")
   
 let string_of_els es = 
   (match !fancynum with
@@ -236,22 +274,9 @@ let make_snum_h k =
     let els = if k mod 2 = 1 then [s_el_h] else [] in
     [(n,els)]
 
-let fp_h2 = 0.5
-let fp_h = sqrt fp_h2
-let fp_f2 = (1.0 +. fp_h) /. 2.0
-let fp_f = sqrt fp_f2
-let fp_g2 = (1.0 -. fp_h) /. 2.0
-let fp_g = sqrt fp_g2
-
 let rec to_float = 
-  let compute_el = function
-    | S_sqrt x    -> sqrt (Q.to_float x)
-    | S_f         -> fp_f
-    | S_g         -> fp_g
-    | S_symb symb -> let a,b = symb.secret in if symb.alpha then b else a
-  in
   let compute_prod (n,els) =
-    Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map compute_el els))
+    Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map float_of_el els))
   in
   List.fold_left ( +. ) 0.0 <.> List.map compute_prod
 
@@ -263,18 +288,6 @@ let sort compare ss =
     | _                   -> ss
   in
   check ss
-
-(* an snum is usually a real. But not always ... *)
-let rconj (s:snum) = 
-  let rec rc_el = function
-    | S_sqrt _
-    | S_f              
-    | S_g           -> None
-    | S_symb symb   -> Some (S_symb {symb with conj=not symb.conj})
-  and rc_prod (n,els) =
-    optmap_any rc_el els &~~ (fun els' -> Some (n,els'))
-  in
-  if !complexunknowns then (optmap_any rc_prod ||~ id) s else s
 
 let rmult_num sn n =
   if n=/num_0 then snum_0  else 
@@ -329,8 +342,8 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
 (*          | S_g      ::             ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
               when hn>=3                 -> sp (S_f :: els) (hn-3) (S_g :: S_g :: ss)) 
  *)
-            | S_sqrt a   :: S_g    :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so hg = f(1-h) *)
-              when a=/half               -> premult [sprod_f; sprod_neg sprod_hf] n ss
+            | S_g      :: S_sqrt a :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
+              when a=/half               -> premult [sprod_f; sprod_neg sprod_fh] n ss
             | s                    :: ss -> sp (s::els) n ss
             | []                         -> None, n, sort elcompare (List.rev els)
           in
@@ -379,19 +392,48 @@ and simplify_sum ps =
             r
           in
           let rec a2b2 p ps = (* looking for X*aa!Y+X*bb!Y to replace with XY. Sorting doesn't always make aa! and bb! next to each other in ps *)
+                              (* and now we have real and imaginary parts ... *)
             let n,els = p in
             let rec find pres els =
               match els with 
-              | S_symb ({id=q1; alpha=false; conj=false} as symb1) :: 
-                S_symb ({id=q2; alpha=false; conj=c    } as symb2) :: els 
-                          when q1=q2 && c = !complexunknowns 
+              | S_symb ({alpha=false; imr=false; idsecret={id=q1}} as symb1) :: 
+                S_symb ({alpha=false; imr=false; idsecret={id=q2}} as symb2) :: els (* we have found a.re*a.re, or a*a if not !complexunknowns *)
+                          when q1=q2 
                           -> 
                   let remake post = n, prepend pres post in
+                  let fail () = find (S_symb symb2::S_symb symb1::pres) els in
                   let p' = remake (S_symb {symb1 with alpha=true} :: S_symb {symb2 with alpha=true} :: els) in
                   if !verbose_simplify then 
-                    Printf.printf "a2b2.find looking for %s in %s\n" (string_of_prod p') (string_of_snum ps);
-                  if List.exists ((=) p') ps then Some (remake els, Listutils.remove p' ps)
-                                             else find (S_symb symb2::S_symb symb1::pres) els
+                    Printf.printf "a2b2.find looking for %s (b.re*b.re) in %s\n" (string_of_prod p') (string_of_snum ps);
+                  if List.exists ((=) p') ps 
+                  then (
+                    (* we have also found b.re*b.re *)
+                    let ps' = Listutils.remove p' ps in
+                    if !complexunknowns 
+                    then ( (* search for a.im*a.im and b.im*b.im *)
+                      let pa' = remake (S_symb {symb1 with imr=true} :: S_symb {symb2 with imr=true} :: els) in
+                      if !verbose_simplify then 
+                        Printf.printf "a2b2.find looking for %s (a.im*a.im) in %s\n" (string_of_prod pa') (string_of_snum ps);
+                      if List.exists ((=) pa') ps' then (
+                        let pb' = remake (S_symb {symb1 with alpha=true; imr=true} :: S_symb {symb2 with alpha=true; imr=true} :: els) in
+                        if !verbose_simplify then 
+                          Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_prod pb') (string_of_snum ps);
+                        if List.exists ((=) pb') ps' then (
+                          if !verbose_simplify then 
+                            Printf.printf "a2b2.find success! (complex unknown)\n";
+                          Some (remake els, Listutils.remove pb' (Listutils.remove pa' ps'))
+                        )
+                        else fail ()
+                      )
+                      else fail ()
+                    )
+                    else (
+                      if !verbose_simplify then 
+                        Printf.printf "a2b2.find success! (real unknown)\n";
+                      Some (remake els, ps') (* re parts will do for real unknowns*)
+                    )
+                  )
+                  else fail ()
               | el :: els  -> find (el::pres) els
               | _          -> None
             in
@@ -408,11 +450,11 @@ and simplify_sum ps =
             | (n1,es1) :: (n2,es2) :: ps 
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
-            (* f(1-h) = gh -- commented out for now 
-            | (sg,j,(S_f :: es)) :: ps
-                   when List.exists ((=) (not sg,j+1,S_f :: es)) ps
-                                                  -> sps true ((sg,j+1,S_g :: es) :: r) 
-                                                             (Listutils.remove (not sg,j+1,S_f :: es) ps)
+            (* -2fh+f = g  commented out
+            | (n1,(S_f :: S_sqrt a :: es)) :: ps
+                   when a=/half && List.exists ((=) (n1//(~-/num_2),S_f :: es)) ps
+                                                  -> sps true ((n1//(~-/num_2),S_g :: es) :: r) 
+                                                              (Listutils.remove (n1//(~-/num_2),S_f :: es) ps)
              *)
             (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
             | p                  :: ps            -> (match a2b2 p ps with
@@ -580,29 +622,9 @@ let simplify_csum = function
 
 let cdiff c1 c2 = csum c1 (cneg c2)
 
-let cconj (C(x,y)) = intern (C (rconj x, rneg (rconj y)))
+let cconj (C(x,y)) = intern (C (x, rneg y))
 
-let absq  (C(x,y) as c) = (* this is going to cost me ... *)
-  let x',y' = rconj x, rconj y in
-  if x=x' && y=y' || y=snum_0 then rsum (rprod x x') (rprod y y')
-  else (let c' = cconj c in 
-        if !verbose || !verbose_simplify then
-          Printf.printf "**Here we go: |%s|^2 is (%s)*(%s)\n"
-                              (string_of_csnum c)
-                              (string_of_csnum c)
-                              (string_of_csnum c');
-        let C(rx,ry) as r = cprod c c' in
-        if ry=snum_0 then (if !verbose || !verbose_simplify then Printf.printf "phew! that worked -- %s\n" (string_of_snum rx); 
-                        rx
-                       )
-        else raise (Disaster (Printf.sprintf "|%s|^2 is (%s)*(%s) = %s"
-                                              (string_of_csnum c)
-                                              (string_of_csnum c)
-                                              (string_of_csnum c')
-                                              (string_of_csnum r)
-                             )
-                   )
-       )
+let absq  (C(x,y)) = rsum (rprod x x) (rprod y y)
 
 (* we can't really divide 
     let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)

@@ -286,12 +286,33 @@ let newqubits, disposequbits, record, string_of_qfrees, string_of_qlimbo = (* hi
                 | Some bk  -> bk
                 | None     -> if !Settings.symbq then
                                 ((* this could be a bug if we used qfrees *)
-                                 let pa_sq = Random.float 1.0 in
-                                 let pb_sq = 1.0 -. pa_sq in
-                                 let ab = sqrt(pa_sq), sqrt(pb_sq) in
-                                 make_nv [csnum_of_snum (snum_symb {id=q; alpha=false; conj=false; secret=ab}); 
-                                          csnum_of_snum (snum_symb {id=q; alpha=true;  conj=false; secret=ab})
-                                         ] 
+                                 let pa = Random.float 1.0 in
+                                 let pb = 1.0 -. pa in
+                                 let split_p p =
+                                   if !complexunknowns then (
+                                     let re = Random.float p in
+                                     re, p -. re
+                                   )
+                                   else p, 0.0
+                                 in
+                                 let pare, paim = split_p pa in
+                                 let pbre, pbim = split_p pb in
+                                 let signed_a p = 
+                                   let a = Float.sqrt p in
+                                   if Random.bool () then a else ~-. a
+                                 in
+                                 let symrec = {id=q; secret=((signed_a pare, signed_a paim),
+                                                             (signed_a pbre, signed_a pbim))}
+                                 in
+                                 let num alpha = 
+                                   if !complexunknowns then
+                                     C(snum_symb{alpha=alpha; imr=false; idsecret=symrec},
+                                       snum_symb{alpha=alpha; imr=true; idsecret=symrec}
+                                      )
+                                   else
+                                     csnum_of_snum (snum_symb{alpha=alpha; imr=false; idsecret=symrec})
+                                 in
+                                 make_nv [num false; num true] 
                                 )
                               else (* random basis, random fixed value *)
                                qcopy (match Random.bool (), Random.bool ()  with

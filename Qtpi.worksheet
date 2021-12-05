@@ -76,28 +76,17 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
-# randomteleport_with is a test of formula simplification. The problem is that the simplification
-# algorithm isn't perfectly confluent. It's possible to start with one formula and finish with an equivalent
-# one. I'm working on the problem, and it's become much rarer ...
-#
-# but with -complexunknowns true, which is the default, it panics:
-#
-# initially Alice's z is #2:((-h(2)*b2+i*(-h*a2+h(2)*b2))|0&gt;+(h(2)*b2+i*(-h*a2-h(2)*b2))|1&gt;)
-# interpreter step () sees exception Snum.Disaster("|(-h(4)*b2+i*(-h(3)*a2+h(4)*b2))|^2 is ((-h(4)*b2+i*(-h(3)*a2+h(4)*b2)))*((-h(4)*b2†+i*(h(3)*a2†-h(4)*b2†))) = (h(6)-h(7)*a2*b2†-h(7)*a2†*b2+i*(h(7)*a2*b2†-h(7)*a2†*b2))")
-#
-# Its complaint is that the squared modulus doesn't look like a real number: it's got
-# an 'i' in it, after all. But ... it does simplify, because (x-x†)/2 = Re x and
-# (x+x†)/2i = Im x, into
-# 
-# (h(6)-h(7)*2*Re(a2*b2†))+i*(h(7)*2*i*Im(a2*b2†)) = h(6) - h(5)*(Re(a2*b2†)-Im(a2*b2†))
-# 
-# -- which is at least a real number. Qtpi is not able to support that simplification (yet).
+
+# randomteleport_with is a test of confluence in formula simplification. Simplification can start 
+# with one formula and finish with an equivalent one. I'm working on the problem, and it's become 
+# much rarer ... especially since I went over to unknowns with real and imaginary parts.
 # 
 # Remarkably, this complication doesn't seem to disturb sensible quantum algorithms.
 # Teleport, full adder, Grover (et al.) work happily with complex unknowns.
 # 
 ./Qtpi -trace -complexunknowns false examples/randomteleport_with.qtp
 ./Qtpi -trace -complexunknowns true examples/randomteleport_with.qtp
+
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp
 ./Qtpi -trace examples/cheating_Watrous_QBC.qtp

@@ -342,7 +342,7 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
 (*          | S_g      ::             ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
               when hn>=3                 -> sp (S_f :: els) (hn-3) (S_g :: S_g :: ss)) 
  *)
-            | S_g      :: S_sqrt a :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) *)
+            | S_g      :: S_sqrt a :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) -- may lead to 2fh-f *)
               when a=/half               -> premult [sprod_f; sprod_neg sprod_fh] n ss
             | s                    :: ss -> sp (s::els) n ss
             | []                         -> None, n, sort elcompare (List.rev els)
@@ -450,12 +450,12 @@ and simplify_sum ps =
             | (n1,es1) :: (n2,es2) :: ps 
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
-            (* -2fh+f = g  commented out
+            (* 2fh-f = g  -- removes symbols *)
             | (n1,(S_f :: S_sqrt a :: es)) :: ps
                    when a=/half && List.exists ((=) (n1//(~-/num_2),S_f :: es)) ps
-                                                  -> sps true ((n1//(~-/num_2),S_g :: es) :: r) 
+                                                  -> sps true ((n1//num_2,S_g :: es) :: r) 
                                                               (Listutils.remove (n1//(~-/num_2),S_f :: es) ps)
-             *)
+             
             (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
             | p                  :: ps            -> (match a2b2 p ps with
                                                       | Some (p', ps') -> sps true (p'::r) ps'

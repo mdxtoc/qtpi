@@ -81,6 +81,8 @@ time ./Qtpi examples/functionspeedtest.qtp
 # with one formula and finish with an equivalent one. I'm working on the problem, and it's become 
 # much rarer ... especially since I went over to unknowns with real and imaginary parts.
 # 
+# In fact, it now seems to pass this test every time. Hoorah!
+#
 # Remarkably, this complication doesn't seem to disturb sensible quantum algorithms.
 # Teleport, full adder, Grover (et al.) work happily with complex unknowns.
 # 

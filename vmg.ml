@@ -295,14 +295,15 @@ and string_of_nv bksign (vm, vv) =
          Printf.sprintf (match bksign with PVBra -> "⟨%s|" | PVKet -> "|%s⟩") (string_of_bin i)
        in
        let mustbracket (C(real,im)) = 
-         (* bracket real sums: everything else is bracketed in csnum *)
+         (* bracket real sums: imaginary part is bracketed in csnum if necessary *)
          match real, im with
          | [_], [] -> false
          | _  , [] -> (match !fancynum with
                        | FractionalNum -> List.length real > 1
                        | _             -> false
                       )
-         | _       -> false
+         | [] , _  -> false
+         | _       -> true
        in
        let coeff x = 
          match string_of_csnum x with

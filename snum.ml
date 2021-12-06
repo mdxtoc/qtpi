@@ -203,7 +203,7 @@ let string_of_el e =
       | S_symb symb -> Printf.sprintf "%s%d%s%s" 
                                   (if symb.alpha then "b" else "a") 
                                   symb.idsecret.id 
-                                  (if symb.imr then im_string else re_string)
+                                  (if !complexunknowns then (if symb.imr then im_string else re_string) else "")
                                   (if !showabvalues then Printf.sprintf "[%f]" (float_of_el e) else "")
   
 let string_of_els es = 

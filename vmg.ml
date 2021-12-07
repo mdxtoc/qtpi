@@ -294,23 +294,11 @@ and string_of_nv bksign (vm, vv) =
        let string_of_basis_idx i =
          Printf.sprintf (match bksign with PVBra -> "⟨%s|" | PVKet -> "|%s⟩") (string_of_bin i)
        in
-       let mustbracket (C(real,im)) = 
-         (* bracket real sums: imaginary part is bracketed in csnum if necessary *)
-         match real, im with
-         | [_], [] -> false
-         | _  , [] -> (match !fancynum with
-                       | FractionalNum -> List.length real > 1
-                       | _             -> false
-                      )
-         | [] , _  -> false
-         | _       -> true
-       in
        let coeff x = 
-         match string_of_csnum x with
-         | "0"  -> ""
+         match so_csnumb true x with
          | "1"  -> ""
          | "-1" -> "-"
-         | s    ->  if mustbracket x then "(" ^ s ^ ")" else s
+         | s    -> s
        in
        let estringf ss (i,x) = 
          if x=c_0 then ss else (coeff x ^ string_of_basis_idx i) :: ss

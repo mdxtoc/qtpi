@@ -63,6 +63,10 @@ let opts = Arg.align
 					 Printf.sprintf " show actual value of a_i, b_i in random qubit choice (default %B)" !showabvalues);
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
+              ("-showunknownparts" , Arg.Bool (set_arg showunknownparts), 
+                    Printf.sprintf " unnowns shown with real (𝕣) and imaginary (𝕚) parts (default %B)" !showunknownparts);
+              ("-showstepcount"  , Arg.Set showstepcount, 
+					 Printf.sprintf " show interpreter stepcount");
               ("-symbolic_ht"  , Arg.Bool (set_arg symbolic_ht), 
 					 Printf.sprintf " print r(1/2) as h, r(1/3) as t (default %B)" !symbolic_ht);
               ("-symbq"  , Arg.Bool (set_arg symbq), 
@@ -71,8 +75,6 @@ let opts = Arg.align
 					" step through protocol execution"); *)
               ("-resourcecheck"  , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qubits (default %B)" !Settings.resourcecheck);
-              ("-stepcount"  , Arg.Set showstepcount, 
-					 Printf.sprintf " show interpreter stepcount");
               ("-trace"       , Arg.Set traceevents, 
 					" show trace of quantum events, messages, disposal, at end of execution");
               ("-traceId"     , Arg.Set traceId, 

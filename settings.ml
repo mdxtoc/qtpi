@@ -70,11 +70,13 @@ let show_final = ref false
 
 let showabvalues = ref false
 
+let showstepcount = ref false
+
 let showsymbolicgate = ref true
 
-let symbq = ref true
+let showunknownparts = ref false
 
-let showstepcount = ref false
+let symbq = ref true
 
 let symbolic_ht = ref true
 

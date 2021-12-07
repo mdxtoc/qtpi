@@ -157,13 +157,15 @@ let fp_f = sqrt fp_f2
 let fp_g2 = (1.0 -. fp_h) /. 2.0
 let fp_g = sqrt fp_g2
 
+let float_of_symb symb = let a,b = symb.idsecret.secret in 
+                         let re,im = if symb.alpha then b else a in (* false is a *)
+                         if symb.imr then im else re                (* false is re *)
+  
 let float_of_el = function
   | S_sqrt x    -> sqrt (Q.to_float x)
   | S_f         -> fp_f
   | S_g         -> fp_g
-  | S_symb symb -> let a,b = symb.idsecret.secret in 
-                   let re,im = if symb.alpha then b else a in (* false is a *)
-                   if symb.imr then im else re                (* false is re *)
+  | S_symb symb -> float_of_symb symb
 
 let string_of_symrec symrec =
   Printf.sprintf "{id=%d; secret=((%f,%f),(%f,%f))}"
@@ -190,7 +192,14 @@ let dagger_string = "†"
 let re_string = "𝕣"
 let im_string = "𝕚"
 
-let string_of_el e = 
+let string_of_symb symb =
+  Printf.sprintf "%s%d%s%s" 
+                 (if symb.alpha then "b" else "a") 
+                 symb.idsecret.id 
+                 (if !complexunknowns then (if symb.imr then im_string else re_string) else "")
+                 (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb symb) else "")
+
+let so_el symbf e = 
   match !fancynum with
   | RawNum -> string_of_el_struct e
   | _      ->
@@ -200,39 +209,38 @@ let string_of_el e =
                                                         Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
-      | S_symb symb -> Printf.sprintf "%s%d%s%s" 
-                                  (if symb.alpha then "b" else "a") 
-                                  symb.idsecret.id 
-                                  (if !complexunknowns then (if symb.imr then im_string else re_string) else "")
-                                  (if !showabvalues then Printf.sprintf "[%f]" (float_of_el e) else "")
+      | S_symb symb -> symbf symb
   
+let string_of_el = so_el string_of_symb
+
+let so_els symbf es = String.concat "" (List.map (so_el symbf) es)
+
 let string_of_els es = 
   (match !fancynum with
    | RawNum -> string_of_els_struct
-   | _      -> String.concat "" <.> List.map string_of_el 
+   | _      -> so_els string_of_symb 
   ) es
 
 (* I want to get this right once, so I can deal with real and imaginary products.
    si is "" or "i"
  *)  
   
-let rec string_of_prodi si (n,els) = 
-  if !fancynum<>RawNum then 
-    (if n</num_0   then "-" ^ string_of_prodi si (~-/n,els) else
-     if n=/num_0   then "0" (* shouldn't happen *)          else
-                        (let numerator = 
-                           match n.num=:z_1, si, els with
-                           | true , "", [] -> "1"
-                           | true , _ , _  -> si ^ string_of_els els
-                           | false, _ , _  -> string_of_zint n.num ^ si ^ string_of_els els
-                         in
-                         numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
-                        )
-    )
-  else 
-    si ^ string_of_prod_struct (n,els)
+let rec so_prodi si symbf (n,els) = 
+  match !fancynum with
+  | RawNum        -> si ^ "*" ^ string_of_prod_struct (n,els)
+  | FractionalNum ->
+      if n</num_0   then "-" ^ so_prodi si symbf (~-/n,els) else
+      if n=/num_0   then "0" (* shouldn't happen *)          else
+                         (let numerator = 
+                            match n.num=:z_1, si, els with
+                            | true , "", [] -> "1"
+                            | true , _ , _  -> si ^ so_els symbf els
+                            | false, _ , _  -> string_of_zint n.num ^ si ^ so_els symbf els
+                          in
+                          numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
+                         )
 
-let string_of_prod p = string_of_prodi "" p 
+let string_of_prod p = so_prodi "" string_of_symb p 
 
 let fracparts (s:snum) : string list = List.map string_of_prod s
 
@@ -560,19 +568,104 @@ let simplify_sum =
   
 (* *********************** complex arith in terms of reals ************************************ *)
 
-type csnum = C of snum*snum (* complex snum A + iB *)
+type csnum = C of snum*snum (* complex x + iy *)
 
-let string_of_csnum (C (x,y)) =
-  let rec im y = (* y non-zero *) 
-    match y with
-    | [p]                -> string_of_prodi "i" p
-    | _                  -> "i*(" ^ string_of_snum y ^ ")"
-  in
-  match x,y with
-  | [] , []            -> "0"
-  | _  , []            -> string_of_snum x
-  | [] , _             -> im y
-  | _  , _             -> sum_separate [string_of_snum x; im y]
+let so_im y = (* a list of strings: ok if y is zero *) 
+  match y with
+  | []                 -> []
+  | [p]                -> [so_prodi "i" string_of_symb p]
+  | _                  -> ["i*(" ^ string_of_snum y ^ ")"]
+
+let so_csnumb bracket (C (x,y)) =
+  match !fancynum with
+  | RawNum        -> "C(" ^ string_of_snum x ^ "," ^ string_of_snum y ^ ")" 
+  | FractionalNum ->
+      let fracparts_c (xs,ys) =
+        let rec parts ypres ss (xs,ys) = 
+          match xs,ys with 
+          | _              , [] 
+          | []             , _  -> 
+              let ypart = match ypres, ys with
+                          | []     , _  -> so_im ys
+                          | [(f,p)], [] -> [so_prodi "i" f p]
+                          | _           -> ["i*(" ^ sum_separate (Listutils.prepend (List.map (fun (f,p) -> so_prodi "" f p) ypres) 
+                                                                                    (List.map string_of_prod ys)
+                                                                 )
+                                                  ^ ")"]
+              in
+              Listutils.prepend ss (fracparts xs @ ypart)
+          | (n,ps as x)::xs, _  -> 
+              let default () = parts ypres (string_of_prod x :: ss) (xs,ys) in
+              let rec treatable signopt ps = 
+                match ps with
+                | []    -> signopt
+                | p::ps -> (match signopt, p with
+                            | Some sign, S_symb s -> if sign=s.imr then treatable signopt ps else None
+                            | None     , S_symb s -> treatable (Some s.imr) ps
+                            | _                   -> treatable signopt ps
+                           )
+              in
+              match !complexunknowns, !showunknownparts, treatable None ps with
+              | false, _   , _        
+              | _    , true, _        
+              | _    , _   , None     -> default ()
+              | _    , _   , Some imr -> 
+                  let rec sameps ps ps' =
+                    match ps, ps' with
+                    | p::ps, p'::ps' -> (match p, p' with
+                                         | S_symb s, S_symb s' -> s={s' with imr=not s'.imr}
+                                         | _                   -> p=p'
+                                        ) && sameps ps ps'
+                    | []   , []      -> true
+                    | _              -> false
+                  in
+                  let rec findsame ypres ys =
+                    match ys with
+                    | []                -> None
+                    | (n',ps' as y)::ys -> let again () = findsame (y::ypres) ys in
+                                           if sameps ps ps' then
+                                             if n=/n'      then Some (true , Listutils.prepend ypres ys) else
+                                             if n=/(~-/n') then Some (false, Listutils.prepend ypres ys) else 
+                                                                again ()
+                                           else again ()
+                  in
+                  match findsame [] ys with
+                  | Some (sign, ys) -> let float_of_symb s = let a,b = s.idsecret.secret in
+                                                             (fun (re,im) -> Float.sqrt (re*.re+.im*.im))
+                                                                (if s.alpha then a else b)
+                                       in
+                                       let symbf s =   Printf.sprintf "%s%d%s%s" 
+                                                         (if s.alpha then "b" else "a") 
+                                                         s.idsecret.id 
+                                                         (if sign<>s.imr then "" else dagger_string)
+                                                         (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb s) else "")
+                                       in
+                                       if imr then parts ((symbf, (~-/n,ps)):: ypres) ss                          (xs,ys)
+                                              else parts ypres                        (so_prodi "" symbf x :: ss) (xs,ys)
+                  | None            -> default ()
+        in
+        parts [] [] (x,y) 
+        (* double printing to see what it was we were simplifying: commented out because the above seems to work ...
+           @ (if not !complexunknowns then [] 
+              else (showunknownparts := not !showunknownparts; 
+                 let ss = parts [] [] (x,y) in 
+                 showunknownparts := not !showunknownparts; 
+                 ("[" :: ss) @ ["]"])
+                )
+         *)
+      in
+      let ss = match x,y with
+               | [] , []            -> ["0"]
+               | _  , []            -> fracparts x
+               | [] , _             -> so_im y
+               | _  , _             -> fracparts_c (x,y)
+      in
+      match bracket, ss with
+      | false, _   -> sum_separate ss
+      | _    , [s] -> s
+      | _          -> "(" ^ sum_separate ss ^ ")"
+
+let string_of_csnum = so_csnumb false
 
 let csnum_of_snum s = C (s, snum_0)
 

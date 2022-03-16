@@ -28,8 +28,8 @@
    The parameters of a process definition name resources. Suppose those resources
    are non-overlapping. Then if the process body distributes those resources in a
    non-overlapping way -- if the tuple expressions in its sends are non-overlapping, if 
-   tuples of arguments in its process calls are non-overlapping, if the tuples of process
-   calls in its parallel calls are non-overlapping -- then we shall have correct resourcing.
+   tuples of arguments in its process calls are non-overlapping, if the tuples of parallel 
+   processes are non-overlapping -- then we shall have correct resourcing.
    
    Provided, of course, we police the use of qubits that are sent away down channels.
    
@@ -47,6 +47,12 @@
    it seems to work.
    
    Good luck to us all.
+   
+   Annotated 03/2022: We treat qubit collections as single qubits for resource accounting. 
+   This is fine most of the time, but it is inconvenient when gating: we really must allow,
+   for example, qs↓0,qs↓1,ancs↓0>>T as a gating step. 
+   
+   I suspect I shall have to rework this mightily ...     
  *)
  
 open Settings
@@ -71,7 +77,7 @@ exception Disaster of sourcepos * string
 let rec is_resource_type t =
   match t.inst with
   | Qubit                       
-  | Qubits           -> true            
+  | Qubits              -> true            
   | Unit          
   | Num 
   | Bool
@@ -124,7 +130,7 @@ type env = resource NameMap.t
 let rec string_of_resource r =
   match r with
   | RNull               -> "RNull"
-  | RQubit  rid          -> Printf.sprintf "RQubit %s" (string_of_resourceid rid)
+  | RQubit  rid         -> Printf.sprintf "RQubit %s" (string_of_resourceid rid)
   | RTuple rs           -> Printf.sprintf "RTuple (%s)" (string_of_list string_of_resource "*" rs)
   | RList  rid          -> Printf.sprintf "RList %s" (string_of_resourceid rid)
   | RCons  (rh,rt)      -> Printf.sprintf "RCons (%s,%s)" (string_of_resource rh) (string_of_resource rt)
@@ -294,7 +300,7 @@ let rec resources_of_resource disjoint r =
   in
   match r with
   | RNull           -> ResourceSet.empty
-  | RQubit _         -> rsingleton r                
+  | RQubit _        -> rsingleton r                
   | RTuple rs       -> let rsets = List.map (resources_of_resource disjoint) rs in
                        (try List.fold_left (runion disjoint) ResourceSet.empty rsets 
                         with OverLap _ -> bad()
@@ -533,14 +539,14 @@ and resource_of_params state params =
                   (state,[])
 
 and rck_proc mon state env stoppers proc = 
-  let badproc s =
-    raise (Error (proc.pos, Printf.sprintf "checking %s: %s"
-                                           (short_string_of_process proc)
-                                           s
-                 )
-          )
-  in
   let rec rp state env stoppers proc =
+    let badproc s =
+      raise (Error (proc.pos, Printf.sprintf "checking %s: %s"
+                                             (short_string_of_process proc)
+                                             s
+                   )
+            )
+    in
     if !verbose then 
       Printf.printf "rp %s %s %s %s\n" (string_of_env env)
                                        (string_of_state state)
@@ -594,9 +600,9 @@ and rck_proc mon state env stoppers proc =
                                         in
                                         let state = 
                                           match destroys, rq with
-                                          | false, _       -> state
+                                          | false, _        -> state
                                           | true , RQubit q -> State.add q false state
-                                          | true , _       -> (* belt and braces ... *)
+                                          | true , _        -> (* belt and braces ... *)
                                               raise (Error (qe.pos, "ambiguous qubit expression (which qubit is destroyed?)"))
                                         in
                                         ResourceSet.union usedq (ResourceSet.union usedg (rp state env' stoppers proc))
@@ -642,7 +648,7 @@ and rck_proc mon state env stoppers proc =
                                        | Channel {inst=Qubit} ->
                                            (match r with
                                             | RQubit q   -> State.add q false state
-                                            | _         ->
+                                            | _          ->
                                                raise (Error (e.pos, "ambiguous qubit expression (which qubit is sent?)"))
                                            )
                                        | _              -> state
@@ -666,7 +672,7 @@ and rck_proc mon state env stoppers proc =
     let r = env<@>n in
     let q = match r with
             | RQubit q -> q
-            | _       -> raise (Disaster (qn.pos, "not qubit/qubits resource"))
+            | _        -> raise (Disaster (qn.pos, "not qubit/qubits resource"))
     in
     let _, u = resources_of_q qn.pos URead state stoppers r (type_of_typedname qn) n q in
     State.add q false state, ResourceSet.union used u

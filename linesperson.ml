@@ -29,12 +29,14 @@ open Sourcepos
 let token = ref Parser.EOP
 let ready = ref false
 
+(* this doesn't verbose unless verbose_offside is set. Prevents accidental verbosing *)
+
 let make_make_token : Sedlexing.lexbuf -> (Sedlexing.lexbuf -> Parser.token) = fun lexbuf ->
   let get_token () = token := Lexer.make_token lexbuf;
                      let start_pos, end_pos = Sedlexing.lexing_positions lexbuf in
                      curr_start := offset_of_position start_pos;
                      curr_end := offset_of_position end_pos;
-                     if !verbose || !verbose_offside then 
+                     if !verbose_offside then 
                        Printf.eprintf "Linesperson.get_token read %s (%s)\n"
                                         (Lexer.string_of_token !token)
                                         (short_string_of_sourcepos (Sedlexing.lexing_positions lexbuf));
@@ -50,7 +52,7 @@ let make_make_token : Sedlexing.lexbuf -> (Sedlexing.lexbuf -> Parser.token) = f
   let make_token lexbuf =
     if not !ready then get_token ();
     if is_offside () then 
-      (if !verbose || !verbose_offside then 
+      (if !verbose_offside then 
          let start_p, _ = Sedlexing.lexing_positions lexbuf in
          Printf.eprintf "offside (%d) at line %d, char %d\n" 
                        !offsideline
@@ -61,7 +63,7 @@ let make_make_token : Sedlexing.lexbuf -> (Sedlexing.lexbuf -> Parser.token) = f
       ) 
     else 
       (ready := false; 
-       if !verbose || !verbose_offside then
+       if !verbose_offside then
          Printf.eprintf "Linesperson.make_token provides %s (%s)\n"
                           (Lexer.string_of_token !token)
                           (short_string_of_sourcepos (Sedlexing.lexing_positions lexbuf));       

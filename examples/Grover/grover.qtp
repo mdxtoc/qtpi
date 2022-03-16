@@ -18,7 +18,7 @@ fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n
                        )
 proc 
   System () =
-    . (let n = read_min_int 1 "number of bits")
+    . (let n = read_min_int 2 "number of bits")
     . (newqs qs = |+>⊗⊗n)  
 
     . (let G = groverG n)

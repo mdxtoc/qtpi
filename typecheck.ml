@@ -20,6 +20,8 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     (or look at http://www.gnu.org).
 *)
+      
+(* now, in 03/2022, I decree that tuples and lists can't hold qubits. RB *)
 
 open Settings
 open Sourcepos
@@ -56,6 +58,7 @@ let new_Unknown pos uk = adorn pos (Unknown (new_unknown uk))
 let ntv pos = new_Unknown pos UnkAll
 let newclasstv ischan pos = new_Unknown pos (if !Settings.resourcecheck then UnkClass ischan else UnkAll)
 let commU = if !Settings.resourcecheck then UnkComm else UnkAll
+let classU = if !Settings.resourcecheck then UnkClass false else UnkAll (* a functional restriction for Tuple and List *)
 let newcommtv pos = new_Unknown pos commU
 let neweqtv pos = new_Unknown pos UnkEq
 
@@ -256,6 +259,7 @@ let rewrite_def def =
       rewrite_pattern pat; rewrite_expr e
      
 (* ********************************************** unification stuff ******************************** *)
+
 let explain_ukind = function
   | UnkClass true  -> "the classical type of a value received in a guarded alt"
   | UnkClass false -> "a classical type"
@@ -297,7 +301,9 @@ let rec unifytypes t1 t2 =
   | Tuple t1s           , Tuple t2s             
   | Process t1s         , Process t2s           -> unifylists exn t1s t2s 
   | Channel t1          , Channel t2        
-  | List t1             , List t2               -> (* (try *)unifytypes t1 t2(* with _ -> raise exn)*)
+  | List t1             , List t2               -> (* (try *)
+                                                   unifytypes t1 t2 (* look carefully: no try, no with *)
+                                                   (* with _ -> raise exn)*)
   | Fun (t1a,t1b)       , Fun (t2a,t2b)         -> unifylists exn [t1a;t1b] [t2a;t2b]
 (*| Range (i,j)         , Range (m,n)           -> if m<=i && j<=n then () else raise exn *)
   | _                                           -> if t1.inst=t2.inst then () else raise exn
@@ -369,9 +375,9 @@ and canunifytype n t =
       | UnkClass _, Poly    _     -> true
       
       (* otherwise some recursions *)
-      | _       , Tuple ts      -> List.for_all cu ts
+      | _       , Tuple ts      -> List.for_all (check classU) ts
       | _       , Process ts    -> List.for_all (check commU) ts
-      | _       , List t        -> cu t
+      | _       , List t        -> check classU t
       | _       , Channel t     -> (try check commU t 
                                     with Error (pos, _) as error -> 
                                            (* if it's complaining about t and t is not itself a channel, complain.
@@ -460,7 +466,7 @@ and assigntype_pat contn cxt t p : unit =
       | PatAny          -> contn cxt
       | PatName n       -> contn (cxt <@+> (n,t)) 
       | PatUnit         -> force_type p.pos t (adorn p.pos Unit); contn cxt
-      | PatNil          -> let vt = ntv p.pos in
+      | PatNil          -> let vt = newclasstv false p.pos in
                            let lt = adorn p.pos (List vt) in
                            force_type p.pos t lt; contn cxt
       | PatInt _        -> force_type p.pos t (adorn p.pos Num); contn cxt
@@ -470,7 +476,7 @@ and assigntype_pat contn cxt t p : unit =
       | PatString _     -> force_type p.pos t (adorn p.pos (List (adorn p.pos Char))); contn cxt
       | PatBra _        -> force_type p.pos t (adorn p.pos Bra); contn cxt
       | PatKet _        -> force_type p.pos t (adorn p.pos Ket); contn cxt
-      | PatCons (ph,pt) -> let vt = ntv ph.pos in
+      | PatCons (ph,pt) -> let vt = newclasstv false ph.pos in
                            let lt = adorn p.pos (List vt) in
                            let cf cxt = 
                              assigntype_pat contn cxt t pt
@@ -562,7 +568,7 @@ and assigntype_expr cxt t e =
      in
      match tinst e with
      | EUnit                -> force_type e.pos t (adorn_x e Unit)
-     | ENil                 -> force_type e.pos t (adorn_x e (List (ntv e.pos)))
+     | ENil                 -> force_type e.pos t (adorn_x e (List (newclasstv false e.pos)))
      | ERes w               -> (let ft = 
                                   match w with
                                   | ResShow    -> adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char))))
@@ -654,7 +660,7 @@ and assigntype_expr cxt t e =
                                let tes = List.combine ts es in
                                let _ = List.iter (utaf cxt) tes in
                                force_type e.pos t (adorn_x e (Tuple ts))
-     | ECons   (hd,tl)      -> let t' = ntv e.pos in
+     | ECons   (hd,tl)      -> let t' = newclasstv false e.pos in
                                let _ = assigntype_expr cxt t' hd in
                                let t'' = (adorn_x e (List t')) in
                                let _ = assigntype_expr cxt t'' tl in
@@ -825,7 +831,7 @@ and assigntype_expr cxt t e =
                                   )
      | EBoolArith (e1,_,e2) -> binary cxt (adorn_x e Bool) (adorn_x e1 Bool) (adorn_x e2 Bool) e1 e2
      | ESub (e1,e2)         -> binary cxt (adorn_x e Qubit) (adorn_x e1 Qubits) (adorn_x e2 Num) e1 e2
-     | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv false e.pos)) in (* append has to deal in classical lists *)
+     | EAppend (e1,e2)      -> let t' = adorn_x e (List (newclasstv false e.pos)) in 
                                let _ = assigntype_expr cxt t' e1 in
                                let _ = assigntype_expr cxt t' e2 in
                                force_type e.pos t t'

@@ -360,6 +360,7 @@ Qbits that aren't measured, and even measured qbits if `-measuredestroys false` 
 Reading from from the *dispose* channel is a run-time error, because I don't know how to typecheck send-only channels.
 
 <a name="restrictions"></a>
+
 ## Restrictions
 
 In protocols, and in quantum computing in general, qbits are fragile things. They are sent through gates, transmitted through channels, measured. Protocol descriptions (e.g. QKD) talk of processes sending qbits on a quantum channel and separately communicating information like basis and value over classical channels. So although in principle you might be able to make lists of qbits, tuples of qbits and the like, for simplicity of description of protocols I impose restrictions which means that anything other than single qbits are useless. This also massively simplifies *resourcing*: see [the resourcing document](https://github.com/mdxtoc/qtpi/blob/master/docs/ownership.md/) for explanation of how hard it is otherwise.

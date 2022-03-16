@@ -59,6 +59,8 @@ There's no reason why the return channel `rc` could not carry a return value, in
 
 ## Recursive non-embedded-process 'call'
 
+(A little out of date. In particular the syntax of iterative processes has changed from `[ ... ]` to `𝄆 ... 𝄇` -- and because of offside parsing the closing `𝄇` is usually unnecessary.)
+
 If `P` is recursive then some of its executions will invoke a new execution of itself. Change those to calls of `P`<sub>`r`</sub> and we can 'call' recursive `P`<sub>`r`</sub> and the same mechanism works: `P`<sub>`r`</sub> is called, and it returns. I used this mechanism to simulate BB84 QKD. Alice defines a list of bases `bs` and values `vs` and sends qbits to Bob encoding those values down the previously-defined channel `qc`. (Please ignore the flagrant use of extra unnecessary separating dots in qtpi code: I'm experimenting with it to make programs easier to write and to read -- but note that otherwise this is just standard qtpi stuff, with no fancy constructs)
 
         <preamble>

@@ -993,7 +993,7 @@ let check_monlabels proc mon =
 let fix_paramtype fnew par =
   match !(toptr par) with
   | Some t -> t
-  | None   -> let t = fnew par.pos in toptr par := Some t; t (* process params are, like messages, qubits or classical *)
+  | None   -> let t = fnew par.pos in toptr par := Some t; t (* process params are, like messages, qubit or qubits or classical *)
   
 let unify_paramtype pos rt t =
   match !rt with

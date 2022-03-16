@@ -712,7 +712,7 @@ and assigntype_expr cxt t e =
                                          Bra    -> Ket    -> Sxnum
                                          Sxnum  -> Matrix -> Matrix
                                          Matrix -> Sxnum  -> Matrix
-                                         ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
+                                    ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                      *)
                                     (match t1.inst, t2.inst, tout.inst with
                                      | Num      , _        , _ 
@@ -729,14 +729,18 @@ and assigntype_expr cxt t e =
                                                                            with _ -> bad ()
                                                                           )
 
-                                     | Matrix   , Sxnum    , _         
-                                     | Sxnum    , Matrix   , _        -> (try force_type e.pos tout (adorn_x e Matrix)
+                                     | Gate     , Ket      , _         -> (try force_type e.pos t2 tout
                                                                            with _ -> bad ()
                                                                           )
+                                     
                                      | Ket      , Bra      , _         -> (try force_type e.pos tout (adorn_x e Matrix)
                                                                            with _ -> bad ()
                                                                           )
                                      | Bra      , Ket      , _         -> (try force_type e.pos tout (adorn_x e Sxnum)
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | Matrix   , Sxnum    , _         
+                                     | Sxnum    , Matrix   , _         -> (try force_type e.pos tout (adorn_x e Matrix)
                                                                            with _ -> bad ()
                                                                           )
 

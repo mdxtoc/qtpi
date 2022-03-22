@@ -50,6 +50,7 @@ open Vt
 
 exception CompileError of sourcepos * string
 exception ExecutionError of sourcepos * string
+exception Disaster of sourcepos * string
 
 (* ctenv type has changed, because Par needs more careful treatment. 
    nx: next free slot
@@ -669,10 +670,12 @@ and compile_qstep ctenv qstep =
       let ctenv, gfopt = cexpr_opt ctenv geopt in
       let ctenv, pf = env_cpat ctenv pat in
       ctenv, adorn (CMeasure (plural, qf, gfopt, pf))
-  | Through (plural, qes, ge)           ->
+  | Through (plural, qes, ge, unique)           ->
       let ctenv, qfs = compile_multi (tidemark_f compile_expr) ctenv qes in
       let ctenv, gf = compile_expr ctenv ge in
-      ctenv, adorn (CThrough (plural, qfs, gf))
+      if false then
+        Printf.printf "%s is %s\n" (string_of_qstep qstep) (if !unique then "unique" else "maybe not unique");
+      ctenv, adorn (CThrough (plural, qfs, gf, !unique))
 
 and compile_splitspec ctenv (p, eopt) = 
   let ctenv, efopt = cexpr_opt ctenv eopt in

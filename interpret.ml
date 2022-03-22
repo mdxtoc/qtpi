@@ -282,8 +282,19 @@ let rec interp pn rtenv procstart =
                                                             (pstep_env env' env)
                                  ); *) 
                     microstep rtenv contn
-                | CThrough (plural, es, g)      -> 
+                | CThrough (plural, es, g, unique) -> 
                     let qs = List.concat (List.map (qeval plural) es) in
+                    (* because we now permit multiple indexed elements of the same
+                       qubit collection in es, qs may not be a list of unique qids.
+                       The resourcer marks the compiled tree to say whether a check 
+                       is needed.
+                     *)
+                    if not unique then
+                      (let sqs = List.sort Stdlib.compare qs in
+                       let uqs = List.sort_uniq Stdlib.compare qs in
+                       if sqs<>uqs then
+                         raise (Error (qstep.pos, Printf.sprintf "gated qubits %s are not disjoint" (string_of_list string_of_qubit "," qs)));
+                      );
                     let g = to_gate (evale rtenv g) in
                     let qvs = if !traceevents then tev qs else [] in
                     ugstep (name_of_procname pn) qs g;
@@ -512,7 +523,7 @@ let rec interp pn rtenv procstart =
                  show_pstep (short_string_of_cprocess rproc) *)
                step ()
            | CSpawn (ps, contn) ->
-               List.iter (fun p -> addrunner true (pn, p, rtenv)) ps;   (* true == don't delete me from hashtab *)
+               List.iter (fun p -> addrunner true (pn, p, rtenv)) ps;   (* true means don't delete me from hashtab *)
                addrunner false (pn, contn, rtenv);                      (* false, when not GoOnAs, means no new hashtab entry *)
                step ()
          in

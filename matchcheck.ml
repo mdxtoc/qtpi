@@ -448,7 +448,7 @@ let rec matchcheck_proc mon proc =
   | WithProc  ((_,_,_,p),proc) -> matchcheck_proc mon p; matchcheck_proc mon proc
   | WithQstep (qstep,proc)  -> (match qstep.inst with
                                 | Measure (_, qe, gopt, _)   -> matchcheck_expr qe; (matchcheck_expr ||~~ ()) gopt
-                                | Through (_, qes,ge)        -> List.iter matchcheck_expr qes; matchcheck_expr ge
+                                | Through (_, qes,ge, _)     -> List.iter matchcheck_expr qes; matchcheck_expr ge
                                ); 
                                matchcheck_proc mon proc 
   | JoinQs (_, _, proc)     -> matchcheck_proc mon proc

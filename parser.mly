@@ -293,7 +293,7 @@ qstep:
   | expr measure LSQPAR RSQPAR mpat     {adorn (Measure ($2,$1,None,$5))}
   | expr measure LSQPAR expr RSQPAR mpat       
                                         {adorn (Measure ($2,$1,Some $4,$6))}
-  | exprtuple through expr              {adorn (Through ($2,$1,$3))}
+  | exprtuple through expr              {adorn (Through ($2,$1,$3,ref false))} /* we don't know it's unique */
 
 measure:
   | MEASURE                             {false}

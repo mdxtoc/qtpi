@@ -35,13 +35,13 @@ type ciostep = ciostumble instance
 
 and ciostumble = (* type needed for tracing. Sorry *)
   | CRead of cexpr * _type * rtenv cpattern
-  | CWrite of cexpr * _type * cexpr                                     (* argument cexpr can, of course, be a tuple *)
+  | CWrite of cexpr * _type * cexpr                             (* argument cexpr can, of course, be a tuple *)
   
 type cqstep = cqstumble instance
 
 and cqstumble =
   | CMeasure of bool * cexpr * cexpr option * rtenv cpattern    (* plural, qubit, basis gate, cpattern *)
-  | CThrough of bool * cexpr list * cexpr                       (* plural, qubits, gate *)
+  | CThrough of bool * cexpr list * cexpr * bool                (* plural, qubits, gate, unique qubits *)
   
 let string_of_ciostep ciostep =
   match ciostep.inst with
@@ -56,12 +56,13 @@ let string_of_ciostep ciostep =
 
 let string_of_cqstep cqstep =
   match cqstep.inst with
-  | CMeasure (plural,e,gopt,p)   -> Printf.sprintf "%s%s%s(%s)"
+  | CMeasure (plural,e,gopt,p)      -> Printf.sprintf "%s%s%s(%s)"
                                           (string_of_cexpr e)
                                           (if plural then "⌢⃫" else "⌢̸")
                                           (((fun g -> "[" ^ string_of_cexpr g ^ "]") ||~~ "") gopt)
                                           (string_of_cpattern p)
-  | CThrough (plural,es,ge)      -> Printf.sprintf "%s%s%s"
+  | CThrough (plural,es,ge,unique)  -> Printf.sprintf "%s%s%s%s"
                                           (commasep (List.map string_of_cexpr es))
                                           (if plural then ">>>" else ">>")
                                           (string_of_cexpr ge)
+                                          (if unique then "" else "[*]")

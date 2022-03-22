@@ -40,8 +40,8 @@ and iostumble =
 type qstep = qstumble instance
 
 and qstumble =
-  | Measure of bool * expr * expr option * pattern  (* plural, qubit, basis gate, pattern (restricted: see parser) *)
-  | Through of bool * expr list * expr              (* plural, qubits, gate *)
+  | Measure of bool * expr * expr option * pattern          (* plural, qubit, basis gate, pattern (restricted: see parser) *)
+  | Through of bool * expr list * expr * bool ref           (* plural, qubits, gate, unique *)
   
 let string_of_iostep iostep =
   match iostep.inst with
@@ -53,12 +53,13 @@ let string_of_iostep iostep =
                                           (string_of_expr e)
 let string_of_qstep qstep =
   match qstep.inst with
-  | Measure (plural,e,gopt,p)   -> Printf.sprintf "%s%s%s(%s)"
+  | Measure (plural,e,gopt,p)       -> Printf.sprintf "%s%s%s(%s)"
                                           (string_of_expr e)
                                           (if plural then "⌢⃫" else "⌢̸")
                                           (((fun g -> "[" ^ string_of_expr g ^ "]") ||~~ "") gopt)
                                           (string_of_pattern p)
-  | Through (plural,es,ge)      -> Printf.sprintf "%s%s%s"
+  | Through (plural,es,ge,unique)   -> Printf.sprintf "%s%s%s[%s]"
                                           (commasep (List.map string_of_expr es))
                                           (if plural then ">>>" else ">>")
                                           (string_of_expr ge)
+                                          (string_of_bool !unique)

@@ -193,7 +193,7 @@ and rewrite_typednames ns = List.iter (rewrite_typedname) ns
 let rewrite_qstep qstep = 
   match qstep.inst with
   | Measure (_,e,gopt,pattern)  -> rewrite_expr e; (rewrite_expr ||~~ ()) gopt; rewrite_pattern pattern
-  | Through (_,es,ge)           -> List.iter rewrite_expr es; rewrite_expr ge
+  | Through (_,es,ge,_)         -> List.iter rewrite_expr es; rewrite_expr ge
 
 let rewrite_iostep iostep = 
   match iostep.inst with
@@ -1076,7 +1076,7 @@ and typecheck_process mon cxt p  =
            let _ = assigntype_expr cxt te e in
            let _ = ((fun ge -> assigntype_expr cxt (adorn ge.pos Gate) ge) ||~~ ()) gopt in
            assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt tpat pat
-       | Through (plural, es, ge) -> (* no longer overloaded: plural distinguishes qubits from qubit *)
+       | Through (plural, es, ge, _) -> (* no longer overloaded: plural distinguishes qubits from qubit *)
            let do_e e = 
              let te = adorn e.pos (if plural then Qubits else Qubit) in
              assigntype_expr cxt te e

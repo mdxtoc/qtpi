@@ -320,7 +320,7 @@ let rec frees proc =
                                                                        | None    -> qset
                                                             in
                                                             nsu bset (nsd (frees p) (Pattern.frees pat))
-                              | Through (_, qes, ge)     -> nsu (free_es (ge::qes)) (frees p)
+                              | Through (_, qes, ge, _) -> nsu (free_es (ge::qes)) (frees p)
                              )
   | JoinQs (qs,q,p)       -> let qset = paramset qs in
                              nsu qset (NameSet.remove (name_of_param q) (frees p)) 

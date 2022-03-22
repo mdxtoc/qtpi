@@ -1,0 +1,28 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
+fun read_min_int m s
+  = k where k = if j>=m then j 
+                else semicolon (λ _ . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ _ . read_min_int m s)
+                               ()
+      where j = read_num s
+
+fun diffuse_bit k = CNot * (|->⊗k)
+
+proc System() =
+  (let n = read_min_int 1 "number of bits")
+  (let G = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n)))
+  (let HX = H*X)
+  (let HXH = H*X*H)
+  (let zHZ = Z*H*|0>)
+  out!["HX="; show HX; " HXH="; show HXH; "\n"; show |->; " "; show zHZ; "\n"] .
+  (let (d0,d1) = (diffuse_bit |0>, diffuse_bit |1>))
+  out!["diffuse_bit "; show |0>; "="; show d0; 
+       " diffuse_bit "; show |1>; "="; show d1; "\n"] .
+  (let G1 = (H*X*H)⊗⊗n)
+  (let G2 = H⊗⊗n*X⊗⊗n*H⊗⊗n)
+  out!["G="; show G; "\nG1="; show G1; "\nG2="; show G2; 
+       "\nG=G1 is "; show (G=G1); " G=G2 is "; show (G=G2); " G1=G2 is "; show (G1=G2)] . _0
+  

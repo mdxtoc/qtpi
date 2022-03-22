@@ -46,6 +46,7 @@ make Qtpi
 
 ./Qtpi examples/hadamard.qtp
 ./Qtpi examples/badchannel_cointoss.qtp             # produces type error
+./Qtpi -trace examples/basiccointoss.qtp            # produces type error
 ./Qtpi examples/badresource_cointoss.qtp            # produces resourcing error
 ./Qtpi -trace examples/random_cointoss.qtp          # often (sometimes, anyway) gets a phase error
 ./Qtpi examples/poor_teleport.qtp                   # doesn't always work
@@ -62,8 +63,6 @@ time ./Qtpi examples/functionspeedtest.qtp
 
 # collection of more recognisable examples
 
-./Qtpi -trace examples/basiccointoss.qtp
-./Qtpi -trace examples/basiccointoss2.qtp
 ./Qtpi -trace examples/basiccointoss3.qtp
 ./Qtpi examples/cointoss.qtp
 ./Qtpi examples/cointoss_tidied.qtp
@@ -111,6 +110,7 @@ time ./Qtpi -show_final examples/BB84_QBC_untyped.qtp
 
 (cd examples/Ekert_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp ControlAB.qtp Ekert.qtp) &lt;E92QKDcontrol.txt
 
+# not working -- needs fixing. A deadlock.
 (cd examples/Ekert_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp Eve0.qtp ControlABE.qtp Ekert.qtp) &lt;E92QKDcontrol.txt
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...
@@ -128,7 +128,9 @@ time ./Qtpi examples/Grover/grover7.qtp
 time ./Qtpi examples/Grover/grover8.qtp
 time ./Qtpi examples/Grover/grover9.qtp
 
+time ./Qtpi examples/Grover/testG.qtp
 time ./Qtpi examples/Grover/grover.qtp
+time ./Qtpi examples/Grover/grover_gated.qtp
 
 time ./Qtpi examples/W2.qtp
 time ./Qtpi examples/W2q.qtp

@@ -1,0 +1,82 @@
+fun compose (f : 'b -> 'a) (g : 'c -> 'b) (v : 'c) : 'a = f (g v)
+
+fun semicolon (g : 'c -> 'b) (f : 'b -> 'a) : ('c -> 'a) = compose f g
+
+fun read_min_int m s
+  = k where k = if j>=m then j 
+                else semicolon (λ _ . print_strings ["pardon? at least "; show m; "\n"])
+                               (λ _ . read_min_int m s)
+                               ()
+      where j = read_num s
+
+fun groverG n = engate ((sx_1+sx_1)*((|+>⊗⊗n)*(<+|⊗⊗n))-(degate I⊗⊗n))
+
+   groverU bs = engate (tabulate_diag_m (2**n) tf
+                            where n = length bs
+                            where tf i = if i=address then -sx_1 else sx_1
+                            where address = bits2num (rev bs) (* big-endian *)  
+                       )
+proc 
+  System () =
+    . (let n = read_min_int 2 "number of bits")
+    
+    . (let bs = randbits n) (* should this be rev'd, for big-endian? *)
+    . (let G = groverG n)
+    . (let U = groverU bs)
+
+    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
+    . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
+    
+    . (let Hn = H⊗⊗n) (let Xn = X⊗⊗n)
+    (* main iteration *)
+    . (newq aux = |->)
+    . (newqs qs = |+>⊗⊗n)  
+    . (newqs ancs = |0>⊗⊗(n-1)) 
+    . (let ns = tabulate n (λ i. i))
+    . out!["H⊗⊗n=\n"; show Hn; "\nX⊗⊗n=\n"; show Xn; "\n"]
+    . 𝄆 i←tabulate iters (λ i. i):
+        . out!["before oracle "; show i; " "] . outq!qvals qs . out!["\n"]
+        (* oracle *)
+        (* *) . out!["iterated oracle\n"] 
+              . (* invert the zero address bits *)
+              . 𝄆 (j,k)←zip bs ns: . qs↓k >> (if j=0b0 then X else I) . _0 
+              . (* MCT(U) should be a subprocess, but I'm not allowed subprocesses *)
+              . qs↓0,qs↓1,ancs↓0>>T
+              . 𝄆 k←tabulate (n-2) (λ i. i): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
+              . ancs↓(n-2),aux>>CNot
+              . 𝄆 k←rev (tabulate (n-2) (λ i. i)): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
+              . qs↓0,qs↓1,ancs↓0>>T
+              . (* de-invert the address bits *)
+              . 𝄆 (j,k)←zip bs ns: . qs↓k >> (if j=0b0 then X else I) . _0
+        (* *)
+        (*  . out!["unitary oracle\n"] . qs>>>U  *)
+        (* diffuser *)
+        . out!["before diffuser "; show i; " "] . outq!qvals qs . out!["\n"]
+        (*  . out!["unitary diffuser\n"] . qs>>>G  *)
+        (* *) . out!["iterated diffuser\n"] 
+              . qs>>>Hn 
+              . out!["after diffuser "; show i; "'s  H⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . qs>>>Xn
+              . out!["after diffuser "; show i; "'s  X⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . (* MCZ *)
+              . qs↓0,qs↓1,ancs↓0>>T
+              . 𝄆 k←tabulate (n-2) (λ i. i): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
+              . ancs↓(n-2),aux>>CX
+              . 𝄆 k←rev (tabulate (n-2) (λ i. i)): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
+              . qs↓0,qs↓1,ancs↓0>>T
+              . out!["after diffuser "; show i; "'s  MCX "] . outq!qvals qs . out!["\n"]
+              . qs>>>Xn 
+              . out!["after diffuser "; show i; "'s  second X⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . qs>>>Hn (* *)
+              . out!["after diffuser "; show i; "'s  second H⊗⊗n "] . outq!qvals qs . out!["\n"]
+        . _0 𝄇
+
+    . out!["finally "] . outq!qvals qs . out!["\n"]
+    
+    . qs⌢⃫(bs') 
+    . out!["measurement says "; show bs'; 
+           if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
+    . _0
+
+(* multiple controlled Toffoli ... *)
+(* proc MCU () *)

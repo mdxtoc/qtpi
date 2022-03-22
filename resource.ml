@@ -415,25 +415,41 @@ let rec r_o_e disjoint use state env stoppers (e:Expr.expr) =
                                   | _    , RNull  -> r1
                                   | _             -> if r1=r2 then r1 else RMaybe [r1;r2]
                                  ),
-                                 ResourceSet.union used0 (ResourceSet.union used1 used2)
-      | ESub        (e1,e2)   -> if use=UMeasure then
-                                   raise (Error (e.pos, "measuring element of collection"));
-                                 (* at present this is qubits -> num -> qubit, so e2 had better be RNull *)
+                                 RidSet.union used0 (RidSet.union used1 used2)
+      | ESub        (e1,e2)   -> (* I believe that UGate is the only possible use of ESub *)
+                                 (let bad s = raise (Error (e.pos, Printf.sprintf "%s an element of a qubit collection" s)) in
+                                  match use with
+                                  | UGate       -> ()     
+                                  | URead       -> bad "evaluating (outside gating step)"
+                                  | USend       -> bad "sending" 
+                                  | UMeasure    -> bad "measuring"
+                                  | UPass       -> bad "using as process argument"
+                                 );
+                                 (* this is qubits -> num -> qubit, so e2 had better be RNull *)
                                  let r1, used1 = re URead e1 in
                                  let r2, used2 = re URead e2 in
-                                 (match r2 with
-                                  | RNull -> r1, ResourceSet.union used1 used2
-                                  | _     -> raise (Disaster (e2.pos, Printf.sprintf "%s is resource %s" 
-                                                                                     (string_of_expr e2) 
-                                                                                     (string_of_resource r2)
-                                                             )
+                                 if r2<>RNull || not (RidSet.is_empty used2) then 
+                                   raise (Disaster (e2.pos, Printf.sprintf "%s is resource %s" 
+                                                                           (string_of_expr e2) 
+                                                                           (string_of_resource r2)
                                                    )
-                                 )
+                                         );
+                                 (* I believe that the only way used1 has been constructed is from a name or a conditional/match ... *)
+                                 let rec rebuild (indexed,old) r =
+                                   match r with
+                                   | RQubit (spos,s,None as re) -> (RidSet.add (spos,s,Some e2) indexed, RidSet.remove re old)
+                                   | RMaybe rs                   -> List.fold_left rebuild (indexed,old) rs
+                                   | _                           -> raise (Disaster (e.pos, Printf.sprintf "Resource.ESub.rebuild sees r1=%s" (string_of_resource r1)))
+                                 in
+                                 let indexed,old = rebuild (RidSet.empty,used1) r1 in
+                                 if not (RidSet.is_empty old) then
+                                   raise (Disaster (e.pos, Printf.sprintf "Resource.ESub.rebuild sees r1,used1=%s,%s" (string_of_resource r1) (RidSet.to_string used1)));
+                                 r1, indexed
       | EJux        (e1,e2)   
       | EAppend     (e1,e2)   -> let _, used1 = re URead e1 in
                                  let _, used2 = re URead e2 in
                                  (* EAppend and EJux don't return resources: we checked *)
-                                 RNull, ResourceSet.union used1 used2
+                                 RNull, RidSet.union used1 used2
       | ELambda     (pats,e)  -> rck_fun state env pats e
       | EWhere      (e,ed)    -> rck_edecl use state env stoppers e ed
             
@@ -567,11 +583,25 @@ and rck_proc mon state env stoppers proc =
                                           | true , _        -> (* belt and braces ... *)
                                               raise (Error (qe.pos, "ambiguous qubit expression (which qubit is destroyed?)"))
                                         in
-                                    | Through (_, qes, ug)    -> 
                                         RidSet.union usedq (RidSet.union usedg (rp state env' stoppers proc))
+                                    | Through (_, qes, ug, unique)    -> 
                                         let qers = List.map (snd <.> resources_of_expr UGate state env stoppers) qes in
+                                        if false then
+                                          Printf.printf "%s: %s\n" (short_string_of_process outerproc) (bracketed_string_of_list RidSet.to_string qers);
                                         (try let used = disju qers in
-                                             ResourceSet.union (rp state env stoppers proc) used
+                                             (* the qubits gated are unique if you cannot find two occurrences of indexing the same collection *)
+                                             unique := (let rec ok ixset =
+                                                          try let (spos,_,_) as elt = RidSet.min_elt ixset in
+                                                              let ixset = RidSet.remove elt ixset in
+                                                              if RidSet.exists (fun (spos',_,_) -> spos=spos') ixset then false
+                                                                                                                     else ok (RidSet.remove elt ixset)
+                                                          with Not_found -> true
+                                                        in
+                                                        ok (RidSet.filter (function (_,_,Some _) -> true | _ -> false) used)
+                                                       );
+                                             (* throw away the indexing for the outside world *)
+                                             RidSet.union (rp state env stoppers proc) 
+                                                          (RidSet.map (function (spos,s,Some _) -> (spos,s,None) | elt -> elt) used)
                                          with OverLap s -> badproc s
                                         )
                                    )
@@ -788,7 +818,7 @@ and ffv_letspec (pattern, expr) = ffv_expr expr
 and ffv_qstep qstep =
   match qstep.inst with
   | Measure (_, expr, gopt, _)  -> ffv_expr expr; (ffv_expr ||~~ ()) gopt
-  | Through (_, exprs, ge)      -> List.iter ffv_expr exprs; ffv_expr ge
+  | Through (_, exprs, ge, _)   -> List.iter ffv_expr exprs; ffv_expr ge
   
 and ffv_ioproc mon (iostep, proc) =
   (match iostep.inst with

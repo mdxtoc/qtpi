@@ -407,29 +407,35 @@ let diagcv_of_cvv cvv =
                   )
                   []
 
-let string_of_matrix = function
-  | DenseM m -> 
-      let strings_of_row r = Array.fold_right (fun s ss -> string_of_csnum s::ss) r [] in
-      let block = Array.fold_right (fun r ss -> strings_of_row r::ss) m [] in
-      let rwidth r = List.fold_left max 0 (List.map String.length r) in
-      let width = List.fold_left max 0 (List.map rwidth block) in
-      let pad s = s ^ String.make (width - String.length s) ' ' in
-      let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
-      Printf.sprintf "\n{%s}\n" block
-  | SparseM (nc,sv,cvv) ->  
-      (* could be sparse diagonal *)
-      (try let cv = diagcv_of_cvv cvv in
-           Printf.sprintf "SparseDiagM(%s,%s,%s)\n" (string_of_zint nc) (string_of_csnum sv) 
-                                                    (raw_string_of_vector (maybe_dense_v sv nc cv))
-       with NotDiag ->
-         Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (string_of_cvv cvv)
-      )
-  | FuncM (id,nr,nc,_,opt) ->
-      Printf.sprintf "FuncM(%s,%s,%s,_,%s)" id (string_of_zint nr) (string_of_zint nc) 
-                                            (Optionutils.string_of_option (fun (sv,_,_) -> Printf.sprintf "%s,_,_" (string_of_csnum sv)) 
-                                                                          opt
-                                            )
-  | DiagM v -> Printf.sprintf "DiagM(%s)" (raw_string_of_vector v)
+let string_of_matrix m = 
+  let showdense () =
+    let nr, nc = Z.to_int (rsize m), Z.to_int (csize m) in
+    let block = tabulate nr (fun r -> tabulate nc (fun c -> string_of_csnum (?..m (Z.of_int r) (Z.of_int c)))) in
+    let maxwidth r = List.fold_left max 0 (List.map String.length r) in
+    let maxwidth = List.fold_left max 0 (List.map maxwidth block) in 
+    let pad s = String.make (maxwidth - String.length s) ' ' ^ s in
+    let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
+    Printf.sprintf "\n{%s}\n" block
+  in 
+  if !showdensematrices then
+    showdense ()
+  else
+    match m with
+    | DenseM m -> showdense ()
+    | SparseM (nc,sv,cvv) ->  
+        (* could be sparse diagonal *)
+        (try let cv = diagcv_of_cvv cvv in
+             Printf.sprintf "SparseDiagM(%s,%s,%s)\n" (string_of_zint nc) (string_of_csnum sv) 
+                                                      (raw_string_of_vector (maybe_dense_v sv nc cv))
+         with NotDiag ->
+           Printf.sprintf "SparseM %s %s %s\n" (string_of_zint nc) (string_of_csnum sv) (string_of_cvv cvv)
+        )
+    | FuncM (id,nr,nc,_,opt) ->
+        Printf.sprintf "FuncM(%s,%s,%s,_,%s)" id (string_of_zint nr) (string_of_zint nc) 
+                                              (Optionutils.string_of_option (fun (sv,_,_) -> Printf.sprintf "%s,_,_" (string_of_csnum sv)) 
+                                                                            opt
+                                              )
+    | DiagM v -> Printf.sprintf "DiagM(%s)" (raw_string_of_vector v)
   
 let string_of_gate = string_of_matrix
 
@@ -635,7 +641,7 @@ let g_Swap =
           [c_0; c_1; c_0; c_0];
           [c_0; c_0; c_0; c_1]]
           
-let g_Toffoli = (* tediously, sorry *)
+let g_Toffoli = (* tediously, sorry *) (* this is an and gate *)
   make_g  [[c_1; c_0; c_0; c_0; c_0; c_0; c_0; c_0 ];
            [c_0; c_1; c_0; c_0; c_0; c_0; c_0; c_0 ];
            [c_0; c_0; c_1; c_0; c_0; c_0; c_0; c_0 ];

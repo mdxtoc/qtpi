@@ -70,6 +70,8 @@ let show_final = ref false
 
 let showabvalues = ref false
 
+let showdensematrices = ref false
+
 let showstepcount = ref false
 
 let showsymbolicgate = ref true

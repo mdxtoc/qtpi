@@ -39,8 +39,8 @@ let opts = Arg.align
                     " print out simple stats on random choices");
               ("-complexunknowns" , Arg.Bool (set_arg complexunknowns), 
                     Printf.sprintf " unnown qubit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
-              (* ("-detectdisposes"  , Arg.Bool (set_arg detectdisposes), 
-                    Printf.sprintf " binding a measured qubit's value disposes the qubit (default %B)" !detectdisposes); *)
+              ("-showdensematrices"  , Arg.Bool (set_arg showdensematrices), 
+                    Printf.sprintf " show matrices in dense form, not sparse or diag (default %B)" !showdensematrices); 
               ("-fancynum"  , Arg.Symbol (List.map (fun (x,_) -> x) fancynumopts, setfancynum), 
                     Printf.sprintf " fancy printing of symbolic numbers (default %s)" (decode_fancynum ()));
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 
@@ -61,6 +61,8 @@ let opts = Arg.align
                     " show final state -- channels, stuck processes, qubit states");
               ("-showabvalues"  , Arg.Bool (set_arg showabvalues), 
 					 Printf.sprintf " show actual value of a_i, b_i in random qubit choice (default %B)" !showabvalues);
+              ("-showdensematrices"  , Arg.Bool (set_arg showdensematrices), 
+                    Printf.sprintf " show matrices in dense form, not sparse or diag (default %B)" !showdensematrices); 
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
               ("-showunknownparts" , Arg.Bool (set_arg showunknownparts), 

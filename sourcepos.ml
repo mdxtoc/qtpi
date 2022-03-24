@@ -69,7 +69,7 @@ let short_string_of_sourcepos (startpos,endpos) =
     Printf.sprintf "%d.%d-%d"
                    (linenum startpos) (charnum startpos) (charnum endpos)    
   else
-    Printf.sprintf "%d.%d-%d%d"
+    Printf.sprintf "%d.%d-%d.%d"
       (linenum startpos) (charnum startpos)
       (linenum endpos) (charnum endpos)
 

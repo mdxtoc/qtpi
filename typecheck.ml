@@ -1146,11 +1146,11 @@ and typecheck_process mon cxt p  =
        | None                -> raise (Error (n.pos, Printf.sprintf "no monitor process labelled %s" n.inst))
       );
       typecheck_process mon cxt proc
-  | Iter (pat, expr, proc, p) -> 
+  | Iter (pat, expr, ip, proc) -> 
       let t = newclasstv false expr.pos in
       let _ = assigntype_expr cxt (adorn expr.pos (List t)) expr in
-      assigntype_pat (fun cxt -> typecheck_process mon cxt proc) cxt t pat;
-      typecheck_process mon cxt p
+      assigntype_pat (fun cxt -> typecheck_process mon cxt ip) cxt t pat;
+      typecheck_process mon cxt proc
   | Cond (e,p1,p2) ->
       let _ = assigntype_expr cxt (adorn e.pos Bool) e in
       let _ = typecheck_process mon cxt p1 in

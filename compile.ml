@@ -794,7 +794,7 @@ let precompile_monbody tpnum proc =
                        in
                        List.iter ciop iops; None
     | GoOnAs _      -> bad proc.pos "process invocation"
-    | WithQubit _    -> bad proc.pos "qubit creation"
+    | WithQubit _   -> bad proc.pos "qubit creation"
     | WithQstep _   -> bad proc.pos "qubit gating/measuring"
     | WithProc _    -> bad proc.pos "process definition"
     | JoinQs _      -> bad proc.pos "joining qubit collections"

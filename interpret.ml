@@ -78,7 +78,7 @@ let mkchan c traced = {cname=c; traced= traced;
 
 module OrderedChan = struct type t = chan 
                             let compare c1 c2 = Z.compare c1.cname c2.cname
-                            let to_string c = string_of_zint c.cname
+                            let to_string c = string_of_chan (adorn dummy_spos Unit) c
                      end
 module ChanSet = MySet.Make (OrderedChan)
 

@@ -33,11 +33,10 @@ proc
     . (newqs qs = |+>⊗⊗n)  
     . (newqs ancs = |0>⊗⊗(n-1)) 
     . (let ns = tabulate n (λ i. i))
-    . out!["H⊗⊗n=\n"; show Hn; "\nX⊗⊗n=\n"; show Xn; "\n"]
     . 𝄆 i←tabulate iters (λ i. i):
-        . out!["before oracle "; show i; " "] . outq!qvals qs . out!["\n"]
-        (* oracle *)
-        (* *) . out!["iterated oracle\n"] 
+        . (* oracle *)
+              . out!["iterated oracle\n"]
+              . (* out!["before oracle "; show i; " "] . outq!qvals qs . out!["\n"] *)
               . (* invert the zero address bits *)
               . 𝄆 (j,k)←zip bs ns: . qs↓k >> (if j=0b0 then X else I) . _0 
               . (* MCT(U) should be a subprocess, but I'm not allowed subprocesses *)
@@ -48,27 +47,24 @@ proc
               . qs↓0,qs↓1,ancs↓0>>T
               . (* de-invert the address bits *)
               . 𝄆 (j,k)←zip bs ns: . qs↓k >> (if j=0b0 then X else I) . _0
-        (* *)
-        (*  . out!["unitary oracle\n"] . qs>>>U  *)
-        (* diffuser *)
-        . out!["before diffuser "; show i; " "] . outq!qvals qs . out!["\n"]
-        (*  . out!["unitary diffuser\n"] . qs>>>G  *)
-        (* *) . out!["iterated diffuser\n"] 
+        . (* diffuser *)
+              . out!["iterated diffuser\n"] 
+              . (* out!["before diffuser "; show i; " "] . outq!qvals qs . out!["\n"] *)
               . qs>>>Hn 
-              . out!["after diffuser "; show i; "'s  H⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . (* out!["after diffuser "; show i; "'s  H⊗⊗n "] . outq!qvals qs . out!["\n"] *)
               . qs>>>Xn
-              . out!["after diffuser "; show i; "'s  X⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . (* out!["after diffuser "; show i; "'s  X⊗⊗n "] . outq!qvals qs . out!["\n"] *)
               . (* MCZ *)
               . qs↓0,qs↓1,ancs↓0>>T
               . 𝄆 k←tabulate (n-2) (λ i. i): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
               . ancs↓(n-2),aux>>CX
               . 𝄆 k←rev (tabulate (n-2) (λ i. i)): qs↓(k+2),ancs↓k,ancs↓(k+1)>>T . _0
               . qs↓0,qs↓1,ancs↓0>>T
-              . out!["after diffuser "; show i; "'s  MCX "] . outq!qvals qs . out!["\n"]
+              . (* out!["after diffuser "; show i; "'s  MCX "] . outq!qvals qs . out!["\n"] *)
               . qs>>>Xn 
-              . out!["after diffuser "; show i; "'s  second X⊗⊗n "] . outq!qvals qs . out!["\n"]
-              . qs>>>Hn (* *)
-              . out!["after diffuser "; show i; "'s  second H⊗⊗n "] . outq!qvals qs . out!["\n"]
+              . (* out!["after diffuser "; show i; "'s  second X⊗⊗n "] . outq!qvals qs . out!["\n"] *)
+              . qs>>>Hn 
+              . (* out!["after diffuser "; show i; "'s  second H⊗⊗n "] . outq!qvals qs . out!["\n"] *)
         . _0 𝄇
 
     . out!["finally "] . outq!qvals qs . out!["\n"]
@@ -79,4 +75,6 @@ proc
     . _0
 
 (* multiple controlled Toffoli ... *)
-(* proc MCU () *)
+(* proc MCU () 
+
+*)

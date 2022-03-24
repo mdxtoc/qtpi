@@ -802,7 +802,7 @@ and ffv_proc mon proc =
                                                                     )
                                                        )
                                       )
-  | Iter      (params, e, p, proc) -> ffv_proc mon p; ffv_expr e; ffv_proc mon proc
+  | Iter      (params, e, ip, p)   -> ffv_proc mon ip; ffv_expr e; ffv_proc mon p
   | Cond      (expr, proc1, proc2) -> ffv_expr expr; ffv_proc mon proc1; ffv_proc mon proc2
   | PMatch    (expr, patprocs)     -> ffv_expr expr; List.iter ((ffv_proc mon) <.> snd) patprocs
   | GSum      ioprocs              -> List.iter (ffv_ioproc mon) ioprocs

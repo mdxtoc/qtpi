@@ -48,7 +48,7 @@ and procnode =
   | JoinQs of typedname list * param * process
   | SplitQs of typedname * splitspec list * process
   | TestPoint of name instance * process        (* not typedname in this case ... *)
-  | Iter of pattern * expr * process * process  (* [ pat<-expr:process].process *)
+  | Iter of pattern * expr * process * process  (* 𝄆 pat<-expr:process 𝄇 . contn *)
   | Cond of expr * process * process
   | PMatch of expr * (pattern * process) list
   | GSum of (iostep * process) list
@@ -245,7 +245,7 @@ let _WithQstep q p  = WithQstep (q,p)
 let _JoinQs qs q p  = JoinQs (qs,q,p)
 let _SplitQs q qs p = SplitQs (q,qs,p)
 let _TestPoint ni p = TestPoint (ni,p)
-let _Iter pat e proc p = Iter (pat,e,proc,p)
+let _Iter pat e ip p = Iter (pat,e,ip,p)
 let _Cond e p1 p2   = Cond (e,p1,p2)
 let _PMatch e pms   = PMatch (e,pms)
 let _GSum iops      = GSum iops
@@ -265,9 +265,9 @@ let optmap optf proc =
     | Some result -> Some result
     | _           -> match proc.inst with 
                      | Terminate
-                     | GoOnAs     _          -> None
-                     | WithNew  (bps, p)     -> trav p &~~ take1 (_WithNew bps)
-                     | WithQubit (b, qs, p)   -> trav p &~~ take1 (_WithQubit b qs)
+                     | GoOnAs     _         -> None
+                     | WithNew  (bps, p)    -> trav p &~~ take1 (_WithNew bps)
+                     | WithQubit (b, qs, p) -> trav p &~~ take1 (_WithQubit b qs)
                      | WithLet  (l, p)      -> trav p &~~ take1 (_WithLet l)
                      | WithProc (pd, p)     -> trav p &~~ take1 (_WithProc pd) (* note we don't look at pd *)
                      | WithQstep (q, p)     -> trav p &~~ take1 (_WithQstep q)

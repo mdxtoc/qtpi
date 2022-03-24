@@ -258,9 +258,9 @@ let _Par ps         = Par ps
  *)
 
 let optmap optf proc =
-  let take1 c x = Some {proc with inst = c x} in
-  let take2 c (p1,p2) = Some {proc with inst = c p1 p2} in
   let rec trav proc =
+    let take1 c x = Some {proc with inst = c x} in
+    let take2 c (p1,p2) = Some {proc with inst = c p1 p2} in
     match optf proc with
     | Some result -> Some result
     | _           -> match proc.inst with 
@@ -274,7 +274,7 @@ let optmap optf proc =
                      | JoinQs (qs, q, p)    -> trav p &~~ take1 (_JoinQs qs q)
                      | SplitQs (q, qs, p)   -> trav p &~~ take1 (_SplitQs q qs)
                      | TestPoint (tp, p)    -> trav p &~~ take1 (_TestPoint tp)
-                     | Iter (pat,e,proc,p) -> trav2 proc p &~~ take2 (fun proc p -> Iter(pat,e,proc,p))
+                     | Iter (pat,e,ip,p)    -> trav p &~~ take1 (_Iter pat e ip) (* note we don't look at ip *)
                      | Cond (e, p1, p2)     -> trav2 p1 p2 &~~ take2 (_Cond e)
                      | PMatch (e, pms)      -> Optionutils.optmap_any (fun (pat,p) -> trav p &~~ (_Some <.> (fun p -> pat,p))) pms 
                                                &~~ take1 (_PMatch e)

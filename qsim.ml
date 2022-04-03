@@ -441,13 +441,14 @@ let ugstep_padded pn qs g gpad =
                        ) 
      in
   
-     (* qs must be distinct *)
-     let rec check_distinct_qubits = function
-       | q::qs -> if List.mem q qs then bad "repeated qubit" else check_distinct_qubits qs
-       | []    -> ()
-     in
-     check_distinct_qubits qs;
-  
+     (* qs must be distinct -- but the resource checker has done this ... *)
+     (* let rec check_distinct_qubits = function
+          | q::qs -> if List.mem q qs then bad "repeated qubit" else check_distinct_qubits qs
+          | []    -> ()
+        in
+        check_distinct_qubits qs;
+      *)
+      
      (* size of gate must be 2^(length qs) *)
      let nqs = List.length qs in
      let veclength = Z.(z_2**nqs) in

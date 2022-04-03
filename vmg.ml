@@ -158,6 +158,29 @@ and countzeros_v n m v :zint = (* from n to m-1, natch *)
                          | SparseV (nc,sv,cv)            -> 
                              Z.(List.fold_left (fun nz (_,x) -> if x=c_0 then nz+z_1 else nz) z_0 cv)
 
+and samehalves_v v :bool = (* are the two halves of the vector the same? Used in try_split *)
+  let nv = vsize v in
+  let nh = nv /: z_2 in
+  match v with
+  | DenseV  v         -> let nh = Z.to_int nh in
+                         _for_all 0 1 nh (fun i -> v.(i)=v.(i+nh))
+  | SparseV (_,sv,cv) -> let cvl, cvh = takedropwhile (fun (i,_) -> i<:nh) cv in
+                         (try List.for_all (fun ((i,vl),(j,vh)) -> Z.(i+nh=j) && vl=vh) (zip cvl cvh)
+                          with Zip -> false
+                         )
+
+and sameneghalves_v v :bool = (* is the top half the negated bottom half? Used in try_split *)
+  let nv = vsize v in
+  let nh = nv /: z_2 in
+  match v with
+  | DenseV  v         -> let nh = Z.to_int nh in
+                         _for_all 0 1 nh (fun i -> v.(i)=cneg (v.(i+nh)))
+  | SparseV (_,sv,cv) -> sv=c_0 && (* it's effectively impossible with non-zero sv *)
+                         let cvl, cvh = takedropwhile (fun (i,_) -> i<:nh) cv in
+                         (try List.for_all (fun ((i,l),(j,h)) -> Z.(i+nh=j) && l=cneg h) (zip cvl cvh)
+                          with Zip -> false
+                         )
+
 and cv_of_dv sv dv = 
   let nxs = Array.to_list (Array.mapi (fun i x -> (Z.of_int i),x) dv) in
   List.filter (fun (_,x) -> x<>sv) nxs

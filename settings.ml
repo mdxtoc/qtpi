@@ -82,6 +82,8 @@ let symbq = ref true
 
 let symbolic_ht = ref true
 
+let usetestpoints = ref true
+
 let traceevents = ref false
 let traceId = ref false
 let traceIO = ref false

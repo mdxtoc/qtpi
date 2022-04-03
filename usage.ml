@@ -87,6 +87,8 @@ let opts = Arg.align
 					 Printf.sprintf " use diagonal matrix optimisation in calculations (default %B)" !Settings.trydiag);
               ("-typereport"  , Arg.Set typereport, 
 					" show fully typed program");
+              ("-usetestpoints", Arg.Bool (set_arg usetestpoints), 
+					Printf.sprintf " execute testpoint code  (default %B)" !Settings.usetestpoints);
               ("-verbose", Arg.Symbol (List.map (fun (x,_) -> x) verboseopts, setverbose), 
 					" verbose operation, various arguments, defaults false" ); 
               ("-version", Arg.Unit print_version, 

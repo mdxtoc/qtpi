@@ -829,16 +829,18 @@ let precompile_proc ctenv pn mon proc =
     let adpar = tadorn spos in
     let adn = tadorn spos in
     match proc.inst with
-    | TestPoint (tpn, p) -> let p = Process.map (cmp spos) p in
-                            let rc = chan_name tpn.inst in
-                            let mn = mon_name pn tpn.inst in
-                            let tp = Some (adorn spos (Process [])) in
-                            let call = ad (GoOnAs (adn tp mn, [])) in
-                            let par = construct_callpar tpn.pos rc call p in
-                            let (_, monproc) = _The (find_monel tpn.inst mon) in
-                            let def = ad (WithProc ((false, adn tp mn, [], precompile_monbody tpn.inst monproc), par)) in
-                            let mkchan = ad (WithNew ((false,[adpar (cut spos) rc]), def)) in
-                            Some mkchan
+    | TestPoint (tpn, p) -> if !usetestpoints then 
+                              let p = Process.map (cmp spos) p in
+                              let rc = chan_name tpn.inst in
+                              let mn = mon_name pn tpn.inst in
+                              let tp = Some (adorn spos (Process [])) in
+                              let call = ad (GoOnAs (adn tp mn, [])) in
+                              let par = construct_callpar tpn.pos rc call p in
+                              let (_, monproc) = _The (find_monel tpn.inst mon) in
+                              let def = ad (WithProc ((false, adn tp mn, [], precompile_monbody tpn.inst monproc), par)) in
+                              let mkchan = ad (WithNew ((false,[adpar (cut spos) rc]), def)) in
+                              Some mkchan
+                            else Some (Process.map (cmp spos) p)
     | WithProc  ((brec,pn,params,proc),p) 
                          -> let p = Process.map (cmp spos) p in
                             let proc = Process.map (cmp spos) proc in

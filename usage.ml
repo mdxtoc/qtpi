@@ -41,6 +41,8 @@ let opts = Arg.align
                     Printf.sprintf " unnown qubit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               ("-showdensematrices"  , Arg.Bool (set_arg showdensematrices), 
                     Printf.sprintf " show matrices in dense form, not sparse or diag (default %B)" !showdensematrices); 
+              ("-factorbraket"  , Arg.Bool (set_arg factorbraket), 
+                    Printf.sprintf " factorise bra/kets when printing (default %B)" !factorbraket);
               ("-fancynum"  , Arg.Symbol (List.map (fun (x,_) -> x) fancynumopts, setfancynum), 
                     Printf.sprintf " fancy printing of symbolic numbers (default %s)" (decode_fancynum ()));
               ("-fancyvec"  , Arg.Bool (set_arg fancyvec), 

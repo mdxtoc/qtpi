@@ -326,31 +326,62 @@ and string_of_nv bksign (vm, vv) =
        let estringf ss (i,x) = 
          if x=c_0 then ss else (coeff x ^ string_of_basis_idx i) :: ss
        in
-       let estrings = match v with
-                      | SparseV (_, sv, cv) 
-                          when sv=c_0       -> List.fold_left estringf [] cv 
-                      | SparseV (n, sv, cv) 
-                          when n>:z_2       -> 
-                          let rec showe i cv ss =
-                            let catchup j =
-                              if Z.(i=j) then ss else 
-                              if Z.(i+one=j) then (coeff sv ^ string_of_basis_idx i) :: ss else
-                                Printf.sprintf "%s%s+..+%s%s" (coeff sv) (string_of_basis_idx i) 
-                                                              (coeff sv) (string_of_basis_idx j) :: ss
-                            in
-                            match cv with
-                            | ((j,_) as e)::cv -> let ss = catchup Z.(j-:one) in
-                                                  showe Z.(j+:one) cv (estringf ss e)
-                            | []               -> catchup Z.(n-:one)
-                          in
-                          showe Z.zero cv []
-                      | _                   -> _for_fold_leftZ z_0 z_1 n [] (fun ss i -> estringf ss (i,?.v i))
+       let is_single = countzeros_v z_0 n v = Z.(n-one) in
+       let premult, estrings_rev =
+         let n = vsize v in
+         let premult, v = if is_single || not !factorbraket then c_1, v
+                           else try let stats = stats_init (Z.to_int n) in
+                                    let count cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in
+                                    stats_vc count stats v;
+                                    let amps = stats_to_list stats in
+                                    let amp, famp = 
+                                      match amps with
+                                      | (amp1,famp1)::(amp2,famp2)::_ 
+                                        when amp1=c_0                 -> amp2, Z.(famp1+famp2)
+                                      | (amp1,famp1)::(amp2,famp2)::_ 
+                                                      when amp2=c_0   -> amp1, Z.(famp1+famp2)
+                                      | (amp,famp)::_                 -> amp,  famp
+                                      | []                            -> c_0,  Z.zero
+                                    in
+                                    if false then Printf.printf "stats are %s, amp %s famp %s\n" 
+                                        (bracketed_string_of_list (bracketed_string_of_pair string_of_csnum string_of_zint) amps)
+                                        (string_of_csnum amp)
+                                        (Z.to_string famp);
+                                    let premult = if amp=c_0 || n<=:z_4 || Z.(famp*z_2 < n)
+                                                  then c_1 
+                                                  else amp
+                                    in
+                                    if false then Printf.printf "winner is %s\n" (string_of_csnum premult);
+                                    if false then Printf.printf "before division, v is %s\n" (raw_string_of_vector v);
+                                    let v = div_nv premult v in
+                                    if false then Printf.printf "after division, v is <%s>\n" (raw_string_of_vector v); 
+                                    premult, v
+                                with Snum.Disaster s -> (if true then Printf.printf "Snum.Disaster %s\n" s); c_1, v
+         in
+         let rec gen i ss = 
+           if Z.(i=n) then ss (* it's reversed later!! *) 
+           else
+             let amp = ?.v i in
+             if amp=c_0 then gen Z.(i+one) ss 
+             else
+               let rec tw j = if Z.(j<n) && ?.v j=amp then tw Z.(j+one) else j in
+               let j = tw i in
+               if Z.(j-i)<z_3 then gen Z.(i+one) (estringf ss (i,amp)) 
+               else
+                 let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
+                 let ss = (coeff amp ^ string_of_basis_idx i ^
+                           (if isneg then "-" else "+") ^ "..." ^ (if not isneg then "+" else "") ^
+                           coeff amp ^ string_of_basis_idx Z.(j-one)
+                          ) :: ss
+                 in
+                 gen j ss 
+         in
+         premult, gen z_0 []
        in
-       let is_single () = countzeros_v z_0 n v = Z.(n-one) in
-       match estrings with 
+       match estrings_rev with 
        | []                    -> "?..empty nv?.."
-       | [e] when is_single () -> e 
-       | _                     -> Printf.sprintf "(%s)" (sum_separate (List.rev estrings))
+       | [e] when is_single    -> e 
+       | _                     -> Printf.sprintf "%s(%s)" (if premult=c_1 then "" else so_csnumb true premult) (sum_separate (List.rev estrings_rev))
       )
     else
       raw_string_of_vector v
@@ -398,13 +429,13 @@ and raw_string_of_vector v =
 
 
 (* with sparse vectors, we can have some seriously large ones ... *)
-and stats_v stats v =
-  let count = stats_inc stats z_1 in
-  (match v with
-   | DenseV  dv        -> Array.iter count dv
-   | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
-                          List.iter (count <.> snd) cv
-  )
+and stats_vc count stats v = 
+  match v with
+  | DenseV  dv        -> Array.iter count dv
+  | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
+                         List.iter (count <.> snd) cv
+
+and stats_v stats v = stats_vc (fun x -> stats_inc stats z_1 x) stats v
   
 and statistics_v v :(csnum*zint) list =
   let nv = match v with 
@@ -414,6 +445,26 @@ and statistics_v v :(csnum*zint) list =
   let stats = stats_init (Z.to_int nv) in
   stats_v stats v;
   stats_to_list stats
+
+(* had to promote these because string_of_vector uses div_nv *)
+and mult_nv cn v =
+  if cn=c_0 then SparseV (vsize v, c_0, []) else
+  if cn=c_1 then v                          else
+    match v with 
+    | DenseV  v         -> DenseV (Array.map (fun x -> cprod cn x) v)
+    | SparseV (n,sv,cv) -> SparseV (n, cprod cn sv, List.map (fun (i,x) -> i, cprod cn x) cv)
+
+and mult_snv sn v = mult_nv (csnum_of_snum sn) v
+
+and div_nv cn v =
+  if cn=c_0 then raise (Disaster "div_nv can't divide by c_0") else
+  if cn=c_1 then v                                             else
+    match v with 
+    | DenseV  v         -> DenseV (Array.map (fun x -> cdiv x cn) v)
+    | SparseV (n,sv,cv) -> SparseV (n, cdiv sv cn, List.map (fun (i,x) -> i, cdiv x cn) cv)
+
+and div_snv sn v = div_nv (csnum_of_snum sn) v
+
 
 let statistics_nv (_,v) = statistics_v v
 
@@ -1006,15 +1057,6 @@ let dotprod_vv vA vB =
 let rowcolprod nc row col =
   let els = Listutils.tabulate (my_to_int nc "rowcolprod") (fun j -> cprod (row (Z.of_int j)) (col (Z.of_int j))) in
   simplify_csum els
-
-let mult_nv cn v =
-  if cn=c_0 then SparseV (vsize v, c_0, []) else
-  if cn=c_1 then v                          else
-                 match v with 
-                 | DenseV  v         -> DenseV (Array.map (fun x -> cprod cn x) v)
-                 | SparseV (n,sv,cv) -> SparseV (n, cprod cn sv, List.map (fun (i,x) -> i, cprod cn x) cv)
-
-let mult_snv sn v = mult_nv (csnum_of_snum sn) v
 
 module OrderedZ = struct type t = zint
                          let compare = Z.compare

@@ -42,6 +42,8 @@ let checkrandombias = ref false
 
 let complexunknowns = ref true
 
+let factorbraket = ref true
+
 type fancynum = RawNum | FractionalNum 
 
 let fancynum = ref FractionalNum

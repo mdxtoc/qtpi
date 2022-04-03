@@ -141,14 +141,11 @@ let snum_g :snum = [(num_1,[S_g])]
 
 let snum_symb symb :snum = [(num_1,[S_symb symb])]
 
-(* not used
+let isneg_sprod (n,_ : sprod) = n</num_0
 
-   let isneg_sprod (n,_ : sprod) = n</num_zero
-
-   let isneg_snum : snum -> bool = function
-     | sprod::_ -> isneg_sprod sprod
-     | []       -> false (* because it's zero *)
- *)  
+let isneg_snum : snum -> bool = function
+  | sprod::_ -> isneg_sprod sprod
+  | []       -> false (* because it's zero *)
 
 let fp_h2 = 0.5
 let fp_h = sqrt fp_h2
@@ -206,7 +203,7 @@ let so_el symbf e =
       match e with
       | S_sqrt n    -> if n=/half  && !symbolic_ht then "h"     else
                        if n=/third && !symbolic_ht then "t"     else
-                                                        Printf.sprintf "r(%s)" (string_of_num n)
+                       Printf.sprintf "r(%s)" (string_of_num n)
       | S_f         -> "f"            
       | S_g         -> "g"
       | S_symb symb -> symbf symb
@@ -481,10 +478,10 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let div_sqrt_multiplier n = [(Number.reciprocal n, [S_sqrt n])]
+let reciprocal_sqrt n = [(Number.reciprocal n, [S_sqrt n])]
 
 let rdiv_sqrt sn n = 
-  rprod (div_sqrt_multiplier n) sn
+  rprod (reciprocal_sqrt n) sn
 
   
 (******** snum arithmetic is where all the action is. So we memoise sum and prod, carefully *********)
@@ -565,11 +562,30 @@ let simplify_sum =
   if !Settings.memoise && memoise_simplify_sum then memo_simplify_sum
   else raw_simplify_sum 
 
-  
+(* this is for division that sometimes works *)
+let rdiv r1 r2 =   
+  let bad () = raise (Disaster (Printf.sprintf "rdiv cannot divide %s by %s" (string_of_snum r1) (string_of_snum r2))) in
+  if r2=snum_0 then bad () else
+  if r1=r2     then snum_1 else
+    match r2 with
+    | [n2,els2] -> let el_div (n1,els1) el =
+                     if List.mem el els1 then n1, Listutils.remove el els1 else
+                       match el with
+                       | S_sqrt n -> Q.div n1 n, el::els1
+                       | _        -> bad ()
+                   in
+                   let sn_div (n1,els1) = List.fold_left el_div (Q.div n1 n2, els1) els2 in
+                   simplify_sum (List.map sn_div r1)
+    | _         -> bad () (* can't divide by a sum *)
+    
 (* *********************** complex arith in terms of reals ************************************ *)
 
 type csnum = C of snum*snum (* complex x + iy *)
 
+let isneg_csnum = function
+  | C([], y) -> isneg_snum y
+  | C(x , _) -> isneg_snum x
+  
 let so_im y = (* a list of strings: ok if y is zero *) 
   match y with
   | []                 -> []
@@ -672,6 +688,7 @@ let csnum_of_snum s = C (s, snum_0)
 let c_0 = csnum_of_snum snum_0
 let c_1 = csnum_of_snum (snum_1)
 let c_h = csnum_of_snum (snum_h)
+let c_reciprocal_h = csnum_of_snum (reciprocal_sqrt Number.half)
 let c_f = csnum_of_snum snum_f
 let c_g = csnum_of_snum snum_g
 
@@ -702,7 +719,7 @@ let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | _ , _  , _ , [] -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
   | _               -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
 
-let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+let csum (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with
   | [] , [] , _  , _    -> c2 
   | _  , _  , [] , []   -> c1
@@ -719,10 +736,22 @@ let cconj (C(x,y)) = intern (C (x, rneg y))
 
 let absq  (C(x,y)) = rsum (rprod x x) (rprod y y)
 
-(* we can't really divide 
-    let c_r_div   (C(x,y)) z          = C (rdiv x z, rdiv y z)
-    let c_r_div_h (C(x,y))            = intern (C (rdiv_h x, rdiv_h y))
- *)
+(* we can't really divide, but we try. And so far only used in printing, so no intern *)
+
+let cdiv (C (x1,y1) as c1) (C (x2,y2) as c2) = 
+  let bad () = 
+    raise (Disaster (Printf.sprintf "cdiv cannot divide %s by %s" (string_of_csnum c1) (string_of_csnum c2)))
+  in
+  if c2=c_0 then bad () else
+  if c1=c2  then c_1 
+  else 
+    match x1  , y1  , x2  , y2 with  
+    |     []  , []  , _   , _    -> c_0
+    |     _   , _   , _::_, []   -> C (rdiv x1 x2, rdiv y1 x2)
+    |     []  , _::_, []  , _::_ -> C ([], rdiv y1 y2)
+    |     _                      -> bad ()
+
+let cdiv_r   c r                  = cdiv c (C(r,[]))
 
 let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi))
 

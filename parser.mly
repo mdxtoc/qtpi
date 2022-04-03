@@ -338,15 +338,15 @@ simpleprocess:
                                            raise (ParseError (loc(), "more than one unsized collection on right-hand side of →"));
                                          adorn (SplitQs($3,$5,$7))
                                         }
-  | qstep DOT process                   
-                                        {adorn (WithQstep ($1,$3))}
-  | iostep DOT process                  {adorn (GSum [$1,$3])}
+  | qstep dotprocess                   
+                                        {adorn (WithQstep ($1,$2))}
+  | iostep dotprocess                   {adorn (GSum [$1,$2])}
   | TESTPOINT tpnum process             {adorn (TestPoint (adorn $2,$3))}
-  | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR DOT process /* alternative syntax for Iter ... */
-                                        {adorn (Iter ($2,$4,$6,$9))}
+  | LSQPAR bpattern LEFTARROW expr COLON process RSQPAR dotprocess /* alternative syntax for Iter ... */
+                                        {adorn (Iter ($2,$4,$6,$8))}
   | LEFTREPEAT indentHere bpattern LEFTARROW expr COLON indentNext process outdent outdent dacapoq
-             DOT process
-                                        {adorn (Iter ($3,$5,$8,$13))}
+             dotprocess
+                                        {adorn (Iter ($3,$5,$8,$12))}
   /* this MATCH rule _must_ have exactly the same indent/outdent pattern as the expression MATCH rule 
      (if not, the parsing goes haywire)
    */
@@ -358,8 +358,12 @@ simpleprocess:
     outdent                             {adorn (PMatch ($4,$8))}
   | LPAR process RPAR                   {$2}
   | IF indentPrev ubif outdent fiq      {$3}
-  | DOT process                         {$2} /* I hope this works ... */
+  | DOT process                         {$2} /* optional extra dots ... */
 
+dotprocess:
+  | DOT process                         {$2}
+  | TESTPOINT tpnum dotprocess          {adorn (TestPoint (adorn $2,$3))}
+  
 dacapoq:    /* optional 𝄇 */
   | RIGHTREPEAT                         {}
   |                                     {}

@@ -153,10 +153,10 @@ and dense_countzeros_v n m v :int = (* from n to m-1, natch *)
   
 and countzeros_v n m v :zint = (* from n to m-1, natch *)
   if n>=:m then z_0 else match v with
-                      | DenseV  v                     -> Z.of_int (dense_countzeros_v (Z.to_int n) (Z.to_int m) v)
-                      | SparseV (_,sv,cv) when sv=c_0 -> let cv' = cvseg n m cv in Z.(m-n-Z.of_int (List.length cv'))
-                      | SparseV (nc,sv,cv)            -> 
-                          Z.(List.fold_left (fun nz (_,x) -> if x=c_0 then nz+z_1 else nz) z_0 cv)
+                         | DenseV  v                     -> Z.of_int (dense_countzeros_v (Z.to_int n) (Z.to_int m) v)
+                         | SparseV (_,sv,cv) when sv=c_0 -> let cv' = cvseg n m cv in Z.(m-n-Z.of_int (List.length cv'))
+                         | SparseV (nc,sv,cv)            -> 
+                             Z.(List.fold_left (fun nz (_,x) -> if x=c_0 then nz+z_1 else nz) z_0 cv)
 
 and cv_of_dv sv dv = 
   let nxs = Array.to_list (Array.mapi (fun i x -> (Z.of_int i),x) dv) in

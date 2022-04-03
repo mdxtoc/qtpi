@@ -78,6 +78,8 @@ let showsymbolicgate = ref true
 
 let showunknownparts = ref false
 
+let splitplurals = ref true
+
 let symbq = ref true
 
 let symbolic_ht = ref true

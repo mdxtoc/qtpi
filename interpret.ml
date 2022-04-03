@@ -296,6 +296,11 @@ let rec interp pn rtenv procstart =
                          raise (Error (qstep.pos, Printf.sprintf "gated qubits %s are not disjoint" (string_of_list string_of_qubit "," qs)));
                       );
                     let g = to_gate (evale rtenv g) in
+                    if plural && !splitplurals then 
+                      (if false then Printf.printf "unsplit qs %s\n" (string_of_qval (qsort (qval_of_qs qs)));
+                       Qsim.maybe_split qs;
+                       if false then Printf.printf "split qs %s\n" (string_of_qval (qsort (qval_of_qs qs)));
+                      );
                     let qvs = if !traceevents then tev qs else [] in
                     ugstep (name_of_procname pn) qs g;
                     if !traceevents then trace (EVGate (name_of_procname pn, qvs, g, tev qs));

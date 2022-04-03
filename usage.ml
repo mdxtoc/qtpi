@@ -69,6 +69,8 @@ let opts = Arg.align
                     Printf.sprintf " unnowns shown with real (𝕣) and imaginary (𝕚) parts (default %B)" !showunknownparts);
               ("-showstepcount"  , Arg.Set showstepcount, 
 					 Printf.sprintf " show interpreter stepcount");
+              ("-splitplurals"  , Arg.Bool (set_arg splitplurals), 
+					 Printf.sprintf " try to separate gated plurals from rest of state (default %B)" !splitplurals);
               ("-symbolic_ht"  , Arg.Bool (set_arg symbolic_ht), 
 					 Printf.sprintf " print r(1/2) as h, r(1/3) as t (default %B)" !symbolic_ht);
               ("-symbq"  , Arg.Bool (set_arg symbq), 

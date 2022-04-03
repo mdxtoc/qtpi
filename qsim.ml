@@ -416,6 +416,12 @@ let qsort (qs,v) =
   in
   reorder (qs,v) (numbered qs')
 
+let maybe_split qs =
+  (* because of the way qubit state works, values of qubits will either be disjoint or identical *)
+  let qs', v' = qval_of_qs qs in
+  if List.length qs<>List.length qs' then
+    record true (qs',v')
+
 let ugstep_padded pn qs g gpad = 
   if !verbose || !verbose_qcalc then
     (Printf.printf "ugstep_padded %s %s %s %s\n" 

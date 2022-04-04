@@ -130,7 +130,7 @@ time ./Qtpi examples/Grover/grover9.qtp
 
 time ./Qtpi examples/Grover/testG.qtp
 time ./Qtpi examples/Grover/grover.qtp
-time ./Qtpi examples/Grover/grover_gated.qtp
+time ./Qtpi examples/Grover/grover_gated.qtp -usetestpoints false
 
 time ./Qtpi examples/W2.qtp
 time ./Qtpi examples/W2q.qtp

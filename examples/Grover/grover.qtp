@@ -29,6 +29,8 @@ proc
     
     . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . _0
     
+    . out!["finally "] . outq!qvals qs . out!["\n"]
+    
     . qs⌢⃫(bs') 
     . out!["measurement says "; show bs'; 
            if bs=bs' then " ok" else " ** WRONG **"; "\n"] 

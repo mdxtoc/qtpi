@@ -59,6 +59,8 @@ let opts = Arg.align
                     Printf.sprintf " memoise calculator operations mult and sum (default %B)" !memoise);
               ("-qvalsimplifies"  , Arg.Bool (set_arg qvalsimplifies), 
                     Printf.sprintf " qval simplifies entanglements when possible (default %B)" !qvalsimplifies);
+              ("-runbraket"  , Arg.Bool (set_arg runbraket), 
+                    Printf.sprintf " show runs -- e.g. |00>+...+|10> -- when printing vectors (default %B)" !runbraket);
               ("-show_final"  , Arg.Set show_final, 
                     " show final state -- channels, stuck processes, qubit states");
               ("-showabvalues"  , Arg.Bool (set_arg showabvalues), 

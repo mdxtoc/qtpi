@@ -362,11 +362,14 @@ and string_of_nv bksign (vm, vv) =
            if Z.(i=n) then ss (* it's reversed later!! *) 
            else
              let amp = ?.v i in
+             let justone () = gen Z.(i+one) (estringf ss (i,amp)) in
              if amp=c_0 then gen Z.(i+one) ss 
+             else
+             if not !runbraket then justone () 
              else
                let rec tw j = if Z.(j<n) && ?.v j=amp then tw Z.(j+one) else j in
                let j = tw i in
-               if Z.(j-i)<z_3 then gen Z.(i+one) (estringf ss (i,amp)) 
+               if Z.(j-i)<z_3 then justone ()  
                else
                  let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
                  let ss = (coeff amp ^ string_of_basis_idx i ^

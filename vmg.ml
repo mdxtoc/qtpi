@@ -329,7 +329,7 @@ and string_of_nv bksign (vm, vv) =
        let is_single = countzeros_v z_0 n v = Z.(n-one) in
        let premult, estrings_rev =
          let n = vsize v in
-         let tracediv = true in
+         let tracediv = false in
          let premult, v = if is_single || not !factorbraket then c_1, v
                            else try let stats = stats_init (Z.to_int n) in
                                     let count cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in

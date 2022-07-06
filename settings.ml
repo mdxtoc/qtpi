@@ -40,8 +40,6 @@ let chanbuf_limit = ref 0           (* buffer limit for channels: -1 for infinit
 
 let checkrandombias = ref false
 
-let complexunknowns = ref true
-
 let factorbraket = ref true
 
 type fancynum = RawNum | FractionalNum 

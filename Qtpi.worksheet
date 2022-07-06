@@ -85,8 +85,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 # Remarkably, this complication doesn't seem to disturb sensible quantum algorithms.
 # Teleport, full adder, Grover (et al.) work happily with complex unknowns.
 # 
-./Qtpi -trace -complexunknowns false examples/randomteleport_with.qtp
-./Qtpi -trace -complexunknowns true examples/randomteleport_with.qtp
+./Qtpi -trace examples/randomteleport_with.qtp
 
 ./Qtpi examples/annotatedteleport.qtp
 ./Qtpi examples/Watrous_QBC.qtp

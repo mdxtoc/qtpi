@@ -79,8 +79,8 @@ type s_el =
   | S_symb of s_symb                 
 
 and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
-           (* false=a /true=b,
-                           false=real / true=imaginary, (* only true when !complexunknowns *)
+           (* false=a / true=b,
+                           false=real / true=imaginary, 
                                       shared inf.
               -- note choice of false/true alternatives because false sorts before true,
                  so a before b, real before imaginary
@@ -92,7 +92,6 @@ and symrec = {id: int; secret: (float*float)*(float*float)}
                        -- note a before b, real before imaginary
                        -- never used in simplifying
                        -- total of the four must be 1.0
-                       -- if not !complexunknowns then im parts will be 0.0
               *)
              
 and sprod = num * s_el list         (* a product*)
@@ -193,7 +192,7 @@ let string_of_symb symb =
   Printf.sprintf "%s%d%s%s" 
                  (if symb.alpha then "b" else "a") 
                  symb.idsecret.id 
-                 (if !complexunknowns then (if symb.imr then im_string else re_string) else "")
+                 (if symb.imr then im_string else re_string)
                  (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb symb) else "")
 
 let so_el symbf e = 
@@ -402,7 +401,7 @@ and simplify_sum ps =
             let rec find pres els =
               match els with 
               | S_symb ({alpha=false; imr=false; idsecret={id=q1}} as symb1) :: 
-                S_symb ({alpha=false; imr=false; idsecret={id=q2}} as symb2) :: els (* we have found a.re*a.re, or a*a if not !complexunknowns *)
+                S_symb ({alpha=false; imr=false; idsecret={id=q2}} as symb2) :: els (* we have found a.re*a.re *)
                           when q1=q2 
                           -> 
                   let remake post = n, prepend pres post in
@@ -414,29 +413,22 @@ and simplify_sum ps =
                   then (
                     (* we have also found b.re*b.re *)
                     let ps' = Listutils.remove p' ps in
-                    if !complexunknowns 
-                    then ( (* search for a.im*a.im and b.im*b.im *)
-                      let pa' = remake (S_symb {symb1 with imr=true} :: S_symb {symb2 with imr=true} :: els) in
+                    (* search for a.im*a.im and b.im*b.im *)
+                    let pa' = remake (S_symb {symb1 with imr=true} :: S_symb {symb2 with imr=true} :: els) in
+                    if !verbose_simplify then 
+                      Printf.printf "a2b2.find looking for %s (a.im*a.im) in %s\n" (string_of_prod pa') (string_of_snum ps);
+                    if List.exists ((=) pa') ps' then (
+                      let pb' = remake (S_symb {symb1 with alpha=true; imr=true} :: S_symb {symb2 with alpha=true; imr=true} :: els) in
                       if !verbose_simplify then 
-                        Printf.printf "a2b2.find looking for %s (a.im*a.im) in %s\n" (string_of_prod pa') (string_of_snum ps);
-                      if List.exists ((=) pa') ps' then (
-                        let pb' = remake (S_symb {symb1 with alpha=true; imr=true} :: S_symb {symb2 with alpha=true; imr=true} :: els) in
+                        Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_prod pb') (string_of_snum ps);
+                      if List.exists ((=) pb') ps' then (
                         if !verbose_simplify then 
-                          Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_prod pb') (string_of_snum ps);
-                        if List.exists ((=) pb') ps' then (
-                          if !verbose_simplify then 
-                            Printf.printf "a2b2.find success! (complex unknown)\n";
-                          Some (remake els, Listutils.remove pb' (Listutils.remove pa' ps'))
-                        )
-                        else fail ()
+                          Printf.printf "a2b2.find success! (complex unknown)\n";
+                        Some (remake els, Listutils.remove pb' (Listutils.remove pa' ps'))
                       )
                       else fail ()
                     )
-                    else (
-                      if !verbose_simplify then 
-                        Printf.printf "a2b2.find success! (real unknown)\n";
-                      Some (remake els, ps') (* re parts will do for real unknowns*)
-                    )
+                    else fail ()
                   )
                   else fail ()
               | el :: els  -> find (el::pres) els
@@ -621,11 +613,10 @@ let so_csnumb bracket (C (x,y)) =
                             | _                   -> treatable signopt ps
                            )
               in
-              match !complexunknowns, !showunknownparts, treatable None ps with
-              | false, _   , _        
-              | _    , true, _        
-              | _    , _   , None     -> default ()
-              | _    , _   , Some imr -> 
+              match !showunknownparts, treatable None ps with
+              | true, _        
+              | _   , None     -> default ()
+              | _   , Some imr -> 
                   let rec sameps ps ps' =
                     match ps, ps' with
                     | p::ps, p'::ps' -> (match p, p' with
@@ -662,12 +653,11 @@ let so_csnumb bracket (C (x,y)) =
         in
         parts [] [] (x,y) 
         (* double printing to see what it was we were simplifying: commented out because the above seems to work ...
-           @ (if not !complexunknowns then [] 
-              else (showunknownparts := not !showunknownparts; 
-                 let ss = parts [] [] (x,y) in 
-                 showunknownparts := not !showunknownparts; 
-                 ("[" :: ss) @ ["]"])
-                )
+           @ (showunknownparts := not !showunknownparts; 
+              let ss = parts [] [] (x,y) in 
+              showunknownparts := not !showunknownparts; 
+              ("[" :: ss) @ ["]"])
+             )
          *)
       in
       let ss = match x,y with

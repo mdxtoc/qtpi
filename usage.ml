@@ -37,8 +37,6 @@ let opts = Arg.align
                     Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
               ("-checkrandombias"  , Arg.Set checkrandombias, 
                     " print out simple stats on random choices");
-              ("-complexunknowns" , Arg.Bool (set_arg complexunknowns), 
-                    Printf.sprintf " unnown qubit amplitudes (a0, b0 etc.) stand for complex numbers, not reals (default %B)" !complexunknowns);
               ("-showdensematrices"  , Arg.Bool (set_arg showdensematrices), 
                     Printf.sprintf " show matrices in dense form, not sparse or diag (default %B)" !showdensematrices); 
               ("-factorbraket"  , Arg.Bool (set_arg factorbraket), 

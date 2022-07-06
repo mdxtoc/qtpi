@@ -26,12 +26,14 @@ open Listutils
 open Value
 open Vmg
 open Type
+open Functionutils
 
 type tv = Type._type * Vt.vt
 type event =
   | EVMessage of chan * name * name * tv
   | EVInput of name * tv
   | EVOutput of name * tv
+  | EVCreate of name * bool * string list (* bool is plural *)
   | EVDispose of name * tv
   | EVGate of name * string list * gate * string list
   | EVMeasure of name * string list * gate * bool list * string list
@@ -48,6 +50,9 @@ let string_of_event = function
                                                                         (string_of_value t v)
   | EVInput (pn,(t,v))              -> Printf.sprintf "%s inputs %s" (string_of_name pn) (string_of_value t v)
   | EVOutput (pn,(t,v))             -> Printf.sprintf "%s outputs %s" (string_of_name pn) (string_of_value t v)
+  | EVCreate (pn,plural,ss)        -> Printf.sprintf "%s creates %s" (string_of_name pn) (if plural then bracketed_string_of_list id ss
+                                                                                                     else List.hd ss
+                                                                                         )
   | EVDispose (pn,(t,v))            -> Printf.sprintf "%s disposes %s" (string_of_name pn) (string_of_value t v)
   | EVGate (pn, ss, g, ss')         -> Printf.sprintf "%s %s >> %s; result %s" (string_of_name pn)
                                                                                (soqs ss)

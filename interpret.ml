@@ -234,7 +234,8 @@ let rec interp pn rtenv procstart =
                                                                                                       i;
                                              flush_all ()
                                             );
-                                          rtenv.(i) <- if plural then of_qubits qs else of_qubit (List.hd qs)
+                                          rtenv.(i) <- if plural then of_qubits qs else of_qubit (List.hd qs);
+                                          if !traceevents then trace (EVCreate(name_of_procname pn,plural,tev qs))
                          ) 
                          qss; 
                (* if !pstep then 

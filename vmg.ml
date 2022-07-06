@@ -329,6 +329,7 @@ and string_of_nv bksign (vm, vv) =
        let is_single = countzeros_v z_0 n v = Z.(n-one) in
        let premult, estrings_rev =
          let n = vsize v in
+         let tracediv = true in
          let premult, v = if is_single || not !factorbraket then c_1, v
                            else try let stats = stats_init (Z.to_int n) in
                                     let count cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in
@@ -343,20 +344,39 @@ and string_of_nv bksign (vm, vv) =
                                       | (amp,famp)::_                 -> amp,  famp
                                       | []                            -> c_0,  Z.zero
                                     in
-                                    if false then Printf.printf "stats are %s, amp %s famp %s\n" 
+                                    if tracediv then Printf.printf "stats are %s, amp %s famp %s\n" 
                                         (bracketed_string_of_list (bracketed_string_of_pair string_of_csnum string_of_zint) amps)
                                         (string_of_csnum amp)
                                         (Z.to_string famp);
-                                    let premult = if amp=c_0 || n<=:z_4 || Z.(famp*z_2 < n)
-                                                  then c_1 
-                                                  else amp
+                                    let premult = if amp=c_0 then c_1 else amp
                                     in
-                                    if false then Printf.printf "winner is %s\n" (string_of_csnum premult);
-                                    if false then Printf.printf "before division, v is %s\n" (raw_string_of_vector v);
+                                    if tracediv then Printf.printf "winner is %s\n" (string_of_csnum premult);
+                                    (* but variables, f and g, muck this up ... so we get rid of them.
+                                       Strip the candidate amplitude down to a num and some options sqrts. Then
+                                       if all the elements of the amp look the same when so stripped, go ahead 
+                                       with that as the divisor.
+                                     *)
+                                    let ok ps p = if List.for_all (fun p' -> p=p') ps then p else sprod_1 in
+                                    let strip_prod (n,els) = n, List.filter (function S_sqrt _ -> true | _ -> false) els in
+                                    let strip_num ps : sprod = let ps' = List.map strip_prod ps in
+                                                               ok ps' (List.hd ps')
+                                    in
+                                    (* if the real and imaginary parts are equal or empty, and the non-empty one is all the same, then
+                                       it's a candidate for premult; otherwise c_1
+                                     *)
+                                    let pm = match premult with 
+                                             | C(re, []) -> strip_num re
+                                             | C([], im) -> strip_num im
+                                             | C(re, im) -> let pre, pim = strip_num re, strip_num im in
+                                                            if pre=pim then pre else sprod_1
+                                    in
+                                    let premult = C([pm],snum_0) in
+                                    if tracediv then Printf.printf "after stripping, winner is %s\n" (string_of_csnum premult);
+                                    if tracediv then Printf.printf "before division, v is %s\n" (raw_string_of_vector v);
                                     let v = div_nv premult v in
-                                    if false then Printf.printf "after division, v is <%s>\n" (raw_string_of_vector v); 
+                                    if tracediv then Printf.printf "after division, v is <%s>\n" (raw_string_of_vector v); 
                                     premult, v
-                                with Snum.Disaster s -> (if true then Printf.printf "Snum.Disaster %s\n" s); c_1, v
+                                with Snum.Disaster s -> (if tracediv then Printf.printf "Snum.Disaster %s\n" s); c_1, v
          in
          let rec gen i ss = 
            if Z.(i=n) then ss (* it's reversed later!! *) 
@@ -369,7 +389,7 @@ and string_of_nv bksign (vm, vv) =
              else
                let rec tw j = if Z.(j<n) && ?.v j=amp then tw Z.(j+one) else j in
                let j = tw i in
-               if Z.(j-i)<z_3 then justone ()  
+               if Z.(j-i<z_4) then justone ()  (* 4 rather than 3 because j-1 is the last ellipsis index *)
                else
                  let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
                  let ss = (coeff amp ^ string_of_basis_idx i ^

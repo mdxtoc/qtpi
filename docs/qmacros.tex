@@ -1,0 +1,105 @@
+\usepackage[braket]{qcircuit}
+
+\newcommand {\cols}[1][*{50}{l}]{\begin{array}{#1}}
+\newcommand {\sloc}{\end{array}}
+
+\newcommand{\hstrut}[1]{\rule{#1}{0pt}}
+\newcommand{\vstrut}[1]{\rule{0pt}{#1}}
+
+\usepackage[ligature,reserved,shorthand]{semantic}
+\newcommand{\varstyle}[1]{\ensuremath{\mathit{#1}}}
+\reservestyle{\var}{\varstyle}
+\newcommand{\bconststyle}[1]{\ensuremath{\mathbf{#1}}}
+\reservestyle{\bconst}{\bconststyle}
+
+%% syntax definitions
+\newcommand{\wordstyle}[1]{\ensuremath{\operatorname{#1}}}
+\reservestyle{\word}{\wordstyle}
+\newcommand{\terminalstyle}[1]{\ensuremath{\mathrel{\mathsf{\mathop{#1}}}}}
+\reservestyle{\terminal}{\terminalstyle}
+\newcommand{\nonterminalstyle}[1]{\ensuremath{\mathit{#1}}}
+\reservestyle{\nonterminal}{\nonterminalstyle}
+\newcommand{\operatorstyle}[1]{\ensuremath{\operatorname{#1}}}
+\reservestyle{\op}{\operatorstyle}
+
+% mathligs must be arranged in reverse prefix order -- i.e. if prefixes match, longest symbol first
+\mathlig{::=}{\mathrel{\mathop:\!\mathop:}=\ }
+
+\newcommand{\nt}[1]{\setnonterm{#1}}
+\newcommand{\term}[1]{\setterminal{#1}}
+
+\newcommand{\alt}{\ \vert\ } % within a line
+\newcommand{\Alt}{\hstrut{14pt}\mathpunct{\vert}\hstrut{5pt}} % beginning of line
+
+\newcommand{\tdot}[0]{\text{.}}
+
+\newcommand{\bv}[1]{\ensuremath{|#1\rangle}}
+\newcommand{\zero}{\bv{\hspace{0.5pt}0}}
+\newcommand{\one}{\bv{1}}
+\newcommand{\plus}{\bv{\mathalpha{+}}}
+\newcommand{\minus}{\bv{\mathalpha{-}}}
+
+\newcommand{\zerozero}{\bv{\hspace{0.5pt}00}}
+\newcommand{\onezero}{\bv{10}}
+\newcommand{\zeroone}{\bv{\hspace{0.5pt}01}}
+\newcommand{\oneone}{\bv{11}}
+
+\newcommand{\zerozerozero}{\bv{\hspace{0.5pt}000}}
+\newcommand{\zerozeroone}{\bv{\hspace{0.5pt}001}}
+\newcommand{\zeroonezero}{\bv{\hspace{0.5pt}010}}
+\newcommand{\zerooneone}{\bv{\hspace{0.5pt}011}}
+\newcommand{\onezerozero}{\bv{100}}
+\newcommand{\onezeroone}{\bv{101}}
+\newcommand{\oneonezero}{\bv{110}}
+\newcommand{\oneoneone}{\bv{one11}}
+
+\newcommand{\vb}[1]{\ensuremath{\langle#1|}}
+
+\newcommand\degree{\ensuremath{^{\circ}}}
+
+\newcommand{\cvec}[2]{\ensuremath{\left(\begin{smallmatrix}#1\\#2\end{smallmatrix}\right)}}
+
+\newcommand{\zerov}{\cvec{1}{0}}
+\newcommand{\onev}{\cvec{0}{1}}
+\newcommand{\plusv}{\cvec{h}{h}}
+\newcommand{\minusv}{\cvec{h}{-h}}
+
+\newcommand{\qgate}[4]{\ensuremath{\left(\begin{matrix}#1&#2\\#3&#4\end{matrix}\right)}}
+\newcommand{\qgatetwo}[4]{\ensuremath{\left(\begin{matrix}#1\\#2\\#3\\#4\end{matrix}\right)}}
+
+\newcommand{\smallqgate}[4]{\ensuremath{\left(\begin{smallmatrix}#1&#2\\#3&#4\end{smallmatrix}\right)}}
+\newcommand{\smallqgatetwo}[4]{\ensuremath{\left(\begin{smallmatrix}#1\\#2\\#3\\#4\end{smallmatrix}\right)}}
+
+\newcommand{\Xg}{\smallqgate{0}{1}{1}{0}}
+\newcommand{\Ig}{\smallqgate{1}{0}{0}{1}}
+\newcommand{\Zg}{\smallqgate{1}{0}{0}{-\!1}}
+\newcommand{\Hg}{\smallqgate{h}{h}{h}{\;-\!h}}
+
+\newcommand{\CNotg}{\ensuremath{\left(\begin{smallmatrix} 1 & 0 & 0 & 0 \\
+							 							   0 & 1 & 0 & 0 \\
+							                               0 & 0 & 0 & 1 \\
+							                               0 & 0 & 1 &0 \\
+                                \end{smallmatrix}\right)}}
+
+\newcommand{\eqnlabel}[1]{\label{eqn:#1}}
+\newcommand{\eqnref}[1]{(\ref{eqn:#1})}
+\newcommand{\figlabel}[1]{\label{fig:#1}}
+\newcommand{\figref}[1]{figure \ref{fig:#1}}
+\newcommand{\Figref}[1]{Figure \ref{fig:#1}}
+\newcommand{\seclabel}[1]{\label{sec:#1}}
+\newcommand{\secref}[1]{section \ref{sec:#1}}
+\newcommand{\Secref}[1]{Section \ref{sec:#1}}
+\newcommand{\appxlabel}[1]{\label{appx:#1}}
+\newcommand{\appxref}[1]{appendix \ref{appx:#1}}
+\newcommand{\Appxref}[1]{Appendix \ref{appx:#1}}
+\newcommand{\tablabel}[1]{\label{tab:#1}}
+\newcommand{\tabref}[1]{table \ref{tab:#1}}
+\newcommand{\Tabref}[1]{Table \ref{tab:#1}}
+\newcommand{\deflabel}[1]{\label{def:#1}}
+\newcommand{\defref}[1]{definition \ref{def:#1}}
+\newcommand{\Defref}[1]{lemma \ref{def:#1}}
+\newcommand{\lemlabel}[1]{\label{lem:#1}}
+\newcommand{\lemref}[1]{lemma \ref{lem:#1}}
+\newcommand{\Lemref}[1]{Lemma \ref{lem:#1}}
+
+\word{CNot,Toffoli,T,I,Z,X,H}

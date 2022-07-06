@@ -76,7 +76,7 @@ Processes *P*, input-output steps *IO*, quantum steps *Q*, expressions *E*, type
   * There is a convention that process names *N* should start with an upper-case (capital) letter.  
   * One of the process descriptions must be `System`, which must have no parameters.  
 
-* Function definition *pdef*
+* Function definition *fdef*
 
     | *f* *bpat* ... *bpat*  = *E*  
   

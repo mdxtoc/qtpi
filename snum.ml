@@ -114,10 +114,11 @@ and snum = sprod list               (* a sum *)
     
     We need both floats -- one for a, one for b -- because of the a2b2 function in simplify_prod.
  *)
+let sprod_1 = (num_1,[])
 
 let snum_0 :snum = []
 
-let snum_1 :snum = [(num_1,[])]
+let snum_1 :snum = [sprod_1]
 
 let sprod_half   = (half, [])
 
@@ -163,6 +164,23 @@ let float_of_el = function
   | S_g         -> fp_g
   | S_symb symb -> float_of_symb symb
 
+(* roots with square root and overline *)
+let string_of_root num =
+  let root n =
+    let s = string_of_num n in
+    let count = String.length s in
+    let f i = if i mod 2 = 0 then String.make 1 s.[i/2] 
+                             else String.init 2 (fun i -> Char.chr (if i=0 then 0xCC else 0x85)) (* Unicode overline *)
+    in
+    Printf.sprintf "√%s" (String.concat "" (Listutils.tabulate (2*count) f))
+  in
+  let numr, denr = numden_num num in
+  if numr =/ num_1 then
+    if denr =/ num_1 then "1"
+    else Printf.sprintf "1/%s" (root denr)
+  else
+  root num
+  
 let string_of_symrec symrec =
   Printf.sprintf "{id=%d; secret=((%f,%f),(%f,%f))}"
                    symrec.id
@@ -170,7 +188,7 @@ let string_of_symrec symrec =
                    (fst(snd symrec.secret)) (snd(snd symrec.secret))
                    
 let string_of_el_struct = function
-  | S_sqrt n    -> Printf.sprintf "r(%s)" (string_of_num n)
+  | S_sqrt n    -> string_of_root n
   | S_f         -> "f"            
   | S_g         -> "g"
   | S_symb symb -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
@@ -202,7 +220,7 @@ let so_el symbf e =
       match e with
       | S_sqrt n    -> if n=/half  && !symbolic_ht then "h"     else
                        if n=/third && !symbolic_ht then "t"     else
-                       Printf.sprintf "r(%s)" (string_of_num n)
+                       string_of_root n
       | S_f         -> "f"            
       | S_g         -> "g"
       | S_symb symb -> symbf symb

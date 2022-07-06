@@ -75,6 +75,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
+./Qtpi docs/teleport_example.qtp -trace 
 
 # randomteleport_with is a test of confluence in formula simplification. Simplification can start 
 # with one formula and finish with an equivalent one. I'm working on the problem, and it's become 

@@ -428,7 +428,7 @@ and string_of_nv bksign (vm, vv) =
    *)
   let string_of_vmultiplier vm =
     match vm with
-    | [(n,[])] -> (match num_exactsqrt n with
+    | [(n,[])] -> (match exactsqrt n with
                    | Some root -> string_of_num (reciprocal root)
                    | None      -> match zint_exactsqrt n.den, zint_exactsqrt n.num with
                                   | Some denroot, _ -> Printf.sprintf "%s/r(%s)" (string_of_zint denroot) (string_of_zint n.num)

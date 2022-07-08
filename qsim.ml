@@ -603,7 +603,7 @@ let rec qmeasure disposes pn gate q =
        match modulus with (* modulus is sum of squares, always positive, always real *)
        | [n,[]] -> if n=num_1 then modulus, vv 
                    else (let doit n = 
-                           num_exactsqrt n &~~ (fun root -> Some (mult_snv [(Number.reciprocal root,[])] vv))
+                           exactsqrt n &~~ (fun root -> Some (mult_snv [(Number.reciprocal root,[])] vv))
                          in
                          match doit n |~~
                                (fun () -> (doit (n//half) &~~ (fun vv -> Some (mult_snv [(num_2,[S_sqrt half])] vv))) |~~

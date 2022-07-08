@@ -36,8 +36,6 @@ exception Disaster of string
 let my_to_int n s =
   try Z.to_int n with Z.Overflow -> raise (Disaster (Printf.sprintf "to_int %s in %s" (string_of_zint n) s))
   
-let stats_init n = CsnumHash.create n
-
 let stats_ref table cn = try CsnumHash.find table cn 
                          with _ -> (let r = ref z_0 in CsnumHash.add table cn r; r)
 
@@ -323,24 +321,18 @@ and string_of_nv bksign (vm, vv) =
          | "-1" -> "-"
          | s    -> s
        in
-       let estringf ss (i,x) = 
-         if x=c_0 then ss else (coeff x ^ string_of_basis_idx i) :: ss
-       in
        let is_single = countzeros_v z_0 n v = Z.(n-one) in
        let premult, estrings_rev =
-         let n = vsize v in
          let tracediv = false in
          let premult, v = if is_single || not !factorbraket then c_1, v
-                           else try let stats = stats_init (Z.to_int n) in
-                                    let count cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in
-                                    stats_vc count stats v;
+                           else try if tracediv then (Printf.printf "before division, v is %s\n" (raw_string_of_vector v); flush stdout);
+                                    let count stats cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in
+                                    let stats = stats_vc count v in
                                     let amps = stats_to_list stats in
                                     let amp, famp = 
                                       match amps with
                                       | (amp1,famp1)::(amp2,famp2)::_ 
-                                        when amp1=c_0                 -> amp2, Z.(famp1+famp2)
-                                      | (amp1,famp1)::(amp2,famp2)::_ 
-                                                      when amp2=c_0   -> amp1, Z.(famp1+famp2)
+                                        when amp1=c_0                 -> amp2, famp2
                                       | (amp,famp)::_                 -> amp,  famp
                                       | []                            -> c_0,  Z.zero
                                     in
@@ -348,8 +340,7 @@ and string_of_nv bksign (vm, vv) =
                                         (bracketed_string_of_list (bracketed_string_of_pair string_of_csnum string_of_zint) amps)
                                         (string_of_csnum amp)
                                         (Z.to_string famp);
-                                    let premult = if amp=c_0 then c_1 else amp
-                                    in
+                                    let premult = if amp=c_0 then c_1 else amp in
                                     if tracediv then Printf.printf "winner is %s\n" (string_of_csnum premult);
                                     (* but variables, f and g, muck this up ... so we get rid of them.
                                        Strip the candidate amplitude down to a num and some options sqrts. Then
@@ -372,38 +363,75 @@ and string_of_nv bksign (vm, vv) =
                                     in
                                     let premult = C([pm],snum_0) in
                                     if tracediv then Printf.printf "after stripping, winner is %s\n" (string_of_csnum premult);
-                                    if tracediv then Printf.printf "before division, v is %s\n" (raw_string_of_vector v);
                                     let v = div_nv premult v in
                                     if tracediv then Printf.printf "after division, v is <%s>\n" (raw_string_of_vector v); 
                                     premult, v
                                 with Snum.Disaster s -> (if tracediv then Printf.printf "Snum.Disaster %s\n" s); c_1, v
          in
-         let rec gen i ss = 
-           if Z.(i=n) then ss (* it's reversed later!! *) 
-           else
-             let amp = ?.v i in
-             let justone () = gen Z.(i+one) (estringf ss (i,amp)) in
-             if amp=c_0 then gen Z.(i+one) ss 
-             else
-             if not !runbraket then justone () 
-             else
-               let rec tw j = if Z.(j<n) && ?.v j=amp then tw Z.(j+one) else j in
-               let j = tw i in
-               if Z.(j-i<z_4) then justone ()  (* 4 rather than 3 because j-1 is the last ellipsis index *)
-               else
-                 let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
-                 let ss = (coeff amp ^ string_of_basis_idx i ^
-                           (if isneg then "-" else "+") ^ "..." ^ (if not isneg then "+" else "") ^
-                           coeff amp ^ string_of_basis_idx Z.(j-one)
-                          ) :: ss
-                 in
-                 gen j ss 
+         (* it's important, with sparse vectors, not to scan one element at a time ... *)
+         let v_els =
+           let mingap i j = Z.(j-i>=z_4) in
+           let n = vsize v in
+           match v with
+           | DenseV _          ->
+               let rec nxf ves i = 
+                  if i=:n then ves (* reversed later *)
+                  else
+                    let amp = ?.v i in
+                    if amp=c_0 then nxf ves Z.(i+one) 
+                    else
+                      let rec tw j = if Z.(j<n) && ?.v j=amp then tw Z.(j+one) else j in
+                      let j = tw Z.(i+one) in
+                      if not !runbraket || not (mingap i j) then nxf ((i,amp,Z.one)::ves) Z.(i+one)
+                                                            else nxf ((i,amp,j-:i)::ves)  j
+               in
+               nxf [] Z.zero
+           | SparseV (n,sv,cv) ->
+               let rec nxf cv ves i =
+                 match cv with
+                 | (j,amp)::cv' ->
+                     if amp=c_0 then nxf cv' ves Z.(i+one)
+                     else
+                     if i<:j then 
+                       (if sv=c_0 then nxf cv ves j 
+                        else
+                          if not !runbraket || not (mingap i j) then nxf cv ((i,sv,Z.one)::ves) Z.(i+one) 
+                                                                else nxf cv ((i,sv,j-:i)::ves)  j 
+                       ) 
+                     else (* i=:j assumed ... *)
+                       let rec tw cv j =
+                         match cv with
+                         | (j',amp')::cv' when Z.(j=j') && amp=amp' -> tw cv' Z.(j'+one)
+                         | _                                        -> cv, j
+                       in
+                       let cv'', j = tw cv' Z.(i+one) in
+                       if not !runbraket || not (mingap i j) then nxf cv'  ((i,amp,Z.one)::ves)   Z.(i+one) 
+                                                             else nxf cv'' ((i,amp,Z.(j-i))::ves) j 
+                | [] -> 
+                    if i=:n || sv=c_0 then ves (* reversed later *) 
+                    else
+                      if not !runbraket || not (mingap i n) then nxf cv ((i,sv,Z.one)::ves)   Z.(i+one) 
+                                                          else nxf cv ((i,sv,Z.(n-i))::ves) n
+              in 
+              nxf cv [] Z.zero
          in
-         premult, gen z_0 []
+         let estringf i amp = coeff amp ^ string_of_basis_idx i in
+         let ss = List.map (fun (i,amp,gap) ->
+                              if Z.(gap=one) then estringf i amp
+                              else
+                                let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
+                                estringf i amp ^
+                                (if isneg then "-" else "+") ^ "..." ^ (if not isneg then "+" else "") ^
+                                estringf Z.(i+gap-one) amp
+                           )
+                           v_els
+            
+         in
+         premult, ss
        in
        match estrings_rev with 
        | []                    -> "?..empty nv?.."
-       | [e] when is_single    -> e 
+       | [e] when premult=c_1  -> e 
        | _                     -> Printf.sprintf "%s(%s)" (if premult=c_1 then "" else so_csnumb true premult) (sum_separate (List.rev estrings_rev))
       )
     else
@@ -452,22 +480,20 @@ and raw_string_of_vector v =
 
 
 (* with sparse vectors, we can have some seriously large ones ... *)
-and stats_vc count stats v = 
+and stats_vc count v = 
   match v with
-  | DenseV  dv        -> Array.iter count dv
-  | SparseV (n,sv,cv) -> stats_inc stats (n-:zlength cv) sv;
-                         List.iter (count <.> snd) cv
+  | DenseV  dv        -> let stats = CsnumHash.create (max 1000 (Array.length dv*4)) in
+                         Array.iter (count stats) dv;
+                         stats
+  | SparseV (n,sv,cv) -> let stats = CsnumHash.create (max 1000 (List.length cv*4)) in
+                         stats_inc stats (n-:zlength cv) sv;
+                         List.iter (count stats <.> snd) cv;
+                         stats
 
-and stats_v stats v = stats_vc (fun x -> stats_inc stats z_1 x) stats v
+and stats_v v = stats_vc (fun stats x -> stats_inc stats z_1 x) v
   
 and statistics_v v :(csnum*zint) list =
-  let nv = match v with 
-           | DenseV  _         -> vsize v 
-           | SparseV (n,sv,cv) -> zlength cv *: z_4
-  in
-  let stats = stats_init (Z.to_int nv) in
-  stats_v stats v;
-  stats_to_list stats
+  stats_to_list (stats_v v)
 
 (* had to promote these because string_of_vector uses div_nv *)
 and mult_nv cn v =
@@ -537,24 +563,32 @@ let string_of_matrix m =
 let string_of_gate = string_of_matrix
 
 let statistics_m m :(csnum*zint) list =
-  let stats = stats_init 1000 in
-  let count = stats_inc stats z_1 in
-  (match m with
-   | DenseM  dm          -> Array.iter (Array.iter count) dm
-   | SparseM (nc,sv,cvv) -> let svr = stats_ref stats sv in
-                            let count_cv cv = 
-                              svr :=!svr+:nc-:zlength cv;
-                              List.iter (count <.> snd) cv
-                            in
-                            Array.iter count_cv cvv
-   | FuncM (_,nr,nc,f,_) -> _forZ z_0 z_1 nr (fun i ->
-                              _forZ z_0 z_1 nc (fun j -> count (f i j))
-                            )
-   | DiagM   v           -> let s0 = stats_ref stats c_0 in
-                            let vn = vsize v in
-                            s0 := (vn *: vn) -: vn;
-                            stats_v stats v
-  );
+  let count stats = stats_inc stats z_1 in
+  let stats = match m with
+              | DenseM  dm          -> let stats = CsnumHash.create (min 1000 (Array.length dm * Array.length dm.(0) * 4)) in
+                                       Array.iter (Array.iter (count stats)) dm;
+                                       stats
+              | SparseM (nc,sv,cvv) -> let size = Array.fold_left (fun accum cv -> accum+List.length cv) 0 cvv in
+                                       let stats = CsnumHash.create (min 1000 (size*4)) in
+                                       let svr = stats_ref stats sv in
+                                       let count_cv cv = 
+                                         svr :=!svr+:nc-:zlength cv;
+                                         List.iter (count stats <.> snd) cv
+                                       in
+                                       Array.iter count_cv cvv;
+                                       stats
+              | FuncM (_,nr,nc,f,_) -> (* this is a stupid question: hope nobody ever asks ... *)
+                                       let stats = CsnumHash.create 10000 in
+                                       _forZ z_0 z_1 nr (fun i ->
+                                         _forZ z_0 z_1 nc (fun j -> count stats (f i j))
+                                       );
+                                       stats
+              | DiagM   v           -> let stats = stats_v v in
+                                       let s0 = stats_ref stats c_0 in
+                                       let vn = vsize v in
+                                       s0 := !s0 +: (vn *: vn) -: vn;
+                                       stats
+  in
   stats_to_list stats
 
 let countzeros_dm dm :int = 

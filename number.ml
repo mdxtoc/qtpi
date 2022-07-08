@@ -223,17 +223,18 @@ let ( <=/ ) = Q.leq;;
 let ( >=/ ) = Q.geq;;
 let ( **/ ) = Local.pow
  
+let abs:                 num -> num         = Q.abs
 let rem:                 num -> num -> num  = Local.rem;;
 let pow:                 num -> int -> num  = Local.pow;;
 let floor:               num -> num         = Local.floor;;
 let ceiling:             num -> num         = Local.ceiling;;
-let numden:          num -> num*num     = Local.numden;;
-let divmod:          num -> num*num     = Local.divmod;;
-let integer:         num -> num         = Local.integer;;
+let numden:              num -> num*num     = Local.numden;;
+let divmod:              num -> num*num     = Local.divmod;;
+let integer:             num -> num         = Local.integer;;
 let is_int:              num -> bool        = Local.is_int;;
 let is_zero:             num -> bool        = Local.is_zero;;
 let reciprocal:          num -> num         = Local.reciprocal
-let exactsqrt:       num -> num option  = Local.exactsqrt
+let exactsqrt:           num -> num option  = Local.exactsqrt
 
 let half:                num                = num_1 // num_2;;      
 let third:               num                = num_1 // num_3;;  

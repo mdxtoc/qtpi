@@ -72,9 +72,10 @@ let log_2 : zint -> int = fun n ->
    So: something more general, numbers, square roots, powers, sums and prods. Hoping to 
    make it work.
  *)
-(* It works. But trying now to do it without f and g ... *)
 type s_el = 
-  | S_sqrt of snum
+  | S_sqrt of num
+  | S_f                 (* keep f and g for now ... *)   
+  | S_g 
   | S_symb of s_symb                 
 
 and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
@@ -120,17 +121,18 @@ let snum_0 :snum = []
 let snum_1 :snum = [sprod_1]
 
 let sprod_half   = (half, [])
-let snum_half = [sprod_half]
 
 let s_el_h       = S_sqrt half
 
 let sprod_h      = (num_1,[s_el_h])
-let snum_h :snum = [sprod_h]
 
 let sprod_half_h = (half, [s_el_h])
-let snum_half_h = [sprod_half_h]
 
-let sprod_f      = (num_1,[S_sqrt([sprod_half,sprod_half_h])])
+let snum_h :snum = [sprod_h]
+
+let snum_t :snum = [(num_1,[S_sqrt third])]
+
+let sprod_f      = (num_1,[S_f])
 let sprod_fh     = (num_1,[S_f; s_el_h])
 
 let snum_f :snum = [sprod_f]
@@ -221,7 +223,9 @@ let so_el symbf e =
   | RawNum -> string_of_el_struct e
   | _      ->
       match e with
-      | S_sqrt n    -> string_of_root n
+      | S_sqrt n    -> if n=/half  && !symbolic_ht then "h"     else
+                       if n=/third && !symbolic_ht then "t"     else
+                       string_of_root n
       | S_f         -> "f"            
       | S_g         -> "g"
       | S_symb symb -> symbf symb
@@ -717,9 +721,9 @@ let c_g = csnum_of_snum snum_g
 let c_i = C (snum_0, snum_1)
 
 module CsnumH = struct type t = csnum
-                      let equal = (=)
-                      let hash = Hashtbl.hash
-                      let to_string = string_of_csnum
+                       let equal = (=)
+                       let hash = Hashtbl.hash
+                       let to_string = string_of_csnum
                end
 module CsnumHash = MyHash.Make (CsnumH)
 

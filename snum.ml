@@ -721,9 +721,9 @@ let c_g = csnum_of_snum snum_g
 let c_i = C (snum_0, snum_1)
 
 module CsnumH = struct type t = csnum
-                      let equal = (=)
-                      let hash = Hashtbl.hash
-                      let to_string = string_of_csnum
+                       let equal = (=)
+                       let hash = Hashtbl.hash
+                       let to_string = string_of_csnum
                end
 module CsnumHash = MyHash.Make (CsnumH)
 

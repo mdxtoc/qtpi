@@ -174,12 +174,17 @@ let string_of_root num =
     in
     Printf.sprintf "√%s" (String.concat "" (Listutils.tabulate (2*count) f))
   in
-  let numr, denr = numden_num num in
-  if numr =/ num_1 then
-    if denr =/ num_1 then "1"
-    else Printf.sprintf "1/%s" (root denr)
-  else
-  root num
+  let zroot zn = root (num_of_zint zn) in
+  match exactsqrt num with
+  | Some num' -> string_of_num num'
+  | _         -> 
+    if num.den=:z_1 then zroot num.num
+    else match zint_exactsqrt num.num with
+         | Some num' -> Printf.sprintf "%s/%s" (string_of_zint num') (zroot num.den)
+         | _         ->
+           match zint_exactsqrt num.den with
+           | Some den' -> Printf.sprintf "%s/%s" (zroot num.num) (string_of_zint den')
+           | _         -> root num
   
 let string_of_symrec symrec =
   Printf.sprintf "{id=%d; secret=((%f,%f),(%f,%f))}"
@@ -238,20 +243,25 @@ let string_of_els es =
 (* I want to get this right once, so I can deal with real and imaginary products.
    si is "" or "i"
  *)  
-  
 let rec so_prodi si symbf (n,els) = 
   match !fancynum with
   | RawNum        -> si ^ "*" ^ string_of_prod_struct (n,els)
   | FractionalNum ->
       if n</num_0   then "-" ^ so_prodi si symbf (~-/n,els) else
-      if n=/num_0   then "0" (* shouldn't happen *)          else
-                         (let numerator = 
-                            match n.num=:z_1, si, els with
-                            | true , "", [] -> "1"
-                            | true , _ , _  -> si ^ so_els symbf els
-                            | false, _ , _  -> string_of_zint n.num ^ si ^ so_els symbf els
+      if n=/num_0   then "0" (* shouldn't happen *)         else
+                         ((* first combine the square roots *)
+                          let rec roots accum els =
+                            match els with
+                            | S_sqrt n :: els -> roots (n*/accum) els
+                            | _               -> accum, els
                           in
-                          numerator ^ if n.den=z_1 then "" else ("/" ^ string_of_zint n.den)
+                          let sq, els = roots (n*/n) els in
+                          let string_of_zroot = string_of_root <.> num_of_zint in
+                          let trailer = if sq.den=z_1 then "" else ("/" ^ string_of_zroot sq.den) in
+                          if si="" && els=[] then string_of_root sq 
+                          else match zint_exactsqrt sq.num with
+                               | Some n' -> (if n'=:z_1 then "" else string_of_zint n') ^ si ^ so_els symbf els ^ trailer 
+                               | None    -> string_of_zroot sq.num ^ si ^ so_els symbf els ^ trailer
                          )
 
 let string_of_prod p = so_prodi "" string_of_symb p 
@@ -488,7 +498,7 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let reciprocal_sqrt n = [(Number.reciprocal n, [S_sqrt n])]
+let reciprocal_sqrt n = [(reciprocal n, [S_sqrt n])]
 
 let rdiv_sqrt sn n = 
   rprod (reciprocal_sqrt n) sn
@@ -622,29 +632,37 @@ let so_csnumb bracket (C (x,y)) =
               Listutils.prepend ss (fracparts xs @ ypart)
           | (n,ps as x)::xs, _  -> 
               let default () = parts ypres (string_of_prod x :: ss) (xs,ys) in
-              let rec treatable signopt ps = 
+              let rec treatable imropt ps = (* result Some imr means ps contains just one variable, with re/im imr;
+                                                      None     means otherwise.
+                                             *)
                 match ps with
-                | []    -> signopt
-                | p::ps -> (match signopt, p with
-                            | Some sign, S_symb s -> if sign=s.imr then treatable signopt ps else None
-                            | None     , S_symb s -> treatable (Some s.imr) ps
-                            | _                   -> treatable signopt ps
+                | []    -> imropt
+                | p::ps -> (match imropt, p with
+                            | Some imr, S_symb s -> None
+                            | None    , S_symb s -> treatable (Some s.imr) ps
+                            | _                  -> treatable imropt ps
                            )
               in
+              (* try to deal with the case where there's one variable whose real and imaginary parts are on opposite sides.
+                 It would be much harder to deal with the case where there are multiple variables, and I haven't tried.
+               *)
               match !showunknownparts, treatable None ps with
               | true, _        
               | _   , None     -> default ()
               | _   , Some imr -> 
-                  let rec sameps ps ps' =
-                    match ps, ps' with
-                    | p::ps, p'::ps' -> (match p, p' with
-                                         | S_symb s, S_symb s' -> s={s' with imr=not s'.imr}
-                                         | _                   -> p=p'
-                                        ) && sameps ps ps'
-                    | []   , []      -> true
-                    | _              -> false
-                  in
-                  let rec findsame ypres ys =
+                  let rec findsame ypres ys = (* result Some(eq,ys') means we found in ys an element y' same as x, with sign equal or opposite, 
+                                                                           and with opposite imr, and ys' is ys with y' extracted;
+                                                        None         means we couldn't do that
+                                               *)
+                    let rec sameps ps ps' = (* is ps the same as ps', with opposite imr? *)
+                      match ps, ps' with
+                      | p::ps, p'::ps' -> (match p, p' with
+                                           | S_symb s, S_symb s' -> s={s' with imr=not s'.imr}
+                                           | _                   -> p=p'
+                                          ) && sameps ps ps'
+                      | []   , []      -> true
+                      | _              -> false
+                    in
                     match ys with
                     | []                -> None
                     | (n',ps' as y)::ys -> let again () = findsame (y::ypres) ys in
@@ -696,7 +714,7 @@ let csnum_of_snum s = C (s, snum_0)
 let c_0 = csnum_of_snum snum_0
 let c_1 = csnum_of_snum (snum_1)
 let c_h = csnum_of_snum (snum_h)
-let c_reciprocal_h = csnum_of_snum (reciprocal_sqrt Number.half)
+let c_reciprocal_h = csnum_of_snum (reciprocal_sqrt half)
 let c_f = csnum_of_snum snum_f
 let c_g = csnum_of_snum snum_g
 

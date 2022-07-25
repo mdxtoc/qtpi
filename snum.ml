@@ -66,6 +66,7 @@ let log_2 : zint -> int = fun n ->
         gh = f(1-h)
         
    Also f^2+g^2 = 1 (which will fall out of the above)
+   ... but now f and g are done as sqrts ... as are all other rotations (I hope)
  *)
 
 (* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
@@ -73,9 +74,7 @@ let log_2 : zint -> int = fun n ->
    make it work.
  *)
 type s_el = 
-  | S_sqrt of num
-  | S_f                 (* keep f and g for now ... *)   
-  | S_g 
+  | S_sqrt of snum
   | S_symb of s_symb                 
 
 and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
@@ -114,6 +113,16 @@ and snum = sprod list               (* a sum *)
     
     We need both floats -- one for a, one for b -- because of the a2b2 function in simplify_prod.
  *)
+
+let sprod_neg (n,els) = ~-/n, els
+ 
+let isneg_sprod (n,_ : sprod) = n</num_0
+
+(* this is wrong: it only tells you if its representation starts with a minus sign *)
+let printsneg_snum : snum -> bool = function
+  | sprod::_ -> isneg_sprod sprod
+  | []       -> false (* because it's zero *)
+
 let sprod_1 = (num_1,[])
 
 let snum_0 :snum = []
@@ -122,7 +131,9 @@ let snum_1 :snum = [sprod_1]
 
 let sprod_half   = (half, [])
 
-let s_el_h       = S_sqrt half
+let snum_half = [sprod_half]
+
+let s_el_h       = S_sqrt [sprod_half]
 
 let sprod_h      = (num_1,[s_el_h])
 
@@ -130,61 +141,44 @@ let sprod_half_h = (half, [s_el_h])
 
 let snum_h :snum = [sprod_h]
 
-let snum_t :snum = [(num_1,[S_sqrt third])]
+let snum_f :snum = [(num_1, [S_sqrt [sprod_half; sprod_half_h]])]
 
-let sprod_f      = (num_1,[S_f])
-let sprod_fh     = (num_1,[S_f; s_el_h])
+let snum_g :snum = [(num_1, [S_sqrt [sprod_half; sprod_neg sprod_half_h]])]
 
-let snum_f :snum = [sprod_f]
+let sprod_third   = (third, [])
 
-let snum_g :snum = [(num_1,[S_g])]
+let snum_third = [sprod_third]
 
-let snum_symb symb :snum = [(num_1,[S_symb symb])]
+let snum_t = [(num_1, [S_sqrt snum_third])]
 
-let isneg_sprod (n,_ : sprod) = n</num_0
-
-let isneg_snum : snum -> bool = function
-  | sprod::_ -> isneg_sprod sprod
-  | []       -> false (* because it's zero *)
-
-let fp_h2 = 0.5
-let fp_h = sqrt fp_h2
-let fp_f2 = (1.0 +. fp_h) /. 2.0
-let fp_f = sqrt fp_f2
-let fp_g2 = (1.0 -. fp_h) /. 2.0
-let fp_g = sqrt fp_g2
+let snum_symb symb :snum = [(num_1, [S_symb symb])]
 
 let float_of_symb symb = let a,b = symb.idsecret.secret in 
                          let re,im = if symb.alpha then b else a in (* false is a *)
                          if symb.imr then im else re                (* false is re *)
   
-let float_of_el = function
-  | S_sqrt x    -> sqrt (Q.to_float x)
-  | S_f         -> fp_f
-  | S_g         -> fp_g
+let rec to_float snum = 
+  let compute_prod (n,els) =
+    Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map float_of_el els))
+  in
+  List.fold_left ( +. ) 0.0 (List.map compute_prod snum)
+
+and float_of_el el = 
+  match el with
+  | S_sqrt x    -> Float.sqrt (to_float x)
   | S_symb symb -> float_of_symb symb
 
-(* roots with square root and overline *)
-let string_of_root num =
-  let root n =
-    let s = string_of_num n in
-    let count = String.length s in
-    let f i = if i mod 2 = 0 then String.make 1 s.[i/2] 
-                             else String.init 2 (fun i -> Char.chr (if i=0 then 0xCC else 0x85)) (* Unicode overline *)
-    in
-    Printf.sprintf "√%s" (String.concat "" (Listutils.tabulate (2*count) f))
-  in
-  let zroot zn = root (num_of_zint zn) in
-  match exactsqrt num with
-  | Some num' -> string_of_num num'
-  | _         -> 
-    if num.den=:z_1 then zroot num.num
-    else match zint_exactsqrt num.num with
-         | Some num' -> Printf.sprintf "%s/%s" (string_of_zint num') (zroot num.den)
-         | _         ->
-           match zint_exactsqrt num.den with
-           | Some den' -> Printf.sprintf "%s/%s" (zroot num.num) (string_of_zint den')
-           | _         -> root num
+(* printing numbers: recursive since S_sqrt takes snum *)
+
+let rec sum_separate = function
+  | s1::s2::ss -> if Stringutils.starts_with s2 "-" then s1 ^ sum_separate (s2::ss) 
+                  else s1 ^ "+" ^ sum_separate (s2::ss) 
+  | [s]        -> s
+  | []         -> "0" (* oh yes it can happen ... raise (Can'tHappen "sum_separate []") *)
+
+let numopt_of_snum = function
+  | [(num,[])] -> Some num
+  | _          -> None
   
 let string_of_symrec symrec =
   Printf.sprintf "{id=%d; secret=((%f,%f),(%f,%f))}"
@@ -192,21 +186,6 @@ let string_of_symrec symrec =
                    (fst(fst symrec.secret)) (snd(fst symrec.secret))
                    (fst(snd symrec.secret)) (snd(snd symrec.secret))
                    
-let string_of_el_struct = function
-  | S_sqrt n    -> string_of_root n
-  | S_f         -> "f"            
-  | S_g         -> "g"
-  | S_symb symb -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
-                             symb.alpha symb.imr (string_of_symrec symb.idsecret)
-
-let string_of_els_struct = bracketed_string_of_list string_of_el_struct
-
-let string_of_prod_struct = bracketed_string_of_pair string_of_num string_of_els_struct 
-
-let string_of_snum_struct = bracketed_string_of_list string_of_prod_struct 
-
-let string_of_snum_structs = bracketed_string_of_list string_of_snum_struct 
-
 let dagger_string = "†"
 let re_string = "𝕣"
 let im_string = "𝕚"
@@ -218,23 +197,55 @@ let string_of_symb symb =
                  (if symb.imr then im_string else re_string)
                  (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb symb) else "")
 
-let so_el symbf e = 
+(* roots with square root symbol as unary operator, but no overline (nesting it in Unicode is a bit of a problem) *)
+let rec string_of_root_num num =
+  if num</num_0 then raise (Disaster (Printf.sprintf "string_of_root_num %s" (string_of_num num)))
+  else
+    let root n = Printf.sprintf "√(%s)" (string_of_num n) in
+    let zroot zn = Printf.sprintf "√%s" (string_of_zint zn) in
+    match exactsqrt num with
+    | Some num' -> string_of_num num'
+    | _         -> 
+      if num.den=:z_1 then zroot num.num
+      else match zint_exactsqrt num.num with
+           | Some num' -> Printf.sprintf "%s/%s" (string_of_zint num') (zroot num.den)
+           | _         ->
+             match zint_exactsqrt num.den with
+             | Some den' -> Printf.sprintf "%s/%s" (zroot num.num) (string_of_zint den')
+             | _         -> root num
+  
+and string_of_root sosnum snum =
+  match numopt_of_snum snum with
+  | Some num -> string_of_root_num num
+  | _        -> Printf.sprintf "√(%s)" (sosnum snum)
+
+and string_of_el_struct el = 
+  match el with
+  | S_sqrt snum -> string_of_root string_of_snum_struct snum
+  | S_symb symb -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
+                             symb.alpha symb.imr (string_of_symrec symb.idsecret)
+
+and string_of_els_struct els = bracketed_string_of_list string_of_el_struct els
+
+and string_of_prod_struct prod = bracketed_string_of_pair string_of_num string_of_els_struct prod
+
+and string_of_snum_struct snum = bracketed_string_of_list string_of_prod_struct snum
+
+and string_of_snums_struct snums = bracketed_string_of_list string_of_snum_struct snums
+
+and so_el symbf e = 
   match !fancynum with
   | RawNum -> string_of_el_struct e
   | _      ->
       match e with
-      | S_sqrt n    -> if n=/half  && !symbolic_ht then "h"     else
-                       if n=/third && !symbolic_ht then "t"     else
-                       string_of_root n
-      | S_f         -> "f"            
-      | S_g         -> "g"
+      | S_sqrt n    -> string_of_root string_of_snum n
       | S_symb symb -> symbf symb
   
-let string_of_el = so_el string_of_symb
+and string_of_el el = so_el string_of_symb el
 
-let so_els symbf es = String.concat "" (List.map (so_el symbf) es)
+and so_els symbf es = String.concat "" (List.map (so_el symbf) es)
 
-let string_of_els es = 
+and string_of_els es = 
   (match !fancynum with
    | RawNum -> string_of_els_struct
    | _      -> so_els string_of_symb 
@@ -243,7 +254,7 @@ let string_of_els es =
 (* I want to get this right once, so I can deal with real and imaginary products.
    si is "" or "i"
  *)  
-let rec so_prodi si symbf (n,els) = 
+and so_prodi si symbf (n,els) = 
   match !fancynum with
   | RawNum        -> si ^ "*" ^ string_of_prod_struct (n,els)
   | FractionalNum ->
@@ -252,39 +263,36 @@ let rec so_prodi si symbf (n,els) =
                          ((* first combine the square roots *)
                           let rec roots accum els =
                             match els with
-                            | S_sqrt n :: els -> roots (n*/accum) els
-                            | _               -> accum, els
+                            | S_sqrt n :: els' -> (match numopt_of_snum n with 
+                                                   | Some num -> roots (num*/accum) els'
+                                                   | None     -> let accum, els'' = roots accum els' in
+                                                                 accum, S_sqrt n :: els''
+                                                  )
+                            | _                -> accum, els
                           in
                           let sq, els = roots (n*/n) els in
-                          let string_of_zroot = string_of_root <.> num_of_zint in
-                          let trailer = if sq.den=z_1 then "" else ("/" ^ string_of_zroot sq.den) in
-                          if si="" && els=[] then string_of_root sq 
-                          else match zint_exactsqrt sq.num with
-                               | Some n' -> (if n'=:z_1 then "" else string_of_zint n') ^ si ^ so_els symbf els ^ trailer 
-                               | None    -> string_of_zroot sq.num ^ si ^ so_els symbf els ^ trailer
+                          if els=[]      then string_of_root_num sq                                       else 
+                          if sq=/num_1   then so_els symbf els                                            else
+                          if sq.den=:z_1 then string_of_root_num sq ^ so_els symbf els                    else
+                          if sq.num=:z_1 then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
+                                              "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
                          )
 
-let string_of_prod p = so_prodi "" string_of_symb p 
+and string_of_prod p = so_prodi "" string_of_symb p 
 
-let fracparts (s:snum) : string list = List.map string_of_prod s
+and fracparts (s:snum) : string list = List.map string_of_prod s
 
-let rec sum_separate = function
-  | s1::s2::ss -> if Stringutils.starts_with s2 "-" then s1 ^ sum_separate (s2::ss) 
-                  else s1 ^ "+" ^ sum_separate (s2::ss) 
-  | [s]        -> s
-  | []         -> "0" (* oh yes it can happen ... raise (Can'tHappen "sum_separate []") *)
-
-let string_of_snum (s:snum) = 
+and string_of_snum (s:snum) = 
   match !fancynum with
   | RawNum        -> string_of_snum_struct s
   | FractionalNum -> sum_separate (fracparts s)
 
-let string_of_snums = bracketed_string_of_list string_of_snum
+and string_of_snums snums = bracketed_string_of_list string_of_snum snums
 
 (* The normal form -- now the snum type -- is a sum of products. 
  * Sign is now naturally included in the num element of a product.
  * Products are sorted according to the type definition: i.e.
- * S_sqrt _, S_f, S_g, S_symb. (but somehow sqrt is coming last. Hmm.)
+ * S_sqrt _, S_symb. (but somehow sqrt is coming last. Hmm.)
  
  * We sort identifiers according to their suffix: a0,b0,a1,b1, ...
  
@@ -306,12 +314,6 @@ let make_snum_h k =
     let els = if k mod 2 = 1 then [s_el_h] else [] in
     [(n,els)]
 
-let rec to_float = 
-  let compute_prod (n,els) =
-    Q.to_float n *. (List.fold_left ( *. ) 1.0 (List.map float_of_el els))
-  in
-  List.fold_left ( +. ) 0.0 <.> List.map compute_prod
-
 (* we deal with long lists. Avoid sorting if poss *)
 let sort compare ss =
   let rec check ss' =
@@ -327,8 +329,6 @@ let rmult_num sn n =
   List.map (fun (m,els) -> n*/m,els) sn
   
 let rmult_zint sn zi = rmult_num sn (num_of_zint zi)
-
-let sprod_neg (n,els) = ~-/n, els
 
 let rec rneg s =
   let r = List.map sprod_neg s in
@@ -367,15 +367,10 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
             in
             match ss with
             | S_sqrt a :: S_sqrt b :: ss 
-              when a=/b                  -> sp els (n*/a) ss
-            | S_f      :: S_f      :: ss -> premult [sprod_half; sprod_half_h] n ss
-            | S_f      :: S_g      :: ss -> premult [sprod_half_h] n ss
-            | S_g      :: S_g      :: ss -> premult [sprod_half; sprod_neg (sprod_half_h)] n ss
-(*          | S_g      ::             ss    (* prefer f to g: gh^3 is gfg = fg^2 *)
-              when hn>=3                 -> sp (S_f :: els) (hn-3) (S_g :: S_g :: ss)) 
- *)
-            | S_g      :: S_sqrt a :: ss    (* prefer f to g: gh^3 is gfg = fg^2 = f(h^2-h^3) so gh = f(1-h) -- may lead to 2fh-f *)
-              when a=/half               -> premult [sprod_f; sprod_neg sprod_fh] n ss
+              when a=b                   -> premult a n ss
+            | S_sqrt [a;b] :: S_sqrt [a';b'] :: ss 
+              when a=a'&&b=sprod_neg b' || 
+                   b=b'&&a=sprod_neg a'  -> premult [num_1, [S_sqrt (rsum (rprod [b] [b']) (rprod [a] [a']))]] n ss (* √(a^2-b^2) *)
             | s                    :: ss -> sp (s::els) n ss
             | []                         -> None, n, sort elcompare (List.rev els)
           in
@@ -475,11 +470,6 @@ and simplify_sum ps =
             | (n1,es1) :: (n2,es2) :: ps 
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
-            (* 2fh-f = g  -- removes symbols *)
-            | (n1,(S_f :: S_sqrt a :: es)) :: ps
-                   when a=/half && List.exists ((=) (n1//(~-/num_2),S_f :: es)) ps
-                                                  -> sps true ((n1//num_2,S_g :: es) :: r) 
-                                                              (Listutils.remove (n1//(~-/num_2),S_f :: es) ps)
              
             (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
             | p                  :: ps            -> (match a2b2 p ps with
@@ -498,7 +488,7 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let reciprocal_sqrt n = [(reciprocal n, [S_sqrt n])]
+let reciprocal_sqrt (n:num) = [(reciprocal n, [S_sqrt [n,[]]])]
 
 let rdiv_sqrt sn n = 
   rprod (reciprocal_sqrt n) sn
@@ -591,7 +581,10 @@ let rdiv r1 r2 =
     | [n2,els2] -> let el_div (n1,els1) el =
                      if List.mem el els1 then n1, Listutils.remove el els1 else
                        match el with
-                       | S_sqrt n -> Q.div n1 n, el::els1
+                       | S_sqrt n -> (match numopt_of_snum n with
+                                      | Some num -> Q.div n1 num, el::els1
+                                      | _        -> bad ()
+                                     )
                        | _        -> bad ()
                    in
                    let sn_div (n1,els1) = List.fold_left el_div (Q.div n1 n2, els1) els2 in
@@ -602,9 +595,10 @@ let rdiv r1 r2 =
 
 type csnum = C of snum*snum (* complex x + iy *)
 
-let isneg_csnum = function
-  | C([], y) -> isneg_snum y
-  | C(x , _) -> isneg_snum x
+(* this doesn't really work: only useful if thinking about printed form of a number *)
+let printsneg_csnum = function
+  | C([], y) -> printsneg_snum y
+  | C(x , _) -> printsneg_snum x
   
 let so_im y = (* a list of strings: ok if y is zero *) 
   match y with

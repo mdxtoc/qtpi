@@ -70,8 +70,9 @@ let log_2 : zint -> int = fun n ->
  *)
 
 (* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
-   So: something more general, numbers, square roots, powers, sums and prods. Hoping to 
-   make it work.
+   So: something more general: numbers, square roots, symbols, sums and prods. 
+   But sorting is a problem, because I want to sort snums largest number first, and
+   S_sqrt contains an snum. That means complicated comparison functions. Hmm.
  *)
 type s_el = 
   | S_sqrt of snum
@@ -86,32 +87,23 @@ and s_symb = {alpha: bool; imr: bool; idsecret: symrec}
             *)
 
 and symrec = {id: int; secret: (float*float)*(float*float)} 
-             (* k,     
+           (* k      
                        secret amplitudes for a (re,im) and b (re,im)
                        -- note a before b, real before imaginary
                        -- never used in simplifying
-                       -- total of the four must be 1.0
-              *)
+                       -- total of the four must be 1.0 (do I mean that??)
+            *)
              
 and sprod = num * s_el list         (* a product*)
 
 and snum = sprod list               (* a sum *) 
 
-(* S_symb is an unknown (with furtively a secret value -- see below). 
-   0, 1, f and g are reals, but S_symb is a complex number. So it has a conjugate. 
-   Hence the conj field.
-   
-   The order of the fields matters for sorting: 
-    -- a1 comes before a2 (and b2, and etc.) so the id field is first; 
-    -- ai comes before bi so the alpha field is second (and false means a);
-    -- ai comes before ai! so the conj field is third;
-    -- a secret amplitude value.
+(* S_symb is an unknown (with furtively a secret value). 
+   S_symb is a complex number. 
     
     The secret values are used when measuring, to compute the value of a formula
     involving the symbol. They are _never_ used when calculating/simplifying, even if
     they are 0.0 or 1.0 (which they very very rarely might be).
-    
-    We need both floats -- one for a, one for b -- because of the a2b2 function in simplify_prod.
  *)
 
 let sprod_neg (n,els) = ~-/n, els
@@ -258,25 +250,35 @@ and so_prodi si symbf (n,els) =
   match !fancynum with
   | RawNum        -> si ^ "*" ^ string_of_prod_struct (n,els)
   | FractionalNum ->
-      if n</num_0   then "-" ^ so_prodi si symbf (~-/n,els) else
-      if n=/num_0   then "0" (* shouldn't happen *)         else
-                         ((* first combine the square roots *)
-                          let rec roots accum els =
-                            match els with
-                            | S_sqrt n :: els' -> (match numopt_of_snum n with 
-                                                   | Some num -> roots (num*/accum) els'
-                                                   | None     -> let accum, els'' = roots accum els' in
-                                                                 accum, S_sqrt n :: els''
-                                                  )
-                            | _                -> accum, els
-                          in
-                          let sq, els = roots (n*/n) els in
-                          if els=[]      then string_of_root_num sq                                       else 
-                          if sq=/num_1   then so_els symbf els                                            else
-                          if sq.den=:z_1 then string_of_root_num sq ^ so_els symbf els                    else
-                          if sq.num=:z_1 then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
-                                              "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
-                         )
+      let rec rc_els bra = function
+        | S_sqrt n :: els -> let s = string_of_root string_of_snum n in
+                             (if bra then "(" ^ s ^ ")" else s) ^ rc_els true els
+        | S_symb s :: els -> symbf s ^ rc_els true els
+        | []              -> ""
+      in
+      let rcstring () =
+        if n=/num_1 && els<>[] then rc_els false els
+                               else string_of_num n ^ rc_els true els 
+      in
+      if n</num_0         then "-" ^ so_prodi si symbf (~-/n,els)   else
+      if n=/num_0         then "0" (* shouldn't happen *)           else
+      if not !rootcombine then rcstring ()                          else
+                               (let rec roots accum els =
+                                  match els with
+                                  | S_sqrt n :: els' -> (match numopt_of_snum n with 
+                                                         | Some num -> roots (num*/accum) els'
+                                                         | None     -> let accum, els'' = roots accum els' in
+                                                                       accum, S_sqrt n :: els''
+                                                        )
+                                  | _                -> accum, els
+                                in
+                                let sq, els = roots (n*/n) els in
+                                if els=[]           then string_of_root_num sq                                       else 
+                                if sq=/num_1        then so_els symbf els                                            else
+                                if sq.den=:z_1      then string_of_root_num sq ^ so_els symbf els                    else
+                                if sq.num=:z_1      then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
+                                                         "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
+                               )
 
 and string_of_prod p = so_prodi "" string_of_symb p 
 

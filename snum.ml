@@ -110,7 +110,7 @@ let sprod_neg (n,els) = ~-/n, els
  
 let isneg_sprod (n,_ : sprod) = n</num_0
 
-(* this is wrong: it only tells you if its representation starts with a minus sign *)
+(* this only tells you if its representation starts with a minus sign *)
 let printsneg_snum : snum -> bool = function
   | sprod::_ -> isneg_sprod sprod
   | []       -> false (* because it's zero *)
@@ -293,16 +293,45 @@ and string_of_snums snums = bracketed_string_of_list string_of_snum snums
 
 (* The normal form -- now the snum type -- is a sum of products. 
  * Sign is now naturally included in the num element of a product.
- * Products are sorted according to the type definition: i.e.
- * S_sqrt _, S_symb. (but somehow sqrt is coming last. Hmm.)
- 
- * We sort identifiers according to their suffix: a0,b0,a1,b1, ...
- 
- * Stdlib.compare works if we change the definition of S_symb, so I did
- 
+ * I would like to sort snums so that the same el lists are adjacent but otherwise 
+ * largest num first, as in the prodcompare function that used to be in simplify_sum.
+ * Otherwise sqrts before symbs, and the natural ordering on symbs (because alpha
+ * and imr fields are designed for it).
+ *
+ * But ... sqrts have snums in them! So I think I need a fancy function or two.
  *)
 
-let elcompare = Stdlib.compare
+let (<??>) : int -> ('a -> int) -> ('a -> int)  =
+             fun i f -> if i=0 then f else (fun _ -> i)
+
+let revcompare a b = ~- (Stdlib.compare a b)
+
+let rec listcompare : ('a -> 'a -> int) -> 'a list -> 'a list -> int =
+  fun cf xs ys ->
+    match xs, ys with
+    | x::xs, y::ys -> (cf x y <??> listcompare cf xs) ys
+    | []     , []      -> 0
+    | []     , _       -> ~-1
+    | _      , []      -> 1
+;;
+
+let rec snumcompare : snum -> snum -> int = 
+  fun n1 n2 -> listcompare prodcompare n1 n2
+
+and prodcompare : sprod -> sprod -> int =
+  fun (n1,els1) (n2,els2) -> (elscompare els1 els2 <??> ((~-) <.> Stdlib.compare n1)) n2 
+  
+and elscompare : s_el list -> s_el list -> int = 
+  fun els1 els2 -> listcompare elcompare els1 els2
+
+and elcompare : s_el -> s_el -> int = 
+  fun x y ->
+    match x, y with
+    | S_sqrt nx, S_sqrt ny -> snumcompare nx ny
+    | S_symb sx, S_symb sy -> Stdlib.compare sx sy
+    | S_sqrt _ , S_symb _  -> ~-1
+    | S_symb _ , S_sqrt _  -> 1
+    
 
 (* *********************** symbolic arithmetic ************************************ *)
 
@@ -315,15 +344,6 @@ let make_snum_h k =
     let n = Number.pow half (k/2) in
     let els = if k mod 2 = 1 then [s_el_h] else [] in
     [(n,els)]
-
-(* we deal with long lists. Avoid sorting if poss *)
-let sort compare ss =
-  let rec check ss' =
-    match ss' with
-    | s'::(s''::_ as ss') -> if s'<s'' then check ss' else List.sort compare ss
-    | _                   -> ss
-  in
-  check ss
 
 let rmult_num sn n =
   if n=/num_0 then snum_0  else 
@@ -374,10 +394,10 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
               when a=a'&&b=sprod_neg b' || 
                    b=b'&&a=sprod_neg a'  -> premult [num_1, [S_sqrt (rsum (rprod [b] [b']) (rprod [a] [a']))]] n ss (* √(a^2-b^2) *)
             | s                    :: ss -> sp (s::els) n ss
-            | []                         -> None, n, sort elcompare (List.rev els)
+            | []                         -> None, n, List.sort elcompare els (* was List.rev els, but I think not needed *)
           in
-          let popt, n, ss = sp [] n (sort elcompare els) in
-          let s = [(n, sort elcompare ss)] in
+          let popt, n, ss = sp [] n (List.sort elcompare els) in
+          let s = [(n, List.sort elcompare ss)] in
           match popt with 
           | Some pre_p -> rprod pre_p s (* it does go round again! *)
           | None       -> s
@@ -405,10 +425,7 @@ and sflatten ss = (* flatten a list of sums *)
  *)
 
 and simplify_sum ps = 
-  let r = let prodcompare (n1,els1) (n2,els2) = (* els before n, pos before neg *)
-                  Stdlib.compare (els1,~-/n1) (els2,~-/n2) (* hmmm. *)
-          in
-          let multiple (n,els:sprod) rest = (* looking for nX+mX+... -- we sum the num parts *)
+  let r = let multiple (n,els:sprod) rest = (* looking for nX+mX+... -- we sum the num parts *)
             let r = (match takedropwhile (fun (_,els') -> els=els') rest with
                      | [] , _   -> n, rest
                      | ps, rest -> List.fold_left (fun sum (m,_) -> m+/sum) n ps, rest
@@ -478,8 +495,8 @@ and simplify_sum ps =
                                                       | Some (p', ps') -> sps true (p'::r) ps'
                                                       | None           -> sps again (p::r) ps
                                                      )
-            | []                                  -> if again then doit r else sort prodcompare r
-          and doit ps = sps false [] (sort prodcompare ps)
+            | []                                  -> if again then doit r else List.sort prodcompare r
+          and doit ps = sps false [] (List.sort prodcompare ps)
           in
           doit ps
   in

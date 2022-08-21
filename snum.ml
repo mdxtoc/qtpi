@@ -64,9 +64,15 @@ let log_2 : zint -> int = fun n ->
         f/h-f = g
         gh^3  = gfg = fg^2 -- not used
         gh = f(1-h)
-        
-   Also f^2+g^2 = 1 (which will fall out of the above)
-   ... but now f and g are done as sqrts ... as are all other rotations (I hope)
+    
+    We also used to have
+        2fh-f = g
+        -- which it is possible to justify ... but now, with the simpler formulation
+           of snum_f (see below), and still for simplicity writing h for √(1/2), we have
+        2h√(1+h) - √(1+h) = (2h-1)√(1+h) =
+          √((2h-1)^2 (1+h)) = √(((4/2)-4h+1) (1+h)) =
+          √((3-4h) (1+h)) = √(3+3h-4h-4/2) = √(1-h)
+        -- all something to do with rotations, I suspect, but I'm too stupid to see it.
  *)
 
 (* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
@@ -133,9 +139,13 @@ let sprod_half_h = (half, [s_el_h])
 
 let snum_h :snum = [sprod_h]
 
-let snum_f :snum = [(num_1, [S_sqrt [sprod_half; sprod_half_h]])]
+let snum_oneplush = [sprod_1; sprod_h]
 
-let snum_g :snum = [(num_1, [S_sqrt [sprod_half; sprod_neg sprod_half_h]])]
+let snum_f :snum = [(num_1, [S_sqrt snum_h; S_sqrt snum_oneplush])]
+
+let snum_oneminush = [sprod_1; sprod_neg sprod_h]
+
+let snum_g :snum = [(num_1, [S_sqrt snum_h; S_sqrt snum_oneminush])]
 
 let sprod_third   = (third, [])
 
@@ -465,7 +475,7 @@ and simplify_sum ps =
                         Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_prod pb') (string_of_snum ps);
                       if List.exists ((=) pb') ps' then (
                         if !verbose_simplify then 
-                          Printf.printf "a2b2.find success! (complex unknown)\n";
+                          Printf.printf "a2b2.find success!\n";
                         Some (remake els, Listutils.remove pb' (Listutils.remove pa' ps'))
                       )
                       else fail ()
@@ -482,6 +492,33 @@ and simplify_sum ps =
                                                 (string_of_option (bracketed_string_of_pair string_of_prod string_of_snum) r);
             r
           in
+          let rec twoh_etc p ps = (* looking for 2h√(1+h) - √(1+h) .. this could/must be generalised but I don't know how *)
+            let n, els = p in
+            let rec find num pres els =
+              match els with
+              | (S_sqrt n as el') :: els' 
+                when num=n                -> Some (pres, el', els') 
+              | el'               :: els' -> find num (el'::pres) els'
+              | []                        -> None
+            in
+            if true then Printf.printf "twoh_etc looking for 2h√(1+h) in %s\n" (string_of_prod p);
+            find snum_h [] els &~~
+              (fun (pres, _, tail) -> 
+                 if true then Printf.printf "twoh_etc found h -- looking for √(1+h) in %s\n" (string_of_els tail);
+                 find snum_oneplush pres tail &~~
+                  (fun (pres,el_rootoneplush,tail) ->
+                    let pf = ((~-/n)//num_2, Listutils.prepend pres (el_rootoneplush::tail)) in
+                    if true then Printf.printf "twoh_etc found both -- looking for %s in %s\n" (string_of_prod pf) (string_of_snum ps);
+                    if List.exists ((=) pf) ps then (* this really ought to be a subtraction ... *)
+                      (let pg = (n//num_2, Listutils.prepend pres (S_sqrt snum_oneminush::tail)) in
+                       let ps' = Listutils.remove pf ps in
+                       if true then Printf.printf "twoh_etc success!! -- Some (%s,%s)\n" (string_of_prod pg) (string_of_snum ps');
+                       Some (pg, ps')
+                      )
+                    else None
+                  ) 
+              )
+          in
           let rec sps again (r:sprod list) (ps:sprod list) =
             if !verbose_simplify then 
               Printf.printf "sps %B %s %s\n" again (string_of_snum r) (string_of_snum ps);
@@ -490,10 +527,10 @@ and simplify_sum ps =
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
              
-            (* last desperate throw: a^2+b^2 *) (* should it happen here? *)
-            | p                  :: ps            -> (match a2b2 p ps with
-                                                      | Some (p', ps') -> sps true (p'::r) ps'
-                                                      | None           -> sps again (p::r) ps
+            (* we try 2h√(1+h)-√(1+h)=√(1-h) and a^2+b^2=1 *) 
+            | p                  :: ps            -> (match twoh_etc p ps |~~ (fun _ -> a2b2 p ps) with
+                                                      | Some (p',ps') -> sps true (p'::r) ps'
+                                                      | None          -> sps again (p::r) ps
                                                      )
             | []                                  -> if again then doit r else List.sort prodcompare r
           and doit ps = sps false [] (List.sort prodcompare ps)

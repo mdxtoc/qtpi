@@ -68,11 +68,10 @@ let log_2 : zint -> int = fun n ->
     We also used to have
         2fh-f = g
         -- which it is possible to justify ... but now, with the simpler formulation
-           of snum_f (see below), and still for simplicity writing h for √(1/2), we have
-        2h√(1+h) - √(1+h) = (2h-1)√(1+h) =
-          √((2h-1)^2 (1+h)) = √(((4/2)-4h+1) (1+h)) =
-          √((3-4h) (1+h)) = √(3+3h-4h-4/2) = √(1-h)
-        -- all something to do with rotations, I suspect, but I'm too stupid to see it.
+           of snum_f and snum_g (see below), and still for simplicity writing h for √(1/2), we have
+        2h√(1+h) = √(1+h)+√(1-h)
+        2h√(1-h) = √(1+h)-√(1-h)
+        -- all something to do with pi/4 and pi/8 rotations, I suspect, but I'm too stupid to see it.
  *)
 
 (* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
@@ -131,7 +130,7 @@ let sprod_half   = (half, [])
 
 let snum_half = [sprod_half]
 
-let s_el_h       = S_sqrt [sprod_half]
+let s_el_h       = S_sqrt snum_half
 
 let sprod_h      = (num_1,[s_el_h])
 
@@ -141,11 +140,11 @@ let snum_h :snum = [sprod_h]
 
 let snum_oneplush = [sprod_1; sprod_h]
 
-let snum_f :snum = [(num_1, [S_sqrt snum_h; S_sqrt snum_oneplush])]
+let snum_f :snum = [(num_1, [S_sqrt snum_half; S_sqrt snum_oneplush])]
 
 let snum_oneminush = [sprod_1; sprod_neg sprod_h]
 
-let snum_g :snum = [(num_1, [S_sqrt snum_h; S_sqrt snum_oneminush])]
+let snum_g :snum = [(num_1, [S_sqrt snum_half; S_sqrt snum_oneminush])]
 
 let sprod_third   = (third, [])
 
@@ -492,7 +491,9 @@ and simplify_sum ps =
                                                 (string_of_option (bracketed_string_of_pair string_of_prod string_of_snum) r);
             r
           in
-          let rec twoh_etc p ps = (* looking for 2h√(1+h) - √(1+h) .. this could/must be generalised but I don't know how *)
+          let rec twoh_etc fg p ps = (* looking for 2h√(1+h) or 2h√(1-h) *)
+                                     (* fg is either 1+h or 1-h, and the answer is correspondingly √(1+h)+√(1-h) or √(1+h)-√(1-h) *)
+                                     (* .. this could/must be generalised but I don't know how *)
             let n, els = p in
             let rec find num pres els =
               match els with
@@ -501,21 +502,17 @@ and simplify_sum ps =
               | el'               :: els' -> find num (el'::pres) els'
               | []                        -> None
             in
-            if true then Printf.printf "twoh_etc looking for 2h√(1+h) in %s\n" (string_of_prod p);
-            find snum_h [] els &~~
+            if !verbose_simplify then Printf.printf "twoh_etc looking for 2h%s in %s\n" (string_of_el (S_sqrt fg)) (string_of_prod p);
+            find snum_half [] els &~~
               (fun (pres, _, tail) -> 
-                 if true then Printf.printf "twoh_etc found h -- looking for √(1+h) in %s\n" (string_of_els tail);
-                 find snum_oneplush pres tail &~~
+                 if !verbose_simplify then Printf.printf "twoh_etc found h -- looking for %s in %s\n" (string_of_el (S_sqrt fg)) (string_of_els tail);
+                 find fg pres tail &~~
                   (fun (pres,el_rootoneplush,tail) ->
-                    let pf = ((~-/n)//num_2, Listutils.prepend pres (el_rootoneplush::tail)) in
-                    if true then Printf.printf "twoh_etc found both -- looking for %s in %s\n" (string_of_prod pf) (string_of_snum ps);
-                    if List.exists ((=) pf) ps then (* this really ought to be a subtraction ... *)
-                      (let pg = (n//num_2, Listutils.prepend pres (S_sqrt snum_oneminush::tail)) in
-                       let ps' = Listutils.remove pf ps in
-                       if true then Printf.printf "twoh_etc success!! -- Some (%s,%s)\n" (string_of_prod pg) (string_of_snum ps');
-                       Some (pg, ps')
-                      )
-                    else None
+                    let nb = if fg=snum_oneplush then num_1 else ~-/num_1 in
+                    let pa = (n//num_2, Listutils.prepend pres (S_sqrt snum_oneplush::tail)) in
+                    let pb = ((nb*/n)//num_2, Listutils.prepend pres (S_sqrt snum_oneminush::tail)) in
+                    if !verbose_simplify then Printf.printf "twoh_etc success -- result %s\n" (string_of_snum [pa; pb]);
+                    Some (pa, pb::ps)
                   ) 
               )
           in
@@ -527,8 +524,10 @@ and simplify_sum ps =
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
              
-            (* we try 2h√(1+h)-√(1+h)=√(1-h) and a^2+b^2=1 *) 
-            | p                  :: ps            -> (match twoh_etc p ps |~~ (fun _ -> a2b2 p ps) with
+            (* we try 2h√(1+h)=√(1+h)+√(1-h); 2h√(1-h)=√(1+h)-√(1-h); and a^2+b^2=1 *) 
+            | p                  :: ps            -> (match twoh_etc snum_oneplush p ps 
+                                                       |~~ (fun _ -> twoh_etc snum_oneminush p ps)
+                                                       |~~ (fun _ -> a2b2 p ps) with
                                                       | Some (p',ps') -> sps true (p'::r) ps'
                                                       | None          -> sps again (p::r) ps
                                                      )

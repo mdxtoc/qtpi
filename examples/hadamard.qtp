@@ -10,4 +10,5 @@ proc System () =
   q>>H . 
   q>>H . 
   out!["finally "] . outq!(qval q) . out![".\n"] .
+  out!["Rx="; show Rx; "; Rx†="; show (Rx†); "; Rx*Rx†="; show (Rx*Rx†); "\n"] .
   _0

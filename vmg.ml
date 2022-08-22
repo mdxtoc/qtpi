@@ -326,7 +326,7 @@ and string_of_nv bksign (vm, vv) =
          let tracediv = false in
          let premult, v = if is_single || not !factorbraket then c_1, v
                            else try if tracediv then (Printf.printf "before division, v is %s\n" (raw_string_of_vector v); flush stdout);
-                                    let count stats cn = stats_inc stats z_1 (if isneg_csnum cn then cneg cn else cn) in
+                                    let count stats cn = stats_inc stats z_1 (if printsneg_csnum cn then cneg cn else cn) in
                                     let stats = stats_vc count v in
                                     let amps = stats_to_list stats in
                                     let amp, famp = 
@@ -534,9 +534,9 @@ let string_of_matrix m =
   let showdense () =
     let nr, nc = Z.to_int (rsize m), Z.to_int (csize m) in
     let block = tabulate nr (fun r -> tabulate nc (fun c -> string_of_csnum (?..m (Z.of_int r) (Z.of_int c)))) in
-    let maxwidth r = List.fold_left max 0 (List.map String.length r) in
+    let maxwidth row = List.fold_left max 0 (List.map Utf8.length row) in
     let maxwidth = List.fold_left max 0 (List.map maxwidth block) in 
-    let pad s = String.make (maxwidth - String.length s) ' ' ^ s in
+    let pad s = s^ String.make (maxwidth - Utf8.length s) ' ' in
     let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
     Printf.sprintf "\n{%s}\n" block
   in 
@@ -759,6 +759,7 @@ let g_G  = make_g   [[c_g       ; c_f   ];
 let g_Rx = make_g   [[c_1       ; c_0              ];
                      [c_0       ; C(snum_f,snum_g) ]]
                      
+
 let g_Phi = function (* as Pauli *)
   | 0 -> g_I
   | 1 -> g_X

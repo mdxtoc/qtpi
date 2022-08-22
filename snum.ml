@@ -253,41 +253,52 @@ and string_of_els es =
   ) es
 
 (* I want to get this right once, so I can deal with real and imaginary products.
-   si is "" or "i"
+   si is "" or "i",
+   
+   And oh what a mess I made of it. But now, I hope, it's a bit better ...
  *)  
+
 and so_prodi si symbf (n,els) = 
   match !fancynum with
   | RawNum        -> si ^ "*" ^ string_of_prod_struct (n,els)
   | FractionalNum ->
-      let rec rc_els bra = function
-        | S_sqrt n :: els -> let s = string_of_root string_of_snum n in
-                             (if bra then "(" ^ s ^ ")" else s) ^ rc_els true els
-        | S_symb s :: els -> symbf s ^ rc_els true els
-        | []              -> ""
-      in
+      if n</num_0         then "-" ^ so_prodi si symbf (~-/n,els)   else
+      if n=/num_0         then "0" (* shouldn't happen *)           else
       let rcstring () =
+        let rec rc_els bra = function
+          | S_sqrt n :: els -> let s = string_of_root string_of_snum n in
+                               (if bra then "(" ^ s ^ ")" else s) ^ rc_els true els
+          | S_symb s :: els -> symbf s ^ rc_els true els
+          | []              -> ""
+        in
         if n=/num_1 && els<>[] then rc_els false els
                                else string_of_num n ^ rc_els true els 
       in
-      if n</num_0         then "-" ^ so_prodi si symbf (~-/n,els)   else
-      if n=/num_0         then "0" (* shouldn't happen *)           else
-      if not !rootcombine then rcstring ()                          else
-                               (let rec roots accum els =
-                                  match els with
-                                  | S_sqrt n :: els' -> (match numopt_of_snum n with 
-                                                         | Some num -> roots (num*/accum) els'
-                                                         | None     -> let accum, els'' = roots accum els' in
-                                                                       accum, S_sqrt n :: els''
-                                                        )
-                                  | _                -> accum, els
-                                in
-                                let sq, els = roots (n*/n) els in
-                                if els=[]           then string_of_root_num sq                                       else 
-                                if sq=/num_1        then so_els symbf els                                            else
-                                if sq.den=:z_1      then string_of_root_num sq ^ so_els symbf els                    else
-                                if sq.num=:z_1      then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
-                                                         "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
-                               )
+      let s = if not !rootcombine then rcstring () 
+              else (let rec roots accum els =
+                      match els with
+                      | S_sqrt n :: els' -> (match numopt_of_snum n with 
+                                             | Some num -> roots (num*/accum) els'
+                                             | None     -> let accum, els'' = roots accum els' in
+                                                           accum, S_sqrt n :: els''
+                                            )
+                      | _                -> accum, els
+                    in
+                    let sq, els = roots (n*/n) els in
+                    if els=[]           then string_of_root_num sq                                       else 
+                    if sq=/num_1        then so_els symbf els                                            else
+                    if sq.den=:z_1      then string_of_root_num sq ^ so_els symbf els                    else
+                    if sq.num=:z_1      then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
+                                             "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
+                   )
+      in
+      if si="" then s else
+      if s="1" then si else
+       let c = Stringutils.last s in
+       if c = ')' || ('0'<=c && c<='9') then s ^ si else
+       let c' = Stringutils.first s in
+       if 'a'=c' || 'b'=c' then si ^ "*" ^ s else
+       si ^ "*(" ^ s ^ ")"
 
 and string_of_prod p = so_prodi "" string_of_symb p 
 

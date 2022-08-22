@@ -7,11 +7,15 @@ fun randg g = if randbit()=0b1 then g else I
 
 proc Alice (x:qubit, c:^(bit,bit)) = 
     . (newq z) 
-    . z >> expg Rx (rand8())
+    . (let rxe = rand8())
+    . out!["rxe="; show rxe; "\n"]
+    . z >> expg Rx rxe
     . z >> randg X
     . z >> randg Y
     . z >> randg Z
-    . z >> expg Rz (rand8())
+    . (let rze = rand8())
+    . out!["rze="; show rze; "\n"]
+    . z >> expg Rz rze
     . ⁁ 1
     . z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) 
     . c!vz,vx 

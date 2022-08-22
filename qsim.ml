@@ -606,8 +606,8 @@ let rec qmeasure disposes pn gate q =
                            exactsqrt n &~~ (fun root -> Some (mult_snv [(Number.reciprocal root,[])] vv))
                          in
                          match doit n |~~
-                               (fun () -> (doit (n//half) &~~ (fun vv -> Some (mult_snv [(num_2,[S_sqrt half])] vv))) |~~
-                                (fun () -> (doit (n//third) &~~ (fun vv -> Some (mult_snv [(num_3,[S_sqrt third])] vv))))
+                               ( fun () -> (doit (n//half ) &~~ (fun vv -> Some (mult_snv (reciprocal_sqrt half ) vv)))  |~~
+                                           (fun () -> (doit (n//third) &~~ (fun vv -> Some (mult_snv (reciprocal_sqrt third) vv))))
                                )
                          with
                          | Some vv -> snum_1, vv

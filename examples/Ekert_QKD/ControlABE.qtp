@@ -11,7 +11,7 @@ proc
       | Alice (nq,m,qcE,ic,bc,logcA,verbose)
       | Bob   (nq,qcB,ic,bc,logcB,verbose)
       | Eve   (nq,qcA,qcE)
-      | logcA?(okA) . logcA?(mA) . logcB?(okB) . logcB?(mB) . 
+      | logcA?(okA) . logcB?(okB) . logcA?(mA) . logcB?(mB) . 
           (let okA = bit2bool (hd okA))
           (let okB = bit2bool (hd okB))
           (let nOK = if okA && okB && mA=mB then nOK+1 else nOK)

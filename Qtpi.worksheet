@@ -110,11 +110,11 @@ time ./Qtpi -show_final examples/BB84_QBC_untyped.qtp
 
 (cd examples/BB84_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp LogAlice.qtp LogBob.qtp cleverEve.qtp LogEve.qtp SystemAEB.qtp) &lt; BB84QKDcontrol.txt
 
-# E92 QKD without an Eve, and now with.
+# E92 QKD without an Eve, and now with (but since I can't think what Eve might do, no chance ...).
+# Actually Eve can become a relay node, if she is capable of spoofing the classical messages. I could simulate that, but you know ...
 
 (cd examples/Ekert_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp ControlAB.qtp Ekert.qtp) &lt;E92QKDcontrol.txt
 
-# not working -- needs fixing. A deadlock.
 (cd examples/Ekert_QKD; time ../../Qtpi functions.qtp Alice.qtp Bob.qtp Eve0.qtp ControlABE.qtp Ekert.qtp) &lt;E92QKDcontrol.txt
 
 # experiments with lots of qbits in Warwick brick measured computing. Currently stuck at 10 qbits ...

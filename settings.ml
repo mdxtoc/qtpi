@@ -66,7 +66,7 @@ let qvalsimplifies = ref true
 
 let resourcecheck = ref true
 
-let rootcombine = ref false
+let rootcombine = ref true
 
 let runbraket = ref true
 

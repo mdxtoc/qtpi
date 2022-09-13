@@ -443,15 +443,15 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
               | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv))
               | Power      -> fun rtenv -> of_num (to_num (f1 rtenv) **/ intc e2.pos "fractional power" (f2 rtenv))
               | Mod        -> fun rtenv -> let n1 = to_num (f1 rtenv) in
-                                         let n2 = to_num (f2 rtenv) in
-                                         if is_int n1 && is_int n2 then
-                                           of_num (rem n1 n2)
-                                         else 
-                                           raise (ExecutionError (e.pos, Printf.sprintf "fractional remainder %s %s" 
-                                                                                           (string_of_num n1)
-                                                                                           (string_of_num n2)
-                                                                 )
-                                                 )
+                                           let n2 = to_num (f2 rtenv) in
+                                           if is_int n1 && is_int n2 then
+                                             of_num (rem n1 n2)
+                                           else 
+                                             raise (ExecutionError (e.pos, Printf.sprintf "fractional remainder %s %s" 
+                                                                                             (string_of_num n1)
+                                                                                             (string_of_num n2)
+                                                                   )
+                                                   )
               | TensorProd -> (* overloaded *)
                   (match (type_of_expr e1).inst with
                    | Gate   -> fun rtenv -> of_gate (tensor_gg (to_gate (f1 rtenv)) (to_gate (f2 rtenv)))

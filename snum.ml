@@ -52,35 +52,25 @@ let log_2 : zint -> int = fun n ->
 
 (* ***************** Symbolic numbers, used as amplitudes and probabilities ************************** *)
 
-(* h = sqrt (1/2) = cos (pi/4) = sin (pi/4); useful for rotation pi/4, or 45 degrees;
-   f = sqrt ((1+h)/2) = cos (pi/8); useful for rotation pi/8 or 22.5 degrees;
-   g = sqrt ((1-h)/2) = sin (pi/8); the partner of f;
+(* This was once done in terms of h = sqrt (1/2) = cos (pi/4) = sin (pi/4) and 
+   f = sqrt ((1+h)/2) = cos (pi/8), g = sqrt ((1-h)/2) = sin (pi/8). To get confluence
+   I had to use fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = h/2 and even 2fh-f = g, but I had no
+   idea why. Sqrts were only of nums (rationals).
    
-   Note h^2 = 1/2; 
-        f^2 = (1+h)/2 = 1/2+h/2;
-        g^2 = (1-h)/2 = 1/2-h/2;
-        fg  = sqrt ((1-h^2)/4) = sqrt(1/8) = h/2  
-        
-        f/h-f = g
-        gh^3  = gfg = fg^2 -- not used
-        gh = f(1-h)
-    
-    We also used to have
-        2fh-f = g
-        -- which it is possible to justify ... but now, with the simpler formulation
-           of snum_f and snum_g (see below), and still for simplicity writing h for √(1/2), we have
-        2h√(1+h) = √(1+h)+√(1-h)
-        2h√(1-h) = √(1+h)-√(1-h)
-        -- all something to do with pi/4 and pi/8 rotations, I suspect, but I'm too stupid to see it.
+   Then (3.3.0) I went over to sqrt of snum and got rid of h and f and g, but I still needed
+   disguised versions of the same confluences, in particular sqrt(a+b) sqrt(a-b) =
+   sqrt(a^2-b^2) and (writing h for √(1/2) for the sake of clarity) 2h√(1+h) = √(1+h)+√(1-h), 
+   2h√(1-h) = √(1+h)-√(1-h). Clearly the last two had to do with rotations by pi/4 and pi/8, but
+   I recorded that I was too stupid to see it.
+   
+   Now, perhaps, an epiphany. It's all about sin and cos, and sin^2(x)=(1-cos(2x))/2, and so
+   on. So this is a version which has sqrt num, cos num, sin num, and I'll see where it gets me.
+   Obviously it will make great use of trigonometric identities ... watch this space.
  *)
 
-(* for a long time this was done in terms of h = sqrt (1/2). But that's embarrassing now.
-   So: something more general: numbers, square roots, symbols, sums and prods. 
-   But sorting is a problem, because I want to sort snums largest number first, and
-   S_sqrt contains an snum. That means complicated comparison functions. Hmm.
- *)
 type s_el = 
-  | S_sqrt of snum
+  | S_sqrt of num
+  | S_trig of num * bool      (* bool is iscos; num in fractions of 𝝅: n represents n𝜋 *)
   | S_symb of s_symb                 
 
 and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
@@ -99,60 +89,22 @@ and symrec = {id: int; secret: (float*float)*(float*float)}
                        -- total of the four must be 1.0 (do I mean that??)
             *)
              
+(* S_symb is a complex unknown (with furtively a secret value, for measurement purposes only). 
+    
+   The secret values are _never_ used when calculating/simplifying, even if
+    they are 0.0 or 1.0 (which they very very rarely might be).
+ *)
+
 and sprod = num * s_el list         (* a product*)
 
 and snum = sprod list               (* a sum *) 
 
-(* S_symb is an unknown (with furtively a secret value). 
-   S_symb is a complex number. 
-    
-    The secret values are used when measuring, to compute the value of a formula
-    involving the symbol. They are _never_ used when calculating/simplifying, even if
-    they are 0.0 or 1.0 (which they very very rarely might be).
- *)
-
 let sprod_neg (n,els) = ~-/n, els
  
-let isneg_sprod (n,_ : sprod) = n</num_0
-
-(* this only tells you if its representation starts with a minus sign *)
+(* this only tells you if an snum's representation starts with a minus sign *)
 let printsneg_snum : snum -> bool = function
-  | sprod::_ -> isneg_sprod sprod
+  | (n,_)::_ -> n</num_0
   | []       -> false (* because it's zero *)
-
-let sprod_1 = (num_1,[])
-
-let snum_0 :snum = []
-
-let snum_1 :snum = [sprod_1]
-
-let sprod_half   = (half, [])
-
-let snum_half = [sprod_half]
-
-let s_el_h       = S_sqrt snum_half
-
-let sprod_h      = (num_1,[s_el_h])
-
-let sprod_half_h = (half, [s_el_h])
-
-let snum_h :snum = [sprod_h]
-
-let snum_oneplush = [sprod_1; sprod_h]
-
-let snum_f :snum = [(num_1, [S_sqrt snum_half; S_sqrt snum_oneplush])]
-
-let snum_oneminush = [sprod_1; sprod_neg sprod_h]
-
-let snum_g :snum = [(num_1, [S_sqrt snum_half; S_sqrt snum_oneminush])]
-
-let sprod_third   = (third, [])
-
-let snum_third = [sprod_third]
-
-let snum_t = [(num_1, [S_sqrt snum_third])]
-
-let snum_symb symb :snum = [(num_1, [S_symb symb])]
 
 let float_of_symb symb = let a,b = symb.idsecret.secret in 
                          let re,im = if symb.alpha then b else a in (* false is a *)
@@ -166,8 +118,9 @@ let rec to_float snum =
 
 and float_of_el el = 
   match el with
-  | S_sqrt x    -> Float.sqrt (to_float x)
-  | S_symb symb -> float_of_symb symb
+  | S_sqrt x        -> Float.sqrt (Q.to_float x)
+  | S_trig(x,iscos) -> (if iscos then Float.cos else Float.sin) (Float.pi *. Q.to_float x)
+  | S_symb symb     -> float_of_symb symb
 
 (* printing numbers: recursive since S_sqrt takes snum *)
 
@@ -199,8 +152,8 @@ let string_of_symb symb =
                  (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb symb) else "")
 
 (* roots with square root symbol as unary operator, but no overline (nesting it in Unicode is a bit of a problem) *)
-let rec string_of_root_num num =
-  if num</num_0 then raise (Disaster (Printf.sprintf "string_of_root_num %s" (string_of_num num)))
+let rec string_of_root num =
+  if num</num_0 then raise (Disaster (Printf.sprintf "string_of_root %s" (string_of_num num)))
   else
     let root n = Printf.sprintf "√(%s)" (string_of_num n) in
     let zroot zn = Printf.sprintf "√%s" (string_of_zint zn) in
@@ -215,15 +168,18 @@ let rec string_of_root_num num =
              | Some den' -> Printf.sprintf "%s/%s" (zroot num.num) (string_of_zint den')
              | _         -> root num
   
-and string_of_root sosnum snum =
-  match numopt_of_snum snum with
-  | Some num -> string_of_root_num num
-  | _        -> Printf.sprintf "√(%s)" (sosnum snum)
-
+and string_of_trig iscos (n:num) =
+  Printf.sprintf "%s(%s%s)" (if iscos then "cos" else "sin")
+                            (Printf.sprintf "%s𝝅" (if n.num=:z_1 then "" else string_of_zint n.num))
+                            (if n.den=:z_1 then "" 
+                             else Printf.sprintf "/%s" (string_of_zint n.den)
+                            )
+                          
 and string_of_el_struct el = 
   match el with
-  | S_sqrt snum -> string_of_root string_of_snum_struct snum
-  | S_symb symb -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
+  | S_sqrt n         -> string_of_root n
+  | S_trig (n,iscos) -> string_of_trig iscos n
+  | S_symb symb      -> Printf.sprintf "{alpha=%B; imr=%B idsecret=%s}" 
                              symb.alpha symb.imr (string_of_symrec symb.idsecret)
 
 and string_of_els_struct els = bracketed_string_of_list string_of_el_struct els
@@ -239,8 +195,9 @@ and so_el symbf e =
   | RawNum -> string_of_el_struct e
   | _      ->
       match e with
-      | S_sqrt n    -> string_of_root string_of_snum n
-      | S_symb symb -> symbf symb
+      | S_sqrt n         -> string_of_root n
+      | S_trig (n,iscos) -> string_of_trig iscos n    (* one day this will recognise values of n *)
+      | S_symb symb      -> symbf symb
   
 and string_of_el el = so_el string_of_symb el
 
@@ -266,10 +223,11 @@ and so_prodi si symbf (n,els) =
       if n=/num_0         then "0" (* shouldn't happen *)           else
       let rcstring () =
         let rec rc_els bra = function
-          | S_sqrt n :: els -> let s = string_of_root string_of_snum n in
-                               (if bra then "(" ^ s ^ ")" else s) ^ rc_els true els
-          | S_symb s :: els -> symbf s ^ rc_els true els
-          | []              -> ""
+          | S_sqrt n :: els          -> let s = string_of_root n in
+                                        (if bra then "(" ^ s ^ ")" else s) ^ rc_els true els
+          | S_trig (n, iscos) :: els -> string_of_trig iscos n ^ rc_els true els
+          | S_symb s :: els          -> symbf s ^ rc_els true els
+          | []                       -> ""
         in
         if n=/num_1 && els<>[] then rc_els false els
                                else string_of_num n ^ rc_els true els 
@@ -277,19 +235,17 @@ and so_prodi si symbf (n,els) =
       let s = if not !rootcombine then rcstring () 
               else (let rec roots accum els =
                       match els with
-                      | S_sqrt n :: els' -> (match numopt_of_snum n with 
-                                             | Some num -> roots (num*/accum) els'
-                                             | None     -> let accum, els'' = roots accum els' in
-                                                           accum, S_sqrt n :: els''
-                                            )
-                      | _                -> accum, els
+                      | S_sqrt n :: els'          -> roots (n*/accum) els'
+                      | S_trig (n,iscos) :: els' 
+                          when n=quarter          -> roots (half*/accum) els'
+                      | _                         -> accum, els
                     in
                     let sq, els = roots (n*/n) els in
-                    if els=[]           then string_of_root_num sq                                       else 
+                    if els=[]           then string_of_root sq                                           else 
                     if sq=/num_1        then so_els symbf els                                            else
-                    if sq.den=:z_1      then string_of_root_num sq ^ so_els symbf els                    else
-                    if sq.num=:z_1      then so_els symbf els ^ "/" ^ string_of_root_num (reciprocal sq) else
-                                             "(" ^ string_of_root_num sq ^ ")" ^ so_els symbf els
+                    if sq.den=:z_1      then string_of_root sq ^ so_els symbf els                        else
+                    if sq.num=:z_1      then so_els symbf els ^ "/" ^ string_of_root (reciprocal sq)     else
+                                             "(" ^ string_of_root sq ^ ")" ^ so_els symbf els
                    )
       in
       if si="" then s else
@@ -300,9 +256,9 @@ and so_prodi si symbf (n,els) =
        if 'a'=c' || 'b'=c' then si ^ "*" ^ s else
        si ^ "*(" ^ s ^ ")"
 
-and string_of_prod p = so_prodi "" string_of_symb p 
+and string_of_sprod p = so_prodi "" string_of_symb p 
 
-and fracparts (s:snum) : string list = List.map string_of_prod s
+and fracparts (s:snum) : string list = List.map string_of_sprod s
 
 and string_of_snum (s:snum) = 
   match !fancynum with
@@ -311,16 +267,83 @@ and string_of_snum (s:snum) =
 
 and string_of_snums snums = bracketed_string_of_list string_of_snum snums
 
+(* normalising S_trig *)
+let st_neg = function
+  | None         -> None
+  | Some (n,els) -> Some (~-/n,els)
+
+(* range [0..𝜋/2] -- closed, includes both endpoints *)
+let st_half iscos n = 
+  match n=/num_0, n=/half, iscos with
+  | true, _   , false           (* sin 0 = 0 *)   
+  | _   , true, true            (* cos 𝜋/2 = 0 *)
+                      -> None
+  | true, _   , true            (* cos 0 = 1 *)
+  | _   , true, false           (* sin 𝜋/2 = 1 *)
+                      -> Some (num_1,[])
+  | _                 -> Some (num_1,[S_trig (n,iscos)])
+
+(* range [0..𝜋] -- closed, includes both endpoints *)
+let st_1 iscos n =
+  match n>/half, iscos with
+  | true , true  -> st_neg (st_half iscos (num_1-/n)) 
+  | true , false -> st_half iscos (num_1-/n)
+  | _            -> st_half iscos n
+
+(* range [0..2𝜋] -- closed, includes both endpoints *)
+let st_2 iscos n = 
+  match n>/num_1, iscos with
+  | true, true  -> st_1 iscos (num_2-/n)
+  | true, false -> st_neg (st_1 iscos (num_2-/n))
+  | _           -> st_1 iscos n
+
+let st_norm st_f iscos n = 
+  match st_f iscos n with
+  | Some sprod -> [sprod]
+  | None       -> []
+ 
+(* this is slow: don't use in simplification. But note: if it gives you an S_trig (x,_)
+   then x is in the interval (0,half)
+ *)
+let snum_trig iscos n = st_norm st_2 iscos (num_mod n num_2)
+
+let sprod_1 :sprod = (num_1,[])
+
+let s_el_h  :s_el = S_trig (quarter, true) (* ok to use S_trig *)
+
+let sprod_h :sprod = (num_1,[s_el_h])
+
+let snum_0 :snum = []
+
+let snum_1 :snum = [sprod_1]
+
+let snum_h :snum = [sprod_h]
+
+let eighth = quarter // num_2
+
+let snum_f :snum = snum_trig true eighth
+
+let snum_g :snum = snum_trig false eighth
+
+(* .. not really needed yet ..
+
+   let sprod_third   = (third, [])
+
+   let snum_third = [sprod_third]
+
+   let snum_t = [(num_1, [S_sqrt snum_third])]
+ *)
+ 
+let snum_symb symb :snum = [(num_1, [S_symb symb])]
+
 (* The normal form -- now the snum type -- is a sum of products. 
  * Sign is now naturally included in the num element of a product.
  * I would like to sort snums so that the same el lists are adjacent but otherwise 
  * largest num first, as in the prodcompare function that used to be in simplify_sum.
- * Otherwise sqrts before symbs, and the natural ordering on symbs (because alpha
+ * Otherwise sqrts before cos before sin befor symbs, and the natural ordering on symbs (because alpha
  * and imr fields are designed for it).
- *
- * But ... sqrts have snums in them! So I think I need a fancy function or two.
  *)
-
+ 
 let (<??>) : int -> ('a -> int) -> ('a -> int)  =
              fun i f -> if i=0 then f else (fun _ -> i)
 
@@ -338,20 +361,15 @@ let rec listcompare : ('a -> 'a -> int) -> 'a list -> 'a list -> int =
 let rec snumcompare : snum -> snum -> int = 
   fun n1 n2 -> listcompare prodcompare n1 n2
 
-and prodcompare : sprod -> sprod -> int =
-  fun (n1,els1) (n2,els2) -> (elscompare els1 els2 <??> ((~-) <.> Stdlib.compare n1)) n2 
-  
 and elscompare : s_el list -> s_el list -> int = 
   fun els1 els2 -> listcompare elcompare els1 els2
 
-and elcompare : s_el -> s_el -> int = 
-  fun x y ->
-    match x, y with
-    | S_sqrt nx, S_sqrt ny -> snumcompare nx ny
-    | S_symb sx, S_symb sy -> Stdlib.compare sx sy
-    | S_sqrt _ , S_symb _  -> ~-1
-    | S_symb _ , S_sqrt _  -> 1
-    
+and prodcompare : sprod -> sprod -> int =
+  fun (n1,els1) (n2,els2) -> (elscompare els1 els2 <??> ((~-) <.> Stdlib.compare n1)) n2 
+  
+(* sqrt, trig, symb -- but trig is sorted on (n, iscos) -- so a definition of the type does it *)
+and elcompare : s_el -> s_el -> int = Stdlib.compare
+
 
 (* *********************** symbolic arithmetic ************************************ *)
 
@@ -409,10 +427,18 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
             in
             match ss with
             | S_sqrt a :: S_sqrt b :: ss 
-              when a=b                   -> premult a n ss
-            | S_sqrt [a;b] :: S_sqrt [a';b'] :: ss 
-              when a=a'&&b=sprod_neg b' || 
-                   b=b'&&a=sprod_neg a'  -> premult [num_1, [S_sqrt (rsum (rprod [b] [b']) (rprod [a] [a']))]] n ss (* √(a^2-b^2) *)
+              when a=b                   -> premult [(a,[])] n ss
+            | S_trig (a,ac) :: S_trig (b,bc) :: ss 
+              when a=b                   -> (* a is in the range [0,1/2] -- keep it so *)
+                                            let halve half = function
+                                              | Some (n,els) -> Some (n*/half,els)
+                                              | None         -> None
+                                            in
+                                            premult (if ac=bc then (* cos^2 a = 1/2+1/2(cos 2a) or sin^2 a = 1/2-1/2(cos 2a) *)
+                                                                   (half,[]) :: st_norm (halve (if ac then half else ~-/ half) <..> st_1) true (num_2*/a)
+                                                              else (* sin a cos a = 1/2(sin 2a)*)
+                                                                   st_norm (halve half <..> st_1) false (num_2*/a)
+                                                    ) n ss
             | s                    :: ss -> sp (s::els) n ss
             | []                         -> None, n, List.sort elcompare els (* was List.rev els, but I think not needed *)
           in
@@ -423,7 +449,7 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
           | None       -> s
   in
   if !verbose_simplify then
-    Printf.printf "simplify_prod %s -> %s\n" (string_of_prod prod) (string_of_snum r);
+    Printf.printf "simplify_prod %s -> %s\n" (string_of_sprod prod) (string_of_snum r);
   r
 
 and rsum s1 s2 = 
@@ -452,9 +478,9 @@ and simplify_sum ps =
                     )
             in
             if !verbose_simplify then
-              Printf.printf "multiple (%s) %s -> %s\n" (string_of_prod (n,els))  
-                                                       (bracketed_string_of_list string_of_prod rest)
-                                                       (string_of_pair string_of_num (bracketed_string_of_list string_of_prod) "," r);
+              Printf.printf "multiple (%s) %s -> %s\n" (string_of_sprod (n,els))  
+                                                       (bracketed_string_of_list string_of_sprod rest)
+                                                       (string_of_pair string_of_num (bracketed_string_of_list string_of_sprod) "," r);
             r
           in
           let rec a2b2 p ps = (* looking for X*aa!Y+X*bb!Y to replace with XY. Sorting doesn't always make aa! and bb! next to each other in ps *)
@@ -470,7 +496,7 @@ and simplify_sum ps =
                   let fail () = find (S_symb symb2::S_symb symb1::pres) els in
                   let p' = remake (S_symb {symb1 with alpha=true} :: S_symb {symb2 with alpha=true} :: els) in
                   if !verbose_simplify then 
-                    Printf.printf "a2b2.find looking for %s (b.re*b.re) in %s\n" (string_of_prod p') (string_of_snum ps);
+                    Printf.printf "a2b2.find looking for %s (b.re*b.re) in %s\n" (string_of_sprod p') (string_of_snum ps);
                   if List.exists ((=) p') ps 
                   then (
                     (* we have also found b.re*b.re *)
@@ -478,11 +504,11 @@ and simplify_sum ps =
                     (* search for a.im*a.im and b.im*b.im *)
                     let pa' = remake (S_symb {symb1 with imr=true} :: S_symb {symb2 with imr=true} :: els) in
                     if !verbose_simplify then 
-                      Printf.printf "a2b2.find looking for %s (a.im*a.im) in %s\n" (string_of_prod pa') (string_of_snum ps);
+                      Printf.printf "a2b2.find looking for %s (a.im*a.im) in %s\n" (string_of_sprod pa') (string_of_snum ps);
                     if List.exists ((=) pa') ps' then (
                       let pb' = remake (S_symb {symb1 with alpha=true; imr=true} :: S_symb {symb2 with alpha=true; imr=true} :: els) in
                       if !verbose_simplify then 
-                        Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_prod pb') (string_of_snum ps);
+                        Printf.printf "a2b2.find looking for %s (b.im*b.im) in %s\n" (string_of_sprod pb') (string_of_snum ps);
                       if List.exists ((=) pb') ps' then (
                         if !verbose_simplify then 
                           Printf.printf "a2b2.find success!\n";
@@ -499,33 +525,8 @@ and simplify_sum ps =
             let r = find [] els in (* could recurse, but we're just looking in one spot *)
             if !verbose_simplify then
               Printf.printf "a2b2 (%s) -> %s\n" (string_of_snum ps) 
-                                                (string_of_option (bracketed_string_of_pair string_of_prod string_of_snum) r);
+                                                (string_of_option (bracketed_string_of_pair string_of_sprod string_of_snum) r);
             r
-          in
-          let rec twoh_etc fg p ps = (* looking for 2h√(1+h) or 2h√(1-h) *)
-                                     (* fg is either 1+h or 1-h, and the answer is correspondingly √(1+h)+√(1-h) or √(1+h)-√(1-h) *)
-                                     (* .. this could/must be generalised but I don't know how *)
-            let n, els = p in
-            let rec find num pres els =
-              match els with
-              | (S_sqrt n as el') :: els' 
-                when num=n                -> Some (pres, el', els') 
-              | el'               :: els' -> find num (el'::pres) els'
-              | []                        -> None
-            in
-            if !verbose_simplify then Printf.printf "twoh_etc looking for 2h%s in %s\n" (string_of_el (S_sqrt fg)) (string_of_prod p);
-            find snum_half [] els &~~
-              (fun (pres, _, tail) -> 
-                 if !verbose_simplify then Printf.printf "twoh_etc found h -- looking for %s in %s\n" (string_of_el (S_sqrt fg)) (string_of_els tail);
-                 find fg pres tail &~~
-                  (fun (pres,el_rootoneplush,tail) ->
-                    let nb = if fg=snum_oneplush then num_1 else ~-/num_1 in
-                    let pa = (n//num_2, Listutils.prepend pres (S_sqrt snum_oneplush::tail)) in
-                    let pb = ((nb*/n)//num_2, Listutils.prepend pres (S_sqrt snum_oneminush::tail)) in
-                    if !verbose_simplify then Printf.printf "twoh_etc success -- result %s\n" (string_of_snum [pa; pb]);
-                    Some (pa, pb::ps)
-                  ) 
-              )
           in
           let rec sps again (r:sprod list) (ps:sprod list) =
             if !verbose_simplify then 
@@ -535,10 +536,8 @@ and simplify_sum ps =
               when es1=es2                         -> let n', ps' = multiple (n1+/n2,es1) ps in
                                                       if n'=/num_0 then sps true r ps' else sps true ((n',es1)::r) ps'
              
-            (* we try 2h√(1+h)=√(1+h)+√(1-h); 2h√(1-h)=√(1+h)-√(1-h); and a^2+b^2=1 *) 
-            | p                  :: ps            -> (match twoh_etc snum_oneplush p ps 
-                                                       |~~ (fun _ -> twoh_etc snum_oneminush p ps)
-                                                       |~~ (fun _ -> a2b2 p ps) with
+            (* we try a^2+b^2=1 *) 
+            | p                  :: ps            -> (match a2b2 p ps with
                                                       | Some (p',ps') -> sps true (p'::r) ps'
                                                       | None          -> sps again (p::r) ps
                                                      )
@@ -554,7 +553,7 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let reciprocal_sqrt (n:num) = [(reciprocal n, [S_sqrt [n,[]]])]
+let reciprocal_sqrt (n:num) = [(reciprocal n, [S_sqrt n])]
 
 let rdiv_sqrt sn n = 
   rprod (reciprocal_sqrt n) sn
@@ -647,11 +646,10 @@ let rdiv r1 r2 =
     | [n2,els2] -> let el_div (n1,els1) el =
                      if List.mem el els1 then n1, Listutils.remove el els1 else
                        match el with
-                       | S_sqrt n -> (match numopt_of_snum n with
-                                      | Some num -> Q.div n1 num, el::els1
-                                      | _        -> bad ()
-                                     )
-                       | _        -> bad ()
+                       | S_sqrt n         -> Q.div n1 n, el::els1
+                       | S_trig (n,_) 
+                           when n=quarter -> Q.div n1 half, el::els1
+                       | _                -> bad ()
                    in
                    let sn_div (n1,els1) = List.fold_left el_div (Q.div n1 n2, els1) els2 in
                    simplify_sum (List.map sn_div r1)
@@ -685,13 +683,13 @@ let so_csnumb bracket (C (x,y)) =
                           | []     , _  -> so_im ys
                           | [(f,p)], [] -> [so_prodi "i" f p]
                           | _           -> ["i*(" ^ sum_separate (Listutils.prepend (List.map (fun (f,p) -> so_prodi "" f p) ypres) 
-                                                                                    (List.map string_of_prod ys)
+                                                                                    (List.map string_of_sprod ys)
                                                                  )
                                                   ^ ")"]
               in
               Listutils.prepend ss (fracparts xs @ ypart)
           | (n,ps as x)::xs, _  -> 
-              let default () = parts ypres (string_of_prod x :: ss) (xs,ys) in
+              let default () = parts ypres (string_of_sprod x :: ss) (xs,ys) in
               let rec treatable imropt ps = (* result Some imr means ps contains just one variable, with re/im imr;
                                                       None     means otherwise.
                                              *)

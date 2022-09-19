@@ -104,30 +104,26 @@ module Local = struct
                 pr := approx_num_exp (-n)
              *)
    
-  let floor: num -> num =
-      fun n ->
-      let num = n.num
-      and den = n.den
-      in Q.make (Z.(/) num den) z_1
+  let floor: num -> zint =
+      fun n -> Z.fdiv n.num n.den
   
-  let ceiling: num -> num =
-      fun n ->
-      let num = n.num
-      and den = n.den
-      in Q.make (Z.cdiv num den) z_1
+  let ceiling: num -> zint =
+      fun n -> Z.cdiv n.num n.den
 
-  let integer: num -> num =
-      fun n ->
-      let num = Z.abs n.num
-      and den = Z.abs n.den
-      in 
-        match sign n with
-        | 0    -> n
-        | 1    -> Q.make (Z.div num den) z_1
-        | _    -> Q.make (Z.div num den) Z.minus_one (* sign n = -1 *)
+  (* let integer: num -> num =
+         fun n ->
+         let num = Z.abs n.num
+         and den = Z.abs n.den
+         in 
+           match sign n with
+           | 0    -> n
+           | 1    -> Q.make (Z.div num den) z_1
+           | _    -> Q.make (Z.div num den) Z.minus_one (* sign n = -1 *)
    
+    *)  
+  
   let zint_of_num: num -> zint = 
-    fun n -> (integer n).num
+    Q.to_bigint
     
   let num_of_zint: zint -> num =
     fun zi -> Q.make zi z_1
@@ -144,10 +140,25 @@ module Local = struct
       and den = Q.make n.den z_1
       in (num, den)
 
-  let divmod: num -> (num*num) =
-      fun n ->
-      let q, r = Z.div_rem n.num n.den
-      in (Q.make q z_1, Q.make r z_1)
+  (* div_rem and div_mod are weird, but I think they make sense. 
+     How many (a/b)s are there in (c/d)? Convert to same denominator:
+     How many (ad/bd)s are there in (bc/bd)? 
+     Answer bc div ad, remainder (bc rem ad)/bd
+       -- with adjustments for the meaning of div and rem.
+     
+   *) 
+  let divrem: (zint -> zint -> (zint*zint)) -> num -> num -> (zint*num) = 
+    fun divrem cd ab -> 
+      let a = ab.num in
+      let b = ab.den in
+      let c = cd.num in
+      let d = cd.den in
+      let q,r = divrem Z.(b*c) Z.(a*d) in
+      let r = Q.make r Z.(b*d) in
+      (q, r)
+  
+  let div_rem: num -> num -> (zint*num) = divrem Z.div_rem
+  let div_mod: num -> num -> (zint*num) = divrem Z.ediv_rem
    
   let is_int: num -> bool = fun n -> Z.equal n.den z_1
   
@@ -195,8 +206,8 @@ let z_3:              zint               = z_2 +: z_1;;
 let z_4:              zint               = z_2 +: z_2;;
 let z_10:             zint               = Local.z_10;;
 
-let num_of_string:       string -> num      = Local.num_of_string;;
 let string_of_num:       num    -> string   = Local.string_of_num;;
+let num_of_string:       string -> num      = Local.num_of_string;;
 let set_print_precision: num    -> unit     = Local.set_print_precision;;
 let num_of_zint:         zint -> num        = Local.num_of_zint;;
 let num_0:               num                = Q.zero;;
@@ -222,24 +233,25 @@ let ( >/  ) = Q.gt;;
 let ( <=/ ) = Q.leq;;
 let ( >=/ ) = Q.geq;;
 let ( **/ ) = Local.pow
- 
-let abs:                 num -> num         = Q.abs
-let rem:                 num -> num -> num  = Local.rem;;
-let pow:                 num -> int -> num  = Local.pow;;
-let floor:               num -> num         = Local.floor;;
-let ceiling:             num -> num         = Local.ceiling;;
-let numden:              num -> num*num     = Local.numden;;
-let divmod:              num -> num*num     = Local.divmod;;
-let integer:             num -> num         = Local.integer;;
-let is_int:              num -> bool        = Local.is_int;;
-let is_zero:             num -> bool        = Local.is_zero;;
-let reciprocal:          num -> num         = Local.reciprocal
-let exactsqrt:           num -> num option  = Local.exactsqrt
 
-let half:                num                = num_1 // num_2;;      
-let third:               num                = num_1 // num_3;;  
-let quarter:             num                = num_1 // num_4;; 
-let round:               num -> num         = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
+let half:                num                    = num_1 // num_2;;      
+let third:               num                    = num_1 // num_3;;  
+let quarter:             num                    = num_1 // num_4;; 
+ 
+let abs:                 num -> num             = Q.abs
+let pow:                 num -> int -> num      = Local.pow;;
+let floor:               num -> zint            = Local.floor;;
+let ceiling:             num -> zint            = Local.ceiling;;
+let numden:              num -> num*num         = Local.numden;;
+let div_mod:             num -> num -> zint*num = Local.div_mod;;
+let div_rem:             num -> num -> zint*num = Local.div_rem;;
+let num_mod:             num -> num -> num      = fun a b -> snd (div_mod a b)
+let is_int:              num -> bool            = Local.is_int;;
+let is_zero:             num -> bool            = Local.is_zero;;
+let is_neg:              num -> bool            = fun n -> Q.sign n < 0
+let reciprocal:          num -> num             = Local.reciprocal
+let exactsqrt:           num -> num option      = Local.exactsqrt
+let round:               num -> zint            = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 
 
 

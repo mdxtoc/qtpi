@@ -351,9 +351,9 @@ let _ = know ("nth", "['a] -> num -> 'a", vfun2 v_nth)
 
 (* ********************* numbers ************************ *)
 
-let _ = know ("floor"  , "num -> num", of_fun (of_num <.> Number.floor <.> to_num))
-let _ = know ("ceiling", "num -> num", of_fun (of_num <.> Number.ceiling <.> to_num))
-let _ = know ("round"  , "num -> num", of_fun (of_num <.> Number.round <.> to_num))
+let _ = know ("floor"  , "num -> num", of_fun (of_num <.> num_of_zint <.> Number.floor <.> to_num))
+let _ = know ("ceiling", "num -> num", of_fun (of_num <.> num_of_zint <.> Number.ceiling <.> to_num))
+let _ = know ("round"  , "num -> num", of_fun (of_num <.> num_of_zint <.> Number.round <.> to_num))
 
 let _ = know ("sqrt"   , "num -> num", of_fun (of_num <.> Q.of_float <.> sqrt <.> Q.to_float <.> to_num))
 let _ = know ("pi"     , "num"       , of_num (Q.of_float (Float.pi))) 

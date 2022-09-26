@@ -747,18 +747,16 @@ let g_ZX = make_g   [[c_0       ; c_1        ];
 let g_H  = make_g   [[c_h       ; c_h        ];
                      [c_h       ; cneg (c_h) ]]
                      
-(* these two are intended to be rotations. Deliberately made like H *)
+(* these are rotations. argument is fraction of 𝝅 -- e.g. 1/4 means 𝝅/4 *)
 
-let g_Rz = make_g   [[c_f       ; c_g   ];
-                     [c_g       ; cneg c_f        ]]
-let g_G  = make_g   [[c_g       ; c_f   ];
-                     [c_f       ; cneg c_g        ]]
-
-(* experimental Rx(pi/8) gate *)
-
-let g_Rx = make_g   [[c_1       ; c_0              ];
-                     [c_0       ; C(snum_f,snum_g) ]]
+let g_Rx n = make_g   [[C(snum_trig true (n//num_2), snum_0)        ; C(snum_0, rneg (snum_trig false (n//num_2)))];
+                       [C(snum_0, rneg (snum_trig false (n//num_2))); C(snum_trig true (n//num_2), snum_0)        ]]
                      
+let g_Ry n = make_g   [[C(snum_trig true (n//num_2), snum_0) ; C(rneg (snum_trig false (n//num_2)), snum_0)];
+                       [C(snum_trig false (n//num_2), snum_0); C(snum_trig true (n//num_2), snum_0)        ]]
+                     
+let g_Rz n = make_g   [[C(snum_trig true ~-/n, snum_trig false ~-/n); c_0                                   ];
+                       [c_0                                         ; C(snum_trig true n, snum_trig false n)]]
 
 let g_Phi = function (* as Pauli *)
   | 0 -> g_I

@@ -71,8 +71,10 @@ let _ = know ("Y"     , "gate", of_gate g_Y)
 let _ = know ("Z"     , "gate", of_gate g_Z)
 
 let _ = know ("H"     , "gate", of_gate g_H)
-let _ = know ("Rz"    , "gate", of_gate g_Rz)
-let _ = know ("Rx"    , "gate", of_gate g_Rx)
+
+let _ = know ("Rx"    , "num -> gate", of_fun (of_gate <.> g_Rx <.> to_num))
+let _ = know ("Ry"    , "num -> gate", of_fun (of_gate <.> g_Ry <.> to_num))
+let _ = know ("Rz"    , "num -> gate", of_fun (of_gate <.> g_Rz <.> to_num))
 
 let _ = know ("phi"   , "num -> gate", of_fun (of_gate <.> g_Phi <.> mustbe_intv))
 

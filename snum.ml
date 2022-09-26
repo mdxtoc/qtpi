@@ -63,11 +63,32 @@ let log_2 : zint -> int = fun n ->
    2h√(1-h) = √(1+h)-√(1-h). Clearly the last two had to do with rotations by pi/4 and pi/8, but
    I recorded that I was too stupid to see it.
    
+   (And, because I'm too stupid to remember it unless I write it down, 2h√(1+h) = √(1+h)+√(1-h)
+    because multiply both sides by √(1+h), observe that 2h=√2 and you have in old money 2hff=ff+fg,
+    which goes through. Phew!)
+   
    Now, perhaps, an epiphany. It's all about sin and cos, and sin^2(x)=(1-cos(2x))/2, and so
    on. So this is a version which has sqrt num, cos num, sin num, and I'll see where it gets me.
    Obviously it will make great use of trigonometric identities ... watch this space.
  *)
 
+(* The main problem was confluence, and I struggled for a while. Eventually I settled on 
+   Werner's product-to-sum formulae (thanks Wikipedia, in the Trigonometric identities page) 
+   -- see simplify_prod -- and keeping angles in the (0,𝜋/4] octant -- see the st_* functions
+   -- and letting simplify_sum mop up.
+   But the last, cruel, thing that makes it confluent is that sin(𝜋/4)=cos(𝜋/4). Oh, I hate that.
+   And I bet it won't be confluent except for fractions of 𝜋/4.
+   
+   Modified for my purposes, and assuming (because elcompare sorts that way) that 𝜃<=𝜑, 
+   Werner's identities are
+   
+        cos𝜃cos𝜑 = 1/2cos(𝜑-𝜃)+1/2cos(𝜃+𝜑)
+        sin𝜃sin𝜑 = 1/2cos(𝜑-𝜃)-1/2cos(𝜃+𝜑)
+        sin𝜃cos𝜑 = 1/2sin(𝜃+𝜑)-1/2sin(𝜑-𝜃)
+        cos𝜃sin𝜑 = 1/2sin(𝜃+𝜑)+1/2sin(𝜑-𝜃)
+        
+ *)
+ 
 type s_el = 
   | S_sqrt of num
   | S_trig of num * bool      (* bool is iscos; num in fractions of 𝝅: n represents n𝜋 *)
@@ -237,7 +258,7 @@ and so_prodi si symbf (n,els) =
                       match els with
                       | S_sqrt n :: els'          -> roots (n*/accum) els'
                       | S_trig (n,iscos) :: els' 
-                          when n=quarter          -> roots (half*/accum) els'
+                          when n=quarter          -> roots (half*/accum) els' (* BUT ONLY IF IT COMES FIRST!!! *)
                       | _                         -> accum, els
                     in
                     let sq, els = roots (n*/n) els in
@@ -272,7 +293,8 @@ let st_neg = function
   | None         -> None
   | Some (n,els) -> Some (~-/n,els)
 
-(* range [0..𝜋/2] -- closed, includes both endpoints *)
+(* result is (0,𝜋/4] -- doesn't include 0, includes 𝜋/4 *)
+(* input in [0,𝜋/2] -- closed, includes both endpoints *)
 let st_half iscos n = 
   match n=/num_0, n=/half, iscos with
   | true, _   , false           (* sin 0 = 0 *)   
@@ -281,16 +303,20 @@ let st_half iscos n =
   | true, _   , true            (* cos 0 = 1 *)
   | _   , true, false           (* sin 𝜋/2 = 1 *)
                       -> Some (num_1,[])
-  | _                 -> Some (num_1,[S_trig (n,iscos)])
+  | _                 -> Some (num_1,[match n>/quarter, n=/quarter with
+                                      | true, _    -> S_trig (half-/n,not iscos)    (* because sin(𝜋/2-n)=cos n and cos(𝜋/2-n=sin n) *)
+                                      | _   , true -> S_trig (n, true)              (* because sin(𝜋/4)=cos(𝜋/4) *) 
+                                      | _          -> S_trig (n,iscos)
+                                     ])
 
-(* range [0..𝜋] -- closed, includes both endpoints *)
+(* input in [0,𝜋] -- closed, includes both endpoints *)
 let st_1 iscos n =
   match n>/half, iscos with
   | true , true  -> st_neg (st_half iscos (num_1-/n)) 
   | true , false -> st_half iscos (num_1-/n)
   | _            -> st_half iscos n
 
-(* range [0..2𝜋] -- closed, includes both endpoints *)
+(* input in [0,2𝜋] -- closed, includes both endpoints *)
 let st_2 iscos n = 
   match n>/num_1, iscos with
   | true, true  -> st_1 iscos (num_2-/n)
@@ -303,7 +329,7 @@ let st_norm st_f iscos n =
   | None       -> []
  
 (* this is slow: don't use in simplification. But note: if it gives you an S_trig (x,_)
-   then x is in the interval (0,half)
+   then x is in the interval (0,quarter]
  *)
 let snum_trig iscos n = st_norm st_2 iscos (num_mod n num_2)
 
@@ -347,7 +373,7 @@ let snum_symb symb :snum = [(num_1, [S_symb symb])]
 let (<??>) : int -> ('a -> int) -> ('a -> int)  =
              fun i f -> if i=0 then f else (fun _ -> i)
 
-let revcompare a b = ~- (Stdlib.compare a b)
+let revcompare cf a b = ~- (cf a b)
 
 let rec listcompare : ('a -> 'a -> int) -> 'a list -> 'a list -> int =
   fun cf xs ys ->
@@ -368,9 +394,13 @@ and prodcompare : sprod -> sprod -> int =
   fun (n1,els1) (n2,els2) -> (elscompare els1 els2 <??> ((~-) <.> Stdlib.compare n1)) n2 
   
 (* sqrt, trig, symb -- but trig is sorted on (n, iscos) -- so a definition of the type does it *)
-and elcompare : s_el -> s_el -> int = Stdlib.compare
-
-
+(* but actually Stdlib.compare doesn't do rationals properly, so it doesn't quite *)
+and elcompare : s_el -> s_el -> int = 
+  fun el1 el2 ->
+    match el1, el2 with
+    | S_trig(n1,ic1), S_trig(n2,ic2) -> (Number.compare n1 n2 <??> Stdlib.compare ic1) ic2
+    | _                              -> Stdlib.compare el1 el2
+           
 (* *********************** symbolic arithmetic ************************************ *)
 
 let make_snum_h k = 
@@ -425,21 +455,29 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
                | None       -> Some s
               ), n, ss
             in
+            let wtrig w iscos theta tail = 
+              match st_1 iscos theta with
+              | Some (n,els) -> (n*/w,els) :: tail
+              | None         -> tail
+            in
             match ss with
-            | S_sqrt a :: S_sqrt b :: ss 
+            | S_sqrt a      :: S_sqrt b :: ss                       (* √a*√a = a *)
               when a=b                   -> premult [(a,[])] n ss
-            | S_trig (a,ac) :: S_trig (b,bc) :: ss 
-              when a=b                   -> (* a is in the range [0,1/2] -- keep it so *)
-                                            let halve half = function
-                                              | Some (n,els) -> Some (n*/half,els)
-                                              | None         -> None
+            | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities *)
+                                         -> let pm sumw sumcos diffw diffcos =
+                                              wtrig sumw sumcos (b+/a) (wtrig diffw diffcos (b-/a) [])
                                             in
-                                            premult (if ac=bc then (* cos^2 a = 1/2+1/2(cos 2a) or sin^2 a = 1/2-1/2(cos 2a) *)
-                                                                   (half,[]) :: st_norm (halve (if ac then half else ~-/ half) <..> st_1) true (num_2*/a)
-                                                              else (* sin a cos a = 1/2(sin 2a)*)
-                                                                   st_norm (halve half <..> st_1) false (num_2*/a)
+                                            premult (match ac, bc with
+                                                     | true , true  (* cos𝜃cos𝜑 = 1/2cos(𝜑-𝜃)+1/2cos(𝜃+𝜑) *)
+                                                                    -> pm half      true  half      true
+                                                     | false, false (* sin𝜃sin𝜑 = 1/2cos(𝜑-𝜃)-1/2cos(𝜃+𝜑) *)
+                                                                    -> pm (~-/half) true  half      true
+                                                     | false, true  (* sin𝜃cos𝜑 = 1/2sin(𝜃+𝜑)-1/2sin(𝜑-𝜃) *)
+                                                                    -> pm half      false (~-/half) false
+                                                     | true , false (* cos𝜃sin𝜑 = 1/2sin(𝜃+𝜑)+1/2sin(𝜑-𝜃) *)
+                                                                    -> pm half      false half      false
                                                     ) n ss
-            | s                    :: ss -> sp (s::els) n ss
+            | s             :: ss        -> sp (s::els) n ss
             | []                         -> None, n, List.sort elcompare els (* was List.rev els, but I think not needed *)
           in
           let popt, n, ss = sp [] n (List.sort elcompare els) in
@@ -730,20 +768,22 @@ let so_csnumb bracket (C (x,y)) =
                                                                 again ()
                                            else again ()
                   in
-                  match findsame [] ys with
-                  | Some (sign, ys) -> let float_of_symb s = let a,b = s.idsecret.secret in
-                                                             (fun (re,im) -> Float.sqrt (re*.re+.im*.im))
-                                                                (if s.alpha then a else b)
-                                       in
-                                       let symbf s =   Printf.sprintf "%s%d%s%s" 
-                                                         (if s.alpha then "b" else "a") 
-                                                         s.idsecret.id 
-                                                         (if sign<>s.imr then "" else dagger_string)
-                                                         (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb s) else "")
-                                       in
-                                       if imr then parts ((symbf, (~-/n,ps)):: ypres) ss                          (xs,ys)
-                                              else parts ypres                        (so_prodi "" symbf x :: ss) (xs,ys)
-                  | None            -> default ()
+                  if !complexcombine then
+                    match findsame [] ys with
+                    | Some (sign, ys) -> let float_of_symb s = let a,b = s.idsecret.secret in
+                                                               (fun (re,im) -> Float.sqrt (re*.re+.im*.im))
+                                                                  (if s.alpha then a else b)
+                                         in
+                                         let symbf s =   Printf.sprintf "%s%d%s%s" 
+                                                           (if s.alpha then "b" else "a") 
+                                                           s.idsecret.id 
+                                                           (if sign<>s.imr then "" else dagger_string)
+                                                           (if !showabvalues then Printf.sprintf "[%f]" (float_of_symb s) else "")
+                                         in
+                                         if imr then parts ((symbf, (~-/n,ps)):: ypres) ss                          (xs,ys)
+                                                else parts ypres                        (so_prodi "" symbf x :: ss) (xs,ys)
+                    | None            -> default ()
+                  else default ()
         in
         parts [] [] (x,y) 
         (* double printing to see what it was we were simplifying: commented out because the above seems to work ...

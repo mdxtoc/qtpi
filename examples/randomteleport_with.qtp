@@ -32,7 +32,7 @@ proc Bob(y:qubit, c:^(bit,bit)) =
                         + (0b1,0b1) . Z*X    
     . ⁁ 1
     . _0 
-                                        with 1: out!["finally Bob's y is "] . 
+                                        with 1: out!["finally Bob's y is     "] . 
                                                 outq!(qval y) . out!["\n"] .
                                                 _0
     

@@ -252,7 +252,7 @@ let is_neg:              num -> bool            = fun n -> Q.sign n < 0
 let reciprocal:          num -> num             = Local.reciprocal
 let exactsqrt:           num -> num option      = Local.exactsqrt
 let round:               num -> zint            = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
-
+let compare:             num -> num -> int      = Q.compare;;
 
 
 

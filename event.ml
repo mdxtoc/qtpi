@@ -27,6 +27,7 @@ open Value
 open Vmg
 open Type
 open Functionutils
+open Settings
 
 type tv = Type._type * Vt.vt
 type event =
@@ -89,4 +90,5 @@ let show_trace () =
   List.iter (fun e -> Printf.printf "%s\n\n" (string_of_event e)) (List.rev !stored_trace);
   Printf.printf "\n"
                 
-let trace e = stored_trace := e::!stored_trace
+let trace e = if !verbose_trace then Printf.printf "%s\n" (string_of_event e);
+              if !traceevents then stored_trace := e::!stored_trace

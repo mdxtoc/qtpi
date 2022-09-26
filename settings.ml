@@ -40,6 +40,8 @@ let chanbuf_limit = ref 0           (* buffer limit for channels: -1 for infinit
 
 let checkrandombias = ref false
 
+let complexcombine = ref true
+
 let factorbraket = ref true
 
 type fancynum = RawNum | FractionalNum 
@@ -112,6 +114,7 @@ let verbose_qcalc       = ref false
 let verbose_queues      = ref false
 let verbose_resource    = ref false
 let verbose_simplify    = ref false
+let verbose_trace       = ref false
 let verbose_typecheck   = ref false
 
 let verboseopts = [("all"              , verbose                  );
@@ -126,6 +129,7 @@ let verboseopts = [("all"              , verbose                  );
                    ("queues"           , verbose_queues           );
                    ("resource"         , verbose_resource         );
                    ("simplify"         , verbose_simplify         );
+                   ("trace"            , verbose_trace            );
                    ("typecheck"        , verbose_typecheck        );
                   ] 
 

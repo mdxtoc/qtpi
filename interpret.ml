@@ -235,7 +235,7 @@ let rec interp pn rtenv procstart =
                                              flush_all ()
                                             );
                                           rtenv.(i) <- if plural then of_qubits qs else of_qubit (List.hd qs);
-                                          if !traceevents then trace (EVCreate(name_of_procname pn,plural,tev qs))
+                                          if (!traceevents || !verbose_trace) then trace (EVCreate(name_of_procname pn,plural,tev qs))
                          ) 
                          qss; 
                (* if !pstep then 
@@ -263,7 +263,7 @@ let rec interp pn rtenv procstart =
                     (* measurement without detection is absurd, wrong. So we ignore pat when disposing *)
                     let disposed = !measuredestroys in
                     let aqs = 
-                      if !traceevents then 
+                      if (!traceevents || !verbose_trace) then 
                         let allqs = fst (qval_of_qs qs) in
                         List.fold_left (fun qs q -> if disposed then Listutils.remove q qs else qs)
                                        allqs
@@ -271,10 +271,10 @@ let rec interp pn rtenv procstart =
                       else 
                         qs
                     in
-                    let preqs = if !traceevents then tev qs else [] in
+                    let preqs = if (!traceevents || !verbose_trace) then tev qs else [] in
                     let gv = ((to_gate <.> evale rtenv) ||~~ g_I) gopt in
                     let bs = List.map (fun q -> qmeasure disposed (name_of_procname pn) gv q = 1) qs in
-                    if !traceevents then trace (EVMeasure (name_of_procname pn, preqs, gv, bs, tev (List.sort Stdlib.compare aqs)));
+                    if (!traceevents || !verbose_trace) then trace (EVMeasure (name_of_procname pn, preqs, gv, bs, tev (List.sort Stdlib.compare aqs)));
                     let vs = List.map of_bit bs in
                     let rtenv = patf rtenv (if plural then of_list vs else List.hd vs) in
                     (* if !pstep then 
@@ -302,9 +302,9 @@ let rec interp pn rtenv procstart =
                        Qsim.maybe_split qs;
                        if false then Printf.printf "split qs %s\n" (string_of_qval (qsort (qval_of_qs qs)));
                       );
-                    let qvs = if !traceevents then tev qs else [] in
+                    let qvs = if (!traceevents || !verbose_trace) then tev qs else [] in
                     ugstep (name_of_procname pn) qs g;
-                    if !traceevents then trace (EVGate (name_of_procname pn, qvs, g, tev qs));
+                    if (!traceevents || !verbose_trace) then trace (EVGate (name_of_procname pn, qvs, g, tev qs));
                     (* if !pstep then 
                       show_pstep (Printf.sprintf "%s\n%s" (string_of_cqstep qstep) (pstep_state env)); *)
                     microstep rtenv contn
@@ -403,7 +403,7 @@ let rec interp pn rtenv procstart =
                      withdraw chans;
                      pq_excite c.wwaiters;
                      addrunner false (pn', proc', env');
-                     if !traceevents && c.traced then trace (EVMessage (c, name_of_procname pn', name_of_procname pn, (tpat,v')));
+                     if (!traceevents || !verbose_trace) && c.traced then trace (EVMessage (c, name_of_procname pn', name_of_procname pn, (tpat,v')));
                      do_match v'
                  with Ipq.Empty -> None
                in
@@ -413,7 +413,7 @@ let rec interp pn rtenv procstart =
                  else
                  if c.cname = dispose_c then 
                     (disposequbits (name_of_procname pn) [to_qubit v]; 
-                     if !traceevents then trace (EVDispose (name_of_procname pn,(t,v)));
+                     if (!traceevents || !verbose_trace) then trace (EVDispose (name_of_procname pn,(t,v)));
                      true
                     )
                  else
@@ -439,7 +439,7 @@ let rec interp pn rtenv procstart =
                      pq_excite c.rwaiters;
                      let env'' = pat' env' v in
                      addrunner false (pn', proc', env'');
-                     if !traceevents && c.traced then trace (EVMessage (c, name_of_procname pn, name_of_procname pn', (t,v)));
+                     if (!traceevents || !verbose_trace) && c.traced then trace (EVMessage (c, name_of_procname pn, name_of_procname pn', (t,v)));
                      true
                  with Ipq.Empty -> 
                      if !Settings.chanbuf_limit = -1 ||               (* infinite buffers *)

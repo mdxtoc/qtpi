@@ -37,6 +37,8 @@ let opts = Arg.align
                     Printf.sprintf " channel buffer limit (-1 infinite, default %d)" !chanbuf_limit);
               ("-checkrandombias"   , Arg.Set checkrandombias, 
                     " print out simple stats on random choices");
+              ("-complexcombine"    , Arg.Bool (set_arg complexcombine),
+                     Printf.sprintf " combine a?𝕣 and a?𝕚 when printing numbers (default %B)" !Settings.complexcombine);
               ("-factorbraket"      , Arg.Bool (set_arg factorbraket), 
                     Printf.sprintf " factorise bra/kets when printing (default %B)" !factorbraket);
               ("-fancynum"          , Arg.Symbol (List.map (fun (x,_) -> x) fancynumopts, setfancynum), 

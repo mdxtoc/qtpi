@@ -1,4 +1,13 @@
-proc System() = (newq a = |0>) a -/- [Rz*Rz*Rz] (b) . out!["result "; show b; "\n"] . _0
+proc System() = 
+  (newq a = |0>) 
+  (let den = bits2num (randbits 8))
+  (let numr = bits2num (randbits 10))
+  (let theta = numr/den)
+  (let RZ = Rz theta)
+  . a ⌢̸ [RZ*RZ*RZ] (b) 
+  . out!["theta="; show theta; "; Rz theta="; show RZ;
+         ";\na ⌢̸ [RZ*RZ*RZ] -> "; show b; "\n"] 
+  . _0
 
 proc Source() =
   (newq a=|0>,b=|+>) outq!(qval a) . outq!(qval b) . 

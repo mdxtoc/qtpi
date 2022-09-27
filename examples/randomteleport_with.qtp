@@ -1,21 +1,23 @@
-fun expg g n =
-  if n=0 then I else g*expg g (n-1)
-
-fun rand8 () = bits2num (randbits 8)
-
 fun randg g = if randbit()=0b1 then g else I
+
+fun randfrac () = (* non-zero fraction *)
+  if denr=0 then randfrac () 
+  elsf numr=0 then randfrac ()
+  else numr/denr
+   where denr = bits2num (randbits 8)
+   where numr = bits2num (randbits 10)
 
 proc Alice (x:qubit, c:^(bit,bit)) = 
     . (newq z) 
-    . (let rxe = rand8())
-    . out!["rxe="; show rxe; "\n"]
-    . z >> expg Rx rxe
+    . (let theta = randfrac())
+    . out!["theta="; show theta; "; Rx theta="; show (Rx theta); "\n"]
+    . z >> Rx theta
     . z >> randg X
     . z >> randg Y
     . z >> randg Z
-    . (let rze = rand8())
-    . out!["rze="; show rze; "\n"]
-    . z >> expg Rz rze
+    . (let phi = randfrac())
+    . out!["phi="; show phi; "; Rz phi="; show (Rz phi); "\n"]
+    . z >> Rz phi
     . ⁁ 1
     . z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) 
     . c!vz,vx 

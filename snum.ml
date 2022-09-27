@@ -465,7 +465,10 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
               when a=b                   -> premult [(a,[])] n ss
             | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities *)
                                          -> let pm sumw sumcos diffw diffcos =
-                                              wtrig sumw sumcos (b+/a) (wtrig diffw diffcos (b-/a) [])
+                                              let r = wtrig sumw sumcos (b+/a) (wtrig diffw diffcos (b-/a) []) in
+                                              if !verbose || !verbose_simplify then
+                                                Printf.printf "%s%s a+b=%s pm=%s\n" (string_of_el (S_trig (a,ac))) (string_of_el (S_trig (b,bc))) (string_of_num (b+/a)) (string_of_snum r);
+                                              r
                                             in
                                             premult (match ac, bc with
                                                      | true , true  (* cos𝜃cos𝜑 = 1/2cos(𝜑-𝜃)+1/2cos(𝜃+𝜑) *)

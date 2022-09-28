@@ -77,4 +77,8 @@ fun min_qubits k p s =
       rootn*rootn
         where rootn = (s* sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
         where q = p*(1-p)
-    
+
+let R0 = I
+let R1 = Ry (1/8)
+let R2 = Ry (2/8)
+let R3 = Ry (3/8)

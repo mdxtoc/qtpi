@@ -34,7 +34,7 @@ proc
 
   BobMeasure (q,r) =
     match rand4() .
-      + 1 . q-/-[Rz]     (b) . r!1,b . _0
-      + 2 . q-/-[Rz*Rz]   (b) . r!2,b . _0
-      + 3 . q-/-[Rz*Rz*Rz] (b) . r!3,b . _0
+      + 1 . q-/-[R1] (b) . r!1,b . _0
+      + 2 . q-/-[R2] (b) . r!2,b . _0
+      + 3 . q-/-[R3] (b) . r!3,b . _0
       + _ . BobMeasure (q,r) (* 0 - try again *)

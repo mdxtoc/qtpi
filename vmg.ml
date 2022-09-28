@@ -749,11 +749,11 @@ let g_H  = make_g   [[c_h       ; c_h        ];
                      
 (* these are rotations. argument is fraction of 𝝅 -- e.g. 1/4 means 𝝅/4 *)
 
-let g_Rx n = make_g   [[C(snum_trig true (n//num_2), snum_0)        ; C(snum_0, rneg (snum_trig false (n//num_2)))];
-                       [C(snum_0, rneg (snum_trig false (n//num_2))); C(snum_trig true (n//num_2), snum_0)        ]]
+let g_Rx n = make_g   [[C(snum_trig true n, snum_0)        ; C(snum_0, rneg (snum_trig false n))];
+                       [C(snum_0, rneg (snum_trig false n)); C(snum_trig true n, snum_0)        ]]
                      
-let g_Ry n = make_g   [[C(snum_trig true (n//num_2), snum_0) ; C(rneg (snum_trig false (n//num_2)), snum_0)];
-                       [C(snum_trig false (n//num_2), snum_0); C(snum_trig true (n//num_2), snum_0)        ]]
+let g_Ry n = make_g   [[C(snum_trig true n, snum_0) ; C(rneg (snum_trig false n), snum_0)];
+                       [C(snum_trig false n, snum_0); C(snum_trig true n, snum_0)        ]]
                      
 let g_Rz n = make_g   [[C(snum_trig true ~-/n, snum_trig false ~-/n); c_0                                   ];
                        [c_0                                         ; C(snum_trig true n, snum_trig false n)]]

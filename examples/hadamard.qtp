@@ -1,4 +1,3 @@
-
 proc System () = 
   (newq q) 
   out!["h="; show sx_h; "; h*h="; show (sx_h*sx_h); "\n"] .
@@ -13,6 +12,22 @@ proc System () =
   (let den = bits2num (randbits 8)+1)
   (let numr = bits2num (randbits 10)+2)
   (let theta = numr/den)
-  (let RX = Rx theta)
-  out!["theta="; show theta; "; Rx theta="; show RX; "; RX†="; show (RX†); "; RX*RX†="; show (RX*RX†); "\n"] .
-  _0
+  (new c)
+  | ShowR ("Rx",Rx, theta, c)
+  | c?_ .
+    | ShowR ("Ry", Ry, theta, c)
+    | c?_ .
+      | ShowR ("Rz", Rz, theta, c)
+      | c?_ . _0
+
+ShowR (Rname, R:num->gate, theta, c) =
+  . out!["theta="; show theta; 
+         "; "; Rname; " theta=";  show (R theta); 
+         "; "; Rname; " theta†="; show ((R theta)†); 
+         "; "; Rname; " theta*";  
+               Rname; " theta†="; show (R theta*((R theta)†)); 
+         "; "; Rname; " theta*";  
+               Rname; " theta=";  show (R theta*R theta);         
+         "\n"]
+  . c!()
+  . _0

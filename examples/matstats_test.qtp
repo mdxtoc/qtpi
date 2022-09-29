@@ -22,6 +22,10 @@ fun showM name M =
     print_strings [name; " "; " -> "; show (statistics_m M); "\n"; show M; "\n"]
 
   showG name G = showM name (degate G)
+
+let RX = Rx (1/8)
+let RZ = Rz (1/8)
+
 proc 
   System () =
     . (let _ = showG "I" I)
@@ -29,7 +33,7 @@ proc
     . (let _ = showG "CZ" CZ)
     . (let _ = showG "CZ⊗CZ" (CZ⊗CZ))
     . (let _ = showG "CZ⊗CZ⊗CZ" (CZ⊗CZ⊗CZ))
-    . (let _ = showG "Rx⊗I⊗Rx⊗I⊗Rx⊗I" (Rx⊗I⊗Rx⊗I⊗Rx⊗I))
+    . (let _ = showG "RX⊗I⊗RX⊗I⊗RX⊗I" (RX⊗I⊗RX⊗I⊗RX⊗I))
     . (let _ = showG "F" F)
     . (let _ = showG "F⊗I" (F⊗I))
     . (let _ = showG "I⊗F" (I⊗F))
@@ -37,12 +41,12 @@ proc
     . (let _ = showG "H⊗H" (H⊗H))
     . (let _ = showG "H⊗H⊗H" (H⊗H⊗H))
     . (let _ = showG "H⊗H⊗H⊗H" (H⊗H⊗H⊗H))
-    . (let _ = showG "Rx⊗Rx" (Rx⊗Rx))
-    . (let _ = showG "Rx⊗Rx⊗Rx" (Rx⊗Rx⊗Rx))
-    . (let _ = showG "Rx⊗Rx⊗Rx⊗Rx" (Rx⊗Rx⊗Rx⊗Rx))
-    . (let _ = showG "Rz⊗Rz" (Rz⊗Rz))
-    . (let _ = showG "Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz))
-    . (let _ = showG "Rz⊗Rz⊗Rz⊗Rz" (Rz⊗Rz⊗Rz⊗Rz))
+    . (let _ = showG "RX⊗RX" (RX⊗RX))
+    . (let _ = showG "RX⊗RX⊗RX" (RX⊗RX⊗RX))
+    . (let _ = showG "RX⊗RX⊗RX⊗RX" (RX⊗RX⊗RX⊗RX))
+    . (let _ = showG "RZ⊗RZ" (RZ⊗RZ))
+    . (let _ = showG "RZ⊗RZ⊗RZ" (RZ⊗RZ⊗RZ))
+    . (let _ = showG "RZ⊗RZ⊗RZ⊗RZ" (RZ⊗RZ⊗RZ⊗RZ))
 
     . (let n = read_min_int 1 "number of Grover bits")
     . (let G = groverG n)

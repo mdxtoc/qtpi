@@ -1,18 +1,21 @@
 fun mp (a:gate) (b:gate) =
   [show a; "*"; show b; "="; show (a*b); "\n"]
   
+let RX = Rx (1/8)
+let RZ = Rz (1/8)
+
 proc System () =
-  out!mp Rz (Rz†) .
-  out!mp Rz Rz .
-  out!mp (Rz*Rz) Rz .
-  out!mp (Rz*Rz) (Rz*Rz) .
-  out!mp Rz H .
-  out!mp (Rz*H) ((Rz*H)†) .
-  out!mp H Rz .
-  out!mp Rx (Rx†) .
-  out!mp Rx Rx .
-  out!mp (Rx*Rx) Rx .
-  out!mp (Rx*Rx) (Rx*Rx) .
-  out!mp (Rx*Rx*Rx) (Rx*Rx*Rx) .
-  out!mp (Rx*Rx*Rx*Rx) (Rx*Rx*Rx*Rx) .
+  out!mp RZ (RZ†) .
+  out!mp RZ RZ .
+  out!mp (RZ*RZ) RZ .
+  out!mp (RZ*RZ) (RZ*RZ) .
+  out!mp RZ H .
+  out!mp (RZ*H) ((RZ*H)†) .
+  out!mp H RZ .
+  out!mp RX (RX†) .
+  out!mp RX RX .
+  out!mp (RX*RX) RX .
+  out!mp (RX*RX) (RX*RX) .
+  out!mp (RX*RX*RX) (RX*RX*RX) .
+  out!mp (RX*RX*RX*RX) (RX*RX*RX*RX) .
   _0

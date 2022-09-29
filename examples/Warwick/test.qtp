@@ -58,17 +58,18 @@ fun setup1_2 n m =
     where w = floor (m/4)
 
 
-fun rgate i = (* angle is i*pi/8: Rx does pi/8 *)
+fun rgate i = (* angle is i*pi/8: Rx (1/8) does pi/8 *)
   if i<0 then rgate (16-i) 
          elif i=0 then I 
-         else Rx*rgate (i-1) 
+         else Rx (1/8)*rgate (i-1) 
 
 fun enlist n m f = tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1)))
 
 fun delist rows i j = nth (nth rows (i-1)) (j-1)
 
 proc System () =
-  (*out!["Rx="; show Rx; "; Rx*Rx="; show (Rx*Rx); "; Rx*Rx*Rx="; show (Rx*Rx*Rx); "; Rx*Rx*Rx*Rx="; show (Rx*Rx*Rx*Rx); "\n"] .*)
+  (let RX = Rx (1/8))
+  (*out!["RX="; show RX; "; RX*RX="; show (RX*RX); "; RX*RX*RX="; show (RX*RX*RX); "; RX*RX*RX*RX="; show (RX*RX*RX*RX); "\n"] .*)
   
   (let n = 2)
   (let m = 9)

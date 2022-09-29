@@ -13,7 +13,7 @@ proc System () =
  *)
    (let g1 = H⊗H⊗H⊗H⊗H⊗H)
    (let g2 = CZ⊗CZ⊗CZ)
-   (let g3 = Rx⊗I⊗Rx⊗I⊗Rx⊗I)
+   (let g3 = Rx (1/8)⊗I⊗Rx (1/8)⊗I⊗Rx (1/8)⊗I)
    (let g4 = I⊗CZ⊗CZ⊗I)
    (let g5 = g1)
    . out ! ["g1="; show g1; "\n"]

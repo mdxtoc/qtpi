@@ -342,7 +342,7 @@ and string_of_nv bksign (vm, vv) =
                                         (Z.to_string famp);
                                     let premult = if amp=c_0 then c_1 else amp in
                                     if tracediv then Printf.printf "winner is %s\n" (string_of_csnum premult);
-                                    (* but variables, f and g, muck this up ... so we get rid of them.
+                                    (* but variables, sin and cos, muck this up ... so we get rid of them.
                                        Strip the candidate amplitude down to a num and some options sqrts. Then
                                        if all the elements of the amp look the same when so stripped, go ahead 
                                        with that as the divisor.

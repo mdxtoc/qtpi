@@ -36,7 +36,7 @@ cd ~/gitrepositories/qtpi
 
 make clean
 make links
-eval $(opam env)
+eval $(opam env)                                    # use this if you installed with opam, and make Qtpi can't see ocamlbuild (etc.)
 
 make Qtpi
 
@@ -61,6 +61,7 @@ time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp  # works, but sticks because 
 ./Qtpi examples/matstats_test.qtp
 time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi examples/matstats_test.qtp
+./Qtpi -trace examples/Ekert_QKD/experiment.qtp
 
 # collection of more recognisable examples
 
@@ -77,7 +78,6 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 ./Qtpi docs/teleport_example.qtp -trace 
-./Qtpi -trace examples/Ekert_QKD/experiment.qtp
 
 # randomteleport_with is a test of confluence in formula simplification. Simplification can start 
 # with one formula and finish with an equivalent one. I'm working on the problem, and it's become 

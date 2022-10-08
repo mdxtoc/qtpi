@@ -296,6 +296,17 @@ let st_neg = function
 (* result is (0,𝜋/4] -- doesn't include 0, includes 𝜋/4 *)
 (* input in [0,𝜋/2] -- closed, includes both endpoints *)
 let st_half iscos n = 
+        (*  if n>/quarter 
+            then (if n=/half 
+                    then if iscos then None else Some (num_1,[])            (* because cos(𝜋/2)=0, sin(𝜋/2)=1 *)
+                    else Some (num_1, [S_trig (half-/n,not iscos)])         (* because sin(𝜋/2-n)=cos n and cos(𝜋/2-n=sin n) *)
+                 )
+            else (if n=/quarter 
+                    then Some (num_1, [S_trig (n, true)])       (* because sin(𝜋/4)=cos(𝜋/4) *) 
+                    else if n=num_0 then if iscos then Some (num_1,[]) else None    (* because cos 0=1, sin 0=0 *)
+                                    else Some (num_1, [S_trig (n, iscos)])
+                 )       
+        *)
   match n=/num_0, n=/half, iscos with
   | true, _   , false           (* sin 0 = 0 *)   
   | _   , true, true            (* cos 𝜋/2 = 0 *)
@@ -395,6 +406,7 @@ and prodcompare : sprod -> sprod -> int =
   
 (* sqrt, trig, symb -- but trig is sorted on (n, iscos) -- so a definition of the type does it *)
 (* but actually Stdlib.compare doesn't do rationals properly, so it doesn't quite *)
+(* but the only place we really need the order is in simplify_sum ... *)
 and elcompare : s_el -> s_el -> int = 
   fun el1 el2 ->
     match el1, el2 with
@@ -444,30 +456,60 @@ and rprod s1 s2 :snum =
     Printf.printf "rprod (%s) (%s) -> %s\n" (string_of_snum s1) (string_of_snum s2) (string_of_snum r);
   r
   
-and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, fg *)
+and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
+  (* In the past it was possible to imagine that we might get more than one instance of the 'premult'
+     behaviour from a prod, and that once we had gone once round the list of elements and made some
+     changes, we should go round again, and so on until it all settled down. That's still believable
+     in simplify_sum, but in the new dispensation we have at most two trigs in a prod, as a result of
+     a multiplication, and simplification _always_ reduces that to one. So now we don't go to the end 
+     of a prod to look for stuff, and we don't look any further after we've failed to find a trig::trig::ss.
+     And we don't use rmult and rprod to force going round again. It is to hoped that this will
+     speed up simplification (which slowed by a factor of 3 in the Ekert example when we went all-trig.)
+     RB 2020/10/02
+     Oh dear. If anything it made things minutely slower .... what to do?
+   *)
   let r = let rec sp els n ss = 
             if !verbose_simplify then 
               Printf.printf "sp %s %s %s\n" (string_of_els els) (string_of_num n) (string_of_els ss);
             let premult s n ss = 
-              let popt, n, ss = sp els n ss in
-              (match popt with 
-               | Some pre_p -> Some (rprod pre_p s)
-               | None       -> Some s
-              ), n, ss
+              (* let popt, n, ss = sp els n ss in
+                   (match popt with 
+                    | Some pre_p -> Some (rprod pre_p s)
+                    | None       -> Some s
+                   ), n, ss
+               *)
+              Some s, n, els, ss
             in
             let wtrig w iscos theta tail = 
-              match st_1 iscos theta with
-              | Some (n,els) -> (n*/w,els) :: tail
-              | None         -> tail
+              match st_half iscos theta with
+              | Some (n,[el]) -> (n*/w,Some el) :: tail
+              | Some (n,[])   -> (n*/w,None) :: tail
+              | _             -> tail
             in
             match ss with
             | S_sqrt a      :: S_sqrt b :: ss                       (* √a*√a = a *)
-              when a=b                   -> premult [(a,[])] n ss
+              when a=b                   -> sp els (n*/a) ss
+            | S_sqrt a as s :: ss        -> sp (s::els) n ss
             | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities *)
-                                         -> let pm sumw sumcos diffw diffcos =
-                                              let r = wtrig sumw sumcos (b+/a) (wtrig diffw diffcos (b-/a) []) in
+                                         -> let sum = b+/a in
+                                            let diff = b-/a in
+                                            let pm sumw sumcos diffw diffcos = (* trying to speed this up *)
+                                              let sumr = 
+                                                if sum>/quarter then if sum=/half then if sumcos then []                 (* cos(𝝅/2) = 0 *)
+                                                                                                 else [(sumw,None)]      (* sin(𝝅/2) = 1 *)
+                                                                                  else [(sumw, Some (S_trig (half-/sum, not sumcos)))]
+                                                                else if sum=/quarter then [(sumw, Some (S_trig (sum,true)))]
+                                                                                     else [(sumw, Some (S_trig (sum, sumcos)))]
+                                              in
+                                              let r =
+                                                if diff=/num_0 then if diffcos then (diffw,None)::sumr   (* cos 0 = 1 *)
+                                                                               else sumr                 (* sin 0 = 0 *)
+                                                               else (diffw, Some (S_trig (diff,diffcos))) :: sumr
+                                              in
                                               if !verbose || !verbose_simplify then
-                                                Printf.printf "%s%s a+b=%s pm=%s\n" (string_of_el (S_trig (a,ac))) (string_of_el (S_trig (b,bc))) (string_of_num (b+/a)) (string_of_snum r);
+                                                (let foodle =bracketed_string_of_list (bracketed_string_of_pair string_of_num (string_of_option string_of_el)) r in
+                                                 Printf.printf "%s%s a+b=%s pm=%s\n" (string_of_el (S_trig (a,ac))) (string_of_el (S_trig (b,bc))) (string_of_num (b+/a)) foodle
+                                                );
                                               r
                                             in
                                             premult (match ac, bc with
@@ -480,14 +522,16 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, f^2, g^2, gh, 
                                                      | true , false (* cos𝜃sin𝜑 = 1/2sin(𝜃+𝜑)+1/2sin(𝜑-𝜃) *)
                                                                     -> pm half      false half      false
                                                     ) n ss
-            | s             :: ss        -> sp (s::els) n ss
-            | []                         -> None, n, List.sort elcompare els (* was List.rev els, but I think not needed *)
+            | _                          -> None, n, els, ss
           in
-          let popt, n, ss = sp [] n (List.sort elcompare els) in
-          let s = [(n, List.sort elcompare ss)] in
+          let popt, n, els, ss = sp [] n (List.sort elcompare els) in (* do we really need this sort? We could use merge in rprod/rmult *)
           match popt with 
-          | Some pre_p -> rprod pre_p s (* it does go round again! *)
-          | None       -> s
+          | Some pre_p -> List.sort prodcompare (List.map (function (n', Some el) -> (n*/n', Listutils.prepend els (el::ss))
+                                                                |   (n', None   ) -> (n*/n', Listutils.prepend els ss)
+                                                          )
+                                                          pre_p
+                                                )
+          | None       -> [(n, Listutils.prepend els ss)]
   in
   if !verbose_simplify then
     Printf.printf "simplify_prod %s -> %s\n" (string_of_sprod prod) (string_of_snum r);
@@ -634,7 +678,7 @@ let memofun2Prob f str =
     )
 
 let raw_rprod = rprod
-let memo_rprod = memofun2Prob rprod "rprod"
+let memo_rprod = memofun2Prob rprod "rprod" (* doesn't save more than a tiny bit *)
 
 let rec rprod s1 s2 =
   if !Settings.memoise then
@@ -650,7 +694,7 @@ let rec rprod s1 s2 =
     raw_rprod s1 s2
 
 let raw_rsum = rsum
-let memo_rsum = memofun2Prob rsum "rsum"
+let memo_rsum = rsum (* memofun2Prob rsum "rsum" *)
 
 let rec rsum s1 s2 =
   if !Settings.memoise then

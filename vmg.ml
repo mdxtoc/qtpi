@@ -976,6 +976,28 @@ let tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb =
               )
   with Z.Overflow -> raise (Disaster (Printf.sprintf "tensor_sparse_mm %s %s" (string_of_zint nra) (string_of_zint nrb)))
   
+let tensor_dmdm ma mb =
+  let nra = Array.length ma in
+  let nca = if nra=0 then 0 else Array.length ma.(0) in
+  let nrb = Array.length mb in
+  let ncb = if nrb=0 then 0 else Array.length mb.(0) in
+  let dmc = init_dm (nra*nrb) (nca*ncb) (fun _ _ -> c_0) in
+  for i = 0 to nra-1 do
+    for j = 0 to nca-1 do
+      let aij = ma.(i).(j) in
+      for m = 0 to nrb-1 do
+        for p = 0 to ncb-1 do
+          dmc.(i*nrb+m).(j*ncb+p) <- cprod aij mb.(m).(p)
+        done (* p *)
+      done (* n *)
+    done (* j *)
+  done (* i *);
+  maybe_sparse_m dmc
+  
+let dmdmtab = DMatHash2.create (100)
+let tensor_dmdm = 
+  curry2 (DMatHash2.memofun "tensor_dmdm" dmdmtab (uncurry2 tensor_dmdm))
+
 let rec tensor_mm mA mB =
   if !verbose || !verbose_qcalc then Printf.printf "tensor_mm %s %s = " (string_of_matrix mA) (string_of_matrix mB);
   let m = if mA=g_1 then mB else
@@ -995,28 +1017,7 @@ let rec tensor_mm mA mB =
              | DenseM  dma         , SparseM (_,svb,cvvb) -> let sva,_ = svfreq_m mA in
                                                              let cvva = cvv_of_dm sva dma in
                                                              tensor_sparse_mm nra nca sva cvva nrb ncb svb cvvb
-             | DenseM  dma         , DenseM  dmb          -> 
-                 (try 
-                     let nra, nca = Z.to_int nra, Z.to_int nca in
-                     let nrb, ncb = Z.to_int nrb, Z.to_int ncb in
-                     let dmc = init_dm (nra*nrb) (nca*ncb) (fun _ _ -> c_0) in
-                     for i = 0 to nra-1 do
-                       for j = 0 to nca-1 do
-                         let aij = dma.(i).(j) in
-                         for m = 0 to nrb-1 do
-                           for p = 0 to ncb-1 do
-                             dmc.(i*nrb+m).(j*ncb+p) <- cprod aij dmb.(m).(p)
-                           done (* p *)
-                         done (* n *)
-                       done (* j *)
-                     done (* i *);
-                     maybe_sparse_m dmc
-                 with Z.Overflow -> raise (Disaster (Printf.sprintf "tensor_mm DenseM(%s,%s) DenseM(%s,%s)" 
-                                                            (string_of_zint nra) (string_of_zint nca)
-                                                            (string_of_zint nrb) (string_of_zint ncb)
-                                                    )
-                                          )
-                )
+             | DenseM  dma         , DenseM  dmb          -> tensor_dmdm dma dmb
             )  
   in
   if !verbose || !verbose_qcalc then Printf.printf "%s\n" (string_of_matrix m);

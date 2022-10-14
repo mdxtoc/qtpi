@@ -3,7 +3,11 @@ fun tp (a:gate) (b:gate) =
   
 proc System () =
   out!tp I Cnot .
+  out!tp I Cnot .
   out!tp Cnot I .
   out!tp Cnot X .
   out!tp X Cnot .
+  out!tp (Rx (1/8)) (Rx (1/8))  .
+  out!tp (Ry (1/8)) (Ry (1/8))  .
+  out!tp (Rz (1/8)) (Rz (1/8))  .
   _0

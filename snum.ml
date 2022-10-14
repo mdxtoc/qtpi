@@ -258,7 +258,7 @@ and so_prodi si symbf (n,els) =
                       match els with
                       | S_sqrt n :: els'          -> roots (n*/accum) els'
                       | S_trig (n,iscos) :: els' 
-                          when n=quarter          -> roots (half*/accum) els' (* BUT ONLY IF IT COMES FIRST!!! *)
+                          when n=quarter          -> roots (half*/accum) els' (* THIS WORKS ONLY IF IT COMES FIRST!!! *)
                       | _                         -> accum, els
                     in
                     let sq, els = roots (n*/n) els in

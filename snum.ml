@@ -653,23 +653,23 @@ module SnumH = struct type t = snum
                end
 module SnumHash = MyHash.Make (SnumH)
 
-let memofunProb f str = 
+let memofunProb ident f = 
   let table = SnumHash.create 100 in
-  SnumHash.memofun table (fun s -> let r = f s in
-                                   if !verbose || !verbose_simplify || !verbose_memo then 
-                                      Printf.printf "memofun %s (%s) -> %s\n" str (string_of_snum s) (string_of_snum r); 
-                                   r
-                         )
+  SnumHash.memofun ident table (fun s -> let r = f s in
+                                         if !verbose || !verbose_simplify || !verbose_memo then 
+                                            Printf.printf "memofun %s (%s) -> %s\n" ident (string_of_snum s) (string_of_snum r); 
+                                         r
+                               )
 
-let memofun2Prob f str = 
+let memofun2Prob ident f = 
   let t1 = SnumHash.create 100 in
-  SnumHash.memofun t1 
+  SnumHash.memofun (ident ^ " 1") t1 
     (fun s1 -> let t2 = SnumHash.create 100 in
-               SnumHash.memofun t2 
+               SnumHash.memofun (ident ^ " 2") t2 
                  (fun s2 -> let r = f s1 s2 in
                             if !verbose || !verbose_simplify || !verbose_memo 
                             then Printf.printf "memofun2 %s (%s) (%s) -> %s\n" 
-                                               str 
+                                               ident 
                                                (string_of_snum s1) 
                                                (string_of_snum s2)
                                                (string_of_snum r); 
@@ -678,7 +678,7 @@ let memofun2Prob f str =
     )
 
 let raw_rprod = rprod
-let memo_rprod = memofun2Prob rprod "rprod" (* doesn't save more than a tiny bit *)
+let memo_rprod = memofun2Prob "rprod" rprod (* doesn't save more than a tiny bit *)
 
 let rec rprod s1 s2 =
   if !Settings.memoise then
@@ -714,7 +714,7 @@ let rec rsum s1 s2 =
 
 (* memoising simplify_sum slows things down, at least in Grover ... *)
 let raw_simplify_sum = simplify_sum  
-let memo_simplify_sum = memofunProb simplify_sum "simplify_sum"
+let memo_simplify_sum = memofunProb "simplify_sum" simplify_sum
 
 let memoise_simplify_sum = false
 
@@ -933,15 +933,15 @@ let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi)
                              let to_string = string_of_csnum
                       end
     module CMap = MyMap.Make (OrderedC)
-    let memofunC f s = CMap.memofun id (fun c -> if !verbose || !verbose_qcalc then Printf.printf "%s (%s)\n" s (string_of_csnum c); f c)
+    let memofunC ident f s = CMap.memofun ident id (fun c -> if !verbose || !verbose_qcalc || verbose_memo then Printf.printf "%s (%s)\n" s (string_of_csnum c); f c)
 
     module OrderedC2 = struct type t = csnum*csnum 
                              let compare = Stdlib.compare
                              let to_string = bracketed_string_of_pair string_of_csnum string_of_csnum
                       end
     module C2Map = MyMap.Make (OrderedC2)
-    let memofunC2 f s = 
-      curry2 (C2Map.memofun id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
+    let memofunC2 ident f s = 
+      curry2 (C2Map.memofun ident id (uncurry2 (fun c1 c2 -> if !verbose || !verbose_qcalc then 
                                                          Printf.printf "%s (%s) (%s)\n" 
                                                                        s (string_of_csnum c1) (string_of_csnum c2);
                                                        f c1 c2
@@ -953,8 +953,8 @@ let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi)
                              let to_string = bracketed_string_of_pair string_of_csnum string_of_snum
                       end
     module CPMap = MyMap.Make (OrderedCP)
-    let memofunCP f s = 
-      curry2 (CPMap.memofun id (uncurry2 (fun c s -> if !verbose || !verbose_qcalc then 
+    let memofunCP ident f s = 
+      curry2 (CPMap.memofun ident id (uncurry2 (fun c s -> if !verbose || !verbose_qcalc then 
                                                        Printf.printf "%s (%s) (%s)\n" 
                                                                      s (string_of_csnum c) (string_of_snum s);
                                                      f c s
@@ -962,7 +962,7 @@ let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi)
                                )
              )
 
-    let mcprod = memofunC2 cprod "cprod"
+    let mcprod = memofunC2 "cprod" cprod
     let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) = 
       match x1,y1, x2,y2 with
       | S_0          , S_0, _            , _    
@@ -973,24 +973,24 @@ let cmult_zint (C(x,y)) zi        = intern (C (rmult_zint x zi, rmult_zint y zi)
       | _            , _  , S_neg (S_h 0), S_0       -> cneg c1
       | _                                            -> mcprod c1 c2
   
-    let mcsum = memofunC2 csum "csum"
+    let mcsum = memofunC2 "csum" csum
     let csum  (C (x1,y1) as c1) (C (x2,y2) as c2) = 
       match x1,y1, x2,y2 with
       | S_0, S_0, _  , _    -> c2 
       | _  , _  , S_0, S_0  -> c1
       | _                   -> mcsum c1 c2
   
-    (* let cneg = memofunC cneg "cneg" -- possibly not worth it *)
-    (* let cconj = memofunC cconj "cconj" -- not worth it *)
+    (* let cneg = memofunC "cneg" cneg -- possibly not worth it *)
+    (* let cconj = memofunC "cconj" cconj -- not worth it *)
 
     (* absq is used a lot in measurement: perhaps worth memoising. Or rather perhaps not,
        if rsum and rmult are memoised.
      *)
-    let absq x = (if !Settings.memoise then memofunC absq "absq" else absq) x
+    let absq x = (if !Settings.memoise then memofunC "absq" absq else absq) x
 
     (* we can't really divide
-        let c_r_div = memofunCP c_r_div "c_r_div"
-        let c_r_div_h = memofunC c_r_div_h "c_r_div_h"
+        let c_r_div = memofunCP "c_r_div" c_r_div
+        let c_r_div_h = memofunC "c_r_div_h" c_r_div_h
      *)
  *)
 

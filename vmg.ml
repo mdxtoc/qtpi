@@ -83,6 +83,30 @@ and gate = matrix                               (* gates must be square, unitary
                                                    but to say that we would need an existential type.
                                                  *)
 
+let showdmat m =
+  let nr, nc = Array.length m, if Array.length m = 0 then 0 else Array.length m.(0) in
+  let block = tabulate nr (fun r -> tabulate nc (fun c -> string_of_csnum m.(r).(c))) in
+  let maxwidth row = List.fold_left max 0 (List.map Utf8.length row) in
+  let maxwidth = List.fold_left max 0 (List.map maxwidth block) in 
+  let pad s = s^ String.make (maxwidth - Utf8.length s) ' ' in
+  let block = String.concat "\n "(List.map (String.concat " " <.> List.map pad) block) in
+  Printf.sprintf "\n{%s}\n" block
+
+module DmatH = struct type t = dmat 
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string = showdmat
+               end
+module DMatHash = MyHash.Make (DmatH)
+                    
+module DmatH2 = struct type t = dmat*dmat 
+                      let equal = (=)
+                      let hash = Hashtbl.hash
+                      let to_string (m1,m2) =  "(" ^ showdmat m1 ^ "," ^ showdmat m2 ^ ")"
+                  end
+
+module DMatHash2 = MyHash.Make (DmatH2)
+
 let string_of_cv assoc = Printf.sprintf "[%s]" (string_of_assoc string_of_zint string_of_csnum ":" ";" assoc)
 
 let vsize = function
@@ -665,7 +689,7 @@ let cvvtab = CvvHash.create (100)
 
 let transpose_cvv = 
   curry2 
-    (CvvHash.memofun cvvtab (uncurry2 (fun nc cvv ->
+    (CvvHash.memofun "transpose_cvv" cvvtab (uncurry2 (fun nc cvv ->
         let nc = my_to_int nc "transpose_cvv" in
         let rvv = Array.make nc [] in
         for i = Array.length cvv -1 downto 0 do
@@ -690,16 +714,9 @@ let transpose_m m =
                                  ) 
   | DiagM  _            -> m
 
-module DmatH = struct type t = dmat 
-                      let equal = (=)
-                      let hash = Hashtbl.hash
-                      let to_string = (fun dm -> string_of_matrix (DenseM dm))
-               end
-module DMatHash = MyHash.Make (DmatH)
-                    
 let rcftab = DMatHash.create (100)
 
-let rowfopt_dm = DMatHash.memofun rcftab (fun dm ->
+let rowfopt_dm = DMatHash.memofun "rowfopt_dm" rcftab (fun dm ->
                       let sv,_ = svfreq_m (DenseM dm) in
                       let cvv = cvv_of_dm sv dm in
                       sv, Array.get cvv <.> Z.to_int, Array.get (transpose_cvv (Z.of_int (Array.length dm.(0))) cvv) <.> Z.to_int 
@@ -1162,7 +1179,7 @@ let raw_mult_cvvcv nr nc sv rf cf svv cv =
        simplify_csum [rowv; gapv; vecv]
      in
      let dorow_tab = CsnumsHash.create 1000 in
-     let do_other_row = CsnumsHash.memofun dorow_tab do_other_row in
+     let do_other_row = CsnumsHash.memofun "dorow_tab" dorow_tab do_other_row in
      let dotprod r = 
        if ZSet.mem r rset then dotprod_cvcv nc sv (rf r) svv cv
                           else do_other_row (List.map snd (rf r))

@@ -638,7 +638,7 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let reciprocal_sqrt (n:num) = [(reciprocal n, [S_sqrt n])]
+let reciprocal_sqrt (n:num) = if n=/num_2 then snum_h else [(reciprocal n, [S_sqrt n])] (* don't introduce √2 if possible *)
 
 let rdiv_sqrt sn n = 
   rprod (reciprocal_sqrt n) sn

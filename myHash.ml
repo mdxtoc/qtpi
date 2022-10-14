@@ -35,7 +35,7 @@ module type S = sig
   val to_string : ('a -> string) -> 'a t -> string
   (* val mymap     : ((key * 'a) -> 'b) -> ('b list -> 'c) -> 'a t -> 'c
      val mymerge   : ('a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t *)
-  val memofun   : 'a t -> (key -> 'a) -> key -> 'a
+  val memofun   : string -> 'a t -> (key -> 'a) -> key -> 'a
   (* val vmemofun  : bool -> string -> ('b -> string) -> ('a -> string) -> 
                     ('b -> key) -> ('b -> 'a) -> 'b -> 'a
      val memorec   : ('b -> key) -> (('b -> 'a) -> 'b -> 'a) -> 'b -> 'a
@@ -52,10 +52,17 @@ module Make (H : HashedType) = struct
     let pairs = to_assoc table in
     Printf.sprintf "{%s}" (Listutils.string_of_assoc H.to_string string_of_target "->" ";" pairs)
     
-  let memofun table newf =
+  let memofun ident table newf =
+    let verbose hit x =
+      if !Settings.verbose_memo then Printf.printf "%s for memofun %s %s\n" (if hit then "hit" else "miss")
+                                                                            ident (H.to_string x)
+    in                                                                     
     let lookup x =
-      try find table x 
-      with Not_found -> (let y = newf x in
+      try let r = find table x in 
+          verbose true x;
+          r
+      with Not_found -> (verbose false x;
+                         let y = newf x in
                          add table x y;
                          y
                         )

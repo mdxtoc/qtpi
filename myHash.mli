@@ -33,7 +33,7 @@ module type S = sig
   val to_string : ('a -> string) -> 'a t -> string
   (* val mymap     : ((key * 'a) -> 'b) -> ('b list -> 'c) -> 'a t -> 'c
      val mymerge   : ('a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t *)
-  val memofun   : 'a t -> (key -> 'a) -> key -> 'a
+  val memofun   : string -> 'a t -> (key -> 'a) -> key -> 'a
   (* val vmemofun  : bool -> string -> ('b -> string) -> ('a -> string) -> 
                     ('b -> key) -> ('b -> 'a) -> 'b -> 'a
      val memorec   : ('b -> key) -> (('b -> 'a) -> 'b -> 'a) -> 'b -> 'a

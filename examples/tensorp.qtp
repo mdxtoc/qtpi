@@ -9,5 +9,6 @@ proc System () =
   out!tp X Cnot .
   out!tp (Rx (1/8)) (Rx (1/8))  .
   out!tp (Ry (1/8)) (Ry (1/8))  .
+  out![show (Ry (1/8)*Ry (1/8)); "; "; show (Ry (1/8)*Ry (1/8)*Ry (1/8)); "\n"] .
   out!tp (Rz (1/8)) (Rz (1/8))  .
   _0

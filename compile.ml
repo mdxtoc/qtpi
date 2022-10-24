@@ -422,6 +422,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
               | Plus            
               | Minus      ->
                   (match (type_of_expr e1).inst with
+                   | Angle     (* yes, it really is just num sum/diff *)
                    | Num    -> let f = if op=Plus then (+/) else (-/) in
                                fun rtenv -> of_num (f (to_num (f1 rtenv)) (to_num (f2 rtenv)))
                    | Matrix -> let f = if op=Plus then add_mm else sub_mm in
@@ -432,6 +433,8 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                   )
               | Times      ->
                   (match (type_of_expr e1).inst, (type_of_expr e2).inst with
+                   | Angle , Num
+                   | Num   , Angle     (* just like num *)
                    | Num   , Num    -> fun rtenv -> of_num ((to_num (f1 rtenv)) */ (to_num (f2 rtenv)))
                    | Sxnum , Sxnum  -> fun rtenv -> of_csnum (cprod (to_csnum (f1 rtenv)) (to_csnum (f2 rtenv)))
                    | Gate  , Gate   -> fun rtenv -> of_gate (mult_gg (to_gate (f1 rtenv)) (to_gate (f2 rtenv)))
@@ -442,7 +445,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                    | Matrix, Sxnum  -> fun rtenv -> of_matrix (mult_nm (to_csnum (f2 rtenv)) (to_matrix (f1 rtenv)))
                    | _                           -> can'thappen()
                   )
-              | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv))
+              | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv)) (* Num or Angle *)
               | Power      -> fun rtenv -> of_num (to_num (f1 rtenv) **/ intc e2.pos "fractional power" (f2 rtenv))
               | Mod        -> fun rtenv -> let n1 = to_num (f1 rtenv) in
                                            let n2 = to_num (f2 rtenv) in

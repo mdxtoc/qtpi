@@ -52,14 +52,14 @@
          
 %}
 
-%token <string> NUM
-%token <string> NAME 
-%token <string> TVNAME 
-%token <string> TPNUM 
+%token <string>       NUM
+%token <string>       NAME 
+%token <string>       TVNAME 
+%token <string>       TPNUM 
 %token <Uchar.t list> STRING 
-%token <string> BRA
-%token <string> KET
-%token <Uchar.t> CHAR /* oh dear ... */
+%token <string>       BRA
+%token <string>       KET
+%token <Uchar.t>      CHAR /* oh dear ... */
 
 %token EOP OFFSIDE /* could it be EOP? No. */
 %token FUN PROC WHERE LAMBDA WITH TESTPOINT LEFTREPEAT RIGHTREPEAT
@@ -78,7 +78,7 @@
 %token AND OR NOT
 %token UNIT TERMINATE
 %token COMMA STAR SEMICOLON LEFTARROW
-%token TRUE FALSE BIT0 BIT1
+%token TRUE FALSE BIT0 BIT1 PI
 %token FORALL PROCESS
 
 /* remember %left %right %nonassoc and increasing priority */
@@ -473,6 +473,7 @@ primary:
   | RESCOMPARE                          {tadorn (ERes ResCompare)}
   | BIT0                                {tadorn (EBit false)}
   | BIT1                                {tadorn (EBit true)}
+  | PI                                  {tadorn EPi}
   | NUM                                 {tadorn (ENum (Number.num_of_string $1))}
   | TRUE                                {tadorn (EBool (true))}
   | FALSE                               {tadorn (EBool (false))}

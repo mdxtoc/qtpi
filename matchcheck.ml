@@ -409,6 +409,7 @@ let rec matchcheck_expr e =
   | EChar       _
   | EString     _
   | EBit        _
+  | EPi
   | EBra        _
   | EKet        _
   | ENil                    -> ()

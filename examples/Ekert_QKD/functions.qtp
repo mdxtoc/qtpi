@@ -79,6 +79,6 @@ fun min_qubits k p s =
         where q = p*(1-p)
 
 let R0 = I
-let R1 = Ry (1/8)
-let R2 = Ry (2/8)
-let R3 = Ry (3/8)
+let R1 = Ry (𝝅/8)
+let R2 = Ry (2*𝝅/8)
+let R3 = Ry (3*𝝅/8)

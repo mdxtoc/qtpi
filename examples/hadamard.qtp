@@ -11,7 +11,7 @@ proc System () =
   out!["finally "] . outq!(qval q) . out![".\n"] .
   (let den = bits2num (randbits 8)+1)
   (let numr = bits2num (randbits 10)+2)
-  (let theta = numr/den)
+  (let theta = 𝝅*numr/den)
   (new c)
   | ShowR ("Rx",Rx, theta, c)
   | c?_ .
@@ -20,7 +20,7 @@ proc System () =
       | ShowR ("Rz", Rz, theta, c)
       | c?_ . _0
 
-ShowR (Rname, R:num->gate, theta, c) =
+ShowR (Rname, R:angle->gate, theta, c) =
   . out!["theta="; show theta; 
          "; "; Rname; " theta=";  show (R theta); 
          "; "; Rname; " theta†="; show ((R theta)†); 

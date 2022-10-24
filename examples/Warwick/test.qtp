@@ -58,17 +58,17 @@ fun setup1_2 n m =
     where w = floor (m/4)
 
 
-fun rgate i = (* angle is i*pi/8: Rx (1/8) does pi/8 *)
+fun rgate i = (* angle is i*𝝅/8 *)
   if i<0 then rgate (16-i) 
          elif i=0 then I 
-         else Rx (1/8)*rgate (i-1) 
+         else Rx (𝝅/8)*rgate (i-1) 
 
 fun enlist n m f = tabulate n (lam i . tabulate m (lam j . f (i+1) (j+1)))
 
 fun delist rows i j = nth (nth rows (i-1)) (j-1)
 
 proc System () =
-  (let RX = Rx (1/8))
+  (let RX = Rx (𝝅/8))
   (*out!["RX="; show RX; "; RX*RX="; show (RX*RX); "; RX*RX*RX="; show (RX*RX*RX); "; RX*RX*RX*RX="; show (RX*RX*RX*RX); "\n"] .*)
   
   (let n = 2)
@@ -83,7 +83,7 @@ proc System () =
   out!["r="; show (enlist n m r); ";\nr'="; show (enlist n m r'); "\n"] .
   
   (let theta = delist (enlist n m (lam i j . 2*rand8())))
-  out!["theta="; show (enlist n m theta); " (in units of pi/8)\n"] .
+  out!["theta="; show (enlist n m theta); " (in units of 𝝅/8)\n"] .
   out!["\n"] .
   
   (let rgate = memofun rgate)

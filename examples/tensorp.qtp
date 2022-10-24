@@ -7,8 +7,8 @@ proc System () =
   out!tp Cnot I .
   out!tp Cnot X .
   out!tp X Cnot .
-  out!tp (Rx (1/8)) (Rx (1/8))  .
-  out!tp (Ry (1/8)) (Ry (1/8))  .
-  out![show (Ry (1/8)*Ry (1/8)); "; "; show (Ry (1/8)*Ry (1/8)*Ry (1/8)); "\n"] .
-  out!tp (Rz (1/8)) (Rz (1/8))  .
+  out!tp (Rx (𝝅/8)) (Rx (𝝅/8))  .
+  out!tp (Ry (𝝅/8)) (Ry (𝝅/8))  .
+  out![show (Ry (𝝅/8)*Ry (𝝅/8)); "; "; show (Ry (𝝅/8)*Ry (𝝅/8)*Ry (𝝅/8)); "\n"] .
+  out!tp (Rz (𝝅/8)) (Rz (𝝅/8))  .
   _0

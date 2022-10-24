@@ -2,11 +2,11 @@ proc System() =
   (newq a = |0>) 
   (let den = bits2num (randbits 8))
   (let numr = bits2num (randbits 10))
-  (let theta = numr/den)
+  (let theta = 𝝅*numr/den)
   (let RZ = Rz theta)
   . a ⌢̸ [RZ*RZ*RZ] (b) 
-  . out!["theta="; show theta; "; Rz theta="; show RZ;
-         ";\na ⌢̸ [RZ*RZ*RZ] -> "; show b; "\n"] 
+  . out!["theta="; show theta; "; Rz theta="; show RZ; ";\n"; 
+         "a ⌢̸ [RZ*RZ*RZ] -> "; show b; "\n"] 
   . _0
 
 proc Source() =

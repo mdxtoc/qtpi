@@ -9,13 +9,13 @@ fun randfrac () = (* non-zero fraction *)
 
 proc Alice (x:qubit, c:^(bit,bit)) = 
     . (newq z) 
-    . (let theta = randfrac())
+    . (let theta = 𝝅*randfrac())
     . out!["theta="; show theta; "; Rx theta="; show (Rx theta); "\n"]
     . z >> Rx theta
     . z >> randg X
     . z >> randg Y
     . z >> randg Z
-    . (let phi = randfrac())
+    . (let phi = 𝝅*randfrac())
     . out!["phi="; show phi; "; Rz phi="; show (Rz phi); "\n"]
     . z >> Rz phi
     . ⁁ 1

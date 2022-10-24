@@ -23,8 +23,8 @@ fun showM name M =
 
   showG name G = showM name (degate G)
 
-let RX = Rx (1/8)
-let RZ = Rz (1/8)
+let RX = Rx (𝝅/8)
+let RZ = Rz (𝝅/8)
 
 proc 
   System () =

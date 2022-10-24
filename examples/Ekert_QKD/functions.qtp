@@ -75,7 +75,7 @@ fun crossprod xs ys
  
 fun min_qubits k p s = 
       rootn*rootn
-        where rootn = (s* sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
+        where rootn = (s*sqrt q + sqrt(s*s*q + 4*k*p)) / (2*p)
         where q = p*(1-p)
 
 let R0 = I

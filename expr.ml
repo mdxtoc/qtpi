@@ -47,6 +47,7 @@ and enode =
   | EChar of Uchar.t
   | EString of Uchar.t list
   | EBit of bool        (* 1=true *)
+  | EPi
   | EBra of bkconst
   | EKet of bkconst
   | EMinus of expr
@@ -204,6 +205,7 @@ let rec exprprio e =
   | EChar       _
   | EString     _
   | EBit        _ 
+  | EPi
   | EBra        _
   | EKet        _
   | ECond       _           
@@ -284,6 +286,7 @@ and string_of_expr e =
   | EVar        _
   | EBit        _
   | EBra        _
+  | EPi
   | EKet        _
   | ENum        _
   | EBool       _
@@ -377,6 +380,7 @@ let frees_fun (s_exclude: NameSet.t -> 't -> 't) (s_add: name -> expr -> 't -> '
       | EChar       _ 
       | EString     _ 
       | EBit        _ 
+      | EPi 
       | EBra        _ 
       | EKet        _ 
       | ENil                   -> s

@@ -161,6 +161,11 @@ let hide_int    : int -> vt = fun i -> of_num (num_of_int i)
 
 let string_of_pqueue stringof sep pq = 
   "{" ^ string_of_list stringof sep (List.map snd( Ipq.to_list pq)) ^ "}"
+  
+let string_of_angle (num:Number.num) =
+  let trail = if num.den=:z_1 then "" else ("/" ^ string_of_zint num.den) in
+  if num.num=:z_1 then "𝝅" ^ trail 
+                  else (string_of_zint num.num ^ "𝝅" ^ trail)
 ;;
 
 (* so_value takes an argument optf to winnow out those things we don't want it to deal with directly *)
@@ -171,6 +176,7 @@ let rec so_value optf t v =
   | Some s -> s
   | None   -> (match t.inst with
                | Unit          -> "()"
+               | Angle         -> string_of_angle (to_num v)
                | Bit           -> if to_bool v then "1" else "0"
                | Num           -> string_of_num (to_num v)
                | Bool          -> string_of_bool (to_bool v)

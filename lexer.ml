@@ -115,6 +115,7 @@ let string_of_token = function
     | BRA (s)   -> "BRA(" ^ s ^ ")"
     | BOOLTYPE  -> "BOOLTYPE"
     | BITTYPE   -> "BITTYPE"
+    | ANGLETYPE -> "ANGLETYPE"
     | BIT1      -> "BIT1"
     | BIT0      -> "BIT0"
     | PI        -> "PI"
@@ -194,6 +195,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "num"       -> NUMTYPE
   | "bool"      -> BOOLTYPE
   | "bit"       -> BITTYPE
+  | "angle"     -> ANGLETYPE
   | "gate"      -> GATETYPE
   | "qbit"      -> QBITTYPE
   | "qbits"     -> QBITSTYPE

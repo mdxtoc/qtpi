@@ -728,17 +728,38 @@ and assigntype_expr cxt t e =
                                          Matrix -> Sxnum  -> Matrix
                                     ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                      *)
+                                    (* But Angle really mucks this up, because Angle and Num are very similar. 
+                                       Here's trying with a version that needs quite a bit of help with explicit typing
+                                     *)
                                     (match t1.inst, t2.inst, tout.inst with
+                                     | Angle   , _        , _    
+                                         when op=Times || op=Div       -> (try force_type e.pos t1 tout; force_type e.pos t2 (adorn_x e2 Num)
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | _       ,  Angle    , _    
+                                         when op=Times || op=Div       -> (try force_type e.pos t2 tout; force_type e.pos t1 (adorn_x e1 Num)
+                                                                           with _ -> bad ()
+                                                                          )
+                                     | _        , _        , Angle    
+                                         when op=Times || op=Div       -> bad ()
+
+                                     | Angle   , _        , _ 
+                                     | _       , Angle    , _    
+                                     | _       , _        , Angle 
+                                         when  op=Plus || op=Minus     -> (try force_type e.pos t1 tout; force_type e.pos t2 tout
+                                                                           with _ -> bad ()
+                                                                          )
+                                     
                                      | Num      , _        , _ 
                                      | _        , Num      , _ 
                                      | _        , _        , Num
                                      | Sxnum    , Sxnum    , _ 
+                                     | Sxnum    , _        , Sxnum    
+                                     | _        , Sxnum    , Sxnum    
                                      | Gate     , Gate     , _    
                                      | Matrix   , Matrix   , _    
-                                     | Sxnum    , _        , Sxnum    
                                      | Gate     , _        , Gate
                                      | Matrix   , _        , Matrix   
-                                     | _        , Sxnum    , Sxnum 
                                      | _        , Gate     , Gate      -> (try force_type e.pos t1 tout; force_type e.pos t2 tout
                                                                            with _ -> bad ()
                                                                           )

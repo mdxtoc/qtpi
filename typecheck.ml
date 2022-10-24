@@ -78,6 +78,7 @@ and evaltype t =
   | Char
   | Sxnum 
   | Bit 
+  | Angle
   | Bra
   | Ket
   | Gate
@@ -120,7 +121,8 @@ let rec rewrite_expr e =
        | EBool       _
        | EChar       _
        | EString     _
-       | EBit        _          
+       | EBit        _ 
+       | EPi    
        | EBra        _          
        | EKet        _          -> ()
        | EMinus      e          
@@ -343,6 +345,7 @@ and canunifytype n t =
       | _       , Char
       | _       , Sxnum
       | _       , Bit 
+      | _       , Angle
       | _       , Bra
       | _       , Ket
    (* | _       , Range   _ *)
@@ -407,6 +410,7 @@ and force_kind kind t =
     | Char
     | Sxnum
     | Bit 
+    | Angle
     | Unit
     | Bra
     | Ket
@@ -603,6 +607,7 @@ and assigntype_expr cxt t e =
                                 )
                                 *)
                                force_type e.pos t (adorn_x e Bit) 
+     | EPi                  -> force_type e.pos t (adorn_x e Angle)
      | EBra    _            -> force_type e.pos t (adorn_x e Bra)
      | EKet    _            -> force_type e.pos t (adorn_x e Ket)
      | EVar    n            -> assigntype_name e.pos cxt t n
@@ -710,6 +715,9 @@ and assigntype_expr cxt t e =
                                 | Times       -> 
                                     (* we currently have the following
                                          Num    -> Num    -> Num   
+                                         Angle  -> Angle  -> Angle  (for +, -)
+                                         Angle  -> Num    -> Angle  (for *, /)
+                                         Num    -> Angle  -> Angle  (for *, /)
                                          Sxnum  -> Sxnum  -> Sxnum   
                                          Gate   -> Gate   -> Gate
                                          Matrix -> Matrix -> Matrix

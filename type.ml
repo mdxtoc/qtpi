@@ -42,6 +42,7 @@ and tnode =
   | Bool
   | Char
   | Bit
+  | Angle
   | Sxnum
   | Qubit    
   | Qubits    
@@ -107,7 +108,8 @@ let typeprio t =
   | Num 
   | Bool
   | Char
-  | Bit           
+  | Bit         
+  | Angle
   | Unit
   | Sxnum
   | Qubit   
@@ -143,6 +145,7 @@ let rec string_of_type t = string_of_tnode t.inst
 and string_of_tnode = function
   | Num              -> "num"
   | Bit              -> "bit"
+  | Angle            -> "angle"
   | Char             -> "char"
   | Bool             -> "bool"
   | Unit             -> "()"
@@ -196,6 +199,7 @@ let exists : (_type -> bool) -> _type -> bool = fun p t ->
                 | Bool
                 | Char
                 | Bit
+                | Angle
                 | Sxnum
                 | Qubit    
                 | Qubits    
@@ -228,6 +232,7 @@ let rec freetvs t =
     | Bool
     | Char
     | Bit 
+    | Angle
     | Unit
     | Sxnum
     | Qubit               
@@ -258,6 +263,7 @@ let freeunknowns t =
     | Bool
     | Char
     | Bit 
+    | Angle
     | Unit
     | Sxnum
     | Qubit     
@@ -361,7 +367,8 @@ let generalise t0 =
     | Num
     | Bool
     | Char
-    | Bit 
+    | Bit
+    | Angle
     | Unit
     | Sxnum
     | Qubit     
@@ -396,7 +403,8 @@ let instantiate t =
     | Num
     | Bool
     | Char
-    | Bit 
+    | Bit
+    | Angle
     | Unit
     | Sxnum
     | Qubit     
@@ -433,7 +441,8 @@ let rec is_classical t =
   | Num 
   | Bool
   | Char
-  | Bit 
+  | Bit
+  | Angle
   | Sxnum
   | Bra
   | Ket

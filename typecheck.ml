@@ -682,9 +682,11 @@ and assigntype_expr cxt t e =
                                   | Plus
                                   | Minus       
                                   | TensorProd  -> let t = Unknown (new_unknown UnkEq) in t, t, t (* uniform overloading *)
+                                  | Div         
                                   | TensorPower -> let t = Unknown (new_unknown UnkEq) in t, Num, t
                                   | Times       -> Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq), Unknown (new_unknown UnkEq)
-                                  | _           -> Num , Num , Num
+                                  | Mod
+                                  | Power       -> Num , Num , Num 
                                 in
                                 let t1, t2, tout = adorn_x e tn1, adorn_x e tn2, adorn_x e tnout in
                                 (* arithmetic is massively overloaded. We hope to deal with some of the cases ... *)
@@ -715,9 +717,8 @@ and assigntype_expr cxt t e =
                                 | Times       -> 
                                     (* we currently have the following
                                          Num    -> Num    -> Num   
-                                         Angle  -> Angle  -> Angle  (for +, -)
-                                         Angle  -> Num    -> Angle  (for *, /)
-                                         Num    -> Angle  -> Angle  (for *, /)
+                                         Angle  -> Num    -> Angle  
+                                         Num    -> Angle  -> Angle  
                                          Sxnum  -> Sxnum  -> Sxnum   
                                          Gate   -> Gate   -> Gate
                                          Matrix -> Matrix -> Matrix
@@ -732,24 +733,14 @@ and assigntype_expr cxt t e =
                                        Here's trying with a version that needs quite a bit of help with explicit typing
                                      *)
                                     (match t1.inst, t2.inst, tout.inst with
-                                     | Angle   , _        , _    
-                                         when op=Times || op=Div       -> (try force_type e.pos t1 tout; force_type e.pos t2 (adorn_x e2 Num)
+                                     | Angle   , _        , _          -> (try force_type e.pos t1 tout; force_type e.pos t2 (adorn_x e2 Num)
                                                                            with _ -> bad ()
                                                                           )
-                                     | _       ,  Angle    , _    
-                                         when op=Times || op=Div       -> (try force_type e.pos t2 tout; force_type e.pos t1 (adorn_x e1 Num)
+                                     | _       ,  Angle    , _         -> (try force_type e.pos t2 tout; force_type e.pos t1 (adorn_x e1 Num)
                                                                            with _ -> bad ()
                                                                           )
-                                     | _        , _        , Angle    
-                                         when op=Times || op=Div       -> bad ()
+                                     | _        , _        , Angle     -> bad ()
 
-                                     | Angle   , _        , _ 
-                                     | _       , Angle    , _    
-                                     | _       , _        , Angle 
-                                         when  op=Plus || op=Minus     -> (try force_type e.pos t1 tout; force_type e.pos t2 tout
-                                                                           with _ -> bad ()
-                                                                          )
-                                     
                                      | Num      , _        , _ 
                                      | _        , Num      , _ 
                                      | _        , _        , Num
@@ -832,15 +823,17 @@ and assigntype_expr cxt t e =
                                 | Plus
                                 | Minus       ->
                                     (* we currently have the following 
+                                         Angle  -> Angle  -> Angle
                                          Num    -> Num    -> Num   
                                          Sxnum  -> Sxnum  -> Sxnum   
                                          Matrix -> Matrix -> Matrix
                                        -- nothing with Bra or Ket, because we want to keep them normalised. Hmm.
                                        
                                        Note this is uniform overloading (all the same shape), so t1, t2, tout are the same.
-                                       See above.
+                                       See above. We assume Num -> Num -> Num if forced.
                                      *)
                                     (match t1.inst with
+                                     | Angle
                                      | Num      
                                      | Sxnum     
                                      | Matrix    -> ()
@@ -849,7 +842,23 @@ and assigntype_expr cxt t e =
                                                     force_type e.pos t1 t
                                      | _         -> bad ()
                                     )
-                                | _           -> ()
+                                | Div            ->
+                                   (* we currently have 
+                                        Num   -> Num -> Num
+                                        Angle -> Num -> Angle
+                                        
+                                        The middle Num is sorted out above; we assume Num -> Num -> Num if forced.
+                                    *)
+                                    (match t1.inst with
+                                     | Angle
+                                     | Num       -> ()
+                                     | Unknown _ -> let t = adorn e.pos Num in
+                                                    ovld_warn e1 t; 
+                                                    force_type e.pos t1 t
+                                     | _         -> bad ()
+                                    )
+                                | Mod
+                                | Power          -> ()  (* Num -> Num -> Num -- see above *)
                                )
      | ECompare (e1,op,e2)  -> (match op with 
                                    | Eq | Neq ->
@@ -879,6 +888,10 @@ and assigntype_edecl cxt t e ed =
   match ed.inst with
   | EDPat (wpat,wtopt,we)        -> let wt = ntv we.pos in
                                     let _ = assigntype_expr cxt wt we in
+                                    (match wtopt, !(toptr wpat) with
+                                     | Some wt', Some ot -> force_type e.pos wt' ot
+                                     | _                 -> ()
+                                    );
                                     assigntype_pat (fun cxt -> assigntype_expr cxt t e) cxt wt wpat
   | EDFun (wfn,wfpats,wtoptr,we) -> ok_funname wfn;
                                     check_distinct_fparams wfpats;

@@ -117,6 +117,7 @@ let string_of_token = function
     | BITTYPE   -> "BITTYPE"
     | BIT1      -> "BIT1"
     | BIT0      -> "BIT0"
+    | PI        -> "PI"
     | BANG      -> "BANG"
     | APPEND    -> "APPEND"
     | AND       -> "AND"
@@ -174,10 +175,10 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | '='         -> EQUALS
   | '*'         -> STAR
   | "><"        -> TENSORPROD
-  | 0x2297      -> TENSORPROD (* ⊗ *)
+  | 0x2297      -> TENSORPROD   (* ⊗ *)
   | "><><"      -> TENSORPOWER
   | 0x2297, 0x2297      
-                -> TENSORPOWER (* ⊗⊗ *)
+                -> TENSORPOWER  (* ⊗⊗ *)
   | "^^"        -> DAGGER
   | 0x2020      -> DAGGER       (* † *)
   | "true"      -> TRUE
@@ -231,13 +232,13 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | "|:"        -> LEFTREPEAT   
   | ":|"        -> RIGHTREPEAT 
   | 0x1d106     -> LEFTREPEAT   (* 𝄆 *)
-  | 0x1d107     -> RIGHTREPEAT (* 𝄇 *)
+  | 0x1d107     -> RIGHTREPEAT  (* 𝄇 *)
   | '?'         -> QUERY
   | '!'         -> BANG
   | "-/-"       -> MEASURE
   | "-//-"      -> MEASURES
   | 0x2322, 0x0338
-                -> MEASURE      (* ⌢̸ *)
+                -> MEASURE       (* ⌢̸ *)
   | 0x2322, 0x20EB
                 -> MEASURES      (* ⌢⃫ *)
   | ">>"        -> THROUGH
@@ -274,6 +275,8 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   
   | "0b0"       -> BIT0
   | "0b1"       -> BIT1
+  
+  | 0x1d745     -> PI               (* 𝝅 *)
   
   | "All"       -> FORALL
   | "process"   -> PROCESS

@@ -257,7 +257,8 @@ let rec deepcompare : _type -> vt -> vt -> int = fun t v1 v2 ->
           | Num       -> Q.compare (to_num v1) (to_num v2)
           | Tuple ts  -> tupcompare ts (to_list v1) (to_list v2)
           | List  t   -> listcompare t (to_list v1) (to_list v2)
-          | Bit       
+          | Bit  
+          | Angle
           | Bool       
           | Char
           | Sxnum
@@ -334,6 +335,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
   | EBit b          -> ctenv, cconst (of_bit b)
   | EBra b          -> ctenv, cconst (of_nv (nv_of_braket b))
   | EKet k          -> ctenv, cconst (of_nv (nv_of_braket k))
+  | EPi             -> ctenv, cconst (of_num num_1)                 (* all angles are fractions of 𝝅 *)
   | EMinus e        -> (* overloaded *)
       (let ctenv, f = compile_expr ctenv e in
        match et.inst with

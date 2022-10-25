@@ -358,9 +358,11 @@ let snum_h :snum = [sprod_h]
 
 let eighth = quarter // num_2
 
-let snum_f :snum = snum_trig true eighth
-
-let snum_g :snum = snum_trig false eighth
+let snum_sqrt (n:num) = match zint_exactsqrt n.num, zint_exactsqrt n.den with
+                        | Some num, Some den -> [(Q.make num den, [])]
+                        | Some num, None     -> [(Q.make num z_1 ,[S_sqrt(Q.make z_1 n.den)])] 
+                        | None    , Some den -> [(Q.make z_1 den, [S_sqrt(Q.make n.num z_1)])] 
+                        | None    , None     -> [(num_1         , [S_sqrt n])]
 
 (* .. not really needed yet ..
 
@@ -377,7 +379,7 @@ let snum_symb symb :snum = [(num_1, [S_symb symb])]
  * Sign is now naturally included in the num element of a product.
  * I would like to sort snums so that the same el lists are adjacent but otherwise 
  * largest num first, as in the prodcompare function that used to be in simplify_sum.
- * Otherwise sqrts before cos before sin befor symbs, and the natural ordering on symbs (because alpha
+ * Otherwise sqrts before cos before sin before symbs, and the natural ordering on symbs (because alpha
  * and imr fields are designed for it).
  *)
  
@@ -860,8 +862,6 @@ let c_0 = csnum_of_snum snum_0
 let c_1 = csnum_of_snum (snum_1)
 let c_h = csnum_of_snum (snum_h)
 let c_reciprocal_h = csnum_of_snum (reciprocal_sqrt half)
-let c_f = csnum_of_snum snum_f
-let c_g = csnum_of_snum snum_g
 
 let c_i = C (snum_0, snum_1)
 

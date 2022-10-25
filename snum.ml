@@ -482,12 +482,14 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
                *)
               Some s, n, els, ss
             in
-            let wtrig w iscos theta tail = 
-              match st_half iscos theta with
-              | Some (n,[el]) -> (n*/w,Some el) :: tail
-              | Some (n,[])   -> (n*/w,None) :: tail
-              | _             -> tail
-            in
+            (* not used at present, because of optimisation below
+               let wtrig w iscos theta tail = 
+                 match st_half iscos theta with
+                 | Some (n,[el]) -> (n*/w,Some el) :: tail
+                 | Some (n,[])   -> (n*/w,None) :: tail
+                 | _             -> tail
+               in
+             *)
             match ss with
             | S_sqrt a      :: S_sqrt b :: ss                       (* √a*√a = a *)
               when a=b                   -> sp els (n*/a) ss

@@ -1,9 +1,5 @@
 proc System () = 
   (newq q) 
-  out!["h="; show sx_h; "; h*h="; show (sx_h*sx_h); "\n"] .
-  out!["f="; show sx_f; "; f*f="; show (sx_f*sx_f); "\n"] .
-  out!["g="; show sx_g; "; g*g="; show (sx_g*sx_g); "\n"] .
-  out!["f*g="; show (sx_f*sx_g); "; g*f="; show (sx_g*sx_f); "\n"] .
   out!["to prove to Raja that qtpi can calculate "; show H; "*"; show H; "="; show (H*H); "\n"] .
   out!["initially "] . outq!(qval q) . out!["; "] .
   q>>H . 

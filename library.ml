@@ -97,9 +97,11 @@ let _ = know ("CSWAP" , "gate", of_gate g_Fredkin)
 let _ = know ("sx_0"    , "sxnum", of_csnum Snum.c_0)
 let _ = know ("sx_1"    , "sxnum", of_csnum Snum.c_1)
 let _ = know ("sx_i"    , "sxnum", of_csnum Snum.c_i)
-let _ = know ("sx_h"    , "sxnum", of_csnum Snum.c_h)
-let _ = know ("sx_f"    , "sxnum", of_csnum Snum.c_f)
-let _ = know ("sx_g"    , "sxnum", of_csnum Snum.c_g)
+
+
+let _ = know ("sx_sqrt" , "num   -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_sqrt       <.> to_num))
+let _ = know ("sx_sin"  , "angle -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig false <.> to_angle))
+let _ = know ("sx_cos"  , "angle -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig true  <.> to_angle))
 
 let v_makeC g =
   if gsize g<>z_2 then

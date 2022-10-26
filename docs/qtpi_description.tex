@@ -50,6 +50,8 @@
 \DeclareUnicodeCharacter{2322}{} % ignore frown
 \DeclareUnicodeCharacter{20EB}{\ensuremath{\mspace{4mu}/\!\mspace{-1mu}/\mspace{-22mu}\frown}}
 \DeclareUnicodeCharacter{0338}{\ensuremath{\mspace{6mu}/\mspace{-19mu}\frown}}
+\DeclareUnicodeCharacter{221A}{\ensuremath{\sqrt{}}}
+
 
 \newcommand{\verbtt}[1]{\texttt{\small{}#1}}
 \newcommand{\verbttf}[1]{\texttt{\footnotesize{}#1}}
@@ -95,9 +97,9 @@ proc System () =
 \figlabel{teleportexample}
 \end{figure}
 
-\Figref{teleportexample} is an example of a quantum protocol. The \emph{teleportation} protocol \citep{bbcjp:93}\citep{teleportwiki} manages to communicate the state of a qubit from one agent (Alice) to another (Bob) without transmitting a qubit between them. Why it works is complicated, and I won't go into it here, but how it works is actually quite simple, and it's easily expressed in qtpi. In the figure there are three process definitions, one for an initialisation process, and two for agents which communicate through messages on a typed channel. Declarations -- `newq' for qubits, `new' for channels -- are bracketed; typing is optional; a caret (\^{}) starts a channel type. Dots (.) are used to separate protocol steps, rather like semicolons in conventional languages. Values are sent down channels using bang (!) and received using query (?). Double arrows ($>\!>$) put qubits through gates, meter symbols (⌢̸) measure qubits. Vertical bars show a parallel composition. 
+\Figref{teleportexample} is an example of a quantum protocol. The \emph{teleportation} protocol \citep{bbcjp:93}\citep{teleportwiki} manages to communicate the state of a qubit from one agent (Alice) to another (Bob) without transmitting a qubit between them. Why it works is complicated, and I won't go into it here, but how it works is actually quite simple, and it's easily expressed in qtpi. In the figure there are three process definitions, one for an initialisation process System, and two for agents Alice and Bob which communicate through messages on a typed channel. Declarations -- `newq' for qubits, `new' for channels -- are bracketed; typing is optional; a caret (\^{}) starts a channel type. Dots (.) are used to separate protocol steps, rather like semicolons in conventional languages. Values are sent down channels using bang (!) and received using query (?). Double arrows ($>\!>$) put qubits through gates, meter symbols (⌢̸) measure qubits. Vertical bars show a parallel composition. 
 
-To start the protocol, a System agent has to make a particular entanglement out of two qubits. It does that by initialising the $x$ qubit to state \zero{} and the $y$ qubit to \plus, and putting the pair through a CNot gate. It also makes a channel capable of carrying a pair of classical bits. Then it splits into two parallel processes -- two agents, in principle in different places -- one of which immediately becomes an instance of the Alice definition, the other an instance of Bob. Alice is given as arguments the qubit $x$ and the channel $c$, Bob gets $y$ and $c$. Remember that those qubits are entangled, because that's how the magic works.
+To start the protocol, System has to make a particular entanglement out of two qubits. It does that by initialising the $x$ qubit to state \zero{} and the $y$ qubit to \plus, and putting the pair through a CNot gate. It also makes a channel capable of carrying a pair of classical bits. Then it splits into two parallel processes -- two agents, in principle in different places -- one of which immediately becomes an instance of the Alice definition, the other an instance of Bob. Alice is given as arguments the qubit $x$ and the channel $c$, Bob gets $y$ and $c$. Remember that those qubits are entangled, because that's how the magic works.
 
 Once Alice has been created she creates another qubit $z$ which is in state $|\phi\rangle=\minus$. Alice then puts $z$ and $x$ through CNot, and then just $z$ through the H gate; then she measures $z$, retrieving a bit $\setvar{vz}$, and $x$, retrieving $\setvar{vx}$. Finally she sends her pair of bits -- classical bits, each 0 or 1 -- down channel $c$.
 
@@ -106,79 +108,76 @@ Bob, once created, waits to be sent a pair of bits on the channel he shares with
 \begin{figure}
 \centering
 \begin{verbatim}
-System creates #0:(h|0⟩+h|1⟩)
+System creates #0:1/√2(|0⟩+|1⟩)
 
 System creates #1:|0⟩
 
-System (#0:(h|0⟩+h|1⟩),#1:|0⟩) >> Cnot; result (#0:[#0;#1](h|00⟩+h|11⟩),#1=#0)
+System (#0:1/√2(|0⟩+|1⟩),#1:|0⟩) >> Cnot; result (#0:[#0;#1]1/√2(|00⟩+|11⟩),#1=#0)
 
-Alice creates #2:(h|0⟩-h|1⟩)
+Alice creates #2:1/√2(|0⟩-|1⟩)
 
-Alice (#2:(h|0⟩-h|1⟩),#0:[#0;#1](h|00⟩+h|11⟩)) >> Cnot; 
+Alice (#2:1/√2(|0⟩-|1⟩),#0:[#0;#1]1/√2(|00⟩+|11⟩)) >> Cnot; 
       result (#2:[#0;#1;#2]1/2(|000⟩-|011⟩-|101⟩+|110⟩),#0=#2)
 
 Alice #2:[#0;#1;#2]1/2(|000⟩-|011⟩-|101⟩+|110⟩) >> H; 
-      result #2:[#0;#1;#2]h/2(|000⟩+|001⟩-|010⟩+|011⟩-|100⟩+|101⟩+|110⟩+|111⟩)
+      result #2:[#0;#1;#2]1/√8(|000⟩+|001⟩-|010⟩+|011⟩-|100⟩+|101⟩+|110⟩+|111⟩)
 
-Alice: #2:[#0;#1;#2]h/2(|000⟩+|001⟩-|010⟩+|011⟩-|100⟩+|101⟩+|110⟩+|111⟩) ⌢̸ ; 
-       result 1 and (#0:[#0;#1](1/2|00⟩+...+1/2|11⟩),#1=#0)
+Alice: #2:[#0;#1;#2]1/√8(|000⟩+|001⟩-|010⟩+|011⟩-|100⟩+|101⟩+|110⟩+|111⟩) ⌢̸ ; 
+       result 1 and (#0:[#0;#1]1/2(|00⟩+...+|11⟩),#1=#0)
 
-Alice: #0:[#0;#1](1/2|00⟩+...+1/2|11⟩) ⌢̸ ; result 0 and #1:(h|0⟩+h|1⟩)
+Alice: #0:[#0;#1]1/2(|00⟩+...+|11⟩) ⌢̸ ; result 0 and #1:1/√2(|0⟩+|1⟩)
 
 0: Alice -> Bob (1,0)
 
-Bob #1:(h|0⟩+h|1⟩) >> Z; result #1:(h|0⟩-h|1⟩)
+Bob #1:1/√2(|0⟩+|1⟩) >> Z; result #1:1/√2(|0⟩-|1⟩)
 \end{verbatim}
-\caption{A sample trace of \figref{teleportexample}}
+\caption{A sample trace of \figref{teleportexample}, teleporting \minus}
 \figlabel{teleporttrace1}
 \end{figure}
 
-Qtpi is implemented, you can run this program, and you can see a trace of the quantum calculations -- see \figref{teleporttrace1}. First System gets two qubits and makes the entanglement $\frac{1}{\sqrt{2}}\zerozero+\frac{1}{\sqrt{2}}\oneone$ out of them -- a Bell state in which the qubits are both \zero{} or both \one{}, with probability $\frac{1}{2}$ in each case. (Note that qtpi prints $\frac{1}{\sqrt{2}}$ as $h$, just to save space). Alice gets one of these qubits, and makes another which she requires to be in state $\frac{1}{\sqrt{2}}\zero-\frac{1}{\sqrt{2}}\one=\bv{\phi}$. Alice then puts $z$ and $x$ through CNot, creating a three-way entanglement with four possible combined states, and then just $z$ through the H gate, destroying the entanglement and producing a state in which every combination of states is possible with equal probability. Then she measures $z$, retrieving a bit $\setvar{vz}$ and reducing the state of the remaining qubits to four equal possibilities, and $x$, retrieving $\setvar{vx}$ and leaving \plus as the state of qubit 1, which is a qubit she wasn't given and has never touched. That bit is the magic of the protocol: entanglement constrains the values that can be measured for $x$ and $y$ initially, Finally she sends her pair of bits -- classical bits, each 0 or 1 -- down channel $c$.
+Qtpi is implemented, you can run this program, and you can see a trace of the quantum calculations -- see \figref{teleporttrace1}. First System gets two qubits and makes the entanglement $\frac{1}{\sqrt{2}}(\zerozero+\oneone)$ out of them -- a Bell state in which the qubits are both \zero{} or both \one{}, with probability $|\frac{1}{\sqrt{2}}|^{2} = \frac{1}{2}$ in each case. Alice gets one of these qubits, and makes another which she requires to be in state $\minus = \frac{1}{\sqrt{2}}(\zero-\frac{1}{\sqrt{2}}\one) = \bv{\phi}$. Alice then puts $z$ and $x$ through CNot, creating a three-way entanglement with four possible combined states, each with probability $\frac{1}{4}$, and four impossible ones. Then she puts $z$ through the H gate, destroying the entanglement and producing a state in which every combination of states is possible with equal probability -- but note, not all with positive amplitudes. Then she measures $z$, retrieving a bit $\setvar{vz}$ and reducing the state of the remaining qubits to four equal possibilities, and then measures $x$, retrieving $\setvar{vx}$ and leaving \plus as the state of qubit 1, which is a qubit she wasn't given and has never touched. Entanglement then measurement is the magic of the protocol. Finally she sends her pair of bits -- classical bits, each 0 or 1 -- down channel $c$.
 
 Bob, once created, waits to be sent a pair of bits on the channel he shares with Alice. From the pair he receives he calculates a gate value, and sends his own qubit through that gate. The result is that whatever state $|\phi\rangle$ Alice's $z$ was created in, Bob's $y$ is in that same state. It isn't really magic, of course: Alice's $z$ is destroyed by measurement before $y$ is put into state $\minus=|\phi\rangle$; no qubits are teleported. 
 
-But actually that's not a very convincing example: Alice knows what \bv{\phi} is (it's \minus), and she could be cheating. More realistically, after the first measurement the joint state of \#0 and \#1 is just $(\plus)\otimes(\plus)$, so the outcome is already determined. But you can run the example several times and see that Alice's first measurement doesn't always give the same simple answer.
+But actually that's not a very convincing example: Alice knows what \bv{\phi} is (it's \minus), and she could be cheating. But actually she isn't: you can run the example several times and see that Alice's measurements don't always give the answers in this trace, and therefore qubit 1 is not always \plus, and Bob has to use different gates to calculate the final. And Bob doesn't even know that qubit 1 finishes up as \minus.
 
 \begin{figure}
 \centering
 \begin{verbatim}
-System creates #0:(h|0⟩+h|1⟩)
+System creates #0:1/√2(|0⟩+|1⟩)
 
 System creates #1:|0⟩
 
-System (#0:(h|0⟩+h|1⟩),#1:|0⟩) >> Cnot; result (#0:[#0;#1](h|00⟩+h|11⟩),#1=#0)
+System (#0:1/√2(|0⟩+|1⟩),#1:|0⟩) >> Cnot; result (#0:[#0;#1]1/√2(|00⟩+|11⟩),#1=#0)
 
 Alice creates #2:(a2|0⟩+b2|1⟩)
 
-Alice (#2:(a2|0⟩+b2|1⟩),#0:[#0;#1](h|00⟩+h|11⟩)) >> Cnot; 
-      result (#2:[#0;#1;#2](ha2|000⟩+hb2|011⟩+hb2|101⟩+ha2|110⟩),#0=#2)
+Alice (#2:(a2|0⟩+b2|1⟩),#0:[#0;#1]1/√2(|00⟩+|11⟩)) >> Cnot; 
+      result (#2:[#0;#1;#2]1/√2(a2|000⟩+b2|011⟩+b2|101⟩+a2|110⟩),#0=#2)
 
-Alice #2:[#0;#1;#2](ha2|000⟩+hb2|011⟩+hb2|101⟩+ha2|110⟩) >> H; 
-      result #2:[#0;#1;#2](a2/2|000⟩+a2/2|001⟩+b2/2|010⟩-b2/2|011⟩+
-                           b2/2|100⟩-b2/2|101⟩+a2/2|110⟩+a2/2|111⟩)
+Alice #2:[#0;#1;#2]1/√2(a2|000⟩+b2|011⟩+b2|101⟩+a2|110⟩) >> H; 
+      result #2:[#0;#1;#2]1/2(a2|000⟩+a2|001⟩+b2|010⟩-b2|011⟩+b2|100⟩-b2|101⟩+a2|110⟩+a2|111⟩)
 
-Alice: #2:[#0;#1;#2](a2/2|000⟩+a2/2|001⟩+b2/2|010⟩-b2/2|011⟩+
-                     b2/2|100⟩-b2/2|101⟩+a2/2|110⟩+a2/2|111⟩) ⌢̸ ; 
-       result 0 and (#0:[#0;#1](ha2|00⟩+hb2|01⟩+hb2|10⟩+ha2|11⟩),#1=#0)
+Alice: #2:[#0;#1;#2]1/2(a2|000⟩+a2|001⟩+b2|010⟩-b2|011⟩+b2|100⟩-b2|101⟩+a2|110⟩+a2|111⟩) ⌢̸ ; 
+      result 0 and (#0:[#0;#1]1/√2(a2|00⟩+b2|01⟩+b2|10⟩+a2|11⟩),#1=#0)
 
-Alice: #0:[#0;#1](ha2|00⟩+hb2|01⟩+hb2|10⟩+ha2|11⟩) ⌢̸ ; 
-       result 1 and #1:(b2|0⟩+a2|1⟩)
+Alice: #0:[#0;#1]1/√2(a2|00⟩+b2|01⟩+b2|10⟩+a2|11⟩) ⌢̸ ; result 1 and #1:(b2|0⟩+a2|1⟩)
 
 0: Alice -> Bob (0,1)
 
 Bob #1:(b2|0⟩+a2|1⟩) >> X; result #1:(a2|0⟩+b2|1⟩)
 \end{verbatim}
-\caption{A sample trace of \figref{teleportexample} with an unknown qubit}
+\caption{A sample trace of \figref{teleportexample}, teleporting an unknown qubit}
 \figlabel{teleporttrace2}
 \end{figure}
 
-Anyway, qtpi can do better: it can simulate the case where neither Alice nor anybody else knows what \bv{\phi} is. Replace Alice's \verbtt{(newq z=|->)} -- give me a qubit with value \minus{} -- by \verbtt{(newq z)} -- give me a qubit with unspecified value. The qubit Alice gets in this case is $a_{2}\zero+b_{2}\one$ where $a_{2}$ and $b_{2}$ are  complex numbers, unknown probability amplitudes except that we know $|a_{2}|^{2}+|b_{2}|^{2}=1$, and the `2' suffix appears because Alice's $z$ is qubit \#2 in the underlying machinery. A trace in \figref{teleporttrace2} shows the quantum arithmetic, which is considerably more intricate. If you run the program repeatedly you will see that Alice can see either 0 or 1 at each of her measurements because measurement is intrinsically non-deterministic, but nevertheless Bob always gets the right answer because the protocol is really clever.
+But qtpi can do something more convincing: it can simulate the case where neither Alice nor Bob nor the user nor anybody else knows what \bv{\phi} is. Replace Alice's \verbtt{(newq z=|->)} -- give me a qubit with value \minus{} -- by \verbtt{(newq z)} -- give me a qubit with unspecified value. The qubit Alice gets in this case is $a_{2}\zero+b_{2}\one$ where $a_{2}$ and $b_{2}$ are  complex numbers, unknown probability amplitudes except that we know $|a_{2}|^{2}+|b_{2}|^{2}=1$. The `2' suffix appears because Alice's $z$ is qubit \#2 in the underlying machinery. A trace in \figref{teleporttrace2} shows the quantum arithmetic, which is considerably more intricate than before, but it still has some similarities: after the CNot step there's still a three-way entanglement with only four possible states; after the H step there are eight states, no longer all with the same probability, but four are $|\frac{a_{2}}{2}|^{2}$, four $|\frac{b_{2}}{2}|^{2}$. If you run the program repeatedly you will see that, as before, Alice can measure either 0 or 1 at each of her measurements, but nevertheless Bob always gets the right answer.
 
-So: qtpi exists in the first place because I couldn't do those calculations with pencil and paper, and in the second place (as will be revealed) because quantum protocols need careful treatment. But enough of examples: this is a manual. Let the definitions commence!
+So: qtpi exists in the first place because I couldn't accurately do those calculations, and lots more like them, with pencil and paper, and in the second place (as will be revealed) because quantum protocols need careful treatment. If you want to see more examples see \secref{examples}, but otherwise this is a manual. Let the definitions commence!
 
 \section{Core language}
 
-The language described in this document is a mildly tweaked version of CQP. Separate documents describe additions:  
+The language described in this document is a mildly tweaked version of CQP. Separate sections describe additions:  
 
 \begin{description}
 \item[logging sub-processes] allow you to attach output statements to a process without obscuring its content;  
@@ -337,7 +336,7 @@ Type syntax is in \figref{typesyntax}.
 
 In matches \<pat> disambiguates lists and tuples and constants. In lets and fdefs, \<bpat> binds names to values, including elements of tuples, and never fails to match. The syntax is in \figref{patsyntax}: a \<pat> can be an empty list; both \<pat> and \<bpat> can be a zero-tuple, a bracketed pattern, or a multi-tuple.
 
-\subsections{Expressions \setvar{E}}
+\subsection{Expressions \setvar{E}}
 
 
 \subsection{Constants \setvar{Const}}

@@ -182,6 +182,9 @@ module Local = struct
     fun n -> match zint_exactsqrt n.num, zint_exactsqrt n.den with
              | Some numr, Some denr -> Some (Q.make numr denr)
              | _                    -> None
+
+  let gcd: num -> num -> num = (* yes it makes sense *)
+    fun n m -> Q.make (Z.gcd n.num m.num) (Z.gcd n.den m.den)
 end
 
 let ( ~-: ) = Z.(~-);;
@@ -253,6 +256,8 @@ let reciprocal:          num -> num             = Local.reciprocal
 let exactsqrt:           num -> num option      = Local.exactsqrt
 let round:               num -> zint            = fun n -> floor (if Q.sign n<0 then n-/half else n+/half);;
 let compare:             num -> num -> int      = Q.compare;;
+
+let gcd:                 num -> num -> num      = Local.gcd
 
 
 

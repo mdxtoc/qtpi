@@ -241,7 +241,7 @@ let try_split rotate qs (vm,vv as v) =
           if samehalves_v vv then
             Some (List.hd qs, qcopy nv_plus, List.tl qs, (vm, mult_nv c_reciprocal_h (vseg z_0 nh vv)))
           else
-          (* if the two halves are equal when one is negated then use nv_minus, which is h+h; then divide by h ... *)
+          (* if the two halves are equal when one is negated then use nv_minus, which is h-h; then divide by h ... *)
           if sameneghalves_v vv then
             Some (List.hd qs, qcopy nv_minus, List.tl qs, (vm, mult_nv c_reciprocal_h (vseg z_0 nh vv)))
           else

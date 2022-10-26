@@ -468,8 +468,8 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
      And we don't use rmult and rprod to force going round again. It is to hoped that this will
      speed up simplification (which slowed by a factor of 3 in the Ekert example when we went all-trig.)
      RB 2020/10/02
-     Oh dear. If anything it made things minutely slower .... what to do?
-     But oh dear oh dear oh dear. The Ekert simplification, in the old version, was using a hermititian matri
+     Oh dear. If anything it made things minutely slower .... what to do? ...
+     But oh dear oh dear oh dear. The Ekert simplification, in the old version, was using a hermititian matrix
      rather than a rotation matrix. So Rz (which is what it was called) was such that Rz*Rz = I, and it was 
      not doing 𝝅/8, 2𝝅/8 and 3𝝅/8 rotations. When I corrected the rotations, it was slower than the all-trig
      mechanism. So hurrah! I think I've reached the end of the symbolic-calculator development. 

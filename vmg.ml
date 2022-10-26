@@ -325,7 +325,7 @@ and map_v f = function
  *)
  
 and string_of_nv bksign (vm, vv) = 
-  let so_v v =
+  let so_v m v =
     if !Settings.fancyvec then 
       (let n = vsize v in
        let width = log_2 n in
@@ -339,58 +339,39 @@ and string_of_nv bksign (vm, vv) =
        let string_of_basis_idx i =
          Printf.sprintf (match bksign with PVBra -> "⟨%s|" | PVKet -> "|%s⟩") (string_of_bin i)
        in
-       let coeff x = 
-         match so_csnumb true x with
-         | "1"  -> ""
-         | "-1" -> "-"
-         | s    -> s
-       in
        let is_single = countzeros_v z_0 n v = Z.(n-one) in
-       let premult, estrings_rev =
-         let tracediv = false in
-         let premult, v = if is_single || not !factorbraket then c_1, v
-                           else try if tracediv then (Printf.printf "before division, v is %s\n" (raw_string_of_vector v); flush stdout);
-                                    let count stats cn = stats_inc stats z_1 (if printsneg_csnum cn then cneg cn else cn) in
-                                    let stats = stats_vc count v in
-                                    let amps = stats_to_list stats in
-                                    let amp, famp = 
-                                      match amps with
-                                      | (amp1,famp1)::(amp2,famp2)::_ 
-                                        when amp1=c_0                 -> amp2, famp2
-                                      | (amp,famp)::_                 -> amp,  famp
-                                      | []                            -> c_0,  Z.zero
-                                    in
-                                    if tracediv then Printf.printf "stats are %s, amp %s famp %s\n" 
-                                        (bracketed_string_of_list (bracketed_string_of_pair string_of_csnum string_of_zint) amps)
-                                        (string_of_csnum amp)
-                                        (Z.to_string famp);
-                                    let premult = if amp=c_0 then c_1 else amp in
-                                    if tracediv then Printf.printf "winner is %s\n" (string_of_csnum premult);
-                                    (* but variables, sin and cos, muck this up ... so we get rid of them.
-                                       Strip the candidate amplitude down to a num and some options sqrts. Then
-                                       if all the elements of the amp look the same when so stripped, go ahead 
-                                       with that as the divisor.
-                                     *)
-                                    let ok ps p = if List.for_all (fun p' -> p=p') ps then p else sprod_1 in
-                                    let strip_prod (n,els) = n, List.filter (function S_sqrt _ -> true | _ -> false) els in
-                                    let strip_num ps : sprod = let ps' = List.map strip_prod ps in
-                                                               ok ps' (List.hd ps')
-                                    in
-                                    (* if the real and imaginary parts are equal or empty, and the non-empty one is all the same, then
-                                       it's a candidate for premult; otherwise c_1
-                                     *)
-                                    let pm = match premult with 
-                                             | C(re, []) -> strip_num re
-                                             | C([], im) -> strip_num im
-                                             | C(re, im) -> let pre, pim = strip_num re, strip_num im in
-                                                            if pre=pim then pre else sprod_1
-                                    in
-                                    let premult = C([pm],snum_0) in
-                                    if tracediv then Printf.printf "after stripping, winner is %s\n" (string_of_csnum premult);
-                                    let v = div_nv premult v in
-                                    if tracediv then Printf.printf "after division, v is <%s>\n" (raw_string_of_vector v); 
-                                    premult, v
-                                with Snum.Disaster s -> (if tracediv then Printf.printf "Snum.Disaster %s\n" s); c_1, v
+       let tracediv = false in
+       let gcd = 
+         if is_single || not !factorbraket then sprod_1
+         else (* we're going to find the num which is sort of gcd of everything *)
+              (let amps = match v with (* we just need a list, not frequencies *)
+                 | DenseV  v         -> Array.to_list v
+                 | SparseV (n,sv,cv) -> sv::(List.map snd cv)
+               in
+               let amps = List.filter (fun c -> c<>c_0) amps in
+               let rec common_els gels els1 els2 =
+                 match els1, els2 with
+                 | [], _
+                 | _ , [] -> List.rev gels
+                 | el1::tail1, el2::tail2 ->
+                    match Snum.elcompare el1 el2 with
+                    |  -1 -> common_els gels tail1 els2
+                    | 0   -> common_els (el1::gels) tail1 tail2
+                    | _   -> common_els gels els1 tail2
+               in
+               let gcd_prod gcd (num,els as prod) = 
+                 match gcd with
+                 | None              -> Some prod
+                 | Some (gnum, gels) -> Some (Number.gcd gnum num, common_els [] gels els)
+               in
+               let gcd_num gcd prods = List.fold_left gcd_prod gcd prods in
+               let n = List.fold_left (fun gcd (C (r,i)) -> gcd_num (gcd_num gcd i) r)
+                                      None
+                                      amps
+               in
+               if tracediv then Printf.printf "gcd is %s\n" (string_of_option string_of_sprod n); 
+               if n=None || is_single then sprod_1 else _The n
+             )
          in
          (* it's important, with sparse vectors, not to scan one element at a time ... *)
          let v_els =
@@ -435,28 +416,47 @@ and string_of_nv bksign (vm, vv) =
                     if i=:n || sv=c_0 then ves (* reversed later *) 
                     else
                       if not !runbraket || not (mingap i n) then nxf cv ((i,sv,Z.one)::ves)   Z.(i+one) 
-                                                          else nxf cv ((i,sv,Z.(n-i))::ves) n
+                                                            else nxf cv ((i,sv,Z.(n-i))::ves) n
               in 
               nxf cv [] Z.zero
          in
-         let estringf i amp = coeff amp ^ string_of_basis_idx i in
-         let ss = List.map (fun (i,amp,gap) ->
-                              if Z.(gap=one) then estringf i amp
-                              else
-                                let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
-                                estringf i amp ^
-                                (if isneg then "-" else "+") ^ "..." ^ (if not isneg then "+" else "") ^
-                                estringf Z.(i+gap-one) amp
-                           )
-                           v_els
-            
+       let estrings_rev =
+         let coeff x = 
+           (* here's where we employ gcd *)
+           let rec coeff_els rels gels els =
+             match gels, els with
+             | [], _
+             | _ , []                -> Listutils.prepend rels els
+             | gel::gtail, el::etail ->
+                if gel=el then coeff_els rels gtail etail
+                          else coeff_els (el::rels) gels etail
+           in
+           let coeff_prod (num, els) = 
+             num//fst gcd, coeff_els [] (snd gcd) els
+           in
+           let coeff_num = List.map coeff_prod in
+           let coeff_csnum (C (r,i)) = C (coeff_num r, coeff_num i) in
+           match so_csnumb true (coeff_csnum x) with
+           | "1"  -> ""
+           | "-1" -> "-"
+           | s    -> s
          in
-         premult, ss
+         let estringf i amp = coeff amp ^ string_of_basis_idx i in
+         List.map (fun (i,amp,gap) ->
+                     if Z.(gap=one) then estringf i amp
+                     else
+                       let isneg = not (coeff amp="") && Stringutils.first (coeff amp)='-' in
+                       estringf i amp ^
+                       (if isneg then "-" else "+") ^ "..." ^ (if not isneg then "+" else "") ^
+                       estringf Z.(i+gap-one) amp
+                  )
+                  v_els
        in
+       let pre = rprod m [gcd] in
        match estrings_rev with 
-       | []                    -> "?..empty nv?.."
-       | [e] when premult=c_1  -> e 
-       | _                     -> Printf.sprintf "%s(%s)" (if premult=c_1 then "" else so_csnumb true premult) (sum_separate (List.rev estrings_rev))
+       | []                   -> "?..empty nv?.."
+       | [e] when pre=snum_1  -> e 
+       | _                    -> Printf.sprintf "%s(%s)" (if pre=snum_1 then "" else string_of_snum pre) (sum_separate (List.rev estrings_rev))
       )
     else
       raw_string_of_vector v
@@ -478,18 +478,18 @@ and string_of_nv bksign (vm, vv) =
                                       | []    -> so_v vv
      in
    *)
-  let string_of_vmultiplier vm =
+  let vmultiplier () =
     match vm with
     | [(n,[])] -> (match exactsqrt n with
-                   | Some root -> string_of_num (reciprocal root)
+                   | Some root -> so_v [reciprocal root,[]] vv
                    | None      -> match zint_exactsqrt n.den, zint_exactsqrt n.num with
-                                  | Some denroot, _ -> Printf.sprintf "%s/r(%s)" (string_of_zint denroot) (string_of_zint n.num)
-                                  | _, Some numroot -> Printf.sprintf "r(%s)/%s" (string_of_zint n.den) (string_of_zint numroot)
-                                  | _               -> Printf.sprintf "r(%s)" (string_of_num (reciprocal n))
+                                  | Some denroot, _ -> Printf.sprintf "%s/√(%s)(%s)" (string_of_zint denroot) (string_of_zint n.num) (so_v snum_1 vv)
+                                  | _, Some numroot -> Printf.sprintf "√(%s)/%s(%s)" (string_of_zint n.den) (string_of_zint numroot) (so_v snum_1 vv)
+                                  | _               -> Printf.sprintf "√(%s)(%s)" (string_of_num (reciprocal n)) (so_v snum_1 vv)
                   )
-    | _        -> Printf.sprintf "<<modulus %s>>" (string_of_snum vm)
+    | _        -> Printf.sprintf "<<modulus %s>>%s" (string_of_snum vm) (so_v snum_1 vv)
   in
-  if vm=snum_1 then so_v vv else Printf.sprintf "%s%s" (string_of_vmultiplier vm) (so_v vv)
+  if vm=snum_1 then so_v vm vv else vmultiplier ()
   
 and string_of_bra b = string_of_nv PVBra b
 and string_of_ket k = string_of_nv PVKet k

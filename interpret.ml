@@ -546,14 +546,14 @@ let rec interp pn rtenv procstart =
 let builtins = [
   "Iter (xs,P,iterc) =                          \n" ^
   "  match xs .                                 \n" ^
-  "  + []    . iterc!() . _0                    \n" ^
+  "  + []    . iterc!() .                       \n" ^
   "  + x::xs . (new untraced callc : ^())       \n" ^
   "            | P(x,callc)                     \n" ^
   "            | callc?_ . Iter(xs,P,iterc)     \n"
   ;
   "Par (xs, P) =                                \n" ^
   "  match xs .                                 \n" ^
-  "  + []     . _0                              \n" ^
+  "  + []     .                                 \n" ^
   "  + x:: xs . | P(x)                          \n" ^
   "             | Par (xs, P)                   \n"
 ]

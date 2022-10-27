@@ -147,14 +147,16 @@ pdef:
 
 processbody:
   | process                             {$1, []}
-  | process WITH monitor                {$1, $3}
+  | process WITH indentPrev monitor outdent 
+                                        {$1, $4}
 
 monitor:
   | monitorelement                      {[$1]}
   | monitorelement monitor              {$1::$2}
 
 monitorelement:
-  | montpnum COLON process              {$1.inst,($1.pos,$3)}
+  | montpnum COLON indentHere process outdent
+                                        {$1.inst,($1.pos,$4)}
 
 montpnum:
   | tpnum                               {adorn $1}

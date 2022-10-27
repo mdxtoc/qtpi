@@ -41,7 +41,7 @@ and procnode =
   | Terminate
   | GoOnAs of typedname * expr list             (* GoOnAs: homage to Laski *)
   | WithNew of (bool * param list) * process    (* bool is traced *)
-  | WithQubit of bool * qspec list * process     (* false: newq; true: newqs *)
+  | WithQubit of bool * qspec list * process    (* false: newq; true: newqs *)
   | WithLet of letspec * process
   | WithProc of pdecl * process
   | WithQstep of qstep * process
@@ -93,7 +93,7 @@ let pos_of_pdecl (_,pn,ps,proc) = Sourcepos.sp_of_sps [pn.pos; pos_of_params ps;
 
 let rec string_of_process proc = 
   match proc.inst with
-  | Terminate             -> "_0"
+  | Terminate           -> "()"
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)
@@ -153,7 +153,7 @@ and trailing_sop p =
 
 and short_string_of_process proc = 
   match proc.inst with
-  | Terminate             -> "_0"
+  | Terminate           -> "()"
   | GoOnAs (pn,es)        -> Printf.sprintf "%s(%s)"
                                             (string_of_name (tinst pn))
                                             (string_of_list string_of_expr "," es)

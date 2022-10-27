@@ -46,8 +46,9 @@ let push_pending = ref 0
 let do_push_offsideline offset = 
   if !verbose_offside then
     Printf.eprintf "do_push_offsideline %d\n" offset;
+  (* we do not set an offside position! *)
   offsidelines := !offsideline :: !offsidelines;
-  offsideline := offset
+  if offset >= !offsideline then offsideline := offset
   
 let push_offsideline = function
   | Prev    -> if !verbose_offside then

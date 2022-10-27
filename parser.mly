@@ -317,7 +317,6 @@ iostep:
   | expr BANG exprtuple                 {adorn (Write ($1, tadorn (Expr.delist $3)))}
 
 simpleprocess:
-  | TERMINATE                           {adorn Terminate}
   | typedname procargs                  {adorn (GoOnAs ($1,$2))}
   | typedname procargs DOT              {raise (LexposParseError "nothing can follow a process invocation")}
   | LPAR NEWDEC paramseq RPAR process   
@@ -360,6 +359,10 @@ simpleprocess:
   | LPAR process RPAR                   {$2}
   | IF indentPrev ubif outdent fiq      {$3}
   | DOT process                         {$2} /* optional extra dots ... */
+  | TERMINATE                           {warning (loc()) "_0 as empty process is deprecated: use () or nothing at all";
+                                         adorn Terminate
+                                        }
+  |                                     {adorn Terminate} /* hope this works */
 
 dotprocess:
   | DOT process                         {$2}

@@ -14,7 +14,7 @@ proc System () =
     | ShowR ("Ry", Ry, theta, c)
     | c?_ .
       | ShowR ("Rz", Rz, theta, c)
-      | c?_ . _0
+      | c?_ . 
 
 ShowR (Rname, R:angle->gate, theta, c) =
   . out!["theta="; show theta; 
@@ -26,4 +26,4 @@ ShowR (Rname, R:angle->gate, theta, c) =
                Rname; " theta=";  show (R theta*R theta);         
          "\n"]
   . c!()
-  . _0
+  . 

@@ -33,5 +33,5 @@ proc Bob (w, hks, qc, bsc, againc, log) =
       (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
       log![bool2bit (¬c_ok)] .
       log!hks'                  .
-      _0
+      
   

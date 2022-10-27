@@ -11,14 +11,14 @@ fun ket_of_bits b v = match (b,v) .
 (* send encoded (bit, value) pairs down channel qc *)
 proc SendQubits (bvs,qc,sent) =   
     match bvs .
-    + []         . sent!() . _0
+    + []         . sent!() . 
     + (b,v)::bvs . (newq q = ket_of_bits b v)
                      qc!q    .
                      SendQubits (bvs,qc,sent)
 
 (* receive N qubits on channel qc, measure them, return the results *)
 proc ReceiveQBits (N, bvs, qc, results) =
-  if N=0 then results!rev bvs . _0
+  if N=0 then results!rev bvs . 
   else . qc?(q)                  
        . (let b = randbit ())
        . q⌢̸[if b=0b1 then H else I](v)
@@ -29,7 +29,7 @@ proc ReceiveQBits (N, bvs, qc, results) =
    Return measurements.
  *)
 proc CopyQBits (N, bvs, qA, qB, results) =
-  if N=0 then results!rev bvs . _0
+  if N=0 then results!rev bvs . 
   else . qA?(q)            
        . (let b = randbit ())
        . q⌢̸[if b=0b1 then H else I](v)

@@ -60,13 +60,13 @@ proc
                                          show (packets [] w hkbsA); " ";
                                          show (packets [] w hkbsAE')
                                         ] 
-                  . _0
+                  . 
              elif ¬intfseen && enough && hkbsB<>hkbsEB' && hkbsEB'<>[]
                then . out!["whoops! different new hash keys E<->B ";
                                          show (packets [] w hkbsEB'); " ";
                                          show (packets [] w hkbsB)
                                         ] 
-                    . _0
+                    . 
              elif ¬enough then
                   Logger (k, i, verbose, nAlice, nEve, nShort+1, nEvades, ncAs, ncBs, evasions, 
                           N, m, c, w, hkbsAE, hkbsEB
@@ -102,4 +102,4 @@ proc
                 "histogram of check-bit lengths (Eve/Bob) "; show (histogram (compare : num->num->num) ncBs); "\n";
                 "histogram of evasions "; show (histogram2 (compare : num->num->num) (zip ncAs evasions)); "\n"
                ] 
-         . _0 
+         .  

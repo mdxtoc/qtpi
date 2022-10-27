@@ -17,4 +17,4 @@ proc System () =
   
   out!["A measures "; show bA; ", B "; show bB; "; Cin/Sum "; show bSum; "; Cout "; show bCout; ".\n"] .
 
-  _0
+  

@@ -4,7 +4,7 @@
     task 16, WState_PowerOfTwo_Reference
  *)
  
-proc W1q (c1) = (newq q=|1>) c1!q . _0
+proc W1q (c1) = (newq q=|1>) c1!q . 
 
 proc W2q (c2) =
   (new c1)
@@ -14,12 +14,12 @@ proc W2q (c2) =
     . anc,q0,q1>>F . 
     . q0,anc>>CNot . ⁁2
     . c2!q0 . c2!q1 . dispose!anc
-    . _0
+    . 
                 with 2: . out!["W2q q0 = "] . outq!qval q0 
                         . out!["; q1 = "]   . outq!qval q1 
                         . out!["; anc = "]  . outq!qval anc
                         . out!["\n"]
-                        . _0
+                        . 
                     
 proc W4q (c4) =
  (new c2)
@@ -32,14 +32,14 @@ proc W4q (c4) =
    . q2,anc>>CNot . 
    . q3,anc>>CNot . ⁁4
    . c4!q0 . c4!q1 . c4!q2 . c4!q3 . dispose!anc
-   . _0
+   . 
                 with 4: . out!["W4q q0 = "] . outq!qval q0 . 
                         . out!["; q1 = "]   . outq!qval q1 
                         . out!["; q2 = "]   . outq!qval q2 
                         . out!["; q3 = "]   . outq!qval q3 
                         . out!["; anc = "]  . outq!qval anc
                         . out!["\n"]
-                        . _0
+                        . 
 
 proc W8q (c8) =
  (new c4)
@@ -58,7 +58,7 @@ proc W8q (c8) =
    . q6,anc>>CNot . 
    . q7,anc>>CNot . ⁁8
    . c8!q0 . c8!q1 . c8!q2 . c8!q3 . c8!q4 . c8!q5 . c8!q6 . c8!q7 . dispose!anc
-   . _0
+   . 
                 with 8: . out!["W8q q0 = "] . outq!qval q0  
                         . out!["; q1 = "]   . outq!qval q1 
                         . out!["; q2 = "]   . outq!qval q2 
@@ -69,11 +69,11 @@ proc W8q (c8) =
                         . out!["; q7 = "]   . outq!qval q7 
                         . out!["; anc = "]  . outq!qval anc
                         . out!["\n"]
-                        . _0
+                        . 
 
 proc System () =
   . (new c)
   | W8q (c)
-  | c?(q0) . c?(q1) . c?(q2) . c?(q3) . c?(q4) . c?(q5) . c?(q6) . c?(q7) . _0
+  | c?(q0) . c?(q1) . c?(q2) . c?(q3) . c?(q4) . c?(q5) . c?(q6) . c?(q7) . 
   
   

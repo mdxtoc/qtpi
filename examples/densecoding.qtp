@@ -3,7 +3,7 @@ System() = (new cA:^qubit,cB:^qubit,cAB:^qubit)
                 | Alice(cA,cAB) | Bob(cB,cAB) | EPR(cA,cB)
 
 EPR(cA:^qubit,cB:^qubit) = 
-  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y . _0 
+  (newq x=|0>,y=|0>) x>>H . x,y>>CNot . cA!x . cB!y .  
 
 Alice (cA:^qubit, cAB:^qubit) =
   (let pair:(bit,bit) = (randbit(), randbit())) ⁁1
@@ -12,11 +12,11 @@ Alice (cA:^qubit, cAB:^qubit) =
                + (0b0,0b1) . X
                + (0b1,0b0) . Z
                + (0b1,0b1) . Z*X     .
-  cAB!x . _0
-                                with 1: out!["Alice decides to send "; show pair; "\n"] . _0
+  cAB!x . 
+                                with 1: out!["Alice decides to send "; show pair; "\n"] . 
 
 Bob(cB:^qubit, cAB:^qubit) =
   cB?(y) . cAB?(x) . 
   x,y >> Cnot . x>>H. x-/-(i) . y-/-(j) . ⁁2
-  _0
-                                with 2: out!["Bob receives "; show (i,j); "\n" ] . _0
+  
+                                with 2: out!["Bob receives "; show (i,j); "\n" ] . 

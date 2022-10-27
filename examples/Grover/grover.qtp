@@ -27,11 +27,11 @@ proc
     . (let iters = floor (pi*sqrt(2**n)/4+0.5))
     . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
     
-    . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . _0
+    . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . 
     
     . out!["finally "] . outq!qvals qs . out!["\n"]
     
     . qs⌢⃫(bs') 
     . out!["measurement says "; show bs'; 
            if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
-    . _0
+    . 

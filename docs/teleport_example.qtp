@@ -7,7 +7,7 @@ proc System () =
      Alice (x:qubit, c:^(bit,bit)) = 
         (newq z) 
         . z,x>>CNot . z>>H . z⌢̸(vz) . x⌢̸(vx)
-        . c!(vz,vx) . _0 
+        . c!(vz,vx) .  
 
      Bob(y:qubit, c:^(bit,bit)) = 
         . c?(pair) . 
@@ -15,4 +15,4 @@ proc System () =
                              + (0b0,0b1) . X
                              + (0b1,0b0) . Z
                              + (0b1,0b1) . Z*X 
-        . _0
+        .

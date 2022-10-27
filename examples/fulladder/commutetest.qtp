@@ -6,5 +6,5 @@ proc System () =
   out!["(I⊗CNot)*(Swap⊗I)*(I⊗CNot)*(Swap⊗I) = "; show ((I⊗CNot)*(Swap⊗I)*(I⊗CNot)*(Swap⊗I)); "\n"] .
   out!["(Swap⊗I)*(I⊗CNot)*(Swap⊗I)*(I⊗CNot) = (I⊗CNot)*(Swap⊗I)*(I⊗CNot)*(Swap⊗I) is "; 
        show ((Swap⊗I)*(I⊗CNot)*(Swap⊗I)*(I⊗CNot) = (I⊗CNot)*(Swap⊗I)*(I⊗CNot)*(Swap⊗I)); "\n"] .
-  _0
+  
   

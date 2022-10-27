@@ -21,23 +21,23 @@ proc
         if ¬(ok && Bobok) then
           (* Interference: log an empty message, but don't send anything to Bob *)
           logc![] .
-          _0
+          
         else 
           (let key = map snd (filter (λ ((b,b'),v') . b=b') bBbvs))
           (let message = randbits m)
           (* out!["Alice sends  "; show message; "\n"] . *)
           bc!xor_mask (take m key) message   .
           logc!message              .
-          _0
+          
 
   AliceRead (nq,qc,rc,bvs) = 
-    if nq=0 then rc!rev bvs . _0
+    if nq=0 then rc!rev bvs . 
     else
       qc?(q) . (new r) | AliceMeasure (q,r) | r?(bv) . AliceRead (nq-1,qc,rc,bv::bvs)
 
   AliceMeasure (q,r) =
     match rand4() . 
-      + 0 . q-/-[R0] (b) . r!0,b . _0
-      + 1 . q-/-[R1] (b) . r!1,b . _0
-      + 2 . q-/-[R2] (b) . r!2,b . _0
+      + 0 . q-/-[R0] (b) . r!0,b . 
+      + 1 . q-/-[R1] (b) . r!1,b . 
+      + 2 . q-/-[R2] (b) . r!2,b . 
       + _ . AliceMeasure (q,r) (* 3 - try again *)

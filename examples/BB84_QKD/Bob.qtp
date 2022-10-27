@@ -27,26 +27,26 @@ proc Bob (N, c, w, hks, qc, bsc, log) =
       . (let M = xor_mask encryptedM code)
       . (let c_ok = forall (checkhash hks w) (zip [0;4] (zip [h0;h4] [bAs;encryptedM])))
       . ⁁8
-      . _0
+      . 
 
     with
          1: . log!bs . log!vs
-            . _0
+            . 
          2: . log!h0 . log!bAs
-            . _0
+            . 
          3: . log!h1 . log!bs
-            . _0
+            . 
          4: . log!rvs
-            . _0
+            . 
          5: . log!h2 . log!mask
-            . _0
+            . 
          6: . log!h3 . log!checkbits
-            . _0
+            . 
          8: . log!h4 . log!encryptedM
             . log!code
             . log!M
             . log![bool2bit (not c_ok)]
             . log!hks'
-            . _0
+            . 
                   
       

@@ -18,23 +18,23 @@ proc
         if not (ok && Aliceok) then
           (* Interference: log an empty message, but don't look for anything from Alice *)
           logc![] .
-          _0
+          
         else 
           (let key = map (compose inverse snd) (filter (λ ((b,b'),v') . b=b') bAbvs))
           bc?(encrypted) .
           (let message = xor_mask (take (length encrypted) key) encrypted)
           (* out!["Bob receives "; show message; "\n"] . *)
           logc!message .
-          _0
+          
 
   BobRead (nq,qc,rc,bvs) = 
-    if nq=0 then rc!rev bvs . _0
+    if nq=0 then rc!rev bvs . 
     else
       qc?(q) . (new r)| BobMeasure (q,r) | r?(bv) . BobRead (nq-1,qc,rc,bv::bvs)
 
   BobMeasure (q,r) =
     match rand4() .
-      + 1 . q-/-[R1] (b) . r!1,b . _0
-      + 2 . q-/-[R2] (b) . r!2,b . _0
-      + 3 . q-/-[R3] (b) . r!3,b . _0
+      + 1 . q-/-[R1] (b) . r!1,b . 
+      + 2 . q-/-[R2] (b) . r!2,b . 
+      + 3 . q-/-[R3] (b) . r!3,b . 
       + _ . BobMeasure (q,r) (* 0 - try again *)

@@ -88,7 +88,7 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
       log![] . log![]                      . (* hash, encrypted *)
       log![bool2bit false]                 . (* classical interference not detected *)
       log![]                               . (* no new hash keys *) 
-      _0
+      
     else
       (let hkbs' = take (5*w) codebits)      
       (let codebits = drop (5*w) codebits)
@@ -108,5 +108,5 @@ proc Alice(M, w, hks, cMin, nSigma, qc, bsc, againc, log) =
       (let c_ok = forall (checkhash hks w) (zip [1;2;3] (zip [h1;h2;h3] [bBs;mask;checkbitsB])))
       log![bool2bit (¬c_ok)]            .
       log!hkbs'                            .
-      _0
+      
 

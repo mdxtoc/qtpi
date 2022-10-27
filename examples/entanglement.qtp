@@ -10,9 +10,9 @@ proc System() =
 Alice (a) =
   a -/- (x) . 
   out!["Alice sees "; show x; "\n"] .
-  _0
+  
 
 Bob (b) =
   b -/- (y) . 
   out!["Bob sees "; show y; "\n"] .
-  _0
+  

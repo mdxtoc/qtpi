@@ -55,4 +55,4 @@ proc
     . (let _ = showG (concat ["groverG "; show n]) G)
     . (let _ = showG (concat ["groverU "; show bs]) U)
 
-    . _0
+    . 

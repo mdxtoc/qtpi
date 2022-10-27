@@ -7,7 +7,7 @@ proc
     | doneAE?(resultAE)      .
       doneEB?(resultEB)      .
       done!resultAE,resultEB .
-      _0
+      
   
   LogAliceEve (verbose, log, done) = 
     log?(encrypted:[bit])     .
@@ -20,7 +20,7 @@ proc
                         .
     log?(hkbsAE)        .
     done!hkbsAE         .
-    _0
+    
 
   LogEveBob (verbose, log, done) = 
     log?(bs)              .
@@ -42,4 +42,4 @@ proc
                         .
     log?(hkbsEB) .
     done!decoded, message, length cs, hkbsEB .
-    _0
+    

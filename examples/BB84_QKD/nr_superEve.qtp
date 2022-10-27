@@ -7,7 +7,7 @@ proc Eve (w, hksAE, hksEB, qcA, qcB, bcA, bcB, againA, againB, logAE, logEB) =
   | CopyQBits ([], qcA, qcB, bcA, copied)  
   | copied?(bs) . copied?(vs) . copied?(h0) . copied?(bases) .
     (new mc, init)
-    | init!bs . init!vs . init!h0 . init!bases . _0
+    | init!bs . init!vs . init!h0 . init!bases . 
     | AsBob (w, hksAE, init, qcA, bcA, againA, mc, logAE)
     | AsAlice (w, hksEB, bs, vs, qcB, bcB, againB, mc, logEB)
   
@@ -38,7 +38,7 @@ proc AsBob (w, hks, received, qcA, bcA, againA, mc, log) =
   mc ! message                            .
   log!codeA                               .
   log!hkbs'                               .
-  _0
+  
   
 proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
   log!bs    . log!vs                            .
@@ -62,7 +62,7 @@ proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
   if length M + 5*w > length codeB then
     bcB!tagged hks 4 w []                       .   (* we're caught: empty message *)
     log![]                                      .   (* no new hash keys *)
-    _0
+    
   else
     (let hkbs' = take (5*w) codeB)
     (let codeB = drop (5*w) codeB)
@@ -73,4 +73,4 @@ proc AsAlice(w, hks, bs, vs, qcB, bcB, againB, mc, log) =
     
     (* and bow out *)
     log!hkbs'                                   .
-    _0
+    

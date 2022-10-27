@@ -18,4 +18,4 @@ proc System () =
   out!mp (RX*RX) (RX*RX) .
   out!mp (RX*RX*RX) (RX*RX*RX) .
   out!mp (RX*RX*RX*RX) (RX*RX*RX*RX) .
-  _0
+  

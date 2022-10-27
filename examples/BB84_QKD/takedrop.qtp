@@ -8,7 +8,7 @@ proc Alice(n, r:^bit, qB, bsB) =
 
 (* choose n basis,bit pairs *)
 AliceChoose(n, bvs, r, chosen) =
-    if n=0 then chosen!bvs . _0
+    if n=0 then chosen!bvs . 
            else r?(b) . r?(v) . AliceChoose(n-1,(b,v)::bvs,r,chosen)
 
 AliceSend(bvs, qB, bsB) =
@@ -19,7 +19,7 @@ AliceSend(bvs, qB, bsB) =
 (* send encoded bits down channel qB *)
 AliceSendBits (bvs,qB,done) =   
     match bvs .
-    + []         . done!() . _0
+    + []         . done!() . 
     + (b,v)::bvs . (newq q = match (b,v) .
                              + (0b0,0b0) . |0> 
                              + (0b0,0b1) . |1> 
@@ -45,17 +45,17 @@ AliceNegotiate (bvs,bsB) =
     
 AliceCheck (vBs, vs, done) =
   match (vBs, vs) .
-  + ([]    , _     )  . done!() . _0
+  + ([]    , _     )  . done!() . 
   + (v::vBs, v'::vs)  . if v=v' then AliceCheck (vBs, vs, done) else Bad ()
   + _                 . Bad ()
 
 Reconcile (bBs,bvs,vs,done) =
   match( bBs, bvs) .
-  + ([]     , []        ) . (done!rev vs . _0)
+  + ([]     , []        ) . (done!rev vs . )
   + (bB::bBs, (b,v)::bvs) . Reconcile (bBs, bvs, (if bB=b then v::vs else vs), done)
   + _                     . Stop (["Reconcile failure"])
   
-Stop (ss) = out!(ss @ ["\n"]) . _0
+Stop (ss) = out!(ss @ ["\n"]) . 
 
 Bad () = Stop (["interference detected -- everything stops"])
 Good (vs) = Stop (["Alice's code is "; show vs])
@@ -76,11 +76,11 @@ Bob(n:num, r:^bit, qA, bsA) =
         bsA!take checklength vs . (* send her a sample *)
         (let code = drop checklength vs)
         out!["Bob's code is "; show code; "\n"] .                                
-        _0
+        
 
 (* receive qubits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
-    if n=0 then done!rev bvs . _0
+    if n=0 then done!rev bvs . 
     else qA?(q) .
          r?(basis) .
          q -/-[if basis=0b1 then H else I] (value) .

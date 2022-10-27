@@ -1,14 +1,14 @@
 (* Meyer's Star Trek coin toss, where the coin is a qubit. Only |0> works: try alternative bases to see what happens *)
 
 proc P(s:^qubit, log) = 
-  s?(y) . if randbool() then out!["P passive; "] . y>>I . s!y . log!() . _0        
-                        else out!["P turns; "]   . y>>X . s!y . log!() . _0
+  s?(y) . if randbool() then out!["P passive; "] . y>>I . s!y . log!() .         
+                        else out!["P turns; "]   . y>>X . s!y . log!() . 
                      
 proc Q(q: qubit, s:^qubit, log) = 
   out!["initially "] . outq!(qval q) . out!["; "] .
   q>>H . s!q . s?(q') . q'>>H . 
   out!["finally "] . outq!(qval q') . out!["\n"] .
-  log!() . _0 
+  log!() .  
 
 proc System() = (let k = read_num "number of trials")
                 (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
@@ -18,7 +18,7 @@ proc System() = (let k = read_num "number of trials")
 Logger (k, bv) = Run (k, bv, 0)
 
 Run (k, bv, i) = 
-  if i=k then out![show i; " trials\n"] . _0
+  if i=k then out![show i; " trials\n"] . 
   else
     (newq q = bv) 
     (new s:^qubit)

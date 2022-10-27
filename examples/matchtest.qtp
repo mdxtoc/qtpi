@@ -1,4 +1,4 @@
-proc S(i) = _0
+proc S(i) = 
 
 System() = Incomplete ()
 
@@ -22,8 +22,8 @@ proc IncompleteAlso () = match (0,|+>) .
                          + (2, |+>) . S(3)
 
 proc IncompleteKet (k) = match k .
-                         + |+> . _0
-                         + |-> . _0
-                         + |0> . _0
-                         + |1> . _0
+                         + |+> . 
+                         + |-> . 
+                         + |0> . 
+                         + |1> . 
                      

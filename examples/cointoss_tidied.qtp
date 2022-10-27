@@ -1,12 +1,12 @@
 proc P(s:^qubit) = 
-  + s?(y) . if randbool() then y>>I .                      s!y . _0        
-                          else y>>X . out!["(P turns); "]. s!y . _0
+  + s?(y) . if randbool() then y>>I .                      s!y .         
+                          else y>>X . out!["(P turns); "]. s!y . 
                      
 proc Q(q: qubit, s:^qubit) = 
   out!["initially "] . outq!(qval q) . out!["; "] .
   q>>H . s!q . s?(q') . q'>>H . 
   out!["finally "] . outq!(qval q') . out!["\n"] .
-  _0 
+   
 
 proc System() = (newq q = |0>) (new s:^qubit)
                 | P(s) 

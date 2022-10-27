@@ -168,4 +168,4 @@ proc System () =
   out!["result q2_3 measures "; show b1_3; "\n"] .
   q2_9 -/- [rgate (delta phi 1 4)*H] (b1_4) . 
   out!["result q2_4 measures "; show b1_4; "\n"] .
-  _0
+  

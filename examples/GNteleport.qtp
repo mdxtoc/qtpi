@@ -3,7 +3,7 @@ proc
   Alice (x:qubit, c:^(bit,bit), z:qubit, log) = 
     out!["initially Alice's z is "] . outq!(qval z) . out!["\n"] .
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . c!vz,vx . 
-    log!() . _0 
+    log!() .  
 
   Bob(y:qubit, c:^(bit,bit), log) = 
     c?(b1,b2) . y>>phi (match (b1,b2) .
@@ -14,7 +14,7 @@ proc
                         ) . 
     out!["finally Bob's y is "] . outq!(qval y) . out!["\n"] .
     dispose!y .
-    log!() . _0 
+    log!() .  
 
   System () = 
     out!["This is teleportation using the Phi collection I, X, Y, Z. It doesn't work\n"] .
@@ -26,7 +26,7 @@ proc
     Run (k, standard, 0)
 
   Run (k, standard, i) =
-    if i=k then out![show k; " trials\n"] . _0
+    if i=k then out![show k; " trials\n"] . 
     else (new log)
          | if standard then (newq x=|0>, y=|0>) Experiment (x, y, log)
                        else (newq x,y)          Experiment (x, y, log)
@@ -40,4 +40,4 @@ proc
     (new logA, logB)
     | Alice(x,c,z,logA) 
     | Bob(y,c,logB)
-    | logA?(_) . logB?(_) . log!() . _0
+    | logA?(_) . logB?(_) . log!() . 

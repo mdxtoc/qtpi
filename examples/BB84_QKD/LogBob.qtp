@@ -26,4 +26,4 @@ proc LogBob (verbose, log, done) =
     out![if intfseen then "Bob detected classical interference\n" else ""] .
     log?(hks') .
     done!length cs, M, intfseen, hks' .
-    _0
+    

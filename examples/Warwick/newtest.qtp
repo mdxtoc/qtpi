@@ -9,7 +9,7 @@ proc System () =
   . q0 -/- (b0)
   . q1 -/- (b1)
   . out ! ["q0,q1 = "; show b0; ","; show b1; "\n"]
-  . _0
+  . 
  *)
    (let g1 = H⊗H⊗H⊗H⊗H⊗H)
    (let g2 = CZ⊗CZ⊗CZ)
@@ -23,5 +23,5 @@ proc System () =
    . out ! ["g5="; show g5; "\n"]
    . (let g = g1*g2*g3*g4*g5) 
    . out ! ["product="; show (g1*g2*g3*g4*g5); "\n"]
-   . _0
+   . 
    

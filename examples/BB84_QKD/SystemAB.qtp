@@ -63,4 +63,4 @@ Logger (k, i, verbose, nOk, nIntf, nShort, ncAs, N, m, c, w, hkbs) =
               " minimum check bits "; show (listmin ncAs); "\n";
               "histogram of check-bit lengths "; show (histogram (compare : num->num->num) ncAs); "\n"
              ] 
-       . _0 
+       .  

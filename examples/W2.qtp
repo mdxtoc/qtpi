@@ -4,4 +4,4 @@ proc System () =
   . q1>>X
   . q0,q1>>CNot
   . out!["q0 = "] . outq!qval q0 . out!["\n"]
-  . _0
+  . 

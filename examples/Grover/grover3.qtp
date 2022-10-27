@@ -22,13 +22,13 @@ proc
     . ⁁1
     . Grover (iters, GU, q0, q1, q2, bs)
   
-                  with 1: out!["grover 3  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+                  with 1: out!["grover 3  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . 
 
   Grover (iters, GU, q0, q1, q2, bs) =
     if iters=0 then
       . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) 
       . ⁁1
-      . _0
+      . 
     else
       . q0,q1,q2>>GU
       . Grover (iters-1, GU, q0, q1, q2, bs)
@@ -36,4 +36,4 @@ proc
                   with
                     1: . out!["measurement says "; show [b0;b1;b2]; 
                               if [b0;b1;b2]=bs then " ok" else " ** WRONG **"; "\n"] 
-                       . _0
+                       . 

@@ -20,4 +20,4 @@ proc System () =
   out!["\nA measures "; show bA; ", B "; show bB; "; Cin "; show bCin; "; 
        Sum "; show bSum; "; Cout "; show bCout; ".\n"] .
 
-  _0
+  

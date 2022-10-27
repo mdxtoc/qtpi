@@ -1,8 +1,8 @@
 (* Meyer's Star Trek coin toss, where the coin is a |0> qubit. *)
 
-proc P(s) = s?(y) . y>>(if randbool () then X else I) . s!y . _0
+proc P(s) = s?(y) . y>>(if randbool () then X else I) . s!y . 
 
-proc Q(x: qubit, s:^qubit) = x>>H . s!x . s?(x') . x'>>H . _0 
+proc Q(x: qubit, s:^qubit) = x>>H . s!x . s?(x') . x'>>H .  
 
 proc System() = (newq q = |0>) (new s:^qubit) | P(s)
                                              | Q(q,s)

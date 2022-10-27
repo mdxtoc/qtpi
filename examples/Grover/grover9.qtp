@@ -28,13 +28,13 @@ proc
     . ⁁1
     . Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8, bs)
   
-                  with 1: out!["grover "; show n; ";  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . _0
+                  with 1: out!["grover "; show n; ";  bs = "; show bs; "; "; show iters; " iterations"; "\n"] . 
 
   Grover (iters, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8, bs) =
     if iters=0 then
       . q0-/-(b0) . q1-/-(b1) . q2-/-(b2) . q3-/-(b3) . q4-/-(b4) . q5-/-(b5) . q6-/-(b6) . q7-/-(b7) . q8-/-(b8)
       . ⁁1
-      . _0
+      . 
     else
       . q0,q1,q2,q3,q4,q5,q6,q7,q8>>GU
       . Grover (iters-1, GU, q0, q1, q2, q3, q4, q5, q6, q7, q8, bs)
@@ -43,5 +43,5 @@ proc
                     1: . (let answer = [b0;b1;b2;b3;b4;b5;b6;b7;b8])
                        . out!["measurement says "; show answer; 
                               if answer=bs then " ok" else " ** WRONG **"; "\n"] 
-                       . _0
+                       . 
                      

@@ -32,7 +32,7 @@ proc LogAlice (verbose, log, done) =
            else             ["not enough code bits\n"]
          
      . done!length bs,nc,c_intf,q_intf,enough,[],[] .
-     . _0
+     . 
    else
      . out!if ¬verbose then ["\n"] else []
      . log?(code)
@@ -42,5 +42,5 @@ proc LogAlice (verbose, log, done) =
      . out!if verbose then ["Alice sent tagged encrypted "; show (h4, encrypted); "\n"] else []
      . log?(hks)
      . done!length bs,nc,c_intf,q_intf,enough,hks,M
-     . _0
+     . 
   

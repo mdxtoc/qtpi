@@ -20,7 +20,7 @@ fun calc n k nSigma cMin = if n=0 then 0 else calc (n-1) (q+k-q) nSigma cMin whe
 
 proc Calc (n, M, w, cMin, nSigma) =
   (let k = calc n (length M + 5*w) nSigma cMin)
-  . _0
+  . 
   
 proc System() = (let n = read_min_int 1 "length of message")
                 (let w = read_min_int 0 "length of a hash key")

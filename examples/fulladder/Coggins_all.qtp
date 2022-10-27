@@ -16,8 +16,8 @@ proc System () =
         (* collapse entanglements and dispose, to simplify trace *)
         qA-/-(_) . qB-/-(_) . qCin-/-(_) . 
         qSum-/-(_) . qCout-/-(_) . 
-        _0
+        
   . 
-  _0
-            with 1: out!["full adder sum of (A="] . outq!qval qA . out![", B="] . outq!qval qB . out![", Cin="] . outq!qval qCin . out![")"] ._0
-                 2: out![" is (Cout="] . outq!qval qCout . out![", sum="] . outq!qval qSum . out![")\n"] . _0
+  
+            with 1: out!["full adder sum of (A="] . outq!qval qA . out![", B="] . outq!qval qB . out![", Cin="] . outq!qval qCin . out![")"] .
+                 2: out![" is (Cout="] . outq!qval qCout . out![", sum="] . outq!qval qSum . out![")\n"] . 

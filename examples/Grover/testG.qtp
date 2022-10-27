@@ -24,5 +24,5 @@ proc System() =
   (let G1 = (H*X*H)⊗⊗n)
   (let G2 = H⊗⊗n*X⊗⊗n*H⊗⊗n)
   out!["G="; show G; "\nG1="; show G1; "\nG2="; show G2; 
-       "\nG=G1 is "; show (G=G1); " G=G2 is "; show (G=G2); " G1=G2 is "; show (G1=G2)] . _0
+       "\nG=G1 is "; show (G=G1); " G=G2 is "; show (G=G2); " G1=G2 is "; show (G1=G2)] . 
   

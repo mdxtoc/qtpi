@@ -7,7 +7,7 @@ proc System() =
   . a ⌢̸ [RZ*RZ*RZ] (b) 
   . out!["theta="; show theta; "; Rz theta="; show RZ; ";\n"; 
          "a ⌢̸ [RZ*RZ*RZ] -> "; show b; "\n"] 
-  . _0
+  . 
 
 proc Source() =
   (newq a=|0>,b=|+>) outq!(qval a) . outq!(qval b) . 
@@ -18,4 +18,4 @@ proc Source() =
   b,a >> Cnot . outq!(qval a) . out!["\n"] .
   (newq a=|1>,b=|->) outq!(qval a) . outq!(qval b) . 
   b,a >> Cnot . outq!(qval a) . out!["\n"] .
-  _0
+  

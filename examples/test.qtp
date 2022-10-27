@@ -9,4 +9,4 @@ proc System () =
   out!["G*G†="; show (G*G†); "\n"] .
   out!["G=degate (groverG 5) is "; show (G=degate (groverG 5)); "\n"] .
   out!["engate G=groverG 5 is "; show (engate G=groverG 5); "\n"] .
-  _0
+  

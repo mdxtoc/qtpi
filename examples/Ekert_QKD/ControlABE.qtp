@@ -4,7 +4,7 @@ proc
   ControlABE(qcA,qcB,n,k,nq,m,verbose,nOK) =
     if n=k then 
       out![show n; " trials, "; show nOK; " OK\n"] .
-      _0 
+       
     else
       out!["trial number "; show (k+1); "\n"] .
       (new ic,bc,logcA,logcB,qcE)

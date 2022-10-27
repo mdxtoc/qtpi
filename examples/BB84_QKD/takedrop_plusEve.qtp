@@ -8,7 +8,7 @@ Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n, r:^bit, qB, bsB) =
                               "average check bits "; showf 2 (sumChecks/k); 
                               " minimum check bits "; show minChecks; "\n"
                              ] . 
-              _0
+              
          else out!["trial number "; show (k-i+1); if verbose then "\n" else " "] .
               (new chosen, again)  
               | AliceChoose (n,[],r,chosen)
@@ -28,7 +28,7 @@ Alice1(k, i, nGood, nBad, sumChecks, minChecks, verbose, n, r:^bit, qB, bsB) =
   
 (* choose n basis,bit pairs -- this could all be done with Random *)
 AliceChoose(n, bvs, r, chosen) =
-    (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . _0
+    (let bs = randbits n) (let vs = randbits n) chosen!zip bs vs . 
 
 AliceSend(verbose, bvs, qB, bsB, again) =
     (new done)  
@@ -38,7 +38,7 @@ AliceSend(verbose, bvs, qB, bsB, again) =
 (* send encoded bits down channel qB *)
 AliceSendBits (bvs,qB,done) =   
     match bvs .
-    + []         . done!() . _0
+    + []         . done!() . 
     + (b,v)::bvs . (newq q = match (b,v) .
                              + (0b0,0b0) . |0> 
                              + (0b0,0b1) . |1> 
@@ -65,23 +65,23 @@ AliceNegotiate (verbose,bvs,bsB,again) =
                                  else  ["code -- "; show (length vBs); " check bits\n"]
                  else ["interference detected -- "; show (length vBs); " check bits\n"] .
         again!b, length vBs .
-        _0
+        
     
 AliceCheck (vBs, vs, done) =
   match (vBs, vs) .
-  + ([]    , _     )  . done!true . _0
-  + (v::vBs, v'::vs)  . if v=v' then AliceCheck (vBs, vs, done) else done!false . _0
-  + _                 . done!false . _0
+  + ([]    , _     )  . done!true . 
+  + (v::vBs, v'::vs)  . if v=v' then AliceCheck (vBs, vs, done) else done!false . 
+  + _                 . done!false . 
 
 Reconcile (bBs,bvs,vs,done) =
   match (bBs, bvs) .
-  + ([]     , []        ) . (done!rev vs . _0)
+  + ([]     , []        ) . (done!rev vs . )
   + (bB::bBs, (b,v)::bvs) . Reconcile (bBs, bvs, if bB=b then v::vs else vs, done)
-  + _                     . out!["Reconcile failure"] . _0
+  + _                     . out!["Reconcile failure"] . 
   
 
 Bob(k, verbose, n, r:^bit, qA, bsA) = 
-  if k=0 then _0
+  if k=0 then 
   else
     (new done) 
     | BobReceive(n,[],qA,r,done)
@@ -102,7 +102,7 @@ Bob(k, verbose, n, r:^bit, qA, bsA) =
   
 (* receive qubits down qA, measure them, record the results *)
 BobReceive(n,bvs,qA,r,done) =
-    if n=0 then done!rev bvs . _0
+    if n=0 then done!rev bvs . 
     else qA?(q).
          r?(basis).
          q -/-[if basis=0b1 then H else I] (value) .
@@ -110,7 +110,7 @@ BobReceive(n,bvs,qA,r,done) =
        
 (* a very naive eavesdropper. Sees Alice's bits but messes with them. Knows 'n', somehow *)
 Eve (k, verbose, n, r:^bit, qA, qB) =
-  if k=0 then _0
+  if k=0 then 
   else
     (new done) 
     | EvesDrop(n,[],r,qA,qB,done)
@@ -119,7 +119,7 @@ Eve (k, verbose, n, r:^bit, qA, qB) =
       Eve (k-1, verbose, n, r, qA, qB)
   
 EvesDrop (n, bvs, r:^bit, qA, qB, done) =
-    if n=0 then done!rev bvs . _0
+    if n=0 then done!rev bvs . 
     else qA?(q) .
          r?(b) .
          q-/-[if b=0b0 then I else H](v) . 

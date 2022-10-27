@@ -1,7 +1,7 @@
 (* send values encoded in [basis] as qubits down channel [qB] *)
 proc AliceSendBits (vs,basis,qB,done) =   
     match vs .
-    + []    . done!() . _0
+    + []    . done!() . 
     + v::vs . (newq q = match (basis,v) .
                         + (0b0,0b0) . |0> 
                         + (0b0,0b1) . |1> 
@@ -18,19 +18,19 @@ proc Alice(n, r:^bit, qB, vB, log) =
     log!vs .
     (new done) 
     | AliceSendBits (vs,basis,qB,done)
-    | done?(_) . vB!basis,vs . _0
+    | done?(_) . vB!basis,vs . 
 
 (* receive qubits down qA, measure them, record the results *)
 proc BobReceive(n,bvs,qA,r,done) =
-  if n=0 then done!rev bvs . _0
+  if n=0 then done!rev bvs . 
   else qA?(q).
        r?(basis).
        q -/-[if basis=0b1 then H else I] (value) .
        BobReceive(n-1,(basis,value)::bvs,qA,r,done)
 
 (* check Alice's story *)
-proc Liar   (done) = done!false . _0
-proc Honest (done) = done!true  . _0
+proc Liar   (done) = done!false . 
+proc Honest (done) = done!true  . 
 
 proc BobVerify (basis,vs,bvs,done) =
   match (vs, bvs) .
@@ -53,7 +53,7 @@ proc Bob(n, r:^bit, qA, vA, log) =
     BobVerify (basis,vs,bvs,verified)
   | verified?(honest) .
     log![if honest then 0b1 else 0b0] .
-    _0
+    
 
 (* a source of random bits. A bit of a joke, but relatively harmless *)
 proc Random(r:^bit) = (newq q=|+>) q-/-(v) . r!v . Random(r)
@@ -64,7 +64,7 @@ proc Control (k, i, verbose, nA, nB, nH, n, r) =
                                       show nB; " Bob; ";
                                       show nH; " honest\n"
                    ] . 
-    _0
+    
   else
     out!["trial number "; show (i+1);
                     if verbose then ": " else "\n"

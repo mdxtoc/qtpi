@@ -8,7 +8,7 @@ proc System () = (newq x=|+>, y=|0>) x,y>>CNot .
                                        outq!(qval z) . out!["\n"] .
                                        z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
                                        c!vz,vx . 
-                                       _0 
+                                        
 
      Bob(y:qubit, c:^(bit,bit)) = c?(pair) . 
                                   y >> match pair . + (0b0,0b0) . I
@@ -17,14 +17,14 @@ proc System () = (newq x=|+>, y=|0>) x,y>>CNot .
                                                     + (0b1,0b1) . Z*X    .
                                   out!["finally Bob's y is "] . 
                                   outq!(qval y) . out!["\n"] .
-                                  _0 
+                                   
 
      Choose (cz:^qubit) = 
        (let init = read_bool "initialised qubit or random" "i" "r")
        if init 
          then
            (let bv = read_alternative "basis" "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)])
-           (newq z = bv) cz!z . _0
+           (newq z = bv) cz!z . 
          else 
-           (newq z) cz!z . _0
+           (newq z) cz!z . 
 

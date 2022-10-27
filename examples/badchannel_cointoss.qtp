@@ -2,11 +2,11 @@
    a channel: no longer allowed.
  *)
 
-proc P(s:^(qubit,^qubit)) =  + s?(y,t) .        t!y . _0
-                             + s?(y,t) . y>>X . t!y . _0
+proc P(s:^(qubit,^qubit)) =  + s?(y,t) .        t!y . 
+                             + s?(y,t) . y>>X . t!y . 
                      
 proc Q(x: qubit, s:^(qubit,^qubit)) = 
-  x>>H . (new t:^qubit) s!x,t . t?(z) . z>>H . _0 
+  x>>H . (new t:^qubit) s!x,t . t?(z) . z>>H .  
 
 proc System() = (newq x) (new s:^(qubit,^qubit)) | P(s) 
                                                  | Q(x,s)

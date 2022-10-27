@@ -6,4 +6,4 @@ proc Eve (nq,qcin,qcout) =
     dispose!q' .  (* plug a space leak: without this we generate an orphan qubit each time round the loop *)
     Eve (nq-1,qcin,qcout)
   else
-    _0
+    

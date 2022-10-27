@@ -3,7 +3,7 @@ proc Control(qcA,qcB,n,k,nq,m,verbose) = ControlAB(qcA,qcB,n,k,nq,m,verbose,0)
     ControlAB(qcA,qcB,n,k,nq,m,verbose,nOK) =
       if n=k then 
         out![show n; " trials, "; show nOK; " OK\n"] .
-        _0 
+         
       else
         out!if k<>0 && k%10 = 0 then [show k; " trials\n"] else [] .
         (new ic,bc,logcA,logcB)

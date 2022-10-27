@@ -51,7 +51,7 @@ proc Alice(M, N, w, hks, qc, bsc, log) =
      *)
     . if ¬(q_check && c_check && enough) then
         . bsc!tagged hks 4 w []
-        . _0
+        . 
       else
         (* The (secret) code bits are the ones Bob didn't mask. We take new WC hash codes 
            and a secret message code from the secret code bits.
@@ -63,25 +63,25 @@ proc Alice(M, N, w, hks, qc, bsc, log) =
         . (let h4 = hwc encryptedM hks 4 w)
         . bsc!h4,encryptedM                  (* send the encrypted message *)
         . ⁁7
-        . _0
+        . 
 
                     with
                       1: . log!bs . log!vs 
-                         . _0
+                         . 
                       2: . log!h0 . log!bs                         
                          . log!h1 . log!bBs 
-                         . _0 
+                         .  
                       3: . log!rvs 
-                         . _0
+                         . 
                       4: . log!h2 . log!mask
                          . log!h3 . log!checkbitsB 
-                         . _0 
+                         .  
                       5: . log![bool2bit q_check]
                          . log![bool2bit c_check]
                          . log![bool2bit enough]
-                         . _0
+                         . 
                       7: . log!code
                          . log!M
                          . log!h4 . log!encryptedM
                          . log!hks'
-                         . _0
+                         . 

@@ -7,4 +7,4 @@ proc System() =
   . q2,q0 >> CNot
   . q2,q1 >> CNot
   . out!["q0 = "] . outq!qval q0 . out!["\n"]
-  . _0
+  . 

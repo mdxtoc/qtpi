@@ -19,7 +19,7 @@ proc Alice (x:qubit, c:^(bit,bit)) =
     out!["x is measured in the computational basis, giving ";
                     show vx; "\n"] .
     c!vz,vx . 
-    _0 
+     
 
 proc Bob(y:qubit, c:^(bit,bit)) = 
     c?(pair) . 
@@ -31,7 +31,7 @@ proc Bob(y:qubit, c:^(bit,bit)) =
                       + (0b1,0b1) . Z*X     . 
     out!["finally Bob's y is "] . 
     outq!(qval y) . out!["\n"] .
-    _0 
+     
 
 proc System () = 
   (newq x=|+>, y=|0>) x,y>>CNot . 

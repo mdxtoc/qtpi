@@ -98,13 +98,13 @@ fun listsum ns = foldl (λ (sum:num) n . sum+n) 0 ns
 
 fun listmin ns = foldl (λ sofar n . min sofar n) (hd ns) (tl ns)
 
-fun packets rs (size:num) (bits:[bit]) : [[bit]]
-  = match bits .
+fun packets rs (size:num) (bits:[bit]) : [[bit]] = 
+    match bits .
     + [] . rs
     + _  . packets (take size bits::rs) size (drop size bits)
 
-fun hwc message keys i w : [bit] 
-  = if w=0 || message=[] then [0b0] else
+fun hwc message keys i w : [bit] = 
+  if w=0 || message=[] then [0b0] else
       hwc1 message
         where hwc1 bits = 
                 match hps .

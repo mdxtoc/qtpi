@@ -1,4 +1,4 @@
-proc S(i) = 
+proc S(i) = ()
 
 System() = Incomplete ()
 

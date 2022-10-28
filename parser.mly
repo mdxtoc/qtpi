@@ -364,6 +364,7 @@ simpleprocess:
   | TERMINATE                           {warning (loc()) "_0 as empty process is deprecated: use () or nothing at all";
                                          adorn Terminate
                                         }
+  | LPAR RPAR                           {adorn Terminate} /* hope this works */
   |                                     {adorn Terminate} /* hope this works */
 
 dotprocess:
@@ -501,8 +502,8 @@ primary:
 eif:
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
-    ELSE indentPrev indentNext expr outdent outdent
-                                        {tadorn (ECond ($2, $6, $11))}
+    ELSE indentNext expr outdent        /* ditto */
+                                        {tadorn (ECond ($2, $6, $10))}
   | indentNext expr outdent 
     THEN indentNext expr outdent        /* can go back beyond THEN, but not beyond IF */ 
     ELIF indentPrev eif outdent         {tadorn (ECond ($2, $6, $10))}

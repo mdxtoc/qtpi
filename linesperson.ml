@@ -59,7 +59,7 @@ let make_make_token : Sedlexing.lexbuf -> (Sedlexing.lexbuf -> Parser.token) = f
                        (Sourcepos.linenum start_p)
                        (Sourcepos.charnum start_p)
        else ();
-       Parser.OFFSIDE
+       curr_offside := true; Parser.OFFSIDE
       ) 
     else 
       (ready := false; 
@@ -67,7 +67,7 @@ let make_make_token : Sedlexing.lexbuf -> (Sedlexing.lexbuf -> Parser.token) = f
          Printf.eprintf "Linesperson.make_token provides %s (%s)\n"
                           (Lexer.string_of_token !token)
                           (short_string_of_sourcepos (Sedlexing.lexing_positions lexbuf));       
-      !token
+      curr_offside:= false; !token
       )
   in
   make_token

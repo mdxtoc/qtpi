@@ -9,7 +9,7 @@ fun read_min_int m s
                                j
       where j = read_num s
     
-fun pos_root a b c = (-b+sqrt(b*b-4*a*c))/(2*a)
+fun pos_root a (b:num) c = (-b+sqrt(b*b-4*a*c))/(2*a)
 
 fun min_qubits k (s:num) cmin
   = ceiling (max (rootn*rootn) (rootnmin*rootnmin))

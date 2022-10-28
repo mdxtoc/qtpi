@@ -102,10 +102,16 @@ let parse_program filename =
   (* for menhir | Parser.Error *) ->
       (close_in in_channel;
        let lnum, cpos, lexeme = lexinfo () in
-       raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"
-                                    filename lnum cpos lexeme
-                    )
-             )
+       if !Parserparams.curr_offside then
+         raise (Error (Printf.sprintf "\n**%s: Offside error at line %d character %d symbol %s\n"
+                                      filename lnum cpos lexeme
+                      )
+               )
+       else
+         raise (Error (Printf.sprintf "\n** %s: Parse error at line %d character %d (just before \"%s\")\n"
+                                      filename lnum cpos lexeme
+                      )
+               )
       )
   | Settings.LexposParseError s ->
       (close_in in_channel;

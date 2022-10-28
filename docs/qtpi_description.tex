@@ -83,7 +83,7 @@ proc System () =
      Alice (x:qubit, c:^(bit,bit)) = 
         (newq z=|->) 
         . z,x>>CNot . z>>H . z⌢̸(vz) . x⌢̸(vx)
-        . c!(vz,vx) . _0 
+        . c!(vz,vx) .  
 
      Bob(y:qubit, c:^(bit,bit)) = 
         . c?(pair) . 
@@ -91,7 +91,7 @@ proc System () =
                              + (0b0,0b1) . X
                              + (0b1,0b0) . Z
                              + (0b1,0b1) . Z*X 
-        . _0
+        . 
 \end{verbatim}
 \caption{Teleporting a quantum state}
 \figlabel{teleportexample}
@@ -186,15 +186,15 @@ The language described in this document is a mildly tweaked version of CQP. Sepa
 \end{description}
  
 \subsection{Qubit or qbit?}
-The world uses `qubit' for `quantum bit'. CQP used `qbit' for the simulated qubits a program manipulates, and at first qtpi did the same. Qbit actually would be a better name, because `qubit' seems to be be pronounced `q bit'. But it's too late to change the world's mind, and qtpi now uses `qubit' (though it accepts `qbit' in programs, because why not?).
+The world uses `qubit' for `quantum bit'. CQP used `qbit' for the simulated qubits a program manipulates, and at first qtpi did the same. Qbit actually would be a better name, because `qubit' seems to be be pronounced `quoobit'. But it's too late to change the world's mind, and qtpi now uses `qubit' (though it accepts `qbit' in programs, because why not?).
 
 \subsection{The offside parsing rule}
 
 Most languages use lots of brackets in their syntax. You sometimes have to use brackets in OCaml, for example, around the clause which follows `then', when there is no `else' to bracket it, and likewise after the `else' because there's no bracket to match `if'.
 
-When I began to implement Qtpi I thought that I'd do the Algol 68 thing and use `if .. then .. else .. fi'. When I realised I needed pattern matching, I introduced a construct which started `match' and ended `hctam'. It looked horrible, and I could never remember how to spell hcatm.
+When I began to implement Qtpi I thought that I'd do the Algol 68 thing and use `if .. then .. else .. fi'. When I added pattern matching, I introduced a construct which started `match' and ended `hctam'. It looked horrible, and I could never remember how to spell hcatm.
 
-Landin's \emph{offside rule} -- no part of a construct should be to the left and below the first symbol of the construct -- often makes closing brackets unnecessary. In the Miranda expression $E$ where $E'$, `where' mustn't be left of $E$ and $E'$ mustn't be left of `where'. This disambiguates things like 
+Landin's \emph{offside rule} -- no part of a construct should be to the left and below the first symbol of the construct -- often makes closing brackets unnecessary. In the expression $E$ where $E'$, `where' mustn't be left of $E$ and $E'$ mustn't be left of `where'. This disambiguates things like 
 
 \begin{verbatim}
 		hwc key message
@@ -219,17 +219,18 @@ To reduce their size, I've omitted typing from syntax descriptions. If you prefe
 \begin{itemize}
 \item variable declarations can be typed -- $x$ : $T$
 \item patterns $pat$ and \<bpat> can be typed but will usually need bracketing -- ( $pat$ : $T$ ) and ( \<bpat> : $T$ ) 
-\item function definitions can be typed a la ML -- $f$ \<bpat> ... \<bpat> : $T$ = $E$  where $T$ is the result type and the \<bpat>s can be typed individually
+\item function definitions can be typed a la ML -- $f$ \<bpat> ... \<bpat> : $T$ = $E$  where $T$ is the result type and the \<bpat>s can be typed individually (** Warning: this will change soon)
 \item expressions $E$ can be typed if bracketed -- ( $E$ : $T$ )
 \end{itemize}
 
 \subsection{Syntactic conventions}
 
-Optional items are in square brackets, repetition is represented by ellipsis, and in most cases include the zero repetition.
+\newcommand{\asep}[0]{\ \bigm{|} \ }
+\newcommand{\optq}[1]{\ensuremath{\mbox{?`}\ #1\ \mbox{?}}}
+Optional items are in question brackets \optq{}, repetition is represented by ellipsis, and in most cases include the zero repetition.
 
 \subsection{Program syntax}
 
-\newcommand{\asep}[0]{\ \bigm{|} \ }
 \begin{figure}
 \centering \ensuremath{
 \begin{array}{rcl}
@@ -257,7 +258,7 @@ In \figref{programsyntax} a program is a sequence of process, function and varia
 \centering \ensuremath{
 \begin{array}{rcl}
 P       &::=& Q  \adot  P \asep \<IO>  \adot  P \asep  \adot P \\
-		&|&   \verbtt{(new } x, ... ,z )\ [ \adot ]\ P \asep
+		&|&   \verbtt{(new } x, ... ,z )\ \optq{\adot}\ P \asep
 		      \verbtt{(newq } x[=E], ... ,z[=E] )\ [ \adot ]\ P \asep 
 		      \verbtt{(let}\ \<bpat>=E)\ [ \adot ]\ P \\
 		&|&   [+]\; \<IO>  \adot  P \;+\; ... \;+\;\<IO>  \adot  P \asep [ \abar ]\; P  \abar  ...  \abar  P \\

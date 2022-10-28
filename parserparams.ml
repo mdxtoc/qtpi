@@ -28,6 +28,7 @@ let offsidelines = (ref [] : int list ref)
 
 let curr_start = ref 0 (* set by Linesperson to the start offset of the token just read *)
 let curr_end = ref 0   (* also set by Linesperson *)
+let curr_offside = ref false (* Linesperson again *)
 
 let init_offside () =
   offsideline := 0;

@@ -617,7 +617,7 @@ and assigntype_expr cxt t e =
                                let _ = force_type e.pos rtype t in
                                let _ = assigntype_expr cxt ftype e1 in 
                                assigntype_expr cxt atype e2
-     | EMinus  e            -> (* even this is overloaded now, beacause of sxnum *)
+     | EMinus  e            -> (* even this is overloaded now, because of sxnum and angle -- and matrix, why not? *)
                                (let te = neweqtv e.pos in (* uniform overloading *)
                                 unary cxt te te e;
                                 let te = evaltype te in
@@ -631,7 +631,9 @@ and assigntype_expr cxt t e =
                                 in    
                                 match te.inst with
                                 | Num      
-                                | Sxnum     -> ()
+                                | Sxnum     
+                                | Angle
+                                | Matrix    -> ()
                                 | Unknown _ -> let t = adorn e.pos Num in
                                                ovld_warn ("unary " ^ Expr.string_of_uminus) e t;
                                                force_type e.pos te t

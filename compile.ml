@@ -341,6 +341,8 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
        match et.inst with
        | Num   -> ctenv, fun rtenv -> of_num (~-/(to_num (f rtenv)))
        | Sxnum -> ctenv, fun rtenv -> of_csnum (Snum.cneg (to_csnum (f rtenv)))
+       | Angle -> ctenv, fun rtenv -> of_num (~-/(to_num (f rtenv)))
+       | Matrix -> ctenv, fun rtenv -> of_matrix (neg_mm (to_matrix (f rtenv)))
        | _     -> can'thappen ()
       )
   | ENot e          ->

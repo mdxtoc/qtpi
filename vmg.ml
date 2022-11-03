@@ -1095,7 +1095,7 @@ let elwise_vv ee str vA vB =
                                                 maybe_dense_v sv n cv
   | DenseV  dva        , DenseV  dvb         -> maybe_sparse_v (elwise_dvdv ee str dva dvb)
 
-let neg_vv = function
+let neg_v = function
   | SparseV (n,sv,cv) -> SparseV (n, cneg sv, List.map (fun (zi,v) -> (zi,cneg v)) cv)
   | DenseV  v         -> DenseV (Array.map cneg v)
   
@@ -1446,12 +1446,12 @@ let rec elwise_mm ee str mA mB =
 let add_mm = elwise_mm csum "+" 
 let sub_mm = elwise_mm cdiff "-"
 
-let neg_mm = 
+let neg_m = 
   let cneg_cv = List.map (fun (zi,v) -> (zi,cneg v)) in
   function
   | DenseM  m              -> DenseM (Array.map (Array.map cneg) m)
   | SparseM (n,sv,cvv)     -> SparseM (n, cneg sv, Array.map cneg_cv cvv)
-  | DiagM   v              -> DiagM (neg_vv v)
+  | DiagM   v              -> DiagM (neg_v v)
   | FuncM   (id,m,n,f,opt) -> let id = Printf.sprintf "-(%s)" id in
                               let opt = match opt with
                                         | Some (sv,rf,cf) -> Some (cneg sv, cneg_cv <.> rf, cneg_cv <.> cf)

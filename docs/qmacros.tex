@@ -21,6 +21,8 @@
 \reservestyle{\nonterminal}{\nonterminalstyle}
 \newcommand{\operatorstyle}[1]{\ensuremath{\operatorname{#1}}}
 \reservestyle{\op}{\operatorstyle}
+\newcommand{\underlinestyle}[1]{\ensuremath{\mathrm{\underline{#1}}}}
+\reservestyle{\ul}{\underlinestyle}
 
 % mathligs must be arranged in reverse prefix order -- i.e. if prefixes match, longest symbol first
 \mathlig{::=}{\mathrel{\mathop:\!\mathop:}=\ }
@@ -34,24 +36,24 @@
 \newcommand{\tdot}[0]{\text{.}}
 
 \newcommand{\bv}[1]{\ensuremath{|#1\rangle}}
-\newcommand{\zero}{\bv{\hspace{0.5pt}0}}
-\newcommand{\one}{\bv{1}}
-\newcommand{\plus}{\bv{\mathalpha{+}}}
-\newcommand{\minus}{\bv{\mathalpha{-}}}
+\newcommand{\zero}[0]{\bv{\hspace{0.5pt}0}}
+\newcommand{\one}[0]{\bv{1}}
+\newcommand{\plus}[0]{\bv{\mathalpha{+}}}
+\newcommand{\minus}[0]{\bv{\mathalpha{-}}}
 
-\newcommand{\zerozero}{\bv{\hspace{0.5pt}00}}
-\newcommand{\onezero}{\bv{10}}
-\newcommand{\zeroone}{\bv{\hspace{0.5pt}01}}
-\newcommand{\oneone}{\bv{11}}
+\newcommand{\zerozero}[0]{\bv{\hspace{0.5pt}00}}
+\newcommand{\onezero}[0]{\bv{10}}
+\newcommand{\zeroone}[0]{\bv{\hspace{0.5pt}01}}
+\newcommand{\oneone}[0]{\bv{11}}
 
-\newcommand{\zerozerozero}{\bv{\hspace{0.5pt}000}}
-\newcommand{\zerozeroone}{\bv{\hspace{0.5pt}001}}
-\newcommand{\zeroonezero}{\bv{\hspace{0.5pt}010}}
-\newcommand{\zerooneone}{\bv{\hspace{0.5pt}011}}
-\newcommand{\onezerozero}{\bv{100}}
-\newcommand{\onezeroone}{\bv{101}}
-\newcommand{\oneonezero}{\bv{110}}
-\newcommand{\oneoneone}{\bv{one11}}
+\newcommand{\zerozerozero}[0]{\bv{\hspace{0.5pt}000}}
+\newcommand{\zerozeroone}[0]{\bv{\hspace{0.5pt}001}}
+\newcommand{\zeroonezero}[0]{\bv{\hspace{0.5pt}010}}
+\newcommand{\zerooneone}[0]{\bv{\hspace{0.5pt}011}}
+\newcommand{\onezerozero}[0]{\bv{100}}
+\newcommand{\onezeroone}[0]{\bv{101}}
+\newcommand{\oneonezero}[0]{\bv{110}}
+\newcommand{\oneoneone}[0]{\bv{one11}}
 
 \newcommand{\vb}[1]{\ensuremath{\langle#1|}}
 
@@ -64,11 +66,11 @@
 \newcommand{\plusv}{\cvec{h}{h}}
 \newcommand{\minusv}{\cvec{h}{-h}}
 
-\newcommand{\qgate}[4]{\ensuremath{\left(\begin{matrix}#1&#2\\#3&#4\end{matrix}\right)}}
-\newcommand{\qgatetwo}[4]{\ensuremath{\left(\begin{matrix}#1\\#2\\#3\\#4\end{matrix}\right)}}
+\newcommand{\qgate}[4]{\ensuremath{\left[\begin{matrix}#1&#2\\#3&#4\end{matrix}\right]}}
+\newcommand{\qgatetwo}[4]{\ensuremath{\left[\begin{matrix}#1\\#2\\#3\\#4\end{matrix}\right]}}
 
-\newcommand{\smallqgate}[4]{\ensuremath{\left(\begin{smallmatrix}#1&#2\\#3&#4\end{smallmatrix}\right)}}
-\newcommand{\smallqgatetwo}[4]{\ensuremath{\left(\begin{smallmatrix}#1\\#2\\#3\\#4\end{smallmatrix}\right)}}
+\newcommand{\smallqgate}[4]{\ensuremath{\left[\begin{smallmatrix}#1&#2\\#3&#4\end{smallmatrix}\right]}}
+\newcommand{\smallqgatetwo}[4]{\ensuremath{\left[\begin{smallmatrix}#1\\#2\\#3\\#4\end{smallmatrix}\right]}}
 
 \newcommand{\Xg}{\smallqgate{0}{1}{1}{0}}
 \newcommand{\Ig}{\smallqgate{1}{0}{0}{1}}

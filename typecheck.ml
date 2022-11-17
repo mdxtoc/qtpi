@@ -621,7 +621,7 @@ and assigntype_expr cxt t e =
                                (let te = neweqtv e.pos in (* uniform overloading *)
                                 unary cxt te te e;
                                 let te = evaltype te in
-                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded %s can be num->num or sxnum->sxnum: \
+                                let bad () = raise (Error (e.pos, Printf.sprintf "overloaded %s can be num->num, sxnum->sxnum, angle-> angle or matrix->matrix -- \
                                                                                   here we have %s->%s"
                                                                                         ("unary " ^ Expr.string_of_uminus)
                                                                                         (string_of_type te)

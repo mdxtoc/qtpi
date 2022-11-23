@@ -37,7 +37,7 @@
 
 \newcommand{\bv}[1]{\ensuremath{|#1\rangle}}
 \newcommand{\zero}[0]{\bv{\hspace{0.5pt}0}}
-\newcommand{\one}[0]{\bv{1}}
+\newcommand{\one}[0]{\bv{1}\relax}
 \newcommand{\plus}[0]{\bv{\mathalpha{+}}}
 \newcommand{\minus}[0]{\bv{\mathalpha{-}}}
 
@@ -53,7 +53,7 @@
 \newcommand{\onezerozero}[0]{\bv{100}}
 \newcommand{\onezeroone}[0]{\bv{101}}
 \newcommand{\oneonezero}[0]{\bv{110}}
-\newcommand{\oneoneone}[0]{\bv{one11}}
+\newcommand{\oneoneone}[0]{\bv{111}}
 
 \newcommand{\vb}[1]{\ensuremath{\langle#1|}}
 
@@ -89,6 +89,9 @@
 \newcommand{\figref}[1]{figure \ref{fig:#1}}
 \newcommand{\Figref}[1]{Figure \ref{fig:#1}}
 \newcommand{\seclabel}[1]{\label{sec:#1}}
+\newcommand{\chaplabel}[1]{\label{chap:#1}}
+\newcommand{\chapref}[1]{chapter \ref{chap:#1}}
+\newcommand{\Chapref}[1]{Chapter \ref{chap:#1}}
 \newcommand{\secref}[1]{section \ref{sec:#1}}
 \newcommand{\Secref}[1]{Section \ref{sec:#1}}
 \newcommand{\appxlabel}[1]{\label{appx:#1}}

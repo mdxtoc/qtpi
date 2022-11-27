@@ -118,6 +118,15 @@ let rec drop n xs =
   | _, []     -> xs
   | _, x::xs  -> drop (n-1) xs
 
+let takedrop n xs =
+  let rec takedrop rs n xs =
+    match n, xs with
+    | 0, _
+    | _, []     -> List.rev rs, xs
+    | _, x::xs  -> takedrop (x::rs) (n-1) xs
+  in
+  takedrop [] n xs
+
 let rec dropwhile p xs =
   match xs with
   | []     -> xs

@@ -120,6 +120,10 @@ and sprod = num * s_el list         (* a product*)
 
 and snum = sprod list               (* a sum *) 
 
+let snum_of_num n = [(n,[])]
+
+let snum_of_zint = snum_of_num <.> num_of_zint
+
 let sprod_neg (n,els) = ~-/n, els
  
 (* this only tells you if an snum's representation starts with a minus sign *)
@@ -257,8 +261,12 @@ and so_prodi si symbf (n,els) =
               else (let rec roots accum els =
                       match els with
                       | S_sqrt n :: els'          -> roots (n*/accum) els'
-                      | S_trig (n,iscos) :: els' 
-                          when n=quarter          -> roots (half*/accum) els' (* THIS WORKS ONLY IF IT COMES FIRST!!! *)
+                      | S_trig (n,_) :: els'         
+                          when n=quarter          -> (* sin 𝝅/4 = cos 𝝅/4 = 1/√2 *)
+                                                     roots (half*/accum) els' 
+                      | S_trig (n,true) :: els' 
+                          when n=sixth            -> (* cos 𝝅/6 = √3/2 *)
+                                                     roots (threequarters*/accum) els'
                       | _                         -> accum, els
                     in
                     let sq, els = roots (n*/n) els in
@@ -307,13 +315,17 @@ let st_half iscos n =
                                     else Some (num_1, [S_trig (n, iscos)])
                  )       
         *)
-  match n=/num_0, n=/half, iscos with
-  | true, _   , false           (* sin 0 = 0 *)   
-  | _   , true, true            (* cos 𝜋/2 = 0 *)
+  (* this has got a bit worse because of 𝝅/3 and 𝝅/6 *)
+  match n=/num_0, n=/half, n=/third, n=/sixth, iscos with
+  | true, _   , _   , _   , false           (* sin 0 = 0 *)   
+  | _   , true, _   , _   , true            (* cos 𝜋/2 = 0 *)
                       -> None
-  | true, _   , true            (* cos 0 = 1 *)
-  | _   , true, false           (* sin 𝜋/2 = 1 *)
+  | true, _   , _   , _   , true            (* cos 0 = 1 *)
+  | _   , true, _   , _   , false           (* sin 𝜋/2 = 1 *)
                       -> Some (num_1,[])
+  | _   , _   , true, _   , true            (* cos 𝝅/3 = 1/2 *)
+  | _   , _   , _   , true, false           (* sin 𝝅/6 = 1/2 *)
+                      -> Some (half,[])
   | _                 -> Some (num_1,[match n>/quarter, n=/quarter with
                                       | true, _    -> S_trig (half-/n,not iscos)    (* because sin(𝜋/2-n)=cos n and cos(𝜋/2-n=sin n) *)
                                       | _   , true -> S_trig (n, true)              (* because sin(𝜋/4)=cos(𝜋/4) *) 
@@ -346,15 +358,20 @@ let snum_trig iscos n = st_norm st_2 iscos (num_mod n num_2)
 
 let sprod_1 :sprod = (num_1,[])
 
+(* cos 𝝅/4 = 1/√2 *) 
 let s_el_h  :s_el = S_trig (quarter, true) (* ok to use S_trig *)
 
 let sprod_h :sprod = (num_1,[s_el_h])
+
+(* cos 𝝅/6 = √3/2, so 2/3 (cos 𝝅/6) = 1/√3 *)
+let sprod_t :sprod = (num_2//num_3, [S_trig (sixth, true)]) (* ok to use S_trig *)
 
 let snum_0 :snum = []
 
 let snum_1 :snum = [sprod_1]
 
 let snum_h :snum = [sprod_h]
+let snum_t :snum = [sprod_t]
 
 let eighth = quarter // num_2
 
@@ -467,13 +484,15 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
      of a prod to look for stuff, and we don't look any further after we've failed to find a trig::trig::ss.
      And we don't use rmult and rprod to force going round again. It is to hoped that this will
      speed up simplification (which slowed by a factor of 3 in the Ekert example when we went all-trig.)
-     RB 2020/10/02
+     RB 2022/10/02
      Oh dear. If anything it made things minutely slower .... what to do? ...
      But oh dear oh dear oh dear. The Ekert simplification, in the old version, was using a hermititian matrix
      rather than a rotation matrix. So Rz (which is what it was called) was such that Rz*Rz = I, and it was 
      not doing 𝝅/8, 2𝝅/8 and 3𝝅/8 rotations. When I corrected the rotations, it was slower than the all-trig
      mechanism. So hurrah! I think I've reached the end of the symbolic-calculator development. 
-     RB 2020/10/25
+     RB 2022/10/25
+     Except I just had to add the stuff for cos(𝝅/3) = sin(𝝅/6) = 1/2. 
+     RB 2022/11/27
    *)
   let r = let rec sp els n ss = 
             if !verbose_simplify then 
@@ -499,21 +518,25 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
             | S_sqrt a      :: S_sqrt b :: ss                       (* √a*√a = a *)
               when a=b                   -> sp els (n*/a) ss
             | S_sqrt a as s :: ss        -> sp (s::els) n ss
-            | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities *)
+            | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities. Note that b>=a and that a, b are in (0,𝝅/4] *)
                                          -> let sum = b+/a in
                                             let diff = b-/a in
                                             let pm sumw sumcos diffw diffcos = (* trying to speed this up *)
                                               let sumr = 
-                                                if sum>/quarter then if sum=/half then if sumcos then []                 (* cos(𝝅/2) = 0 *)
-                                                                                                 else [(sumw,None)]      (* sin(𝝅/2) = 1 *)
-                                                                                  else [(sumw, Some (S_trig (half-/sum, not sumcos)))]
+                                                if sum>/quarter then if sum=/half             then if sumcos then []                (* cos(𝝅/2) = 0 *)
+                                                                                                             else [(sumw,None)]     (* sin(𝝅/2) = 1 *)
+                                                                     else 
+                                                                     if sum=/third && sumcos then [(sumw*/half,None)]               (* cos(𝝅/3) = 1/2 *)
+                                                                                             else [(sumw, Some (S_trig (half-/sum, not sumcos)))]
                                                                 else if sum=/quarter then [(sumw, Some (S_trig (sum,true)))]
                                                                                      else [(sumw, Some (S_trig (sum, sumcos)))]
                                               in
                                               let r =
-                                                if diff=/num_0 then if diffcos then (diffw,None)::sumr   (* cos 0 = 1 *)
-                                                                               else sumr                 (* sin 0 = 0 *)
-                                                               else (diffw, Some (S_trig (diff,diffcos))) :: sumr
+                                                if diff=/num_0 then if diffcos then (diffw,None)::sumr                              (* cos 0 = 1 *)
+                                                                               else sumr                                            (* sin 0 = 0 *)
+                                                else 
+                                                if diff=/sixth && not diffcos  then (diffw*/half,None)::sumr                        (* sin(𝝅/6) = 1/2 *)
+                                                                               else (diffw, Some (S_trig (diff,diffcos))) :: sumr
                                               in
                                               if !verbose || !verbose_simplify then
                                                 (let foodle =bracketed_string_of_list (bracketed_string_of_pair string_of_num (string_of_option string_of_el)) r in
@@ -647,7 +670,9 @@ and simplify_sum ps =
 (* given the wrong numbers, this will generate lots of strange S_sqrt entries ... 
    so be careful
  *)
-let reciprocal_sqrt (n:num) = if n=/num_2 then snum_h else [(reciprocal n, [S_sqrt n])] (* don't introduce √2 if possible *)
+let reciprocal_sqrt (n:num) = if n=/num_2 then snum_h else 
+                              if n=/num_3 then snum_t else
+                                               [(reciprocal n, [S_sqrt n])] (* don't introduce √ if possible *)
 
 let rdiv_sqrt sn n = 
   rprod (reciprocal_sqrt n) sn
@@ -896,6 +921,8 @@ let cprod (C (x1,y1) as c1) (C (x2,y2) as c2) =
   | _ , [] , _ , _  -> intern (C (rprod x1 x2, rprod x1 y2))    (* real    * complex *)
   | _ , _  , _ , [] -> intern (C (rprod x1 x2, rprod y1 x2))    (* complex * real    *)
   | _               -> intern (C (rsum (rprod x1 x2) (rneg (rprod y1 y2)), rsum (rprod x1 y2) (rprod y1 x2)))
+
+let cprod_r c1 r = cprod c1 (C (r,[]))
 
 let csum (C (x1,y1) as c1) (C (x2,y2) as c2) = 
   match x1,y1, x2,y2 with

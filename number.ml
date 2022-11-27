@@ -218,6 +218,7 @@ let num_1:               num                = Q.one;;
 let num_2:               num                = num_of_zint z_2;;
 let num_3:               num                = num_of_zint z_3;;
 let num_4:               num                = num_of_zint z_4;;
+let num_6:               num                = num_of_zint (Z.of_int 6);;
 let num_10:              num                = num_of_zint z_10;;
 let num_of_int:          int -> num         = Q.of_int;;
 let int_of_num:          num -> int         = Z.to_int <.> Local.zint_of_num;;
@@ -240,6 +241,8 @@ let ( **/ ) = Local.pow
 let half:                num                    = num_1 // num_2;;      
 let third:               num                    = num_1 // num_3;;  
 let quarter:             num                    = num_1 // num_4;; 
+let sixth:               num                    = num_1 // num_6;;
+let threequarters:       num                    = num_3 // num_4;;
  
 let abs:                 num -> num             = Q.abs
 let pow:                 num -> int -> num      = Local.pow;;

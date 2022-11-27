@@ -424,6 +424,57 @@ let maybe_split qs =
   if List.length qs<>List.length qs' then
     record true (qs',v')
 
+(* the obvious way is to fold sum across the vector. But that leads to nibbling by double 
+   ... so we try to do it a more linear (maybe) way 
+ *)
+let getmodulus i n v = (* from i, n elements *)
+  if !verbose || !verbose_qcalc || !verbose_measure then 
+    Printf.printf "getmodulus %s %s" (string_of_zint i) (string_of_zint n);
+  let els = match v with
+            | SparseV (_,sv,cv) -> let lim = i+:n in
+                                   let cv' = takewhile (fun (j,_) -> j<:lim) 
+                                                       (dropwhile (fun (j,_) -> j<:i) cv)
+                                   in
+                                   let probs = List.map (fun (_,x) -> absq x) cv' in
+                                   let ngaps = n-:(Z.of_int (List.length cv')) in
+                                   if sv=c_0 || ngaps=z_0 then probs 
+                                   else rmult_zint (absq sv) ngaps::probs
+            | DenseV  dv        -> let i = Z.to_int i in
+                                   let n = Z.to_int n in
+                                   Listutils.tabulate n (fun j -> absq dv.(i+j)) 
+  in
+  let r = simplify_sum (sflatten els) in
+  if !verbose || !verbose_qcalc || !verbose_measure then 
+    Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_snum els) (string_of_snum r);
+  r
+
+let normalise vm vv = (* we trust the pre-computed modulus *)
+  let nv = vsize vv in
+  let nzs = nv -: countzeros_v z_0 nv vv in
+  if nzs=:z_0 then raise (Disaster ("empty vv in Qsim.normalise")) 
+  else
+  if nzs=: z_1 then (let cv = sparse_elements_v c_0 vv in
+                     snum_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
+                    )
+  else (match vm with
+        | [(n,[])] -> (* we have a real number modulus *)
+            if n=num_1 then vm,vv 
+            else (let rec doit n vv = (* this is expensive, but we only do it after measurement *)
+                    if num_mod n num_2 = num_0 then 
+                      doit (n//num_2) (mult_snv (reciprocal_sqrt num_2) vv) (* uses cos 𝝅/4 *) 
+                    else
+                    if num_mod n num_3 = num_0 then 
+                      doit (n//num_3) (mult_snv (reciprocal_sqrt num_3) vv) (* uses cos 𝝅/6 *) 
+                    else
+                      match exactsqrt n with
+                      | Some root -> snum_1, mult_snv [(Number.reciprocal root,[])] vv
+                      | None      -> snum_1, mult_snv (reciprocal_sqrt n) vv
+                  in
+                  doit n vv
+                 )
+        | _ -> vm, vv  
+       )
+           
 let ugstep_padded pn qs g gpad = 
   if !verbose || !verbose_qcalc then
     (Printf.printf "ugstep_padded %s %s %s %s\n" 
@@ -484,6 +535,7 @@ let ugstep_padded pn qs g gpad =
      let g' = if g=gpad then tensor_n_gs (List.length qs') g                                   else
                              tensor_gg g (tensor_n_gs (List.length qs' - List.length qs) gpad)
      in
+     (* no need to renormalise -- properties of tensor ... *)
   
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
   
@@ -510,31 +562,7 @@ let rec qmeasure disposes pn gate q =
      let qs, (_, vv) = make_first qs v (idx q qs) in
      (* probability of measuring 1 is sum of second-half probs *)
      let nvhalf = Z.(nv asr 1) in
-     (* the obvious way is to fold sum across the vector. But that leads to nibbling by double 
-        ... so we try to do it a more linear (maybe) way 
-      *)
-     let getsum i n = (* from i, n elements *)
-       if !verbose || !verbose_qcalc || !verbose_measure then 
-         Printf.printf "getsum %s %s " (string_of_zint i) (string_of_zint n);
-       let els = match vv with
-                 | SparseV (_,sv,cv) -> let lim = i+:n in
-                                        let cv' = takewhile (fun (j,_) -> j<:lim) 
-                                                            (dropwhile (fun (j,_) -> j<:i) cv)
-                                        in
-                                        let probs = List.map (fun (_,x) -> absq x) cv' in
-                                        let ngaps = n-:(Z.of_int (List.length cv')) in
-                                        if sv=c_0 || ngaps=z_0 then probs 
-                                        else rmult_zint (absq sv) ngaps::probs
-                 | DenseV  dv        -> let i = Z.to_int i in
-                                        let n = Z.to_int n in
-                                        Listutils.tabulate n (fun j -> absq dv.(i+j)) 
-       in
-       let r = simplify_sum (sflatten els) in
-       if !verbose || !verbose_qcalc || !verbose_measure then 
-         Printf.printf "%s = %s\n" (bracketed_string_of_list string_of_snum els) (string_of_snum r);
-       r
-     in
-     let prob_1 = getsum nvhalf nvhalf in
+     let prob_1 = getmodulus nvhalf nvhalf vv in
      if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
        Printf.printf "%s qmeasure [] %s; %s|->%s; nv=%s ;nvhalf=%s; prob_1 = %s; prob_0=%s;"
                      (Name.string_of_name pn)
@@ -583,38 +611,14 @@ let rec qmeasure disposes pn gate q =
                         (string_of_qval (qs,(modulus,vv))) (string_of_snum modulus) (string_of_snum vm);
         flush_all()
        );
-     let nv = nvhalf in
-     let vm', vv = 
-       let default () =
-         (* is there just one possibility? If so, set it to snum_1. And note: normalise 1 *)
-         if nv -: countzeros_v z_0 nv vv = z_1 then
-           let cv = sparse_elements_v c_0 vv in
-            snum_1, SparseV (nv, c_0, List.map (fun (i,_) -> (i,c_1)) cv)
-         else
-           (if !verbose || !verbose_qsim || !verbose_measure || !verbose_simplify || paranoid then
-              (Printf.printf "\noh dear! q=%d r=%d; was %s prob_1 %s; un-normalised %s modulus %s vm %s\n" 
-                                        q r (string_of_qval (qval q)) (string_of_snum prob_1)
-                                       (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
-               flush_all();
-              );
-             modulus, vv
-           ) 
-       in
-       match modulus with (* modulus is sum of squares, always positive, always real *)
-       | [n,[]] -> if n=num_1 then modulus, vv 
-                   else (let doit n = 
-                           exactsqrt n &~~ (fun root -> Some (mult_snv [(Number.reciprocal root,[])] vv))
-                         in
-                         match doit n |~~
-                               ( fun () -> (doit (n//half ) &~~ (fun vv -> Some (mult_snv (reciprocal_sqrt half ) vv)))  |~~
-                                           (fun () -> (doit (n//third) &~~ (fun vv -> Some (mult_snv (reciprocal_sqrt third) vv))))
-                               )
-                         with
-                         | Some vv -> snum_1, vv
-                         | None    -> default ()
-                        )
-       | _    -> default () 
-     in
+     let vm', vv = normalise modulus vv in
+     if !verbose || !verbose_qsim || !verbose_measure || !verbose_simplify || paranoid then
+       if vm'<>snum_1 then
+        (Printf.printf "\noh dear! q=%d r=%d; was %s prob_1 %s; un-normalised %s modulus %s vm %s\n" 
+                                  q r (string_of_qval (qval q)) (string_of_snum prob_1)
+                                 (string_of_qval (qs,v)) (string_of_snum modulus) (string_of_snum vm); 
+         flush_all();
+        );
      let qv = qs, (vm',vv) in
      if !verbose || !verbose_qsim || !verbose_measure then 
        Printf.printf " result %d and %s\n" r (bracketed_string_of_list (fun q -> Printf.sprintf "%s:%s" 

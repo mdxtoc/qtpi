@@ -165,11 +165,16 @@ type bksign = PVBra | PVKet
 
 let rec densify_cv n sv cv = Array.init (my_to_int n "densify_cv") (find_cv sv cv <.> Z.of_int)
 
-and densify_v =
-  function
-  | DenseV v          -> v
+and densify_v = function
+  | DenseV  v         -> v
   | SparseV (n,sv,cv) -> densify_cv n sv cv
-  
+
+(* fold_left_v would be an impressive thing. For the time being, I shy away, and build sum_v to sum amplitudes *)  
+and sum_v  = function
+  | DenseV  v         -> Array.fold_left csum c_0 v
+  | SparseV (n,sv,cv) -> csum (cprod_r sv (snum_of_zint (n-:Z.of_int (List.length cv))))
+                              (List.fold_left (fun acc (_,n) -> csum acc n) c_0 cv)
+                              
 and dense_countzeros_v n m v :int = (* from n to m-1, natch *)
   _for_fold_left n 1 m 0 (fun nzs i -> if v.(i)=c_0 then nzs+1 else nzs)
   

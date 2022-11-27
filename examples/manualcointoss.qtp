@@ -1,0 +1,16 @@
+proc System() = . (new ch:^qubit) 
+                . | Q(ch) | Picard(ch) 
+
+     Picard(ch) = . (newq q=|0>) 
+                  . ch!q
+                  . ch?(r)
+                  . r >> if randbool() then X else I
+                  . ch!r 
+                  . ch?(s)
+                  . s⌢̸(b)
+                  . out!["the qubit measured "; show b; 
+                         if b=0b0 then ". Q wins.\n" else "! I win!\n"
+                        ]
+                  .
+
+     Q(ch) = ch?(t) . t>>H . ch!t . ch?(u) . u>>H . ch!u .  

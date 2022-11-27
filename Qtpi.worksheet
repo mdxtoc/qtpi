@@ -68,6 +68,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi -trace examples/basiccointoss3.qtp
 ./Qtpi examples/cointoss.qtp
 ./Qtpi examples/cointoss_tidied.qtp
+./Qtpi examples/manualcointoss.qtp -trace
 ./Qtpi examples/entanglement.qtp
 ./Qtpi examples/densecoding.qtp
 ./Qtpi examples/densecoding_untyped.qtp
@@ -78,6 +79,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 ./Qtpi docs/teleport_example.qtp -trace 
+./Qtpi examples/teleport.qtp -trace
 
 # randomteleport_with is a test of confluence in formula simplification. Simplification can start 
 # with one formula and finish with an equivalent one. I'm working on the problem, and it's become 
@@ -91,6 +93,9 @@ time ./Qtpi examples/functionspeedtest.qtp
 # And recently this test of confluence works in the no_fg version of qtpi, which doesn't
 # have symbolic constants f and g. Mind you, it still has to know a bit about √(1+√(1/2)),
 # √(1-√(1/2)), and what happens when you multiply by √(1/2)
+# 
+# now calculation is using trig identies it seems to always be confluent, but it does
+# some amazing things to get there. Hmm.
 #
 ./Qtpi -trace examples/randomteleport_with.qtp
 

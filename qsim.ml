@@ -266,6 +266,8 @@ let try_split rotate qs (vm,vv as v) =
                      );
      r
     )
+
+let oneprob (_,vv) = let nv = vsize vv in (nv -: countzeros_v z_0 nv vv) =: z_1
   
 let newqubits, disposequbits, record, string_of_qfrees, string_of_qlimbo = (* hide the references *)
   let qubitcount = ref 0 in
@@ -381,6 +383,7 @@ let newqubits, disposequbits, record, string_of_qfrees, string_of_qlimbo = (* hi
                                        qlimbo := q::!qlimbo
     in
     List.iter single qs
+  
   and record split ((qs, vq) as qv) =
     let report () = if !verbose || !verbose_qsim then
                      Printf.printf "recording %s|->%s\n" (match qs with 
@@ -540,7 +543,7 @@ let ugstep_padded pn qs g gpad =
      if !verbose || !verbose_qsim || !verbose_qcalc then show_change qs' v' g';
   
      let v'' = mult_gnv g' v' in
-     record !try_rotate (qs',v'')
+     record (!gatingsimplifies || oneprob v') (qs',v'')
     )
 
 let ugstep pn qs g = ugstep_padded pn qs g g_I

@@ -47,6 +47,8 @@ let opts = Arg.align
                     Printf.sprintf " fancy printing of qubit vectors (default %B)" !fancyvec);
               ("-func_matrices"     , Arg.Bool (set_arg func_matrices), 
                     Printf.sprintf " some matrices, such as I⊗⊗n and H⊗⊗n, are represented by functions (default %B)" !func_matrices);
+              ("-gatingsimplifies"    , Arg.Bool (set_arg gatingsimplifies), 
+                    Printf.sprintf " after gating, simplify the resulting state when possible (default %B)" !gatingsimplifies);
               ("-interpret"         , Arg.Bool (set_arg interpret), 
                     Printf.sprintf " interpret the program (default %B)" !interpret);
               ("-matchcheck"        , Arg.Bool (set_arg matchcheck), 
@@ -56,7 +58,7 @@ let opts = Arg.align
               ("-memoise"           , Arg.Bool (set_arg memoise), 
                     Printf.sprintf " memoise calculator operations mult and sum (default %B)" !memoise);
               ("-qvalsimplifies"    , Arg.Bool (set_arg qvalsimplifies), 
-                    Printf.sprintf " qval simplifies entanglements when possible (default %B)" !qvalsimplifies);
+                    Printf.sprintf " qval shows simplified multi-qubit states when possible (default %B)" !qvalsimplifies);
               ("-resourcecheck"     , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qubits (default %B)" !Settings.resourcecheck);
               ("-rootcombine"       , Arg.Bool (set_arg rootcombine),
@@ -87,8 +89,6 @@ let opts = Arg.align
 					" show trace of quantum events, messages, disposal, at end of execution");
               ("-traceId"           , Arg.Set traceId, 
 					" show trace of process ids (probably unnecessary), at end of execution");
-              ("-try_rotate"        , Arg.Bool (set_arg try_rotate), 
-					 Printf.sprintf " when splitting state, try every qubit (default %B)" !Settings.try_rotate);
               ("-trydiag"           , Arg.Bool (set_arg trydiag), 
 					 Printf.sprintf " use diagonal matrix optimisation in calculations (default %B)" !Settings.trydiag);
               ("-typereport"        , Arg.Set typereport, 

@@ -54,6 +54,8 @@ let func_matrices = ref true
 
 (* let detectdisposes = ref true *)
 
+let gatingsimplifies = ref false
+
 let interpret = ref true
 
 let matchcheck = ref true
@@ -95,8 +97,6 @@ let usetestpoints = ref true
 let traceevents = ref false
 let traceId = ref false
 let traceIO = ref false
-
-let try_rotate = ref false
 
 let trydiag = ref true (* why not? I think it's only Grover that cares *)
 

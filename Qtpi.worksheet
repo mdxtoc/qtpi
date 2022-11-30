@@ -56,7 +56,7 @@ time ./Qtpi examples/BB84_QKD/takedrop.qtp          # works, but sticks because 
 time ./Qtpi examples/BB84_QKD/takedrop_plusEve.qtp  # works, but sticks because of Random
 ./Qtpi examples/matchtest.qtp                       # generates warnings and runtime error
 ./Qtpi examples/test.qtp
-./Qtpi examples/tensorp.qtp
+./Qtpi examples/tensorp.qtp -showdensematrices true
 ./Qtpi examples/matrixp.qtp
 ./Qtpi examples/matstats_test.qtp
 time ./Qtpi examples/functionspeedtest.qtp
@@ -79,7 +79,7 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
 ./Qtpi docs/teleport_example.qtp -trace 
-./Qtpi examples/teleport.qtp -trace
+./Qtpi examples/teleport.qtp -trace -verbose qcalc
 
 # randomteleport_with is a test of confluence in formula simplification. Simplification can start 
 # with one formula and finish with an equivalent one. I'm working on the problem, and it's become 
@@ -155,6 +155,7 @@ time ./Qtpi examples/election8.qtp
 
 time ./Qtpi examples/fulladder/Coggins_all.qtp
 time ./Qtpi examples/fulladder/Coggins.qtp
+time ./Qtpi examples/fulladder/manualCoggins.qtp -trace
 time ./Qtpi examples/fulladder/inspire.qtp
 time ./Qtpi examples/fulladder/inspire_all.qtp
 

@@ -1,0 +1,103 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{The library}
+\chaplabel{library}
+
+\newenvironment{explain}{\list{}{}\item\relax}{\endlist}
+\newcommand{\libitem}[2]{\hspace{10pt}\verbtt{#1}\vspace{-\topsep}\vspace{-\parskip}\begin{explain}#2\vspace{-\parskip}\end{explain}}
+\newcommand{\libitemS}[1]{\libitem{#1}{\mbox{}\vspace{-\topsep}\vspace{-\topsep}}}
+Much of the library is inspired by Miranda, and by Bird \& Wadler's "Introduction to Functional Programming". Their descriptions of the functions are better than mine, too: wish I'd included pattern-matching function definitions.
+
+Almost all functions take classical arguments (\verbtt{'a} rather than \verbtt{'*a}). None (except for the absurd case of \verbtt{abandon}) returns a value of a non-classical type.
+    
+Qtpi doesn't have an \verbtt{int} type, but several of the library functions insist on whole-number arguments: \verbtt{bitand}, \verbtt{drop}, \verbtt{nth}, \verbtt{num2bits}, \verbtt{randbits}, \verbtt{tabulate}, \verbtt{take}. If this causes a problem, use \verbtt{floor}, \verbtt{round} or \verbtt{ceiling} on the arguments.
+
+\subsection{List functions}
+\libitem{append: ['a] $->$ ['a] $->$ ['a]}{concatenates its arguments.}
+\libitem{concat: [['a]] $->$ ['a]}{concatenates the lists in its first argument.}
+\libitem{drop: num $->$ ['a] $->$ ['a]}{$drop\;n\;xs$ returns $xs$ without the leading segment which $take\;n\;xs$ would return.}
+\libitem{dropwhile: ('a $->$ bool) $->$ ['a] $->$ ['a]}{$dropwhile\;f\;xs$ returns $xs$ without the leading segment which $takewhile\;f\;$ would return.}
+\libitem{exists: ('a $->$ bool) $->$ ['a] $->$ bool}{$exists\;f\;xs$ is true iff there is an element of xs for which $f$ returns true.}
+\libitem{filter: ('a $->$ bool) $->$ ['a] $->$ ['a]}{$filter\;f\;xs$ returns $xs$ without those elements for which $f$ returns false.}
+\libitem{foldl: ('a $->$ 'b $->$ 'a) $->$ 'a $->$ ['b] $->$ 'a}{$foldl\;f\;z\;[x_{1};\,...\, ;\,x_{n}]$ is $f\;(...\;(f\;(f\;z\;x_{1})\;x_{2})\;...)\;x_{n}$.}
+\libitem{foldr: ('a $->$ 'b $->$ 'b) $->$ 'b $->$ ['a] $->$ 'b}{$foldr\;f\;z\;[x_{1};\,...\, ;\,x_{n}]$ is $f\;x_{1}\;(f\;x_{2}(...\,(f\;x_{n}\;z)\,...))$.}
+\libitem{forall: ('a $->$ bool) $->$ ['a] $->$ ['a]}{$forall\;f\;xs$ is true iff $f$ returns true for each element of xs.}
+\libitem{hd: ['a] $->$ 'a}{$hd\;xs$ returns first element of $xs$; fails if $xs$ is empty.}  
+\libitem{iter: ('a $->$ 'b) $->$ ['a] $->$ unit}{not sure this should be in the library.}
+\libitem{length: ['a] $->$ num}{$length\;xs$ returns the number of elements in $xs$.}  	
+\libitem{map: ('a $->$ 'b) $->$ ['a] $->$ ['b]}{$map\;f\;[x_{1};\,...\, ;\,x_{n}]$ is $[f\;x_{1};\,...\, ;\,f\;x_{n}]$.}
+\libitem{mzip: ['a] $->$ ['b] $->$ [('a,'b)]}{turns two lists into a list of pairs; result is the length of the shorter list (as in Miranda).}
+\libitem{nth: ['a] $->$ num $->$ 'a}{$nth\;i\;xs$ returns the $i$th element of $xs$ (counting from 0); fails if $i$ is negative, fractional or too large. (As in OCaml.)}
+\libitem{rev: ['a] $->$ ['a]}{reverses its argument.}
+\libitem{sort: (''a $->$ ''a $->$ num) $->$ [''a] $->$ [''a]}
+		{sorts according to order defined by first argument -- 0 for $a=b$, -1 for $a<b$, 1 for $a>b$ (as C/OCaml).}
+\libitem{tabulate: num $->$ (num $->$ 'a) $->$ ['a]}{$tabulate\;n\;f$ is $map\;f\;[0..n-1]$.}
+\libitem{take: num $->$ ['a] $->$ ['a]}{$take\;n\;xs$ returns the first $n$ elements of $xs$; [] if $n$ is negative or zero; $xs$ if $n$ is too large.}
+\libitem{takewhile: ('a $->$ bool) $->$ ['a] $->$ ['a]}{returns the longest initial segment of $xs$ for which $f$ returns true on every element.}
+\libitem{tl: ['a] $->$ ['a]}  
+	    {returns all but the first element of $xs$; fails if $xs$ is empty.}  
+\libitem{unzip: [('a,'b)] $->$ (['a], ['b])}{turns a list of pairs into a pair of lists.}
+\libitem{zip: ['a] $->$ ['b] $->$ [('a,'b)]}{turns two lists into a list of pairs; fails if the lists aren't the same length (as in OCaml).}
+
+\subsection{Tuple functions}
+\libitem{fst: ('a, 'b) $->$ 'a}{$fst\;(a,b)=a$}
+\libitem{snd: ('a, 'b) $->$ 'b}{$snd\;(a,b)=b$}
+ 
+\subsection{Gate and matrix functions}
+\libitem{degate: gate $->$ matrix}{simple type conversion.}
+\libitem{engate: matrix $->$ gate}{type conversion; fails if argument is not $2^{n}\times2^{n}$ and unitary ($M*M^{\dag}=I^{⊗n}$).}
+\libitem{makeC: gate $->$ gate}{makes the `C\_' version of a $2\times2$ gate. $makeC\;X$, for example, is CX.}
+\libitem{phi: num $->$ gate}{$phi\;0=I$; $phi\;1=X$; $phi\;2=Z$; $phi\;3=Y$; fails otherwise.}
+\libitem{tabulate\_m: num $->$ num $->$ (num $->$ num $->$ sxnum) $->$ matrix}{$tabulate\_m\;r\;c\;f$ builds a matrix with $r$ rows and $c$ columns such that $M_{i,j}=f\;i\;j$.}
+\libitem{tabulate\_diag\_m: num $->$ (num $->$ sxnum) $->$ matrix}{$tabulate\_diag\_m\;n\;f$ builds a diagonal $n\times{}n$ matrix such that $M_{i,i}=f\;i$ and off-diagonal elements are 0.}
+
+\subsection{Numerical functions}
+\libitem{ceiling: num $->$ num}{$ceiling\;i$ is the smallest integer not less than $i$}
+\libitem{floor: num $->$ num}{$floor\;i$ is the largest integer not greater than $i$}
+\libitem{max: num $->$ num $->$ num}{maximum}
+\libitem{min: num $->$ num $->$ num}{minimum}
+\libitem{pi: num}{a constant, approximately $\pi$.}
+\libitem{round: num $->$ num}{$round\;i$ is the floor of $i+1/2$, if $i>=0$; the ceiling of $i-1/2$, if $i<0$.}
+\libitem{sqrt: num $->$ num}{an approximation to square root; fails if argument is negative.}
+
+\subsection{Bit functions}
+\libitem{bitand: num $->$ num $->$ num}{bitwise `\&\&'.}
+\libitem{bits2num: [$bit$] $->$ num}{convert to integer.}
+\libitem{num2bits: num $->$ [$bit$]}{convert from integer; fail if negative or fractional.}
+
+\subsection{Random functions}
+\libitem{randbit: unit $->$ bit}{a single random bit.}
+\libitem{randbits: num $->$ [$bit$]}{$randbits\;n$ is a sequence of $n$ random bits; fails if $n$ is negative or fractional.}
+\libitem{randbool: unit $->$ bool}{a random boolean.}
+\libitem{randp: num $->$ bool}{$randp\;p$ is a random boolean with probability $p$ of being true; fails unless $0\leq{}p\leq{}1$.}
+
+\section{Symbolic-number functions}
+\libitem{sx\_cos: angle $->$ sxnum}{$sx\_cos\;a$ is the \verbtt{sxnum} representing $\cos{a}$.}
+\libitem{sx\_sqrt: num $->$ sxnum}{$sx\_sqrt\;n$ is the \verbtt{sxnum} representing $\sqrt{n}$.}
+\libitem{sx\_sin: angle $->$ sxnum}{$sx\_sin\;a$ is the \verbtt{sxnum} representing $\sin{a}$.}
+\libitem{sx\_0: sxnum, sx\_1: sxnum, sx\_i: sxnum}{constants representing 0, 1 and $\sqrt{-1}$.}
+
+\subsection{Input-output functions}
+\libitem{read\_alternative: string $->$ string $->$ [(string,'a)] $->$ 'a}
+	    {$read\_alternative\;prompt\;sep\;[(s_{0},v_{0});\,(s_{0},v_{0});\,..]$ prints $prompt$ followed by the $s_{i}$s separated by $sep$; it insists that the user inputs one of the $s_{i}$s, and returns the corresponding $v_{i}$.}
+\libitem{read\_bool: string $->$ string $->$ string $->$ bool}
+	    {$read\_bool\;prompt\;y\;n$ is a version of $read\_alternative$ in which $y$ is the $s_{i}$ which returns \verbtt{true} and $n$ the one which returns \verbtt{false}.}
+\libitem{read\_num: string $->$ num}{$read\_num\;prompt$ returns the number which the user inputs (it insists on a number).}
+\libitem{read\_string: string $->$ string}{$read\_string\;prompt$ returns the string which the user inputs (an input line, without the newline).}  
+\libitem{print\_qubit: qubit $->$ unit}
+	    {$print\_qubit\;q$ has the same effect as \verbtt{outq!(qval q)}. (I think it's still possible to use it, but barely so.)}
+\libitem{print\_string: string $->$ unit}
+	    {$print\_string\;E$ has the same effect as \verbtt{out![E]}.}
+\libitem{print\_strings: [string] $->$ unit}
+	    {$print\_strings\;Es$ has the same effect as \verbtt{out!Es}.}
+
+\subsection{Miscellaneous}
+\libitem{abandon: [string] $->$ '*t}{stops the program, printing its argument, and doesn't return. For typechecking purposes, pretends to returns a value (which might be any type).}
+\libitem{compare: ''a $->$ ''a $->$ num}
+	{\verbtt{compare a b} returns 0 for $a=b$, -1 for $a<b$, 1 for $a>b$ (as C/OCaml)}
+\libitem{const: 'a $->$ 'b $->$ 'a}{$const\; k\; x = k$}
+\libitem{memofun: ('a $->$ 'b) $->$ 'a $->$ 'b}{makes a `memo function' of its argument: a function which remembers arguments with which it has been called and avoids recalculation. (Oh dear.)}
+\libitem{qval: qubit $->$ qstate}{constructs an opaque value, of type \verbtt{qstate}, which describes the state of a qubit. The only thing you can usefully do with the value is send it down the \verbtt{outq} channel.}
+\libitem{qvals: qubits $->$ qstate}{\verbtt{qval} for qubit collections. See \secref{specialio}.}
+\libitem{show: '{*}a $->$ string}{converts a value, of arbitrary type, to a string. Gives a deliberately opaque result if applied to a qubit, function, process, channel or qstate. (Actually it's not really a function, more a sort of macro description for a family of functions, one for each type.)} 
+\libitem{showf: num $->$ num $->$ string}{$showf\;i\;n$ returns a string representing $n$ as a decimal fraction to $i$ decimal places.} 

@@ -1,0 +1,96 @@
+%!TEX TS-program = pdflatexmk
+\documentclass[11pt,a4paper]{book}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bbold}
+\usepackage{subfigure}
+\usepackage[round]{natbib}
+\usepackage[pagebackref]{hyperref}
+\usepackage{verbatim}
+\usepackage{verbatimbox}
+\usepackage{mdwlist} % compact lists
+\usepackage{ifthen}
+
+\hoffset = 0mm
+\voffset = 0mm
+\textwidth = 165mm
+\textheight = 229mm
+\oddsidemargin = 0.0 in
+\evensidemargin = 0.0 in
+\topmargin = 0.0 in
+%\headheight = 0.0 in
+%\headsep = 0.0 in
+\parskip = 3pt
+\parindent = 0.0in
+
+\makeatletter
+\renewcommand{\@makefntext}[1]{\setlength{\parindent}{0pt}%
+\begin{list}{}{\setlength{\labelwidth}{1em}%
+  \setlength{\leftmargin}{\labelwidth}%
+  \setlength{\labelsep}{3pt}\setlength{\itemsep}{0pt}%
+  \setlength{\parsep}{0pt}\setlength{\topsep}{0pt}%
+  \footnotesize}\item[\hfill\@makefnmark]#1%
+\end{list}}
+\makeatother
+
+\makeatletter
+\newcommand{\mvb}[1]{\begin{myverbbox}[\ifthenelse{\equal{\the\verbatim@line}{}}{\vspace{-5pt}}{}]{#1}}
+\makeatother
+
+%\newcommand{\greyorcolour}[2]{#2} % #1 highlighting (etc.) for greyscale, #2 for colour
+%\input{rbmacros}
+
+\input{qmacros}
+
+\makeatletter
+\def\verbatim@font{\ttfamily\footnotesize}
+\makeatother
+
+\usepackage[utf8]{inputenc}
+\DeclareUnicodeCharacter{2297}{\ensuremath{\otimes}}
+\DeclareUnicodeCharacter{2041}{\ensuremath{{/}\mspace{-9.1mu}}\raisebox{-0.47ex}{\ensuremath{{\wedge}}}}
+\DeclareUnicodeCharacter{03BB}{\ensuremath{\lambda}}
+\DeclareUnicodeCharacter{2190}{\ensuremath{\leftarrow}}
+\DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}}
+\DeclareUnicodeCharacter{2193}{\ensuremath{\downarrow}}
+\DeclareUnicodeCharacter{1D106}{\ensuremath{|\mspace{-1mu}\!|\mspace{-1mu}\!|\!\mspace{0.7mu}|\!\!:}}
+\DeclareUnicodeCharacter{1D107}{\ensuremath{:\!\!|\!\mspace{0.7mu}|\mspace{-1mu}\!|\mspace{-1mu}\!|}}
+\DeclareUnicodeCharacter{2322}{} % ignore frown
+\DeclareUnicodeCharacter{20EB}{\ensuremath{\mspace{4mu}/\!\mspace{-1mu}/\mspace{-22mu}\frown}}
+\DeclareUnicodeCharacter{0338}{\ensuremath{\mspace{6mu}/\mspace{-19mu}\frown}}
+\DeclareUnicodeCharacter{221A}{\ensuremath{\sqrt{}}}
+\DeclareUnicodeCharacter{1D745}{\ensuremath{\pi}}
+\DeclareUnicodeCharacter{2194}{\ensuremath{\leftrightarrow}}
+
+\mathlig{<->}{\leftrightarrow}
+
+
+
+\newcommand{\verbtt}[1]{\texttt{\small{}#1}}
+\newcommand{\verbttf}[1]{\texttt{\footnotesize{}#1}}
+
+\var{prog,pdef,fdef,pat,bpat,Pname[Pn],Fname[fn],E,P,Q,IO,T,TV[tv],Const}
+
+\newcommand{\caret}[0]{\ensuremath{{}^{\wedge}}}
+
+\title{A description of qtpi, a simulator for quantum protocols (and more)}
+\author{Richard Bornat \\ School of Science and Technology, Middlesex University, London, UK \\ R.Bornat@mdx.ac.uk, richard@bornat.me.uk}
+
+\begin{document}
+\maketitle
+\newpage
+\tableofcontents
+\newpage
+
+\input{introduction}
+\input{corenotation}
+\input{library}
+\input{loggingprocesses}
+\input{implementation}
+
+\bibliographystyle{plainnat}
+\bibliography{quantum} 
+
+\end{document}

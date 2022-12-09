@@ -1,0 +1,59 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{Implementation stuff}
+\chaplabel{implementation}
+
+In case you care.
+
+\section{The symbolic calculator}
+\seclabel{symboliccalculator}
+
+Qtpi has a symbolic calculator, which performs matrix and vector arithmetic with symbolic numerals representing complex numbers. A symbolic numeral is a sum of real part $x$ and imaginary part $y$, each a symbolic real, representing $x+iy$.
+
+A symbolic real is a sum of symbolic real products. 
+
+A symbolic real product is a rational (a fraction with unbounded integer numerator and denominator) and a sequence of elements. The elements are 
+\begin{itemize*}
+\item square roots of rationals;
+\item trigonometric functions $\sin{}$ and $\cos{}$ with rational arguments;
+\item the constant $\pi$;
+\item real and imaginary parts of variables $a_{i}$ and $b_{i}$.
+\end{itemize*}
+
+The rationals are provided by OCaml's Q package, itself an interface to the GNU multi-precision arithmetic library libgmp. The whole-number numerator and denominator in a rational are of unbounded length -- constrained, of course, by the physical quantities of memory of the computer running the library.  In practice, a usefully very very very large range.
+
+Real and imaginary parts of a variable are shown, as infrequently as possible, as $a_{i}\mathbb{r}$ and $a_{i}\mathbb{i}$.
+
+Arguments of trigonometric functions are reduced in construction to the interval $(0,45]$ (which doesn't include 0, but does include 45) by using the identities
+\begin{itemize*}
+\item $\cos\theta->\cos{(\theta\mod360)}$, $\sin\theta->\sin{(\theta\mod360)}$;
+\item if $\theta>180$ then $\cos\theta-> \cos{(360-\theta)}$, $\sin\theta-> -\sin{(360-\theta)}$
+\item if $\theta>90$ then $\cos\theta-> -\cos{(180-\theta)}$, $\sin\theta-> \sin{(180-\theta)}$
+\item $\cos0->1$, $\sin90->1$, $\cos{90}->0$, $\sin0->0$
+\item $\cos60->\frac{1}{2}$, $sin30->\frac{1}{2}$
+\item if $\theta>45$ then $\cos\theta->\sin{(90-\theta)}$, $\sin\theta->\cos{(90-\theta)}$
+\item $\sin45->\cos45$
+\end{itemize*}
+
+
+\subsection{Simplification}
+
+Sums are simplified in two ways:
+\begin{itemize*}
+\item $n*P+m*P=(n+m)*P$ -- sum the rationals if the element sequences are the same
+\item $|a_{i}|^{2}+|b^{i}|^{2}$ -- if there are elements $n*P*a_{i}\mathbb{r}$, $n*P*a_{i}\mathbb{i}$, $n*P*b_{i}\mathbb{r}$, $n*P*b_{i}\mathbb{i}$, replace by $n*P$.
+\end{itemize*}
+
+Products are simplified by
+\begin{itemize*}
+\item $\sqrt{x}\times\sqrt{x}=x$
+\item trigonometric identities
+\end{itemize*}
+ 
+$\frac{1}{\sqrt2}$ is represented by $\cos{45}$; $\frac{1}{\sqrt3}$ by $\frac{2}{3}\cos{30}$.
+
+Square roots are not simplified until measurement, except that $\sqrt{x}\times\sqrt{x}$ is replaced by $x$. 
+
+
+
+The measurement mechanism calculates a probability from symbolic amplitudes, and to do so must sometimes approximate. That calculation also has access to the secret values of variables.

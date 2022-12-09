@@ -1,0 +1,383 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{Core language}
+\chaplabel{corenotation}
+
+The language described in this document is a mildly tweaked version of CQP \citep{GaySJ:comqp}, itself a development of pi calculus \citep{DBLP:journals/iandc/MilnerPW92a}. Separate chapters describe additions:  
+
+\begin{itemize*}
+\item\chapref{library} describes the library of functions and constants;
+\item\chapref{loggingprocesses} describes how to attach output statements to a process without obscuring its content;  
+\item\chapref{iterativeprocesses} shows how iterative constructs can simplify the description of some algorithms;  
+\item\chapref{qubitcollections} talks about qubit collections, which allow you to simulate algorithms that deal with vectors of qubits.
+\end{itemize*}
+
+\section{Minor points}
+\subsection{Qubit or qbit?}
+The world uses `qubit' for `quantum bit'. CQP used `qbit' for the simulated qubits a program manipulates, and at first qtpi did the same. Qbit actually would be a better name, because `qubit' looks as if it should be pronounced `quoobit'. But it's too late to change the world's mind, and qtpi now uses `qubit' (though it still accepts `qbit' in programs, because why not?).
+
+\subsection{The offside parsing rule}
+
+Most languages use lots of brackets in their syntax. You often have to use brackets, for example, around the clause which follows `then', and likewise after `else', and so usually on and on. When I began to implement qtpi I thought that I'd do the Algol 68 thing and use `if .. then .. else .. fi' to avoid bracketing in conditionals at least. When I added a construct which started `match' I invented the closing bracket `hctam'. It looked horrible, and I could never remember how to spell hctam.
+
+Miranda, amongst other languages, does better by using offside parsing. Landin's \emph{offside rule} -- no part of a construct should be to the left and below the first symbol of the construct -- often makes closing brackets unnecessary. In the Miranda expression $E$ where $E'$, the `where' symbol mustn't be left of $E$ and $E'$ mustn't be left of `where'. This disambiguates things like 
+\mvb{\offsideexample}
+		hwc key message
+		  where message = packets [] bits
+		                    where bits = f message
+		                    where f = g key
+		  where key = ...
+\end{myverbbox}%can't be a macro
+\begin{quote}
+\centering
+\offsideexample
+\end{quote}
+	
+-- the first \verbtt{where} affects only \verbtt{hwc key message}; the second and third affect only \verbtt{packets [] bits}; the fourth affects everything.
+
+So far the offside parser in qtpi applies to function definitions (expression to the right of '='), to `where' clauses, to `match'es in processes and expressions, to guarded sums, to parallel process compositions and to conditionals. In conditionals `fi' is optional (but offside parsing is not).
+
+\subsection{Mostly-optional typing}
+
+Qtpi has an automatic Hindley-Milner typechecker, so explicit types are mostly optional. My own taste is to omit them in my programs, but of course it's a matter of taste, and sometimes types clarify a program. 
+
+In order to permit matrix arithmetic, numerical arithmetic and trigonometric arithmetic, qtpi's arithmetical operators are very highly overloaded. Explicit typing is sometimes necessary to resolve ambiguities.
+
+\subsection{Awful syntax error messages}
+
+Qtpi's parser, as currently implemented, can generate \emph{awful} error messages: `syntax error at line k character j' sort of thing. This is shameful and can prompt hair tearing. I'm sorry, I'm ashamed, and I want to fix it. I blame Donald Knuth and the automatic parser generators that he enabled.
+
+\section{Syntax-description conventions}
+
+\newcommand{\asep}[0]{\ \bigm{|} \ }
+\newcommand{\optq}[1]{\ensuremath{\overline{\underline{[}}#1\overline{\underline{]}}}}
+\newcommand{\optT}[0]{\;\optq{\!:\!T}}
+In syntax descriptions, optional items are in decorated square brackets \optq{\;\; }. Repetition is represented by ellipsis: three dots for a non-empty sequence, two dots for possibly empty, with a bit of common-sense needed for element-separating symbols like commas. So $\<pdef>\ ...\ \<pdef>$ is a non-empty sequence of \<pdef>s, for example, and $\<E>,\ ..\ ,E$ is a possibly-empty tuple of \<E>s, separated by commas.
+
+\section{Unicode equivalences}
+\seclabel{Unicodeequivalences}
+
+Some operators look better in Unicode, but every one has an equivalent in raw ASCII. See \tabref{Unicodeequivalences}. Some of these symbols are explained in later chapters.
+
+\begin{table}\caption{Unicode equivalences}\centering
+\hspace{3pt}\vspace{-3pt}\\\begin{tabular}{|r|c|l|l|}\hline
+Unicode & ASCII & meaning & UTF-16\\
+\hline
+¬ 		& \verbtt{not} 		& logical negation operator 			& 00ac			\\
+⊗ 		& \verbtt{><}  		& tensor product operator 				& 2297 			\\
+⊗⊗ 		& \verbtt{><><}		& tensor power operator 				& 2297, 2297	\\
+†		& \verbtt{\^}\verbtt{\^}		
+							& complex conjugate operator 			& 2020 			\\
+λ		& \verbtt{lam}		& function constant operator 			& 03bb 			\\
+𝝅		& \verbtt{pi}		& num constant							& 1d745			\\	
+\hline
+⌢̸		& \verbtt{-/-}		& qubit measure operator				& 2322, 0338	\\
+⌢⃫		& \verbtt{-//-}		& qubit-collection measure operator		& 2322, 20eb	\\
+\hline
+←		& \verbtt{<-}		& left arrow							& 2190			\\
+→		& \verbtt{->}		& right arrow							& 2192			\\
+↓		& \verbtt{!!}		& down arrow							& 2193			\\
+\hline
+𝄆		& \verbtt{|:}		& iteration left bracket 				& 1d106			\\
+𝄇		& \verbtt{:|}		& iteration right bracket 				& 1d107			\\
+\hline
+⁁		& \verbtt{/\^}		& test point marker 					& 2041 			\\
+\hline\end{tabular}\tablabel{Unicodeequivalences}\end{table}
+
+\section{Program syntax}
+
+\begin{figure}
+\centering $$
+\begin{array}{rcl}
+\<prog> &::=& \verbtt{proc}\ \<pdef>\ ...\ \<pdef>\ \<prog> \\
+	   &|&	  \verbtt{fun}\ \<fdef>\ ...\ \<fdef>\ \<prog> \\
+	   &|&	  \verbtt{let}\ \<bpat>\ =\ E\ \<prog>\ \vspace{3pt} \\
+\<pdef> &::=& \<Pname>(x\optT,\ ..\ ,z\optT) = P \vspace{3pt} \\
+\<fdef> &::=& \<Fname>\ \<bpat>\ ...\ \<bpat> \optT\ = E \\
+\end{array} $$
+\caption{Program syntax}
+\figlabel{programsyntax}
+\end{figure}
+
+In \figref{programsyntax} a program is a sequence of process, function and variable definitions. Processes and functions are gathered into mutually-recursive groups.
+\begin{itemize}
+\item Processes \<P> are where all the quantum stuff and protocol stuff happens; expressions \<E> do classical calculations. 
+\item Process names \<Pname> start, by convention, with an upper-case letter; function names \<Fname> with a lower-case letter. (It's a silly convention because variable names $x$ can start with either case, and it's very weakly enforced. Certainly variable names can start with an upper-case letter) After the first letter, names continue with an alphanumeric sequence of characters.
+\item A process definition has a tuple (possibly empty) of parameter names, optionally typed, and an optional result type.
+\item A function definition has a non-empty sequence of parameter patterns, which may be typed, and an optional result type.\footnote{At present typing of a function definition follows the ML/OCaml style, with typed parameters and, just before the `=' symbol, an optional result type. This is horrid and as soon as maybe I shall change it to something like Miranda's typing mechanism. At the same time I'd like to allow proper pattern-matching function definitions. I'm afraid you have to wait until I get round to it.}
+\end{itemize}
+
+\newcommand{\adot}{\;.\;}
+\newcommand{\abar}{\;|\;}
+\newcommand{\abang}{\;!\;}
+\newcommand{\aquery}{\;?\;}
+\var{alt,par,cond,decl}
+\section{Process syntax (\setvar{P}, \setvar{IO}, \setvar{Q})}
+
+Process syntax is detailed in \figref{processsyntax}: you can send and receive qubits in \<IO> steps, gate them or measure them in \<Q> steps. You can also send and receive classical values. But because qubits simulate quantum stuff, and quantum stuff is strange, there are things you can't do with qubits, detailed in \secref{keepitreal}.
+
+The notation is based on the pi calculus, enhanced with quantum steps and pattern matching.There are declarations, various ways of choosing between sub processes, parallel composition of sub processes, and a process can turn into another process. Declarations are bracketed, as in the pi calculus; steps are separated by dots, as in the pi calculus; an empty step terminates a process. 
+\begin{itemize}
+\item $E!E,...,E$ sends a message: the first $E$ denotes the channel, and the non-empty tuple the values to be sent. The tuple doesn't need to be bracketed, as in the pi calculus. $E!()$ sends an empty tuple. 
+\item $E?(\<bpat>,..,\<bpat>)$ receives a message: the first $E$ denotes the channel, and the received values are bound to names in the bracketed tuple of \<bpat>s. $E?()$ receives an empty tuple. $E?(\_)$ accepts but ignores a message, whether empty or not; $E?\_$ is allowed without the brackets.
+\item $E,...,E>>E$ puts a non-empty tuple of qubits through the gate denoted by the final $E$. Conditional qubit-valued expressions in that tuple.
+\item $q⌢̸(\<bpat>)$ measures a single qubit,\footnote{If you have to measure several qubits, then at present you have to do it with a sequence of measurements: this is a deficiency in the language which doesn't really make a difference, so I haven't fixed it. See, however, \chapref{qubitcollections}.} binding the classical single-bit result \verbtt{0b0} or \verbtt{0b1} with the bracketed pattern \<bpat>. The length of the qubit sequence must match the size of the gate it's put through -- e.g. X takes a single qubit, Cnot takes 2, Fredkin takes 3, and so on. Measurement takes place in the computational basis defined by \zero{} and \one{}.
+\item $q⌢̸[E](\<bpat>)$ temporarily rotates the measurement basis with the gate denoted by E before measuring, and rotates it back afterwards. If the gate isn't some sort of rotation you won't be simulating reality. 
+\begin{figure}
+\centering \ensuremath{
+\begin{array}{rcl}
+\<IO>   &::=& E \abang E\ ,\ ...\ ,\ E \asep E \aquery (\<bpat>,\ ..\ ,\<bpat>) \asep E \aquery \_ \vspace{3pt} \\
+Q       &::=& E, ... ,E \;>\!>\; E \asep q \;⌢̸\; \optq{\;[E]\;}\;(\<bpat>) \vspace{3pt} \\
+P       &::=& Q  \adot  P \asep \<IO>  \adot  P \asep \adot P \asep \<decl>\ P \asep \\
+		&&    \<Pname>(E,\;..\;,E) \asep \<alt> \asep \<par> \asep \<cond> \asep (\ P\ )\ \asep  \vspace{3pt} \\
+\<decl>	&::=& \verbtt{(new } x\optT,\; ...\; ,z\optT ) \asep
+		      \verbtt{(newq } x\;\optq{=E}, \;...\; ,z\;\optq{=E} ) \asep 
+		      \verbtt{(let}\ \<bpat>=E) \vspace{3pt} \\
+\<cond>	&::=& \verbtt{if}\ E\ \verbtt{then}\ P\ \verbtt{else}\ P\ \optq{\verbtt{fi}} \asep
+		      \verbtt{match}\ E\  \adot \ \optq{+}\;\<pat> \adot P\; +\; ... \;+\; \<pat> \adot P \vspace{3pt} \\
+\<alt>	&::=& \optq{+}\; \<IO>  \adot  P \;+\; ... \;+\;\<IO>  \adot  P \vspace{3pt} \\
+\<par>	&::=& \optq{\abar} P  \abar  ...  \abar  P 
+\end{array}}
+\caption{process syntax}
+\figlabel{processsyntax}
+\end{figure}
+\item Dots separate process steps, and you can insert extra dots if you wish (I find it helps me with layout). A process can be bracketed. An empty process (really it's an empty \<alt>) means termination.
+\item Declarations \<decl> -- \verbtt{new} for channels, \verbtt{newq} for qubits, \verbtt{let} for classical values -- are always bracketed. 
+\item Nothing follows a process invocation, an \<alt>, a \<par>, a \<cond> or a bracketed process. That austerity derives from the pi calculus, and makes it possible to run the checks described in \secref{keepitreal}.
+\item A process invocation $\<Pname>(E,\;..\;,E)$ turns one process into another, an instantiation of the process \<Pname> with parameters $E,\;..\;,E$. It isn't a process \emph{call} because it never returns.\footnote{It is possible, however, to mix process invocation, \<par>, and message passing so that the new process sends a message back to (part of) the old. See \chapref{iterativeprocesses}} As in the pi calculus process names, by convention, start with a capital letter, but qtpi doesn't force other names to start in lower case so it's a bit of a silly convention (sorry).
+\item Conditionals \verbtt{if} and \verbtt{match} choose between processes depending on the value of the classical expression \<E>. The optional `\verbtt{+}' before the first alternative in \verbtt{match} makes offside parsing more effective.
+\item Alternatives \<alt> choose between processes on the basis of messages sent or received. Each alternative starts with an \<IO> guard\footnote{Oh dear. Should send guards be allowed in an \<alt>? Probably unrealistic. Sorry about that.} and continues with a process. At most one of the guards will manage to succeed, and the corresponding process will be executed. The optional \verbtt{+} before the first alternative helps offside parsing.
+\item Parallel composition \<par> makes a process become several processes, simulated in parallel. The optional bar before the first alternative helps offside parsing.
+\end{itemize}
+
+\section{Keep it real}
+\seclabel{keepitreal}
+
+Quantum bits are not classical bits, in more than the sense that they are not simply 0/1 values. There's a theorem of quantum mechanics which states that there can be no operation which takes a qubit in arbitrary state \bv{\phi}, together with any number of other qubits, and delivers a state in which there are two qubits each in state \bv{\phi}. No duplication, ever. That means, for example, that there can be no analogue in quantum computation of the classical assignment $x:=y$. The designers of CQP \citep{GaySJ:comqp} wanted their language to exclude programs that couldn't really execute. Qtpi loyally follows suit.
+
+Because qtpi is implemented, it isn't quite CQP: for one important thing, at each measurement it makes a probabilistic choice and follows it through, rather than splitting into two possible processes, labelling them with their probabilities, and following both as CQP would. There are some linguistic changes too, especially lifting quantum steps to the level of processes. And because I wanted it to be used, I had to devise ways of restricting the language which keep it real and which I could explain. I chose overkill and simple explanations. 
+
+The sort of qubits that CQP and qtpi simulate are physical things -- atoms, molecules, photons, ... -- with quantised physical state such as spin or polarisation. It makes sense to send such a qubit from one protocol agent to another, and CQP is a language of communicating quantum processes which do just that. Agents can't share such a qubit -- it's in one place or another, not both. This doesn't handle every possible physical experiment: you \emph{might}, for example,  quantise the position of a photon as being with some probability on one of two paths towards detectors, but CQP and qtpi don't try to deal with that.
+
+\begin{enumerate}
+\item No uncertainty about naming.
+\begin{itemize}
+\item You cannot form lists or tuples of non-classical type. 
+\item In a tuple of process arguments or values to be sent, a qubit-valued expression must be a single qubit name, and can appear only once in the tuple.
+\end{itemize}
+\item Functions deal with classical values.
+\begin{itemize}
+\item Functions cannot take arguments or return values of non-classical type.
+\item A function body cannot refer to a free qubit.
+\end{itemize}
+\item No sharing within processes.
+\begin{itemize}
+\item A pattern in \verbtt{let} or \verbtt{match} cannot bind a qubit value.
+\item A process parameter can be a single qubit or a classical value. In a tuple of process arguments, a qubit-valued argument must be a single qubit name, and can appear only once in the tuple.
+\end{itemize}
+\item When an agent sends a qubit in a message, it leaves its control and can't be used again (unless it's sent back). 
+\begin{itemize}
+\item Channels can carry either a single qubit or a classical value.
+\item A qubit sent away can't be used later in the process unless redeclared.
+\end{itemize}
+\item No peeking at the simulation.
+\begin{itemize}
+\item Qubits can't be compared.
+\item The library function \verbtt{show}, applied to a qubit, doesn't give information about its state; the function \verbtt{qval} does, but there are no operations on its result type \verbtt{qstate} other than send and receive.
+\end{itemize}
+\item No gating silliness.
+\begin{itemize}
+\item In a gated tuple of qubits, no qubit can be mentioned twice.
+\end{itemize}
+\item No sharing between sub processes.
+\begin{itemize}
+\item The qubits used in one arm of a \<par> must be distinct from those used in other arms.
+\end{itemize}
+\item And a random one.
+\begin{itemize}
+\item Qubit channels can't be used in \<alt> guards. (Perhaps this could be dropped for receive guards ...)
+\end{itemize}
+
+\end{enumerate}
+\section{Types \setvar{T}}
+\begin{figure}
+\centering
+\ensuremath{
+\begin{array}{rcl}
+T    &::=& \verbtt{num} \asep \verbtt{bool} \asep \verbtt{bit} \asep \verbtt{string} \asep \verbtt{char} \asep \verbtt{angle} \asep \verbtt{qubit} \asep \verbtt{gate} \asep \\
+     &&    \verbtt{bra} \asep \verbtt{ket} \asep \verbtt{matrix} \asep \verbtt{sxnum} \asep \verbtt{qstate} \asep \<TV> \asep \\
+     &&    ^{\wedge}\;T \asep [\;T\;] \asep (T\;,..\;,\;T) \asep T -> ... -> T \asep T\; \verbtt{process} \vspace{3pt} \\
+\<TV> &::=& 'x \asep ''x \asep '{*}x   
+\end{array}}
+\caption{Type syntax}
+\figlabel{typesyntax}
+\end{figure}
+Type syntax is in \figref{typesyntax}.
+\begin{itemize}
+\item List and tuple types are Miranda style rather than ML style: $[T]$ rather than $T\;\verbtt{list}$; $(T,\;...\;,T)$ rather than $T*\;...\;*T$. Zero-tuple is a type which contains only the value () (cf. ML `unit'); singleton $(T)$ is $T$.
+\item \verbtt{num} is the type of numbers: unbounded integers and unbounded-precision rationals (fractions), so that qtpi can do accurate arithmetic.\footnote{Not having a type \verbtt{int} can cause some problems. Some library functions, such as \setvar{take} and \setvar{drop} for example, really don't work with fractional arguments (or, at least, I can't decide what they should do). In such cases you can make use of \setvar{floor}, \setvar{ceiling} and \setvar{round} to resolve problems.}
+%\item CQP had range types; qtpi doesn't.
+\item \verbtt{bool} is the type of booleans, \verbtt{true} or \verbtt{false}.
+\item \verbtt{bit} isn't a subtype of \verbtt{num}.
+\item \verbtt{sxnum} is the type of symbolic complex numbers, the values that qtpi's symbolic quantum calculator manipulates.
+\item \verbtt{angle} is the type of arguments to sin and cos functions, rational multiples of $\pi$.
+\item \verbtt{bra} is the type of unitary row vectors of \verbtt{sxnum}; \verbtt{ket} of unitary column vectors of \verbtt{sxnum}. A qubit state is a ket.
+\item \verbtt{matrix}  is the type of matrices of \verbtt{sxnum}; \verbtt{gate} is the type of unitary square matrices.
+\item \verbtt{qstate}  is the type of the result of the \setvar{qval}  function (see \secref{specialio}). It's a peek at the simulator state. But a \verbtt{qstate} can't be compared or manipulated in any way. The only useful thing you can do with a \verbtt{qstate}  is to send it down the \setvar{outq} output channel, which prints it out.
+\item \verbtt{process} types are necessary in typechecking, but I think they are otherwise useless.
+\item The syntactic precedence of types is more or less as listed, or so I hope and intend. 
+\item Classical types are everything except \verbtt{qubit}  or those involving \verbtt{qubit}  (but function, process and channel types are classical whatever their internal types).  
+\item Equality types are everything except \verbtt{qubit}, \verbtt{qstate} , function and process (or anything involving those).  
+\item Channel types (types following $^{\wedge}$) are restricted: they may only be \verbtt{qubit} or classical.
+\item Type variables \<TV> are \begin{itemize}
+		\item $'x$, a classical type (no qubits);		
+		\item $''x$, an equality type (no qubits, qstates, functions, processes);
+		\item $'{*}x$, an everything type (includes qubits).
+	\end{itemize}
+\end{itemize}
+
+\section{Patterns (\setvar{pat}, \setvar{bpat})}
+
+\begin{figure}
+\centering
+\[
+\begin{array}{rcl}
+\<pat>   &::=& \_ \asep x \asep \<Const> \asep (\; \<pat>\; ,\; .. \;,\; \<pat>\; ) \asep [\; \<pat>\; ;\; ... \;;\; \<pat>\; ] \asep \<pat>\; ::\; \<pat> \asep \<pat>\ :\ T \vspace{3pt} \\
+\<bpat>  &::=& \_ \asep x \asep (\; \<bpat>\; ,\; .. \;,\; \<bpat>\; ) \asep \<bpat>\ :\ T
+\end{array}
+\]
+\caption{Pattern syntax}
+\figlabel{patsyntax}
+\end{figure}
+
+In matches \<pat> disambiguates lists and tuples and constants. In lets and fdefs, \<bpat> binds names to values, including elements of tuples, and never fails to match. The syntax is in \figref{patsyntax}: a \<pat> can be an empty list; both \<pat> and \<bpat> can be a zero-tuple, a bracketed pattern, or a multi-tuple. Patterns can be typed (but may then need to be bracketed).
+
+\section{Expressions \setvar{E}}
+
+Expressions are as in \figref{expressionsyntax}: constants, names, tuples (including the zero tuple); lists; function applications (by juxtaposition, and left associative so that $E\;E\;E$ is $(E\;E)\;E$); arithmetic and boolean expressions including matrix arithmetic; conditionals. Expressions can be typed.
+\var{arithop,compop,logop,elsepart}
+\begin{figure}
+\centering
+\[
+\begin{array}{rcl}
+E  		&::=&	\<Const> \asep x \asep (\ E\ ,\ ..\ ,\ E\ ) \asep [\ E\ ;\ ...\ ;\ E\ ] \asep E\ E\ \asep E\ :\ T \asep \\
+		&&		\verbtt{-}\ E \asep \verbtt{¬}\ E \asep E\ ^{\dag} \asep E\ \<arithop>\ E \asep E\ \<compop>\ E\ \asep E\ \<logop>\ E \asep \\
+		&&		E\;@\;E \asep E\;::\;E \asep \\
+	  	&&		\verbtt{if}\ E\ \verbtt{then}\ E\ \<elsepart> \asep \verbtt{match}\ E\  \adot \ \optq{+}\;\<pat> \adot E\; +\; ... \;+\; \<pat> \adot E \asep \\
+		&&		λ\ \<bpat>\ ...\ \<bpat>\ \adot\ E \vspace{3pt}\\
+\<arithop>	&::=&	\verbtt{+}\ \asep \verbtt{-}\ \asep \verbtt{*}\ \asep \verbtt{/}\ \asep \verbtt{\%}\ \asep \verbtt{⊗} \asep \verbtt{**}\ \asep \verbtt{⊗⊗} \vspace{3pt}\\
+\<compop>	&::=&	\verbtt{<}\ \asep \verbtt{<=}\ \asep \verbtt{=}\ \asep \verbtt{>=}\ \asep \verbtt{>}\ \asep \verbtt{<>} \vspace{3pt}\\ 
+\<logop>	&::=&	\verbtt{\&\&}\ \asep \verbtt{||} \vspace{3pt}\\ 
+\<elsepart>	&::=& \verbtt{else}\ E\ \optq{\verbtt{fi}} \asep \verbtt{elif}\ E\ \verbtt{then}\ E\ \<elsepart>
+\end{array}
+\]
+\caption{Expression syntax}
+\figlabel{expressionsyntax}
+\end{figure}
+
+\subsection{Constants \setvar{Const}}
+
+\begin{itemize}
+\item integers;
+\item chars \verbtt{'}c\verbtt{'} with the usual escapes -- \textbackslash{n}, \textbackslash{r}, \textbackslash{t} and even \textbackslash{b} (why?);
+\item strings \verbtt{"}char..char\verbtt{"} with escapes as for chars;
+\item bit constants \verbtt{0b0} and \verbtt{0b1};
+\item ket constants \zero, \one, \plus{} and \minus, plus longer versions like \bv{001} and \bv{+-+} and so on and on;
+\item bra constants \vb{0}, \vb{1}, \vb{+}, \vb{-}, plus longer versions as for kets; 
+\item sxnum constants \verbtt{sx\_0}, \verbtt{sx\_1}, plus functions in library;
+\item the zero-tuple () (no one-tuple, and tuples are \emph{always} bracketed) and the empty list [];
+\item the angle constant 𝝅
+%  * There is no one-tuple.   
+%  * Tuples are always bracketed, as in Miranda.  
+%  * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
+%  * Function applications are *E* *E* -- juxtaposition. And of course left associative, so that *E* *E* *E* is (*E* *E*) *E*.  There's a function library (see below) and perhaps one day there will be downloadable bundles of functions.  
+%  * Absolutely no process stuff, no manipulation of qubits. But see \verbtt{print\_string}, \verbtt{print\_strings} and \verbtt{print\_qubit} below.  
+\end{itemize}
+
+\subsection{Typechecking expressions}
+
+Expressions can mention qubits, but because of the need to police sharing and duplication, qubit-valued expressions can only be used when gating. Typechecking is mostly straightforward -- comparison operators compare equality types, logical operators deal with booleans, application $E\ E$ is $'a\;->\;'a$ and left-associative -- but arithmetic operators are heavily overloaded.
+\begin{itemize}
+\item unary `\verbtt{+}' and `\verbtt{-}' are $t->t$, where $t$ is \verbtt{num}, \verbtt{angle} or \verbtt{sxnum};
+\item binary `\verbtt{+}' and `\verbtt{-}' are $t->t->t$, where $t$ is \verbtt{num}, \verbtt{angle}, \verbtt{sxnum} or \verbtt{matrix};
+\item `\verbtt{*}' can be 
+\begin{itemize}
+	\item $t->t->t$, where $t$ is \verbtt{num}, \verbtt{angle}, \verbtt{sxnum}, \verbtt{gate} or \verbtt{matrix}
+	\item $\verbtt{num}->\verbtt{angle}->\verbtt{angle}$, $\verbtt{angle}->\verbtt{num}->\verbtt{angle}$, $\verbtt{gate}->\verbtt{ket}->\verbtt{ket}$, $\verbtt{ket}->\verbtt{bra}->\verbtt{matrix}$, $\verbtt{bra}->\verbtt{ket}->\verbtt{sxnum}$, $\verbtt{matrix}->\verbtt{sxnum}->\verbtt{matrix}$, $\verbtt{sxnum}->\verbtt{matrix}->\verbtt{matrix}$;
+\end{itemize}
+\item `\verbtt{/}' is $t->\verbtt{num}->t$, where $t$ is \verbtt{num} or \verbtt{angle};
+\item `\verbtt{\%}' (mod) and `\verbtt{**}' (exp) are $\verbtt{num}->\verbtt{num}->\verbtt{num}$;
+\item `\verbtt{⊗}' (tensor mult) is $t->t->t$, where $t$ is \verbtt{bra}, \verbtt{ket}, \verbtt{gate} or \verbtt{matrix};
+\item `\verbtt{⊗⊗}' (tensor exp) is $t->\verbtt{num}->t$, where $t$ is \verbtt{bra}, \verbtt{ket}, \verbtt{gate} or \verbtt{matrix};
+\item `\verbtt{::}' (cons) is $'t->['t]->['t]$;
+\item `\verbtt{@}' (append) is $['t]->['t]->['t]$;
+\item `\ensuremath{^{\dag}}' (conjugate transpose) is $\verbtt{gate}->\verbtt{gate}$ or $\verbtt{matrix}->\verbtt{matrix}$.
+\end{itemize}
+
+
+\section{Built-in i/o channels, \verbtt{show} and \verbtt{qval}}
+\seclabel{specialio}
+
+There's an input channel $\verbtt{in}:\; \caret{}\verbtt{string}$; there are output channels $\verbtt{out}: \caret{}[\verbtt{string}]$ and $\verbtt{outq}: \caret{}\verbtt{qstate}$. Writing to the input channel, or reading from an output channel, is a run-time error because I don't know how to do the typechecking.
+\begin{itemize}
+\item \verbtt{in?(s)} reads a line from standard input and delivers it as a string. 
+\item \verbtt{out![s1; .. ;s2]} writes strings on standard output. 
+\item $\verbtt{show}:\; '{*}t->\verbtt{string}$ takes any value and produces a string. It produces `\verbtt{<qubit>}' for a qubit, `\verbtt{<qstate>}' for a qstate, to stop computational cheating. It treats functions, processes and channels similarly opaquely, but for more familiar reasons.
+\item $\verbtt{qval}:\; \verbtt{qubit} ->\verbtt{qstate}$ takes a qubit and produces a description of its state. Useful for tracing and debugging, but to stop cheating the only thing you can usefully do with a qstate is to send it out along the \verbtt{outq} channel.
+\item \verbtt{outq!qs} writes a string representing qubit state \verbtt{qs} on standard output; a string $\#i:V$, the qubit's index $i$ and a representation $V$ of its state as a symbolic-number vector in the computational basis -- including, if there is entanglement, a list of the indices of the qubits it's entangled with.
+.
+\end{itemize}
+
+The \verbtt{outq} chanel is peculiar for good reason. It allows logging of a qubit's state, but it couldn't be a channel which takes a qubit, because if you send a qubit down a channel, you lose it. So there's \verbtt{qval} to help out: \verbtt{outq!qval q} is safe, if annoying. 
+
+\section{Symbolic calculation}
+
+Qtpi uses a symbolic quantum calculator: only during quantum measurement does it calculate numerically and possibly approximately. This enables it to do some nice tricks, like accurately `teleporting' a qubit whose value is unknown. It also means that it can do exact calculations.
+
+Qubits are represented as integer indices into a quantum state of unitary vectors in the computational basis defined by \zero{} and \one. An unentangled qubit indexes a pair of complex-valued amplitude expressions $(A, B)$ representing $A\zero+B\one$; either $A$ or $B$ may be zero, and always $|A|^{2}+|B|^{2}=1$. A simply-entangled pair of qubits $\#i$ and $\#j$ each index a quadruple $(A,B,C,D)$, representing $(A\zerozero+B\zeroone+C\onezero+D\oneone)$ where $|A|^{2}+|A|^{2}+|B|^{2}+|C|^{2}+|D|^{2}=1$ and, again, some of $A$, $B$, $C$ and $D$ may be zero. And so on for larger entanglements: famously, $n$ qubits need $2^{n}$ amplitudes.
+
+If $\#i${} is an `unknown' qubit, created by a \verbtt{newq} declaration without specifying a state, then its amplitudes are variables $a_{i}$ and $b_{i}$. The variables do have a secret value that is used when measuring the qubit or anything it's entangled with, but calculation uses only the uninterpreted variables and the fact that $|a_{i}|^{2}+|b_{i}|^{2}=1$.
+
+Symbolic calculation uses the type \verbtt{sxnum}, which involves fractions (\verbtt{num}), variables, square roots of \verbtt{num}s ($\verbtt{sx\_sqrt}: \verbtt{num}->\verbtt{sxnum}$), $\sin$ and $\cos$ of fractions of $\pi$ (\verbtt{sx\_sin} and \verbtt{sx\_cos} are each $\verbtt{angle}->\verbtt{sxnum}$). It's remarkably effective.\footnote{It used to be based on powers of $\sqrt{1/2}$. No longer.}
+
+\section{Non-unitary modulus}
+
+Because it is unitary, the amplitudes of a ket\footnote{A column vector.}) which represents a qubit or a collection of qubits\footnote{Possibly entangled.} should be such that the sum of their absolute squares\footnote{The product of an amplitude with its complex conjugate, written $|a|^{2}$.}) should be 1. But when the amplitude formulae are very complicated it can sometimes be difficult for qtpi's calculator to normalise the result. So kets carry a modulus, the sum of the squares of its amplitudes. Normally this is 1, and then not mentioned, but otherwise the vector is printed prefixed by \verbtt{<<}$M$\verbtt{>>}, where $M$ is the sum of the absolute squares of its amplitudes. The interpretation is that every amplitude in the vector is divided by $\sqrt{M}$, and this is taken into account numerically during measurement.
+
+\subsection{Complex amplitudes}
+
+Amplitudes always represent complex numbers $x+iy$, but often $y$ is zero. The absolute square is always a real number.
+
+\section{Pre-defined gates}
+
+The built-in library defines various named gates. Mostly arity 1, except Cnot which is arity 2, F and T, which are arity 3. For definitions see the Wikipedia pages `Quantum logic gates' and `list of quantum logic gates'. But note: qtpi's versions of $Rx$, $Ry$ and $Rz$ are slightly different to the wiki ones -- period $2\pi$ rather than $4\pi$, suitable for polarised photons rather than spinning electrons. 
+
+\begin{itemize}
+\item  H, the Hadamard gate, takes \zero{} to $\frac{1}{\sqrt{2}}(\zero+\one)$, \one{} to $\frac{1}{\sqrt{2}}(\zero-\one)$. A kind of $45\deg$ or $\frac{\pi}{4}$ rotation -- but note, H*H=I.
+\item I takes \zero{} to \zero, \one{} to \one. Identity.
+\item X  takes \zero{} to \one{} and vice-versa. Exchange, inversion, not.
+\item Z  takes \zero{} to \zero, \one{} to -\one{}. (dunno what to call it.)
+\item Y  takes \zero{} to $-i$\one{}, \one{} to $i$\zero{}. (In some descriptions, Y is equivalent to Z*X. Qtpi has the Pauli version.)
+\item Cnot takes \onezero{} to \oneone{} and vice-versa, otherwise an identity. (Controlled-not). Also spelled as `CNot` and `CNOT`. Same as CX.
+\item CX, CY, CZ. Each treat \zerozero{} and \zeroone{} as I treats \zero{} and \one, and treat \onezero{} and \oneone{} as X, Y, Z treat \zero{} and \one{}. If you see what I mean ...
+\item Swap takes \zeroone{} to \onezero{} and vice versa; otherwise an identity. Also spelled as `SWAP`.
+\item F, the Fredkin gate, takes \onezeroone{} to \oneonezero{} and vice-versa, otherwise an identity. Also spelled as `Cswap`, `CSwap` and `CSWAP`.
+\item T, the Toffoli gate, takes \oneonezero{} to \oneoneone{} and vice-versa, otherwise an identity. (Controlled-controlled-not). \vspace{5pt}
+
+\item phi: $\verbtt{num}->\verbtt{gate}$ -- phi 0=I; phi 1=X; phi 2=Z; phi 3=Y; otherwise undefined. \vspace{5pt}
+
+\item Rx, Ry and Rz are each rotation matrix functions, $\verbtt{angle}->\verbtt{gate}$. Note period $2\pi$ rather than $4\pi$.
+  \begin{itemize}
+  \item $\verbtt{Rx}\;\theta = \qgate{\cos\theta}{-i\sin\theta}{-i\sin\theta}{\cos\theta}$
+  \item $\verbtt{Ry}\;\theta = \qgate{\cos\theta}{-\sin\theta}{\sin\theta}{\cos\theta}$
+  \item $\verbtt{Rz}\;\theta = \qgate{\cos\theta-i\sin\theta}{0}{0}{\cos\theta+i\sin\theta}$
+  \end{itemize}
+\end{itemize}
+  
+\section{The \verbtt{dispose} channel}
+
+Qubits can be discarded: Alice sends one to Bob, Bob receives it, measures it, remembers the result, and then waits for the next one. The qubit is destroyed on detection (unless you use the switch \verbtt{-measuredestroys false}), and it vanishes from the simulation. A vanished qubit is in fact recycled.
+
+Qubits that aren't measured, and even measured qubits with \verbtt{-measuredestroys false}, live for ever. Sometimes this is inconvenient -- it muddies the waters if you are debugging, for example. To solve this problem there is a \verbtt{dispose}: $\caret{}\verbtt{qubit}$ channel: send a qubit down the \verbtt{dispose} channel and it vanishes. It will be made available to be recycled, unless it is entangled, in which case it may be made available later if the entanglement collapses, or it is an unknown, in which case it will be forever in limbo. Like any sent-away qubit, you can't use it once it's disposed.
+
+Reading from \verbtt{dispose} is a run-time error, because I don't know how to typecheck send-only channels. At one time I thought it might be a source of qubits, but that would be to carry a joke too far.

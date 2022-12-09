@@ -1,0 +1,76 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{Logging processes}
+\chaplabel{loggingprocesses}
+
+Before qtpi's trace mechanism was as advanced as it is now, I found it helpful to include commands that logged the effect of my programs. But logging information gets in the way of protocol descriptions. \Figref{teleportwithlogging}, for example, shows a teleport algorithm with logging information. The logging commands are intrusive and obscure the program: compare it with the simplicity of \figref{teleportfinal}.
+
+\mvb{\teleportwithlogging}
+proc System () = 
+  (newq x=|+>, y=|0>) x,y>>CNot . 
+  (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)
+
+  Alice (x:qubit, c:^(bit,bit)) = 
+    (newq z = |+>)  
+    out!["\ninitially Alice's z is "] . 
+    outq!(qval z) . out!["\n"] .
+    z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
+    c!vz,vx . 
+
+  Bob(y:qubit, c:^(bit,bit)) = 
+    c?(b1,b2) . 
+    y >> match (b1,b2) . + (0b0,0b0) . I
+                         + (0b0,0b1) . X
+                         + (0b1,0b0) . Z
+                         + (0b1,0b1) . Z*X    .
+    out!["finally Bob's y is "] . 
+    outq!(qval y) . out!["\n"] .out!["finally Bob's y is "] . 
+    outq!(qval y) . out!["\n"] . 
+\end{myverbbox} %can't be a macro\begin{figure}
+\centering
+\teleportwithlogging
+\caption{A quantum teleport simulation, with logging statements}
+\figlabel{teleportwithlogging}
+\end{figure}
+
+So I wondered if I could find a way of separating the logging commands from the program. This is what I devised: \emph{logging processes} which attach to the program at special \emph{logging points}, identified with a number. The logging point is shown with an insertion caret (⁁) plus the process identifier, which you can attach before or after a declaration or a process step. The logging processes attached to a process are written at the end of the process itself, preceded by \verbtt{with}. \Figref{teleportwithloggingprocesses} shows the same program as \figref{teleportwithlogging}, but with the logging separated out. A little bit clearer, at any rate. 
+
+\mvb{\teleportwithloggingprocesses}
+proc System () = 
+  (newq x=|+>, y=|0>) x,y>>CNot . 
+  (new c:^(bit,bit)) | Alice(x,c) | Bob(y,c)
+
+  Alice (x:qubit, c:^(bit,bit)) = 
+    (newq z = |+>) ⁁1
+    z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
+    c!vz,vx . 
+     
+                                              with 1: out!["\ninitially Alice's z is "] . 
+                                                      outq!(qval z) . out!["\n"] . 
+  Bob(y:qubit, c:^(bit,bit)) = 
+    c?(b1,b2) . 
+    y >> match (b1,b2) . + (0b0,0b0) . I
+                         + (0b0,0b1) . X
+                         + (0b1,0b0) . Z
+                         + (0b1,0b1) . Z*X    . ⁁1
+     
+                                                with 1: out!["finally Bob's y is "] . 
+                                                        outq!(qval y) . out!["\n"] . 
+\end{myverbbox} %can't be a macro\begin{figure}
+\centering
+\teleportwithloggingprocesses
+\caption{A quantum teleport simulation, with logging processes}
+\figlabel{teleportwithloggingprocesses}
+\end{figure}
+
+A logging process acts like code inserted at the logging point, so it can use any names in scope at that point. But it can't 
+\begin{itemize*}
+\item create, gate, measure, send or receive a qubit;
+\item receive classical messages;
+\item contain any logging points;
+\item invoke a process;
+\item split into parallel subprocesses.
+\end{itemize*}
+So: not much really, apart from sending classical values down channels. Just what is needed to do a simple job of logging, and not taking over any of the protocol-description work of the process to which it is attached.
+
+I don't think it's necessary to define the syntax formally.

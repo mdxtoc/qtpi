@@ -24,7 +24,7 @@ proc
     . (let G = groverG n)
     . (let bs = randbits n)
     . (let U = groverU bs)
-    . (let iters = floor (pi*sqrt(2**n)/4+0.5))
+    . (let iters = floor (𝝅*sqrt(2**n)/4+0.5))
     . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
     
     . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . 

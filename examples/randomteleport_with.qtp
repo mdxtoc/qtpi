@@ -4,18 +4,18 @@ fun randfrac () = (* non-zero fraction *)
   if denr=0 then randfrac () 
   elsf numr=0 then randfrac ()
   else numr/denr
-   where denr = bits2num (randbits 8)
+   where denr = bits2num (randbits 4)
    where numr = bits2num (randbits 10)
 
 proc Alice (x:qubit, c:^(bit,bit)) = 
     . (newq z) 
-    . (let theta = 𝝅*randfrac())
+    . (let theta = randfrac())
     . out!["theta="; show theta; "; Rx theta="; show (Rx theta); "\n"]
     . z >> Rx theta
     . z >> randg X
     . z >> randg Y
     . z >> randg Z
-    . (let phi = 𝝅*randfrac())
+    . (let phi = randfrac())
     . out!["phi="; show phi; "; Rz phi="; show (Rz phi); "\n"]
     . z >> Rz phi
     . ⁁ 1

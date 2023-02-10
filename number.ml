@@ -243,7 +243,14 @@ let third:               num                    = num_1 // num_3;;
 let quarter:             num                    = num_1 // num_4;; 
 let sixth:               num                    = num_1 // num_6;;
 let threequarters:       num                    = num_3 // num_4;;
- 
+
+let num_30:              num                    = num_of_int 30
+let num_45:              num                    = num_of_int 45
+let num_60:              num                    = num_of_int 60
+let num_90:              num                    = num_of_int 90
+let num_180:             num                    = num_of_int 180
+let num_360:             num                    = num_of_int 360 ;;
+
 let abs:                 num -> num             = Q.abs
 let pow:                 num -> int -> num      = Local.pow;;
 let floor:               num -> zint            = Local.floor;;

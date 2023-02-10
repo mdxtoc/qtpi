@@ -1,8 +1,8 @@
 fun mp (a:gate) (b:gate) =
   [show a; "*"; show b; "="; show (a*b); "\n"]
   
-let RX = Rx (𝝅/8)
-let RZ = Rz (𝝅/8)
+let RX = Rx (45/2)
+let RZ = Rz (45/2)
 
 proc System () =
   out!mp RZ (RZ†) .

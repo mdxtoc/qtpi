@@ -1,8 +1,8 @@
 proc System() = 
   (newq a = |0>) 
-  (let den = bits2num (randbits 8))
+  (let den = bits2num (randbits 4))
   (let numr = bits2num (randbits 10))
-  (let theta = 𝝅*numr/den)
+  (let theta = numr/den)
   (let RZ = Rz theta)
   . a ⌢̸ [RZ*RZ*RZ] (b) 
   . out!["theta="; show theta; "; Rz theta="; show RZ; ";\n"; 

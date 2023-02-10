@@ -78,7 +78,6 @@ and evaltype t =
   | Char
   | Sxnum 
   | Bit 
-  | Angle
   | Bra
   | Ket
   | Gate
@@ -345,7 +344,6 @@ and canunifytype n t =
       | _       , Char
       | _       , Sxnum
       | _       , Bit 
-      | _       , Angle
       | _       , Bra
       | _       , Ket
    (* | _       , Range   _ *)
@@ -410,7 +408,6 @@ and force_kind kind t =
     | Char
     | Sxnum
     | Bit 
-    | Angle
     | Unit
     | Bra
     | Ket
@@ -607,7 +604,7 @@ and assigntype_expr cxt t e =
                                 )
                                 *)
                                force_type e.pos t (adorn_x e Bit) 
-     | EPi                  -> force_type e.pos t (adorn_x e Angle)
+     | EPi                  -> force_type e.pos t (adorn_x e Num)
      | EBra    _            -> force_type e.pos t (adorn_x e Bra)
      | EKet    _            -> force_type e.pos t (adorn_x e Ket)
      | EVar    n            -> assigntype_name e.pos cxt t n
@@ -632,7 +629,6 @@ and assigntype_expr cxt t e =
                                 match te.inst with
                                 | Num      
                                 | Sxnum     
-                                | Angle
                                 | Matrix    -> ()
                                 | Unknown _ -> let t = adorn e.pos Num in
                                                ovld_warn ("unary " ^ Expr.string_of_uminus) e t;
@@ -719,8 +715,6 @@ and assigntype_expr cxt t e =
                                 | Times       -> 
                                     (* we currently have the following
                                          Num    -> Num    -> Num   
-                                         Angle  -> Num    -> Angle  
-                                         Num    -> Angle  -> Angle  
                                          Sxnum  -> Sxnum  -> Sxnum   
                                          Gate   -> Gate   -> Gate
                                          Matrix -> Matrix -> Matrix
@@ -731,18 +725,7 @@ and assigntype_expr cxt t e =
                                          Matrix -> Sxnum  -> Matrix
                                     ( -- Matrix -> Ket    -> Ket   -- not unless Ket can be un-normalised ...)
                                      *)
-                                    (* But Angle really mucks this up, because Angle and Num are very similar. 
-                                       Here's trying with a version that needs quite a bit of help with explicit typing
-                                     *)
                                     (match t1.inst, t2.inst, tout.inst with
-                                     | Angle   , _        , _          -> (try force_type e.pos t1 tout; force_type e.pos t2 (adorn_x e2 Num)
-                                                                           with _ -> bad ()
-                                                                          )
-                                     | _       ,  Angle    , _         -> (try force_type e.pos t2 tout; force_type e.pos t1 (adorn_x e1 Num)
-                                                                           with _ -> bad ()
-                                                                          )
-                                     | _        , _        , Angle     -> bad ()
-
                                      | Num      , _        , _ 
                                      | _        , Num      , _ 
                                      | _        , _        , Num
@@ -825,7 +808,6 @@ and assigntype_expr cxt t e =
                                 | Plus
                                 | Minus       ->
                                     (* we currently have the following 
-                                         Angle  -> Angle  -> Angle
                                          Num    -> Num    -> Num   
                                          Sxnum  -> Sxnum  -> Sxnum   
                                          Matrix -> Matrix -> Matrix
@@ -835,7 +817,6 @@ and assigntype_expr cxt t e =
                                        See above. We assume Num -> Num -> Num if forced.
                                      *)
                                     (match t1.inst with
-                                     | Angle
                                      | Num      
                                      | Sxnum     
                                      | Matrix    -> ()
@@ -845,14 +826,8 @@ and assigntype_expr cxt t e =
                                      | _         -> bad ()
                                     )
                                 | Div            ->
-                                   (* we currently have 
-                                        Num   -> Num -> Num
-                                        Angle -> Num -> Angle
-                                        
-                                        The middle Num is sorted out above; we assume Num -> Num -> Num if forced.
-                                    *)
+                                   (* no longer overloaded, because Angle is no more *)
                                     (match t1.inst with
-                                     | Angle
                                      | Num       -> ()
                                      | Unknown _ -> let t = adorn e.pos Num in
                                                     ovld_warn e1 t; 

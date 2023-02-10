@@ -1,0 +1,26 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{Qubit collections}
+\chaplabel{qubitcollections}
+
+Lots of algorithms work with arbitrary-sized groups of qubits. Grover's algorithm is an obvious example. The core notation of \chapref{corenotation} allows only single bits. Qubit collections fill the gap, but to preserve qtpi's guarantee of no sharing, no duplication there are some restrictions on their use.
+
+\begin{itemize*}
+\item There is a type \verbtt{qubits} (note the s).
+\item There is a declaration $\verbtt{(newqs } x=Ex, \;...\; ,z=Ex )$. Names $x, ... ,z$ are of type \verbtt{qubits}, and the sizes of the collections they name are determined by the initialising expressions $Ex, ..., Ez$.
+\item A collection can be gated \verbtt{qs>>>E}.
+\item A collection can me measured \verbtt{qs⌢⃫(bpat)} (note the extra meter needle); the result is a bit list, bound to names by the pattern bpat.
+\item The elements of a qubit collection are qubits. They are indexed \verbtt{qs↓index}; indices are $0..n-1$ for an n-qubit collection. 
+\begin{itemize*}\item an element can be used, perhaps with other qubits, in a normal (\verbtt{>>}) gating step;
+\item an indexed element can't be sent in a message, used as an argument in a process invocation, or measured.\end{itemize*}
+\item A collection can be split into two, or two collections can be combined.
+\item collections can be gated qs>>>E, or their individual elements can be gated in an ordinary (). They can be sent in messages, but must be sent in a indexed for gating. They can be  message sending, measurement if \verbtt{-measuredestroys} is \verbtt{true} -- but can be indexed for gating. 
+\end{itemize*}
+
+creation of a collection, with (newqs qs=K) rather than newq. The type of the collection is qbits (note the s); initialisation of the constructed collection can’t be omitted; and the size of the ket value K determines the size of the collection.
+gating of a collection, with >>> rather than >>.
+measurement of a collection, with ⌢⃫ rather than ⌢̸. The result of measurement binds a bit list.
+indexing of a collection, with qs↓E. An element of a collection can be used in a gating step, but if you use it in a measurement you lose the whole collection. (Maybe I should disallow measurement of collection elements …).
+joining of two or more collections, with (joinqs qs1, ... , qsn→ qs). Each of the qsi is the name of a collection; the right-hand qs denotes the concatenation of the collections on the left; each of the left-hand qsi is used up, as if sent away or measured.
+splitting a collection, with (splitqs qs → qs1(k1), ... , qsk(kn)). Each of the qsi is the name of a new qbit collection; each of the ki is the length of that collection; the final ki is optional. The collection qs is split into parts of the lengths described, and disappears.
+diagnostic-printing a collection, which uses the library function qvals: qbits → qstate and the channel outq.

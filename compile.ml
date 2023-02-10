@@ -258,7 +258,6 @@ let rec deepcompare : _type -> vt -> vt -> int = fun t v1 v2 ->
           | Tuple ts  -> tupcompare ts (to_list v1) (to_list v2)
           | List  t   -> listcompare t (to_list v1) (to_list v2)
           | Bit  
-          | Angle
           | Bool       
           | Char
           | Sxnum
@@ -335,13 +334,12 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
   | EBit b          -> ctenv, cconst (of_bit b)
   | EBra b          -> ctenv, cconst (of_nv (nv_of_braket b))
   | EKet k          -> ctenv, cconst (of_nv (nv_of_braket k))
-  | EPi             -> ctenv, cconst (of_num num_1)                 (* all angles are fractions of 𝝅 *)
+  | EPi             -> ctenv, cconst (of_num (Q.of_float (Float.pi)))   (* 𝝅 is now Num, not Angle (which no longer exists)*)
   | EMinus e        -> (* overloaded *)
       (let ctenv, f = compile_expr ctenv e in
        match et.inst with
        | Num   -> ctenv, fun rtenv -> of_num (~-/(to_num (f rtenv)))
        | Sxnum -> ctenv, fun rtenv -> of_csnum (Snum.cneg (to_csnum (f rtenv)))
-       | Angle -> ctenv, fun rtenv -> of_num (~-/(to_num (f rtenv)))
        | Matrix -> ctenv, fun rtenv -> of_matrix (neg_m (to_matrix (f rtenv)))
        | _     -> can'thappen ()
       )
@@ -366,7 +364,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
            (match w with
             | ResShow -> 
                 let optf t = match t.inst with
-                                     | Qubits     -> Some "<qubit>"
+                                     | Qubits    -> Some "<qubit>"
                                      | Qstate    -> Some "<qstate>"
                                      | Fun     _ -> Some "<function>"
                                      | Channel _ -> Some "<channel>"
@@ -424,7 +422,6 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
               | Plus            
               | Minus      ->
                   (match (type_of_expr e1).inst with
-                   | Angle     (* yes, it really is just num sum/diff *)
                    | Num    -> let f = if op=Plus then (+/) else (-/) in
                                fun rtenv -> of_num (f (to_num (f1 rtenv)) (to_num (f2 rtenv)))
                    | Matrix -> let f = if op=Plus then add_mm else sub_mm in
@@ -435,8 +432,6 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                   )
               | Times      ->
                   (match (type_of_expr e1).inst, (type_of_expr e2).inst with
-                   | Angle , Num
-                   | Num   , Angle     (* just like num *)
                    | Num   , Num    -> fun rtenv -> of_num ((to_num (f1 rtenv)) */ (to_num (f2 rtenv)))
                    | Sxnum , Sxnum  -> fun rtenv -> of_csnum (cprod (to_csnum (f1 rtenv)) (to_csnum (f2 rtenv)))
                    | Gate  , Gate   -> fun rtenv -> of_gate (mult_gg (to_gate (f1 rtenv)) (to_gate (f2 rtenv)))
@@ -447,7 +442,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                    | Matrix, Sxnum  -> fun rtenv -> of_matrix (mult_nm (to_csnum (f2 rtenv)) (to_matrix (f1 rtenv)))
                    | _                           -> can'thappen()
                   )
-              | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv)) (* Num or Angle *)
+              | Div        -> fun rtenv -> of_num (to_num (f1 rtenv) // to_num (f2 rtenv)) (* Num always, no more Angle *)
               | Power      -> fun rtenv -> of_num (to_num (f1 rtenv) **/ intc e2.pos "fractional power" (f2 rtenv))
               | Mod        -> fun rtenv -> let n1 = to_num (f1 rtenv) in
                                            let n2 = to_num (f2 rtenv) in

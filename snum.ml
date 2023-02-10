@@ -74,24 +74,13 @@ let log_2 : zint -> int = fun n ->
 
 (* The main problem was confluence, and I struggled for a while. Eventually I settled on 
    Werner's product-to-sum formulae (thanks Wikipedia, in the Trigonometric identities page) 
-   -- see simplify_prod -- and keeping angles in the (0,𝜋/4] octant -- see the st_* functions
-   -- and letting simplify_sum mop up.
-   But the last, cruel, thing that makes it confluent is that sin(𝜋/4)=cos(𝜋/4). Oh, I hate that.
-   And I bet it won't be confluent except for fractions of 𝜋/4.
-   
-   Modified for my purposes, and assuming (because elcompare sorts that way) that 𝜃<=𝜑, 
-   Werner's identities are
-   
-        cos𝜃cos𝜑 = 1/2cos(𝜑-𝜃)+1/2cos(𝜃+𝜑)
-        sin𝜃sin𝜑 = 1/2cos(𝜑-𝜃)-1/2cos(𝜃+𝜑)
-        sin𝜃cos𝜑 = 1/2sin(𝜃+𝜑)-1/2sin(𝜑-𝜃)
-        cos𝜃sin𝜑 = 1/2sin(𝜃+𝜑)+1/2sin(𝜑-𝜃)
-        
+   -- see simplify_prod -- and keeping angles in the (0,45] octant -- see the st_* functions
+   -- and letting simplify_sum mop up.   
  *)
  
 type s_el = 
   | S_sqrt of num
-  | S_trig of num * bool      (* bool is iscos; num in fractions of 𝝅: n represents n𝜋 *)
+  | S_trig of num * bool      (* bool is iscos; num in _degrees_, because radians are irrational, and fractions of 𝜋 needs a new type *)
   | S_symb of s_symb                 
 
 and s_symb = {alpha: bool; imr: bool; idsecret: symrec} 
@@ -144,7 +133,7 @@ let rec to_float snum =
 and float_of_el el = 
   match el with
   | S_sqrt x        -> Float.sqrt (Q.to_float x)
-  | S_trig(x,iscos) -> (if iscos then Float.cos else Float.sin) (Float.pi *. Q.to_float x)
+  | S_trig(x,iscos) -> (if iscos then Float.cos else Float.sin) (Float.pi /. Float.of_int 180 *. Q.to_float x)
   | S_symb symb     -> float_of_symb symb
 
 (* printing numbers: recursive since S_sqrt takes snum *)
@@ -194,10 +183,10 @@ let rec string_of_root num =
              | _         -> root num
   
 and string_of_trig iscos (n:num) =
-  Printf.sprintf "%s(%s%s)" (if iscos then "cos" else "sin")
-                            (Printf.sprintf "%s𝝅" (if n.num=:z_1 then "" else string_of_zint n.num))
+  Printf.sprintf "%s%s%s" (if iscos then "cos" else "sin")
+                            (Printf.sprintf "%s%s" (if n.den=:z_1 then " " else "(") (string_of_zint n.num))
                             (if n.den=:z_1 then "" 
-                             else Printf.sprintf "/%s" (string_of_zint n.den)
+                             else Printf.sprintf "/%s)" (string_of_zint n.den)
                             )
                           
 and string_of_el_struct el = 
@@ -262,11 +251,12 @@ and so_prodi si symbf (n,els) =
                       match els with
                       | S_sqrt n :: els'          -> roots (n*/accum) els'
                       | S_trig (n,_) :: els'         
-                          when n=quarter          -> (* sin 𝝅/4 = cos 𝝅/4 = 1/√2 *)
+                          when n=num_45           -> (* sin 45 = cos 45 = 1/√2 *)
                                                      roots (half*/accum) els' 
-                      | S_trig (n,true) :: els' 
-                          when n=sixth            -> (* cos 𝝅/6 = √3/2 *)
-                                                     roots (threequarters*/accum) els'
+                      | S_trig (n,iscos) :: els' 
+                          when iscos     && n=num_30    (* cos 30 = √3/2 *)
+                            || not iscos && n=num_60    (* sin 60 = √3/2 *)
+                                                  -> roots (threequarters*/accum) els'
                       | _                         -> accum, els
                     in
                     let sq, els = roots (n*/n) els in
@@ -296,54 +286,54 @@ and string_of_snum (s:snum) =
 
 and string_of_snums snums = bracketed_string_of_list string_of_snum snums
 
-(* normalising S_trig *)
+(* normalising S_trig*)
 let st_neg = function
   | None         -> None
   | Some (n,els) -> Some (~-/n,els)
 
-(* result is (0,𝜋/4] -- doesn't include 0, includes 𝜋/4 *)
-(* input in [0,𝜋/2] -- closed, includes both endpoints *)
+(* result is (0,45] -- doesn't include 0, includes 45 *)
+(* input in [0,90] -- closed, includes both endpoints *)
 let st_half iscos n = 
-        (*  if n>/quarter 
-            then (if n=/half 
-                    then if iscos then None else Some (num_1,[])            (* because cos(𝜋/2)=0, sin(𝜋/2)=1 *)
-                    else Some (num_1, [S_trig (half-/n,not iscos)])         (* because sin(𝜋/2-n)=cos n and cos(𝜋/2-n=sin n) *)
+        (*  if n>/45 
+            then (if n=/num_90 
+                    then if iscos then None else Some (num_1,[])                    (* because cos 90=0, sin 90=1 *)
+                    else Some (num_1, [S_trig (num_90-/n,not iscos)])               (* because sin(90-n)=cos n and cos(90-n=sin n) *)
                  )
-            else (if n=/quarter 
-                    then Some (num_1, [S_trig (n, true)])       (* because sin(𝜋/4)=cos(𝜋/4) *) 
+            else (if n=/45 
+                    then Some (num_1, [S_trig (n, true)])                           (* because sin 45=cos 45 *) 
                     else if n=num_0 then if iscos then Some (num_1,[]) else None    (* because cos 0=1, sin 0=0 *)
                                     else Some (num_1, [S_trig (n, iscos)])
                  )       
         *)
-  (* this has got a bit worse because of 𝝅/3 and 𝝅/6 *)
-  match n=/num_0, n=/half, n=/third, n=/sixth, iscos with
+  (* this has got a bit worse because of 60 and 30 *)
+  match n=/num_0, n=/num_90, n=/num_60, n=/num_30, iscos with
   | true, _   , _   , _   , false           (* sin 0 = 0 *)   
-  | _   , true, _   , _   , true            (* cos 𝜋/2 = 0 *)
+  | _   , true, _   , _   , true            (* cos 90 = 0 *)
                       -> None
   | true, _   , _   , _   , true            (* cos 0 = 1 *)
-  | _   , true, _   , _   , false           (* sin 𝜋/2 = 1 *)
+  | _   , true, _   , _   , false           (* sin 90 = 1 *)
                       -> Some (num_1,[])
-  | _   , _   , true, _   , true            (* cos 𝝅/3 = 1/2 *)
-  | _   , _   , _   , true, false           (* sin 𝝅/6 = 1/2 *)
+  | _   , _   , true, _   , true            (* cos 60 = 1/2 *)
+  | _   , _   , _   , true, false           (* sin 30 = 1/2 *)
                       -> Some (half,[])
-  | _                 -> Some (num_1,[match n>/quarter, n=/quarter with
-                                      | true, _    -> S_trig (half-/n,not iscos)    (* because sin(𝜋/2-n)=cos n and cos(𝜋/2-n=sin n) *)
-                                      | _   , true -> S_trig (n, true)              (* because sin(𝜋/4)=cos(𝜋/4) *) 
+  | _                 -> Some (num_1,[match n>/num_45, n=/num_45 with
+                                      | true, _    -> S_trig (num_90-/n,not iscos)  (* sin(90-n)=cos n and cos(90-n=sin n) *)
+                                      | _   , true -> S_trig (n, true)              (* sin 45=cos 45 *) 
                                       | _          -> S_trig (n,iscos)
                                      ])
 
-(* input in [0,𝜋] -- closed, includes both endpoints *)
+(* input in [0,180] -- closed, includes both endpoints *)
 let st_1 iscos n =
-  match n>/half, iscos with
-  | true , true  -> st_neg (st_half iscos (num_1-/n)) 
-  | true , false -> st_half iscos (num_1-/n)
+  match n>/num_90, iscos with
+  | true , true  -> st_neg (st_half iscos (num_180-/n))                             (* cos(180-n)=-cos n *)
+  | true , false -> st_half iscos (num_180-/n)                                      (* sin(180=n)=sin n *)
   | _            -> st_half iscos n
 
 (* input in [0,2𝜋] -- closed, includes both endpoints *)
 let st_2 iscos n = 
-  match n>/num_1, iscos with
-  | true, true  -> st_1 iscos (num_2-/n)
-  | true, false -> st_neg (st_1 iscos (num_2-/n))
+  match n>/num_180, iscos with
+  | true, true  -> st_1 iscos (num_360-/n)                                          (* cos(360-n)=cos n *)
+  | true, false -> st_neg (st_1 iscos (num_360-/n))                                 (* sin(360-n)=sin n *)
   | _           -> st_1 iscos n
 
 let st_norm st_f iscos n = 
@@ -352,19 +342,19 @@ let st_norm st_f iscos n =
   | None       -> []
  
 (* this is slow: don't use in simplification. But note: if it gives you an S_trig (x,_)
-   then x is in the interval (0,quarter]
+   then x is in the interval (0,45]
  *)
-let snum_trig iscos n = st_norm st_2 iscos (num_mod n num_2)
+let snum_trig iscos n = st_norm st_2 iscos (num_mod n num_360)                      (* cos/sin(n mod 360)=cos/sin n *)
 
 let sprod_1 :sprod = (num_1,[])
 
-(* cos 𝝅/4 = 1/√2 *) 
-let s_el_h  :s_el = S_trig (quarter, true) (* ok to use S_trig *)
+(* cos 45 = 1/√2 *) 
+let s_el_h  :s_el = S_trig (num_45, true) (* ok to use S_trig *)
 
 let sprod_h :sprod = (num_1,[s_el_h])
 
-(* cos 𝝅/6 = √3/2, so 2/3 (cos 𝝅/6) = 1/√3 *)
-let sprod_t :sprod = (num_2//num_3, [S_trig (sixth, true)]) (* ok to use S_trig *)
+(* cos 30 = √3/2, so 2/3 (cos 30) = 1/√3 *)
+let sprod_t :sprod = (num_2//num_3, [S_trig (num_30, true)]) (* ok to use S_trig *)
 
 let snum_0 :snum = []
 
@@ -373,7 +363,6 @@ let snum_1 :snum = [sprod_1]
 let snum_h :snum = [sprod_h]
 let snum_t :snum = [sprod_t]
 
-let eighth = quarter // num_2
 
 let snum_sqrt (n:num) = match zint_exactsqrt n.num, zint_exactsqrt n.den with
                         | Some num, Some den -> [(Q.make num den, [])]
@@ -381,15 +370,6 @@ let snum_sqrt (n:num) = match zint_exactsqrt n.num, zint_exactsqrt n.den with
                         | None    , Some den -> [(Q.make z_1 den, [S_sqrt(Q.make n.num z_1)])] 
                         | None    , None     -> [(num_1         , [S_sqrt n])]
 
-(* .. not really needed yet ..
-
-   let sprod_third   = (third, [])
-
-   let snum_third = [sprod_third]
-
-   let snum_t = [(num_1, [S_sqrt snum_third])]
- *)
- 
 let snum_symb symb :snum = [(num_1, [S_symb symb])]
 
 (* The normal form -- now the snum type -- is a sum of products. 
@@ -491,7 +471,7 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
      not doing 𝝅/8, 2𝝅/8 and 3𝝅/8 rotations. When I corrected the rotations, it was slower than the all-trig
      mechanism. So hurrah! I think I've reached the end of the symbolic-calculator development. 
      RB 2022/10/25
-     Except I just had to add the stuff for cos(𝝅/3) = sin(𝝅/6) = 1/2. 
+     Except I just had to add the stuff for cos(60) = sin(30) = 1/2. 
      RB 2022/11/27
    *)
   let r = let rec sp els n ss = 
@@ -518,24 +498,24 @@ and simplify_prod (n,els as prod) :snum = (* We deal with sqrt^2, trig*trig. *)
             | S_sqrt a      :: S_sqrt b :: ss                       (* √a*√a = a *)
               when a=b                   -> sp els (n*/a) ss
             | S_sqrt a as s :: ss        -> sp (s::els) n ss
-            | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities. Note that b>=a and that a, b are in (0,𝝅/4] *)
+            | S_trig (a,ac) :: S_trig (b,bc) :: ss                  (* use the Werner identities. Note that b>=a and that a, b are in (0,45] *)
                                          -> let sum = b+/a in
                                             let diff = b-/a in
                                             let pm sumw sumcos diffw diffcos = (* trying to speed this up *)
                                               let sumr = 
-                                                if sum>/quarter then if sum=/half             then if sumcos then []                (* cos(𝝅/2) = 0 *)
-                                                                                                             else [(sumw,None)]     (* sin(𝝅/2) = 1 *)
+                                                if sum>/num_45 then if sum=/num_90            then if sumcos then []                (* cos 90 = 0 *)
+                                                                                                             else [(sumw,None)]     (* sin 90 = 1 *)
                                                                      else 
-                                                                     if sum=/third && sumcos then [(sumw*/half,None)]               (* cos(𝝅/3) = 1/2 *)
-                                                                                             else [(sumw, Some (S_trig (half-/sum, not sumcos)))]
-                                                                else if sum=/quarter then [(sumw, Some (S_trig (sum,true)))]
-                                                                                     else [(sumw, Some (S_trig (sum, sumcos)))]
+                                                                     if sum=/num_60 && sumcos then [(sumw*/half,None)]              (* cos 60 = 1/2 *)
+                                                                                              else [(sumw, Some (S_trig (num_90-/sum, not sumcos)))]
+                                                                else if sum=/num_45 then [(sumw, Some (S_trig (sum,true)))]
+                                                                                    else [(sumw, Some (S_trig (sum, sumcos)))]
                                               in
                                               let r =
                                                 if diff=/num_0 then if diffcos then (diffw,None)::sumr                              (* cos 0 = 1 *)
                                                                                else sumr                                            (* sin 0 = 0 *)
                                                 else 
-                                                if diff=/sixth && not diffcos  then (diffw*/half,None)::sumr                        (* sin(𝝅/6) = 1/2 *)
+                                                if diff=/num_30 && not diffcos  then (diffw*/half,None)::sumr                       (* sin 30 = 1/2 *)
                                                                                else (diffw, Some (S_trig (diff,diffcos))) :: sumr
                                               in
                                               if !verbose || !verbose_simplify then
@@ -756,6 +736,8 @@ let simplify_sum =
   if !Settings.memoise && memoise_simplify_sum then memo_simplify_sum
   else raw_simplify_sum 
 
+let fourthirds = num_4//num_3
+
 (* this is for division that sometimes works *)
 let rdiv r1 r2 =   
   let bad () = raise (Disaster (Printf.sprintf "rdiv cannot divide %s by %s" (string_of_snum r1) (string_of_snum r2))) in
@@ -765,10 +747,14 @@ let rdiv r1 r2 =
     | [n2,els2] -> let el_div (n1,els1) el =
                      if List.mem el els1 then n1, Listutils.remove el els1 else
                        match el with
-                       | S_sqrt n         -> Q.div n1 n, el::els1
+                       | S_sqrt n           -> Q.div n1 n, el::els1                     (* times √n/n = div √n *)
                        | S_trig (n,_) 
-                           when n=quarter -> Q.div n1 half, el::els1
-                       | _                -> bad ()
+                           when n=num_45    -> n1*/num_2 , el::els1                     (* times 2/√2 = times √2 = div 1/√2 *)
+                       | S_trig (n,iscos) 
+                           when iscos     && n=num_30 ||
+                                not iscos && n=num_60
+                                            -> n1*/fourthirds, el::els1                 (* times (4/3)(√3/2) = times 2/√3 = div √3/2 *)
+                       | _                  -> bad ()
                    in
                    let sn_div (n1,els1) = List.fold_left el_div (Q.div n1 n2, els1) els2 in
                    simplify_sum (List.map sn_div r1)

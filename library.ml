@@ -72,9 +72,9 @@ let _ = know ("Z"     , "gate", of_gate g_Z)
 
 let _ = know ("H"     , "gate", of_gate g_H)
 
-let _ = know ("Rx"    , "angle -> gate", of_fun (of_gate <.> g_Rx <.> to_angle))
-let _ = know ("Ry"    , "angle -> gate", of_fun (of_gate <.> g_Ry <.> to_angle))
-let _ = know ("Rz"    , "angle -> gate", of_fun (of_gate <.> g_Rz <.> to_angle))
+let _ = know ("Rx"    , "num -> gate", of_fun (of_gate <.> g_Rx <.> to_num))
+let _ = know ("Ry"    , "num -> gate", of_fun (of_gate <.> g_Ry <.> to_num))
+let _ = know ("Rz"    , "num -> gate", of_fun (of_gate <.> g_Rz <.> to_num))
 
 let _ = know ("phi"   , "num -> gate", of_fun (of_gate <.> g_Phi <.> mustbe_intv))
 
@@ -99,9 +99,9 @@ let _ = know ("sx_1"    , "sxnum", of_csnum Snum.c_1)
 let _ = know ("sx_i"    , "sxnum", of_csnum Snum.c_i)
 
 
-let _ = know ("sx_sqrt" , "num   -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_sqrt       <.> to_num))
-let _ = know ("sx_sin"  , "angle -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig false <.> to_angle))
-let _ = know ("sx_cos"  , "angle -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig true  <.> to_angle))
+let _ = know ("sx_sqrt" , "num -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_sqrt       <.> to_num))
+let _ = know ("sx_sin"  , "num -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig false <.> to_num))
+let _ = know ("sx_cos"  , "num -> sxnum", of_fun (of_csnum <.> Snum.csnum_of_snum <.> Snum.snum_trig true  <.> to_num))
 
 let v_makeC g =
   if gsize g<>z_2 then

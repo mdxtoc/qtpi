@@ -66,7 +66,7 @@
 %token LPAR RPAR LBRACE RBRACE LSQPAR RSQPAR PARSEP COLON
 %token IF THEN ELSE ELIF FI
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
-%token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE ANGLETYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
+%token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
 %token DOT DOTDOT UNDERSCORE
 %token RESSHOW RESCOMPARE
 %token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN QBITSSPLIT LETDEC MATCH 
@@ -230,7 +230,6 @@ simple_typespec:
   | CHARTYPE                            {adorn Char}
   | STRINGTYPE                          {adorn (List (adorn Char))}
   | BITTYPE                             {adorn Bit}
-  | ANGLETYPE                           {adorn Angle}
   | GATETYPE                            {adorn Gate}
   | SXNUMTYPE                           {adorn Sxnum}
   | QBITTYPE                            {adorn Qubit}

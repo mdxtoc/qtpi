@@ -204,7 +204,7 @@ The sort of qubits that CQP and qtpi simulate are physical things -- atoms, mole
 \centering
 \ensuremath{
 \begin{array}{rcl}
-T    &::=& \verbtt{num} \asep \verbtt{bool} \asep \verbtt{bit} \asep \verbtt{string} \asep \verbtt{char} \asep \verbtt{angle} \asep \verbtt{qubit} \asep \verbtt{gate} \asep \\
+T    &::=& \verbtt{num} \asep \verbtt{bool} \asep \verbtt{bit} \asep \verbtt{string} \asep \verbtt{char} \asep \verbtt{qubit} \asep \verbtt{gate} \asep \\
      &&    \verbtt{bra} \asep \verbtt{ket} \asep \verbtt{matrix} \asep \verbtt{sxnum} \asep \verbtt{qstate} \asep \<TV> \asep \\
      &&    ^{\wedge}\;T \asep [\;T\;] \asep (T\;,..\;,\;T) \asep T -> ... -> T \asep T\; \verbtt{process} \vspace{3pt} \\
 \<TV> &::=& 'x \asep ''x \asep '{*}x   
@@ -220,7 +220,6 @@ Type syntax is in \figref{typesyntax}.
 \item \verbtt{bool} is the type of booleans, \verbtt{true} or \verbtt{false}.
 \item \verbtt{bit} isn't a subtype of \verbtt{num}.
 \item \verbtt{sxnum} is the type of symbolic complex numbers, the values that qtpi's symbolic quantum calculator manipulates.
-\item \verbtt{angle} is the type of arguments to sin and cos functions, rational multiples of $\pi$.
 \item \verbtt{bra} is the type of unitary row vectors of \verbtt{sxnum}; \verbtt{ket} of unitary column vectors of \verbtt{sxnum}. A qubit state is a ket.
 \item \verbtt{matrix}  is the type of matrices of \verbtt{sxnum}; \verbtt{gate} is the type of unitary square matrices.
 \item \verbtt{qstate}  is the type of the result of the \setvar{qval}  function (see \secref{specialio}). It's a peek at the simulator state. But a \verbtt{qstate} can't be compared or manipulated in any way. The only useful thing you can do with a \verbtt{qstate}  is to send it down the \setvar{outq} output channel, which prints it out.
@@ -286,7 +285,7 @@ E  		&::=&	\<Const> \asep x \asep (\ E\ ,\ ..\ ,\ E\ ) \asep [\ E\ ;\ ...\ ;\ E\
 \item bra constants \vb{0}, \vb{1}, \vb{+}, \vb{-}, plus longer versions as for kets; 
 \item sxnum constants \verbtt{sx\_0}, \verbtt{sx\_1}, plus functions in library;
 \item the zero-tuple () (no one-tuple, and tuples are \emph{always} bracketed) and the empty list [];
-\item the angle constant 𝝅
+\item the num constant 𝝅
 %  * There is no one-tuple.   
 %  * Tuples are always bracketed, as in Miranda.  
 %  * Match expressions are parsed with the offside rule: the components can't start left of `match`, and the patterns and right-hand-side expressions have to be right of `+`. (Explicit match expressions will one day disappear, I hope, in favour of Miranda-style matching on function parameters.)  
@@ -298,14 +297,14 @@ E  		&::=&	\<Const> \asep x \asep (\ E\ ,\ ..\ ,\ E\ ) \asep [\ E\ ;\ ...\ ;\ E\
 
 Expressions can mention qubits, but because of the need to police sharing and duplication, qubit-valued expressions can only be used when gating. Typechecking is mostly straightforward -- comparison operators compare equality types, logical operators deal with booleans, application $E\ E$ is $'a\;->\;'a$ and left-associative -- but arithmetic operators are heavily overloaded.
 \begin{itemize}
-\item unary `\verbtt{+}' and `\verbtt{-}' are $t->t$, where $t$ is \verbtt{num}, \verbtt{angle} or \verbtt{sxnum};
-\item binary `\verbtt{+}' and `\verbtt{-}' are $t->t->t$, where $t$ is \verbtt{num}, \verbtt{angle}, \verbtt{sxnum} or \verbtt{matrix};
+\item unary `\verbtt{+}' and `\verbtt{-}' are $t->t$, where $t$ is \verbtt{num}, \verbtt{sxnum};
+\item binary `\verbtt{+}' and `\verbtt{-}' are $t->t->t$, where $t$ is \verbtt{num}, \verbtt{sxnum} or \verbtt{matrix};
 \item `\verbtt{*}' can be 
 \begin{itemize}
-	\item $t->t->t$, where $t$ is \verbtt{num}, \verbtt{angle}, \verbtt{sxnum}, \verbtt{gate} or \verbtt{matrix}
-	\item $\verbtt{num}->\verbtt{angle}->\verbtt{angle}$, $\verbtt{angle}->\verbtt{num}->\verbtt{angle}$, $\verbtt{gate}->\verbtt{ket}->\verbtt{ket}$, $\verbtt{ket}->\verbtt{bra}->\verbtt{matrix}$, $\verbtt{bra}->\verbtt{ket}->\verbtt{sxnum}$, $\verbtt{matrix}->\verbtt{sxnum}->\verbtt{matrix}$, $\verbtt{sxnum}->\verbtt{matrix}->\verbtt{matrix}$;
+	\item $t->t->t$, where $t$ is \verbtt{num}, \verbtt{sxnum}, \verbtt{gate} or \verbtt{matrix}
+	\item $\verbtt{gate}->\verbtt{ket}->\verbtt{ket}$, $\verbtt{ket}->\verbtt{bra}->\verbtt{matrix}$, $\verbtt{bra}->\verbtt{ket}->\verbtt{sxnum}$, $\verbtt{matrix}->\verbtt{sxnum}->\verbtt{matrix}$, $\verbtt{sxnum}->\verbtt{matrix}->\verbtt{matrix}$;
 \end{itemize}
-\item `\verbtt{/}' is $t->\verbtt{num}->t$, where $t$ is \verbtt{num} or \verbtt{angle};
+\item `\verbtt{/}' is $\verbtt{num}->\verbtt{num}->\verbtt{num}$;
 \item `\verbtt{\%}' (mod) and `\verbtt{**}' (exp) are $\verbtt{num}->\verbtt{num}->\verbtt{num}$;
 \item `\verbtt{⊗}' (tensor mult) is $t->t->t$, where $t$ is \verbtt{bra}, \verbtt{ket}, \verbtt{gate} or \verbtt{matrix};
 \item `\verbtt{⊗⊗}' (tensor exp) is $t->\verbtt{num}->t$, where $t$ is \verbtt{bra}, \verbtt{ket}, \verbtt{gate} or \verbtt{matrix};
@@ -338,7 +337,11 @@ Qubits are represented as integer indices into a quantum state of unitary vector
 
 If $\#i${} is an `unknown' qubit, created by a \verbtt{newq} declaration without specifying a state, then its amplitudes are variables $a_{i}$ and $b_{i}$. The variables do have a secret value that is used when measuring the qubit or anything it's entangled with, but calculation uses only the uninterpreted variables and the fact that $|a_{i}|^{2}+|b_{i}|^{2}=1$.
 
-Symbolic calculation uses the type \verbtt{sxnum}, which involves fractions (\verbtt{num}), variables, square roots of \verbtt{num}s ($\verbtt{sx\_sqrt}: \verbtt{num}->\verbtt{sxnum}$), $\sin$ and $\cos$ of fractions of $\pi$ (\verbtt{sx\_sin} and \verbtt{sx\_cos} are each $\verbtt{angle}->\verbtt{sxnum}$). It's remarkably effective.\footnote{It used to be based on powers of $\sqrt{1/2}$. No longer.}
+Symbolic calculation uses the type \verbtt{sxnum}, which involves fractions (\verbtt{num}), variables, square roots of \verbtt{num}s ($\verbtt{sx\_sqrt}: \verbtt{num}->\verbtt{sxnum}$), $\sin$ and $\cos$, each $\verbtt{num}->\verbtt{sxnum}$). It's remarkably effective.\footnote{It used to be based on powers of $\sqrt{1/2}$. No longer.}
+
+\subsection{Angles: numbers or radians?}
+
+Because trigonometric functions are at the heart of the symbolic calculator (see \secref{symboliccalculator}), and the calculator needs to be fast, they have to deal in rational numbers. At school, over sixty years ago, I learnt trigonometry using degrees. Later I used radians, which seem more grown-up to me. But radians are irrationals, multiples of 𝝅 a lot of the time. Using radians would mean using an extra type \verbtt{angle}, and some extra complexity. So, at the risk of seeming juvenile, degrees it is -- 45, 90, 60, all thos old friends.
 
 \section{Non-unitary modulus}
 

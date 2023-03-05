@@ -4,16 +4,20 @@
 Qtpi : version *.ml *.mly
 	ocamlbuild -use-ocamlfind qtpi.native
 
+Qtpi.exe: Qtpi
+	cp _build/qtpi.native Qtpi.exe
+	
 clean :
 	rm -fr _build *.native
-	rm -f Qtpi
+	rm -f Qtpi Qtpi.exe
 
 links :
 	rm -f Qtpi
 	ln -s qtpi.native Qtpi
 
 # use git for version
-version: ;              echo let version=\"`./version.sh`\" >version.ml
+version:               
+	echo let version=\"`./version.sh`\" >version.ml
 
 zip :
 	(mkdir -p qtpi\ distrib; \

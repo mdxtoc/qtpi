@@ -4,7 +4,8 @@
 Qtpi : version *.ml *.mly
 	ocamlbuild -use-ocamlfind qtpi.native
 
-Qtpi.exe: Qtpi
+Qtpi.exe: # this make is guaranteed to work: simpler ones don't
+	make clean links Qtpi
 	cp _build/qtpi.native Qtpi.exe
 	
 clean :
@@ -37,8 +38,8 @@ zipmacos :
 	 zip -r qtpi\ distrib/Qtpi_Macos Qtpi \
 	)
 
-zipwindows :
+zipwindows : 
 	(make zip Qtpi; \
-	 zip -r qtpi\ distrib/Qtpi_Windows\"`./version.sh`\" Qtpi.exe; \
+	 zip -r qtpi\ distrib/Qtpi_Windows_`./version.sh` Qtpi.exe; \
 	 zip -r qtpi\ distrib/gmplib /cygdrive/c/Windows/System32/cyggmp-10.dll \
 	)

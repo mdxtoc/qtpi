@@ -20,7 +20,7 @@ version:
 	echo let version=\"`./version.sh`\" >version.ml
 
 zip :
-	(mkdir -p qtpi\ distrib; \
+	(rm -fr qtpi\ distrib; mkdir -p qtpi\ distrib; \
 	 zip -r qtpi\ distrib/docs docs; \
 	 zip -r qtpi\ distrib/examples BB84QKDcontrol.txt E92QKDcontrol.txt examples \
 	) 
@@ -39,5 +39,6 @@ zipmacos :
 
 zipwindows :
 	(make zip Qtpi; \
-	 zip -r qtpi\ distrib/Qtpi_Windows Qtpi.exe \
+	 zip -r qtpi\ distrib/Qtpi_Windows\"`./version.sh`\" Qtpi.exe; \
+	 zip -r qtpi\ distrib/gmplib /cygdrive/c/Windows/System32/cyggmp-10.dll \
 	)

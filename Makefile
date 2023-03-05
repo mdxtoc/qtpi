@@ -4,7 +4,8 @@
 Qtpi : version *.ml *.mly
 	ocamlbuild -use-ocamlfind qtpi.native
 
-Qtpi.exe: # this make is guaranteed to work: simpler ones don't
+Qtpi.exe: version *.ml *.mly
+	# this make is guaranteed to work: simpler ones don't
 	make clean links Qtpi
 	cp _build/qtpi.native Qtpi.exe
 	

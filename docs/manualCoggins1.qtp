@@ -1,0 +1,8 @@
+proc System () =
+  . (newq qA=|0>, qB=|1>, qCin=|1>) 
+  . (newq qSum=|0>, qCout=|0>) 
+  
+  . qA,qSum>>CNot  . qB,qSum>>CNot    . qCin,qSum>>CNot 
+  . qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T 
+  
+  .

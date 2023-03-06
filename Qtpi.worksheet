@@ -78,7 +78,9 @@ time ./Qtpi examples/functionspeedtest.qtp
 ./Qtpi examples/basicteleport_with.qtp
 ./Qtpi -trace -measuredestroys false examples/TACASteleport.qtp
 ./Qtpi examples/basicteleport_choice.qtp
-./Qtpi docs/teleport_example.qtp -trace 
+./Qtpi docs/teleport1.qtp -trace 
+./Qtpi docs/teleport2.qtp -trace 
+./Qtpi docs/teleport3.qtp -trace 
 ./Qtpi examples/teleport.qtp -trace -verbose qcalc
 
 # randomteleport_with is a test of confluence in formula simplification. Simplification can start 
@@ -155,9 +157,11 @@ time ./Qtpi examples/election8.qtp
 
 time ./Qtpi examples/fulladder/Coggins_all.qtp
 time ./Qtpi examples/fulladder/Coggins.qtp
-time ./Qtpi examples/fulladder/manualCoggins.qtp -trace
 time ./Qtpi examples/fulladder/inspire.qtp
 time ./Qtpi examples/fulladder/inspire_all.qtp
+./Qtpi docs/manualCoggins1.qtp -trace
+./Qtpi docs/manualCoggins2.qtp -trace
+./Qtpi docs/manualCoggins3.qtp 
 
 ./Qtpi examples/fulladder/commutetest.qtp
 

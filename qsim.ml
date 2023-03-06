@@ -596,7 +596,7 @@ let rec qmeasure disposes pn gate q =
                if !checkrandombias then
                  (if r=1 then _ones := !_ones +: z_1 else _zeroes := !_zeroes +: z_1);
                if !verbose || !verbose_qsim || !verbose_measure || paranoid then 
-                 (Printf.printf " test %f<%f %B: choosing %d (%s/%s);\n" rg prob_value (rg<prob_value) r 
+                 (Printf.printf " vm_value %f; test %f<%f %B: choosing %d (%s/%s);\n" vm_value rg prob_value (rg<prob_value) r 
                                                                         (string_of_zint !_zeroes) (string_of_zint !_ones);
                   flush_all()
                  );

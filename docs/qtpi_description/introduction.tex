@@ -54,8 +54,10 @@ proc System () =
 
 The first line of System, with a \verbtt{newq} declaration, creates three input qubits, in which each qubit name starts with a lower-case `q' because there's an informal qtpi convention that names starting with an upper-case letter should be reserved for processes (but it's informal and it's often broken, so don't worry too much about it). The next two lines are the six steps of the diagram: \verbtt{q,...,q>>G} puts qubit(s) \verbtt{q,...,q} through gate G; this program uses CNot and T (for Toffoli), which are gates from qtpi's library. The process terminates on its fifth line with a blank step.
 
-We can put this program in a file called \verbtt{Coggins.qtp}, and if we run it with a trace switch
-\begin{quote}\verbtt{qtpi Coggins.qtp -trace}\end{quote}
+We can put this program in a file called \verbtt{manualCoggins1.qtp}, and if we run it with a trace switch
+\begin{quote}
+\verbtt{qtpi manualCoggins.qtp -trace}
+\end{quote}
 we can see what the program does. \Figref{Cogginszerooneonetrace} shows that trace. The first five lines record the setup of the qubits: qubit \#0 is qA, \#1 is qB, \#2 is qCin, \#3 is qSum, and \#4 is qCout. The fifth line doesn't flip qSum, because qA is \zero{}; the sixth and seventh each flip qSum because qB and qCin are each \one{}. The next two lines don't flip qCout, because qA and qB aren't both \one{}, and neither are qA and qCin; the last line does flip qCout because qB and qCin are both \one{}. So in classical terms, from input 011 it's produced sum 0 and carry-out 1, as a full adder should.  
 
 \mvb{\Cogginszerooneonetrace}
@@ -108,7 +110,8 @@ proc System () =
   
   . out!["qSum="] . outq!qval qSum . out!["; qCout="] . outq!qval qCout .  out!["\n"] 
   . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinput
 \caption{A full adder with input and output}
@@ -119,7 +122,8 @@ qA (0,1,+,-)? 1
 qB (0,1,+,-)? 1
 qCin (0,1,+,-)? 1
 qSum=#3:|1⟩; qCout=#4:|1⟩
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputtrace
 \caption{Full-adder simulation output with classical-simulating input}
@@ -138,7 +142,8 @@ qA (0,1,+,-)? +
 qB (0,1,+,-)? 1
 qCin (0,1,+,-)? 0
 qSum=#3:[#0;#3;#4]1/√2(|010⟩+|101⟩); qCout=#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputplusout
 \caption{Full-adder input superposition produces entangled outputs}
@@ -172,7 +177,8 @@ System (#0:[#0;#3;#4]1/√2(|010⟩+|101⟩),#2:|0⟩,#4=#0) >> T;
 
 System (#1:|1⟩,#2:|0⟩,#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)) >> T;  
       result (#1:|1⟩,#2:|0⟩,#4:[#0;#3;#4]1/√2(|010⟩+|101⟩))
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputplustrace
 \caption{How the full-adder entanglement happens}
@@ -194,7 +200,8 @@ The second two Toffoli lines don't do any flips, so no change.
 \subsubsection{.. and its calculations}
 
 The CNot gate is 4$\times$4: it operates on a 4-amplitude state, i.e. on two qubits. The second and third CNot lines in \figref{Cogginswithinputplustrace} ask it to operate on three qubits, which is an 8-amplitude state. Consider, for example, the second CNot step, taking qB \#1 as its source qubit and \#3 as its target. \#3 is entangled with \#0, which has nothing to do with the CNot, but has to be included nevertheless, so 3 bits to be processed. The standard quantum computation solution to this situation is as follows:
-\begin{enumerate*}\item combine the source qubit \#1 and the entanglement \#0 and \#3 with tensor multiplication, giving the combined state of qubits  \#1, \#0 and \#3 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$; 
+\begin{enumerate*}
+\item combine the source qubit \#1 and the entanglement \#0 and \#3 with tensor multiplication, giving the combined state of qubits  \#1, \#0 and \#3 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$; 
 \item manipulate that state to show the qubits in the order \#1, \#3, \#0 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$ (looks the same but isn't, because the qubits read differently);
 \item put that state through $\<CNot>\otimes\<I>$, -- CNot for the first two qubits, I for the third. That gate is
 \begin{equation*}
@@ -209,7 +216,8 @@ The CNot gate is 4$\times$4: it operates on a 4-amplitude state, i.e. on two qub
 \end{equation*}
 which swaps \onezerozero{} with \oneonezero{}, \onezeroone{} with \oneoneone{}, and vice-versa. 
 \item the resulting combined state  of \#1, \#3 and \#0 is $\frac{1}{\sqrt2}(\onezeroone+\oneonezero)$, in which qubit \#1 is \one{} in either superposed state, so it can be  separated out leaving $\frac{1}{\sqrt2}(\zeroone+\onezero)$ as an entanglement of \#3 and \#0;
-\item manipulate that to make an entanglement of \#0 and \#3, $\frac{1}{\sqrt2}(\zeroone+\onezero)$ (again, looks the same but isn't).\end{enumerate*}
+\item manipulate that to make an entanglement of \#0 and \#3, $\frac{1}{\sqrt2}(\zeroone+\onezero)$ (again, looks the same but isn't).
+\end{enumerate*}
 Qtpi does that sort of calculation easily, without making mistakes. I used to find it hard to do it accurately with paper and pencil: hence qtpi.
 
 \subsection{Measuring the full-adder result}
@@ -240,7 +248,8 @@ proc System () =
   . out!["now qA="] . outq!qval qA . out![", qB="] . outq!qval qB 
   . out![", and qCin="] . outq!qval qCin . out!["\n"]
   . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputandmeasurement
 \caption{The full adder with measurement of the result qubits}
@@ -253,7 +262,8 @@ qCin (0,1,+,-)? 0
 qSum=#3:[#0;#3;#4]1/√2(|010⟩+|101⟩); qCout=#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)
 qSum measured 0, and qCout measured 1
 now qA=#0:|1⟩, qB=#1:|1⟩, and qCin=#2:|0⟩
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputandmeasurementoutput
 \caption{caption}
@@ -515,10 +525,14 @@ To cause the second event, Alice  puts qubit \#2 (c) through an H gate. That qub
 \end{equation*}
 
 The three-qubit state shown in the trace as the result of Alice's H-gating is an entanglement shown in \#0, \#1, \#2 order: qubits \#1 and \#2 (a and c) are listed last, and \#0 (b) is first.\footnote{The reason I declared the to-be-entangled qubits in b, a order in System was so that a would be \#1, c would be \#2, and they would appear next to each other in this entanglement.} We can rewrite the entanglement, keeping it in \#0, \#1, \#2 order, as
-\begin{equation*}\frac{1}{2}(a_{2}\zero\zerozero+a_{2}\zero\zeroone+b_{2}\zero\onezero-b_{2}\zero\oneone
-		   +b_{2}\one\zerozero-b_{2}\one\zeroone+a_{2}\one\onezero+a_{2}\one\oneone)\end{equation*}
+\begin{equation*}
+\frac{1}{2}(a_{2}\zero\zerozero+a_{2}\zero\zeroone+b_{2}\zero\onezero-b_{2}\zero\oneone
+		   +b_{2}\one\zerozero-b_{2}\one\zeroone+a_{2}\one\onezero+a_{2}\one\oneone)
+\end{equation*}
 Gathering the \#1, \#2 values together, we can rewrite this as 
-\begin{equation*}1/2((a_{2}\zero+b2\one)\zerozero+(a2\zero-b2\one)\zeroone+(b2\zero+a2\one)\onezero+(-b2\zero+a2\one)\oneone)\end{equation*}
+\begin{equation*}
+1/2((a_{2}\zero+b2\one)\zerozero+(a2\zero-b2\one)\zeroone+(b2\zero+a2\one)\onezero+(-b2\zero+a2\one)\oneone)
+\end{equation*}
 
 This is a four-way equal-probability superposition. It looks as if Alice's qubits were \zerozero, then Bob's would have to be $a_{2}\zero+b_{2}\one$; if Alice were to have \zeroone, then Bob would have $a_{2}\zero-b_{2}\one$; and so on. But Alice's qubits aren't necessarily in any of those states. Measurement in the classical \zero{}, \one{} basis, however, forces a qubit to be \zero{} or \one{}, collapsing the entanglement, as it delivers the classical result 0 or 1. In \figref{teleportmeasuretrace} Alice has measured 0 and 1, and qubit \#0 is indeed in the $a_{2}\zero-b_{2}\one$ state, as predicted. If you ran the program several times you would get different answers: Alice can measure any of the four possible bit combinations, and the simulation follows that faithfully.
 
@@ -556,7 +570,8 @@ proc System () =
                             + (0b1,0b0) . X
                             + (0b1,0b1) . Z*X 
         .
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportfinal
 \caption{Alice sends to Bob, who tidies up}
@@ -575,7 +590,8 @@ Alice: #2:[#0;#2]1/√2(a2|00⟩+a2|01⟩+b2|10⟩-b2|11⟩) ⌢̸ ;
 0: Alice -> Bob (0,1)
 
 Bob #0:(a2|0⟩-b2|1⟩) >> Z; result #0:(a2|0⟩+b2|1⟩)
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportfinaltrace
 \caption{Trace of Alice's measurement in the (0,1) case, her message, and Bob's final step}

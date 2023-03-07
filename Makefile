@@ -29,7 +29,7 @@ zip :
   
 ziplinux :
 	(make zip Qtpi; \
-	 zip -r qtpi\ distrib/Qtpi_Linux_`./version.sh` Qtpi \
+	 zip -r "qtpi distrib/Qtpi_Linux_`./version.sh`.zip" Qtpi \
 	)
   
 zipmacos :

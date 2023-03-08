@@ -58,9 +58,9 @@ proc System () =
 
 The first line of System, with a \verbtt{newq} declaration, creates three input qubits, in which each qubit name starts with a lower-case `q' because there's an informal qtpi convention that variables should start with a lower-case letter. The second line creates the qubits which are to be used for output. The next two lines are the six steps of the diagram: \verbtt{q,...,q>>G} puts qubit(s) \verbtt{q,...,q} through gate G; this program uses CNot and T (for Toffoli), which are gates from qtpi's library. The process terminates on its fifth line with a blank step.
 
-We can put this program in a file called \verbtt{Coggins.qtp}, and if we run it with a trace switch
+We can put this program in a file called \verbtt{manualCoggins1.qtp}, and if we run it with a trace switch
 \begin{quote}
-\verbtt{qtpi Coggins.qtp -trace}
+\verbtt{qtpi manualCoggins.qtp -trace}
 \end{quote}
 we can see what the program does. \Figref{Cogginszerooneonetrace} shows that trace. The first five lines record the setup of the qubits: qubit \#0 is qA, \#1 is qB, \#2 is qCin, \#3 is qSum, and \#4 is qCout. The fifth line doesn't flip qSum, because qA is \zero{}; the sixth and seventh each flip qSum because qB and qCin are each \one{}. The next two lines don't flip qCout, because qA and qB aren't both \one{}, and neither are qA and qCin; the last line does flip qCout because qB and qCin are both \one{}. So in classical terms, from input 011 it's produced sum 0 and carry-out 1, as a full adder should.  
 

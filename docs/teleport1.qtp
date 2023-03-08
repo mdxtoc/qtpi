@@ -1,0 +1,12 @@
+proc System () = 
+        . (newq b=|+>, a=|0>)  
+        . b,a>>CNot 
+        . (new ch:^(bit,bit))
+        . | Alice(a,ch) | Bob(b,ch)
+
+     Alice (a:qubit, ch) = 
+        . (newq c) 
+        .  
+
+     Bob(b:qubit, ch) = 
+        . 

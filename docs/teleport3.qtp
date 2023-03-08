@@ -1,0 +1,18 @@
+proc System () = 
+        . (newq b=|+>, a=|0>)  
+        . b,a>>CNot 
+        . (new ch:^(bit,bit))
+        . | Alice(a,ch) | Bob(b,ch)
+
+     Alice (a:qubit, ch) = 
+        . (newq c) 
+        . c,a>>CNot . c>>H . a⌢̸(va) . c⌢̸(vc)
+        . ch!(va,vc) .
+
+     Bob(b:qubit, ch) = 
+        . ch?(pair)
+        . b >> match pair . + (0b0,0b0) . I
+                            + (0b0,0b1) . Z
+                            + (0b1,0b0) . X
+                            + (0b1,0b1) . Z*X 
+        .

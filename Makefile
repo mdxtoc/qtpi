@@ -41,6 +41,6 @@ zipmacos :
 
 zipwindows : 
 	(make zip Qtpi; \
-	 zip -r qtpi\ distrib/Qtpi_Windows_`./version.sh` Qtpi.exe; \
+	 zip -r "qtpi distrib/Qtpi_Windows_`./version.sh`.zip" Qtpi.exe; \
 	 zip -r qtpi\ distrib/gmplib /cygdrive/c/Windows/System32/cyggmp-10.dll \
 	)

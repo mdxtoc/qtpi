@@ -59,8 +59,12 @@ In syntax descriptions, optional items are in decorated square brackets \optq{\;
 
 Some operators look better in Unicode, but every one has an equivalent in raw ASCII. See \tabref{Unicodeequivalences}. Some of these symbols are explained in later chapters.
 
-\begin{table}\caption{Unicode equivalences}\centering
-\hspace{3pt}\vspace{-3pt}\\\begin{tabular}{|r|c|l|l|}\hline
+\begin{table}
+\caption{Unicode equivalences}
+\centering
+\hspace{3pt}\vspace{-3pt}\\
+\begin{tabular}{|r|c|l|l|}
+\hline
 Unicode & ASCII & meaning & UTF-16\\
 \hline
 ¬ 		& \verbtt{not} 		& logical negation operator 			& 00ac			\\
@@ -82,7 +86,10 @@ Unicode & ASCII & meaning & UTF-16\\
 𝄇		& \verbtt{:|}		& iteration right bracket 				& 1d107			\\
 \hline
 ⁁		& \verbtt{/\^}		& test point marker 					& 2041 			\\
-\hline\end{tabular}\tablabel{Unicodeequivalences}\end{table}
+\hline
+\end{tabular}
+\tablabel{Unicodeequivalences}
+\end{table}
 
 \section{Program syntax}
 
@@ -102,7 +109,7 @@ Unicode & ASCII & meaning & UTF-16\\
 In \figref{programsyntax} a program is a sequence of process, function and variable definitions. Processes and functions are gathered into mutually-recursive groups.
 \begin{itemize}
 \item Processes \<P> are where all the quantum stuff and protocol stuff happens; expressions \<E> do classical calculations. 
-\item Process names \<Pname> start, by convention, with an upper-case letter; function names \<Fname> with a lower-case letter. (It's a silly convention because variable names $x$ can start with either case, and it's very weakly enforced. Certainly variable names can start with an upper-case letter) After the first letter, names continue with an alphanumeric sequence of characters.
+\item Process names \<Pname> start, by convention, with an upper-case letter; function names \<Fname> with a lower-case letter. (It's a silly convention because variable names $x$ can start with either case, and it's very weakly enforced.) After the first letter, names continue with an alphanumeric sequence of characters.
 \item A process definition has a tuple (possibly empty) of parameter names, optionally typed, and an optional result type.
 \item A function definition has a non-empty sequence of parameter patterns, which may be typed, and an optional result type.\footnote{At present typing of a function definition follows the ML/OCaml style, with typed parameters and, just before the `=' symbol, an optional result type. This is horrid and as soon as maybe I shall change it to something like Miranda's typing mechanism. At the same time I'd like to allow proper pattern-matching function definitions. I'm afraid you have to wait until I get round to it.}
 \end{itemize}
@@ -155,7 +162,7 @@ P       &::=& Q  \adot  P \asep \<IO>  \adot  P \asep \adot P \asep \<decl>\ P \
 
 Quantum bits are not classical bits, in more than the sense that they are not simply 0/1 values. There's a theorem of quantum mechanics which states that there can be no operation which takes a qubit in arbitrary state \bv{\phi}, together with any number of other qubits, and delivers a state in which there are two qubits each in state \bv{\phi}. No duplication, ever. That means, for example, that there can be no analogue in quantum computation of the classical assignment $x:=y$. The designers of CQP \citep{GaySJ:comqp} wanted their language to exclude programs that couldn't really execute. Qtpi loyally follows suit.
 
-Because qtpi is implemented, it isn't quite CQP: for one important thing, at each measurement it makes a probabilistic choice and follows it through, rather than splitting into two possible processes, labelling them with their probabilities, and following both as CQP would. There are some linguistic changes too, especially lifting quantum steps to the level of processes. And because I wanted it to be used, I had to devise ways of restricting the language which keep it real and which I could explain. I chose overkill and simple explanations. 
+Because qtpi is implemented, it isn't quite CQP: for one important thing, at each measurement it makes a probabilistic choice and follows it through, rather than splitting into two possible processes, labelling them with their probabilities, and following both as CQP would. There are some linguistic changes too, especially lifting quantum steps to the level of process steps. And because I wanted it to be used, I had to devise ways of restricting the language which keep it real and which I could explain. I chose overkill and simple explanations. 
 
 The sort of qubits that CQP and qtpi simulate are physical things -- atoms, molecules, photons, ... -- with quantised physical state such as spin or polarisation. It makes sense to send such a qubit from one protocol agent to another, and CQP is a language of communicating quantum processes which do just that. Agents can't share such a qubit -- it's in one place or another, not both. This doesn't handle every possible physical experiment: you \emph{might}, for example,  quantise the position of a photon as being with some probability on one of two paths towards detectors, but CQP and qtpi don't try to deal with that.
 
@@ -327,7 +334,7 @@ There's an input channel $\verbtt{in}:\; \caret{}\verbtt{string}$; there are out
 .
 \end{itemize}
 
-The \verbtt{outq} chanel is peculiar for good reason. It allows logging of a qubit's state, but it couldn't be a channel which takes a qubit, because if you send a qubit down a channel, you lose it. So there's \verbtt{qval} to help out: \verbtt{outq!qval q} is safe, if annoying. 
+The \verbtt{outq} chanel is peculiar for good reason. It allows logging of a qubit's state, but it couldn't be a channel which takes a qubit, because if you send a qubit down a channel, you lose it. So there's \verbtt{qval} to help out: `\verbtt{outq!qval q}' is safe, though verbose. 
 
 \section{Symbolic calculation}
 
@@ -341,7 +348,7 @@ Symbolic calculation uses the type \verbtt{sxnum}, which involves fractions (\ve
 
 \subsection{Angles: numbers or radians?}
 
-Because trigonometric functions are at the heart of the symbolic calculator (see \secref{symboliccalculator}), and the calculator needs to be fast, they have to deal in rational numbers. At school, over sixty years ago, I learnt trigonometry using degrees. Later I used radians, which seem more grown-up to me. But radians are irrationals, multiples of 𝝅 a lot of the time. Using radians would mean using an extra type \verbtt{angle}, and some extra complexity. So, at the risk of seeming juvenile, degrees it is -- 45, 90, 60, all thos old friends.
+Because trigonometric functions are at the heart of the symbolic calculator (see \secref{symboliccalculator}), and the calculator needs to be fast, they have to deal in rational numbers. At school, over sixty years ago, I learnt trigonometry using degrees. Later I used radians, which seem more grown-up to me. But radians are irrationals, multiples of 𝝅 a lot of the time. Using radians would mean using an extra type \verbtt{angle}, and some extra complexity. So, at the risk of seeming juvenile, degrees it is -- 45, 90, 60, all those old friends.
 
 \section{Non-unitary modulus}
 

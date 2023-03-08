@@ -7,7 +7,11 @@ I designed and built it simply because I found it hard, using pencil and paper, 
 
 The language isn't entirely novel: Raja Nangarajan was a colleague who was encouraging me to work on quantum stuff, and he was one of the authors of CQP \citep{GaySJ:comqp}, a development of the pi calculus \citep{DBLP:journals/iandc/MilnerPW92a} which could describe \underline{C}ommunicating \underline{Q}uantum \underline{P}rotocols. I made some changes from CQP which I thought would make qtpi more useful, but it remains obviously a CQP and pi calculus descendant. 
 
-Qtpi began life as a simulator for quantum security protocols. It's still most impressive, perhaps, when it's dealing with protocols, but nowadays it can do somewhat more complicated simulations. I introduce it using examples. \Chapref{corenotation} describes the language more formally, for those who want to skip to the chase; \chapref{library} describes the library of functions and constants. \Chapref{symboliccalculator} tells how qtpi manages to perform precise symbolic calculation.
+Qtpi began life as a simulator for quantum security protocols. It's still most impressive, perhaps, when it's dealing with protocols, but nowadays it can do somewhat more complicated simulations. I introduce it using examples. \Chapref{corenotation} describes the language more formally, for those who want to skip to the chase; \chapref{library} describes the library of functions and constants. \Chapref{symboliccalculator} tells how qtpi manages to perform precise symbolic calculation surprising quickly.
+
+\section{Why isn't it Python?}
+
+CQP exploite `linear typing' \citep{linearityandthepi-calculus} to enable a static check to determine whether a program obeys the quantum physics rules prohibiting cloning and sharing of qubits. To do that, while being able to describe communicating protocol agents, it needs the stark simplicity of the pi calculus as its process programming language. I suspect this may be the reason why qtpi doesn't have any users other than me.
 
 \section{An example using gates and interaction}
 
@@ -27,9 +31,9 @@ Qtpi began life as a simulator for quantum security protocols. It's still most i
 \caption{A quantum full adder, adapted from \citep{quantumfulladderquantumdaily}}
 \figlabel{Cogginsfulladdercircuit}
 \end{figure}
-The diagram, read left-to-right, describes how Qubits A, B and Cin, in some unknown states \bv{\alpha}, \bv{\beta} and \bv{\gamma}, can be processed to produce their single-bit sum as a qubit Sum in state \bv{\phi} and a carry out as a qubit Cout in state \bv{\psi}. Sum and Cout each start in state \zero{}. The intention is to imitate a classical hardware full adder, with the quantum state \zero{} simulating classical 0, and \one{} simulating 1. The original has an extra X gate, which isn't needed, and some measurement steps which I've omitted (but I'll get to measurement eventually).
+The diagram, read left-to-right, describes how Qubits A, B and Cin, in states \bv{\alpha}, \bv{\beta} and \bv{\gamma}, can be processed to produce their single-bit sum as a qubit Sum in state \bv{\phi} and a carry out as a qubit Cout in state \bv{\psi}. Sum and Cout each start in state \zero{}. The intention is to imitate a classical hardware full adder, with the quantum state \zero{} simulating classical 0, and \one{} simulating 1. The original has an extra X gate, which isn't needed, and some measurement steps which I've omitted (but I'll get to measurement eventually).
 
-The first three gates each use CNot which, provided the inputs are each either \zero{} or \one{}, will flip the target qubit (Sum) \zero{}$<->$\one{} if the input qubit (A, B or Cin) is \one{}, or leave it unchanged if the input is \zero{}. So Sum, which starts at \zero{}, can be flipped zero, one, two or three times, becoming respectively \zero{}, \one{}, \zero{} or \one{} respectively. That's definitely what a half-adder should do. The next three gates are Toffoli gates: flip the target qubit (Cout) if \emph{both} inputs are \one{}. So again, with inputs which are each \zero{} or \one{}, Cout gets flipped zero times if they are all \zero{}, once if there are two \one{}s, and three times if they are all \one{}, becoming respectively \zero{}, \one{} and \one{}. That's what a full adder should do. 
+The first three gates each use CNot which, provided the inputs are each either \zero{} or \one{}, will flip the target qubit (Sum) \zero{}$<->$\one{} if the input qubit (A, B or Cin) is \one{}, or leave it unchanged if the input is \zero{}. So Sum, which starts at \zero{}, can be flipped zero, one, two or three times, becoming respectively \zero{}, \one{}, \zero{} or \one{} respectively. That's definitely what a half-adder should do. The next three gates are Toffoli gates: flip the target qubit (Cout) if \emph{both} inputs are \one{}. So again, with inputs which are each \zero{} or \one{}, Cout gets flipped zero times if they are all \zero{}, once if there are two \one{}s, and three times if they are all \one{}, becoming respectively \zero{}, \one{} and \one{}. That's also what a full adder should do. 
 
 But what if some of the inputs are in some superposition state, a mixture of \zero{} and \one{}, as qubits famously can be? We shall see ...
 
@@ -50,12 +54,14 @@ proc System () =
 \figlabel{Cogginszerooneone}
 \end{figure}
 
-\Figref{Cogginszerooneone} is a program that simulates the circuit from \figref{Cogginsfulladdercircuit} with a particular starting state for each of the input qubits. In qtpi's process notation, following the pi calculus, declarations are bracketed and process steps -- such as quantum gating, quantum measurement, and message passing -- are separated by dots rather than semicolons. Qtpi lets you use extra dots if you wish and I like to put a dot at the start of each line because it keeps things aligned and stops me forgetting to include a dot.  Processes are introduced in groups, starting with the word `proc'. Every qtpi program must have a start-up process called System which takes no arguments and sets up the simulation. In this example the set-up only has to create five qubits and define their initial states, and then simulates the calculations in the diagram. It doesn't produce any output (but we'll come to that). 
+\Figref{Cogginszerooneone} is a program that simulates the circuit from \figref{Cogginsfulladdercircuit} with a particular starting state for each of the input qubits. In qtpi's process notation, following the pi calculus, declarations are bracketed and process steps -- such as quantum gating, quantum measurement, and message passing -- are separated by dots rather than semicolons. Qtpi lets you use extra dots if you wish and I like to put a dot at the start of each line because it keeps things aligned and stops me forgetting to include a dot.  Processes are introduced in groups, starting with the word `proc'. Every qtpi program must have a start-up process called System which takes no arguments and sets up the simulation. In this example the set-up only has to create five qubits and define their initial states, and then simulates the calculations in the diagram. It doesn't produce any output yet. 
 
-The first line of System, with a \verbtt{newq} declaration, creates three input qubits, in which each qubit name starts with a lower-case `q' because there's an informal qtpi convention that names starting with an upper-case letter should be reserved for processes (but it's informal and it's often broken, so don't worry too much about it). The next two lines are the six steps of the diagram: \verbtt{q,...,q>>G} puts qubit(s) \verbtt{q,...,q} through gate G; this program uses CNot and T (for Toffoli), which are gates from qtpi's library. The process terminates on its fifth line with a blank step.
+The first line of System, with a \verbtt{newq} declaration, creates three input qubits, in which each qubit name starts with a lower-case `q' because there's an informal qtpi convention that variables should start with a lower-case letter. The second line creates the qubits which are to be used for output. The next two lines are the six steps of the diagram: \verbtt{q,...,q>>G} puts qubit(s) \verbtt{q,...,q} through gate G; this program uses CNot and T (for Toffoli), which are gates from qtpi's library. The process terminates on its fifth line with a blank step.
 
 We can put this program in a file called \verbtt{Coggins.qtp}, and if we run it with a trace switch
-\begin{quote}\verbtt{qtpi Coggins.qtp -trace}\end{quote}
+\begin{quote}
+\verbtt{qtpi Coggins.qtp -trace}
+\end{quote}
 we can see what the program does. \Figref{Cogginszerooneonetrace} shows that trace. The first five lines record the setup of the qubits: qubit \#0 is qA, \#1 is qB, \#2 is qCin, \#3 is qSum, and \#4 is qCout. The fifth line doesn't flip qSum, because qA is \zero{}; the sixth and seventh each flip qSum because qB and qCin are each \one{}. The next two lines don't flip qCout, because qA and qB aren't both \one{}, and neither are qA and qCin; the last line does flip qCout because qB and qCin are both \one{}. So in classical terms, from input 011 it's produced sum 0 and carry-out 1, as a full adder should.  
 
 \mvb{\Cogginszerooneonetrace}
@@ -88,7 +94,7 @@ System (#1:|1⟩,#2:|1⟩,#4:|0⟩) >> T; result (#1:|1⟩,#2:|1⟩,#4:|1⟩)
 \figlabel{Cogginszerooneonetrace}
 \end{figure}
 
-So far, so simple. But qtpi is a programming language, and you can use input functions to control what it does. A more useful version of the program is shown in \figref{Cogginswithinput}: the istate function asks the user to type `0', `1', `+' or `-' and returns a value which is correspondingly either \zero{}, \one{}, \plus{} or \minus{}. The next-to-last line of the program outputs the final states of the qCout and qSum qubits. The `\verbtt{ch!E}' step sends the value of the expression \verbtt{E} down the channel \verbtt{ch}. Channels are strongly typed: `\verbtt{out}' accepts lists of strings which it prints out; `\verbtt{outq}' accepts a single `\verbtt{qstate}' value and prints it out, and `\verbtt{qval q}' delivers such a value. So the `\verbtt{outq!qval q}' step prints out the state of a qubit without revealing it to the program because there's nothing a qtpi program can do to interrogate a \verbtt{qstate}. The last line terminates the process with a blank step. 
+So far, so simple. But qtpi is a programming language, and you can use input functions to control what it does. A more useful version of the program is shown in \figref{Cogginswithinput}: the istate function asks the user to type `0', `1', `+' or `-' and returns a ket which is correspondingly either \zero{}, \one{}, \plus{} or \minus{}. The next-to-last line of the program outputs the final states of the qCout and qSum qubits, down the channels out (which takes lists of strings) and outq (which takes the special `qstate' value that encodes the state of a qubit). The `\verbtt{ch!E}' step sends the value of the expression \verbtt{E} down the channel \verbtt{ch}. Channels are strongly typed: `\verbtt{out}' accepts lists of strings which it prints out; `\verbtt{outq}' accepts a single `\verbtt{qstate}' value and prints it out, and `\verbtt{qval q}' delivers such a value. So the `\verbtt{outq!qval q}' step prints out the state of a qubit without revealing it to the program because there's nothing a qtpi program can do to interrogate a \verbtt{qstate}. The last line terminates the process with a blank step. 
 
 Running this program with inputs which are each \zero{} or \one{} produces accurate simulated-classical-arithmetic results like \figref{Cogginswithinputtrace}. Pretty straightforward, as far as simulated-classical full adder behaviour is concerned.
 
@@ -108,7 +114,8 @@ proc System () =
   
   . out!["qSum="] . outq!qval qSum . out!["; qCout="] . outq!qval qCout .  out!["\n"] 
   . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinput
 \caption{A full adder with input and output}
@@ -119,7 +126,8 @@ qA (0,1,+,-)? 1
 qB (0,1,+,-)? 1
 qCin (0,1,+,-)? 1
 qSum=#3:|1⟩; qCout=#4:|1⟩
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputtrace
 \caption{Full-adder simulation output with classical-simulating input}
@@ -138,7 +146,8 @@ qA (0,1,+,-)? +
 qB (0,1,+,-)? 1
 qCin (0,1,+,-)? 0
 qSum=#3:[#0;#3;#4]1/√2(|010⟩+|101⟩); qCout=#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputplusout
 \caption{Full-adder input superposition produces entangled outputs}
@@ -172,7 +181,8 @@ System (#0:[#0;#3;#4]1/√2(|010⟩+|101⟩),#2:|0⟩,#4=#0) >> T;
 
 System (#1:|1⟩,#2:|0⟩,#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)) >> T;  
       result (#1:|1⟩,#2:|0⟩,#4:[#0;#3;#4]1/√2(|010⟩+|101⟩))
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputplustrace
 \caption{How the full-adder entanglement happens}
@@ -194,7 +204,8 @@ The second two Toffoli lines don't do any flips, so no change.
 \subsubsection{.. and its calculations}
 
 The CNot gate is 4$\times$4: it operates on a 4-amplitude state, i.e. on two qubits. The second and third CNot lines in \figref{Cogginswithinputplustrace} ask it to operate on three qubits, which is an 8-amplitude state. Consider, for example, the second CNot step, taking qB \#1 as its source qubit and \#3 as its target. \#3 is entangled with \#0, which has nothing to do with the CNot, but has to be included nevertheless, so 3 bits to be processed. The standard quantum computation solution to this situation is as follows:
-\begin{enumerate*}\item combine the source qubit \#1 and the entanglement \#0 and \#3 with tensor multiplication, giving the combined state of qubits  \#1, \#0 and \#3 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$; 
+\begin{enumerate*}
+\item combine the source qubit \#1 and the entanglement \#0 and \#3 with tensor multiplication, giving the combined state of qubits  \#1, \#0 and \#3 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$; 
 \item manipulate that state to show the qubits in the order \#1, \#3, \#0 as $\frac{1}{\sqrt2}(\onezerozero+\oneoneone)$ (looks the same but isn't, because the qubits read differently);
 \item put that state through $\<CNot>\otimes\<I>$, -- CNot for the first two qubits, I for the third. That gate is
 \begin{equation*}
@@ -209,7 +220,8 @@ The CNot gate is 4$\times$4: it operates on a 4-amplitude state, i.e. on two qub
 \end{equation*}
 which swaps \onezerozero{} with \oneonezero{}, \onezeroone{} with \oneoneone{}, and vice-versa. 
 \item the resulting combined state  of \#1, \#3 and \#0 is $\frac{1}{\sqrt2}(\onezeroone+\oneonezero)$, in which qubit \#1 is \one{} in either superposed state, so it can be  separated out leaving $\frac{1}{\sqrt2}(\zeroone+\onezero)$ as an entanglement of \#3 and \#0;
-\item manipulate that to make an entanglement of \#0 and \#3, $\frac{1}{\sqrt2}(\zeroone+\onezero)$ (again, looks the same but isn't).\end{enumerate*}
+\item manipulate that to make an entanglement of \#0 and \#3, $\frac{1}{\sqrt2}(\zeroone+\onezero)$ (again, looks the same but isn't).
+\end{enumerate*}
 Qtpi does that sort of calculation easily, without making mistakes. I used to find it hard to do it accurately with paper and pencil: hence qtpi.
 
 \subsection{Measuring the full-adder result}
@@ -240,7 +252,8 @@ proc System () =
   . out!["now qA="] . outq!qval qA . out![", qB="] . outq!qval qB 
   . out![", and qCin="] . outq!qval qCin . out!["\n"]
   . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputandmeasurement
 \caption{The full adder with measurement of the result qubits}
@@ -253,7 +266,8 @@ qCin (0,1,+,-)? 0
 qSum=#3:[#0;#3;#4]1/√2(|010⟩+|101⟩); qCout=#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)
 qSum measured 0, and qCout measured 1
 now qA=#0:|1⟩, qB=#1:|1⟩, and qCin=#2:|0⟩
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \Cogginswithinputandmeasurementoutput
 \caption{caption}
@@ -273,11 +287,11 @@ Meyer \citep{meyer1999quantumstrategies} describes the start of just such an enc
 \begin{quote}
 The starship \textit{Enterprise} is facing some imminent -- and apparently inescapable -- calamity when Q appears on the bridge and offers to help, provided Captain Picard can beat him at penny flipping: Picard is to place a penny heads up in a box, whereupon they will take turns (Q, then Picard, then Q) flipping the penny (or not), without being able to see it. Q wins if the penny is heads up when they open the box.
 \end{quote}
-Picard takes the bet, because in classical game theory he has a 50\% chance of success. But he really shouldn't, because Q wouldn't make the offer unless he already knew how to win.
+Picard takes the bet. But he really shouldn't.
 
 In the classical world there's no winning strategy for Q: if he flips once, he loses if Picard passes; if he flips twice or passes twice, he loses if Picard flips. So classically he has 50\% chance of winning. But Meyer is making a point about game theory in a quantum world: if the coin is a qubit, if `heads' is \zero{} and `tails' \one{}, if `flipping' is putting the qubit through an X gate which changes \zero{} to \one{} and vice-versa, then is there a way to cheat?
 
-Yes, there is. The H gate changes \zero{} to $\plus{}=\frac{1}{\sqrt2}(\zero+\one)$ and vice-versa. and is certainly not `flipping' as Picard. Picard X-flips do nothing to \plus{}. Q does H first; then whether Picard X-flips or not the coin is still \plus{}; Q does H again, the coin will be \zero{}, and Q wins. Picard's ear is full of metaphorical cider.
+Yes, there is. The H gate changes \zero{} to $\plus{}=\frac{1}{\sqrt2}(\zero+\one)$ and vice-versa. and is certainly not `flipping' as Picard understands it. Picard's X-flips do nothing to \plus{}. Q does H first; then whether Picard X-flips or not the coin is still \plus{}; Q does H again, the coin will be \zero{}, and Q wins. An ear full of cider.
 
 It is possible to read this as a simple example of a deep quantum property. Q puts the qubit into a state which is an equal-probability superposition of \zero{} and \one{}: amplitude $\frac{1}{\sqrt2}$ in each case, probabilities $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$. An X-flip by Picard, should he choose to do it, changes that into an equal-probability superposition of \one{} and \zero{} -- no change, no use to Picard, no problem for Q who just H-flips back to \zero{}. Q always wins because he's playing a quantum game and Picard isn't. Q's H-flip trick depends on starting with \zero{}, but there's a different matrix he could use instead if they started with \one{}. Picard should have read more Damon Runyon (and so should you: it's very witty). Even without that background he should have been suspicious, because Q gets two flips to his one: why is that?
 
@@ -308,10 +322,9 @@ proc System() = . (new ch:^qubit)
 \figlabel{cointoss}
 \end{figure}
 
-System in \figref{cointoss} only has to create a channel and two processes, giving them each the channel so they can pass the penny/qubit between them, and then let them run.
-Its first line creates a channel with a \verbtt{new} declaration, and to emphasise that this is to be used to transmit a qubit, I've given the channel an explicit type. On the second line the process splits into two subprocesses with the `par' construct \verbtt{|...|}, and then turns one subprocess into an invocation of Picard and the other into an invocation of Q. Each invocation gets the channel as argument. The par completes the System process; the invocations complete the subprocesses; no need for any terminating blank steps.
+The System process in \figref{cointoss} only has to create a channel and two processes, giving them each the channel so they can pass the penny/qubit between them, and then let them run. Its first line creates a channel with a \verbtt{new} declaration, and to emphasise that this is to be used to transmit a qubit, I've given the channel an explicit type. On the second line the process splits into two subprocesses with the `par' construct \verbtt{|...|}, and then turns one subprocess into an invocation of Picard and the other into an invocation of Q. Each invocation gets the channel as argument. The par completes the System process; the invocations complete the subprocesses; no need for any terminating blank steps.
 
-The Picard process makes nine steps, if we count a declaration as a step, and count termination also: 
+The Picard process makes nine steps, if we count a declaration as a step, and we count termination also: 
 \renewcommand{\labelenumi}{P\theenumi}
 \begin{enumerate*}
 \item \verbtt{(newq q=|0>)} creates a qubit in state \zero{} (heads) and names it q; 
@@ -390,7 +403,7 @@ Qtpi can simulate this rather well, using symbolic calculation with variables us
 
 \subsection{Creating an entanglement and an `unknown' qubit}
 
-The System process in this example has to create an entangled pair and a couple of processes, connected with a channel. We've already seen how to create qubits and how to invoke processes and connect them. Entanglement we've already seen in the full-adder example:
+The System process in this example has to create an entangled pair and a couple of processes, connected with a channel. We've already seen how to create qubits and how to invoke processes and connect them. Entanglement we've seen in the full-adder example:
 \begin{quote}
 Take two qubits, one in state $\plus=\frac{1}{\sqrt{2}}(\zero+\one)$, the other in state $\zero$, and put them through a CNot gate.
 \end{quote}
@@ -417,7 +430,7 @@ proc System () =
 \figlabel{teleportinit}
 \end{figure}
 
-System begins by creating the two qubits to be entangled\footnote{Sharp-eyed readers will notice that the order in which the qubits are declared in \figref{teleportinit} is b, then a. That's because it makes Alice's calculation easier to interpret, as shown in \secref{whatshappening}.} and then puts them through a CNot gate as the recipe requires. Then it declares a new channel, and just to emphasise how it's to be used, says via explicit typing that it carries pairs of (classical) bits. Then as in the previous example it splits into two subprocesses, one invoking Alice with the `a' qubit and the channel, the other Bob with the `b' qubit and the channel.  
+System begins by creating the two qubits to be entangled\footnote{Sharp-eyed readers will notice that the order in which the qubits are declared in \figref{teleportinit} is b, then a. That's because it makes Alice's calculation easier to interpret, as shown in \secref{whatshappening}.} and then puts them through a CNot gate as the recipe requires. Then it declares a new channel, and just to emphasise how it's to be used, says via explicit typing that it carries pairs of (classical) bits. Then as in the coin-toss example it splits into two subprocesses, one invoking Alice with the `a' qubit and the channel, the other Bob with the `b' qubit and the channel.  
 
 The trace of this program is shown in \figref{teleportinittrace}. The first two events create qubits \#0 and \#1 in states \plus{} and \zero{}. The third event entangles them. The fourth event creates qubit \#2, so far unentangled with either \#0 or \#1, whose amplitudes $a_{2}$ and $b_{2}$ are unspecified. This isn't quite how the starting position is described, but it's ok: qtpi uses a $_{2}$ suffix because it's describing qubit \#2 in the simulation. All that the qtpi calculator knows about the unknown amplitudes is that $|a_{2}|^{2}+|b_{2}|^{2}=1$. We have our starting position. 
 
@@ -440,7 +453,7 @@ Alice creates #2:(a2|0⟩+b2|1⟩)
 
 \subsection{Alice gates and measures her qubits}
 
-Alice only has access to qubits \verbtt{a} and \verbtt{c} (qubits \#1 and \#2), while Bob has control of \verbtt{b} (\#0). The protocol proceeds by Alice measuring her qubits in a way that entangles them with Bob's. The original paper requires measurement in a complicated four-dimensional basis, and qtpi is not (yet) set up to do that. The other technique, revealed in the Wikipedia page, is to put bits c and a through a sort of reverse entanglement -- Cnot for c and a, then H for c alone -- before measuring in the computational basis. Just why the measurement is useful is discussed in \secref{whatshappening}; before that we look at what the measurement does. 
+Alice only has access to qubits \verbtt{a} and \verbtt{c} (qubits \#1 and \#2 in the simulation), while Bob has control of \verbtt{b} (\#0). The protocol proceeds by Alice measuring her qubits in a way that entangles them with Bob's. The original paper requires measurement in a complicated four-dimensional basis, and qtpi is not (yet) set up to do that. The other technique, revealed in the Wikipedia page, is to put bits c and a through a sort of reverse entanglement -- Cnot for c and a, then H for c alone -- before measuring in the computational basis. Just why the measurement is useful is discussed in \secref{whatshappening}; before that we look at what the measurement does. 
 
 \Figref{teleportmeasure} shows the program. Alice does the CNot, H steps and then measures a and c. The order of measurement doesn't matter. The classical-bit results are bound to names va and vc. Bob is still passive. \Figref{teleportmeasuretrace} shows the part of the trace that covers Alice's calculation and measurement steps.
 
@@ -495,7 +508,7 @@ This looks terrifyingly complicated, but notice that in the fourth step everythi
 \subsubsection{A glimpse of what's going on}
 \seclabel{whatshappening}
 
-(I'm ashamed to say that I don't understand why the Cnot, H gating allows the measurement to happen in the \zero{}, \one{} basis. If anybody out there has the time to tell me, please do.)
+(** I'm ashamed to say that I don't understand why the Cnot, H gating allows the measurement to happen in the \zero{}, \one{} basis. If anybody out there has the time to tell me, please do. **)
 
 (This description may tell you more than you wish to know: the details are interesting only if you want to know how qtpi does it. If not, skip to the bit about measurement.)
 
@@ -515,10 +528,14 @@ To cause the second event, Alice  puts qubit \#2 (c) through an H gate. That qub
 \end{equation*}
 
 The three-qubit state shown in the trace as the result of Alice's H-gating is an entanglement shown in \#0, \#1, \#2 order: qubits \#1 and \#2 (a and c) are listed last, and \#0 (b) is first.\footnote{The reason I declared the to-be-entangled qubits in b, a order in System was so that a would be \#1, c would be \#2, and they would appear next to each other in this entanglement.} We can rewrite the entanglement, keeping it in \#0, \#1, \#2 order, as
-\begin{equation*}\frac{1}{2}(a_{2}\zero\zerozero+a_{2}\zero\zeroone+b_{2}\zero\onezero-b_{2}\zero\oneone
-		   +b_{2}\one\zerozero-b_{2}\one\zeroone+a_{2}\one\onezero+a_{2}\one\oneone)\end{equation*}
+\begin{equation*}
+\frac{1}{2}(a_{2}\zero\zerozero+a_{2}\zero\zeroone+b_{2}\zero\onezero-b_{2}\zero\oneone
+		   +b_{2}\one\zerozero-b_{2}\one\zeroone+a_{2}\one\onezero+a_{2}\one\oneone)
+\end{equation*}
 Gathering the \#1, \#2 values together, we can rewrite this as 
-\begin{equation*}1/2((a_{2}\zero+b2\one)\zerozero+(a2\zero-b2\one)\zeroone+(b2\zero+a2\one)\onezero+(-b2\zero+a2\one)\oneone)\end{equation*}
+\begin{equation*}
+1/2((a_{2}\zero+b2\one)\zerozero+(a2\zero-b2\one)\zeroone+(b2\zero+a2\one)\onezero+(-b2\zero+a2\one)\oneone)
+\end{equation*}
 
 This is a four-way equal-probability superposition. It looks as if Alice's qubits were \zerozero, then Bob's would have to be $a_{2}\zero+b_{2}\one$; if Alice were to have \zeroone, then Bob would have $a_{2}\zero-b_{2}\one$; and so on. But Alice's qubits aren't necessarily in any of those states. Measurement in the classical \zero{}, \one{} basis, however, forces a qubit to be \zero{} or \one{}, collapsing the entanglement, as it delivers the classical result 0 or 1. In \figref{teleportmeasuretrace} Alice has measured 0 and 1, and qubit \#0 is indeed in the $a_{2}\zero-b_{2}\one$ state, as predicted. If you ran the program several times you would get different answers: Alice can measure any of the four possible bit combinations, and the simulation follows that faithfully.
 
@@ -556,7 +573,8 @@ proc System () =
                             + (0b1,0b0) . X
                             + (0b1,0b1) . Z*X 
         .
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportfinal
 \caption{Alice sends to Bob, who tidies up}
@@ -575,7 +593,8 @@ Alice: #2:[#0;#2]1/√2(a2|00⟩+a2|01⟩+b2|10⟩-b2|11⟩) ⌢̸ ;
 0: Alice -> Bob (0,1)
 
 Bob #0:(a2|0⟩-b2|1⟩) >> Z; result #0:(a2|0⟩+b2|1⟩)
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportfinaltrace
 \caption{Trace of Alice's measurement in the (0,1) case, her message, and Bob's final step}

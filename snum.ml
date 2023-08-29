@@ -326,7 +326,7 @@ let st_half iscos n =
 let st_1 iscos n =
   match n>/num_90, iscos with
   | true , true  -> st_neg (st_half iscos (num_180-/n))                             (* cos(180-n)=-cos n *)
-  | true , false -> st_half iscos (num_180-/n)                                      (* sin(180=n)=sin n *)
+  | true , false -> st_half iscos (num_180-/n)                                      (* sin(180-n)=sin n *)
   | _            -> st_half iscos n
 
 (* input in [0,2𝜋] -- closed, includes both endpoints *)

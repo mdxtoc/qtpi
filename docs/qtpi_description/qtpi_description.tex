@@ -73,6 +73,12 @@
 
 \var{prog,pdef,fdef,pat,bpat,Pname[Pn],Fname[fn],E,P,Q,IO,T,TV[tv],Const}
 
+\usepackage{mdframed}
+\global\mdfdefinestyle{exampledefault}{ linecolor=red,linewidth=3pt,%
+leftmargin=42cm,rightmargin=2cm }
+\global\mdfapptodefinestyle{exampledefault}{% topline=false,bottomline=false}
+			topline=false,bottomline=false}
+			
 \newcommand{\caret}[0]{\ensuremath{{}^{\wedge}}}
 
 \title{Qtpi, a simulator for quantum protocols (and more)}
@@ -85,6 +91,7 @@
 \newpage
 
 \input{introduction}
+\input{byexamples}
 \input{corenotation}
 \input{library}
 \input{qubitcollections}

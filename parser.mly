@@ -68,7 +68,7 @@
 %token NUMTYPE BOOLTYPE CHARTYPE STRINGTYPE GATETYPE SXNUMTYPE
 %token QBITTYPE QBITSTYPE QSTATETYPE CHANTYPE BITTYPE MATRIXTYPE BRATYPE KETTYPE RIGHTARROW
 %token DOT DOTDOT UNDERSCORE
-%token RESSHOW RESCOMPARE
+%token RESSHOW RESSHOWQ RESCOMPARE
 %token NEWDEC UNTRACED QBITDEC QBITSDEC QBITSJOIN QBITSSPLIT LETDEC MATCH 
 %token QUERY BANG MEASURE MEASURES THROUGH THROUGHS 
 %token PLUS MINUS DIV MOD POW TENSORPROD TENSORPOWER DAGGER
@@ -475,7 +475,8 @@ primary:
   | LPAR expr COLON typespec RPAR       {adorn (twrap (Some $4) (tinst $2))}
   | LPAR RPAR                           {tadorn EUnit}
   | name                                {tadorn (EVar $1)}
-  | RESSHOW                             {tadorn (ERes ResShow)}
+  | RESSHOW                             {tadorn (ERes (ResShow false))}
+  | RESSHOWQ                            {tadorn (ERes (ResShow true))}
   | RESCOMPARE                          {tadorn (ERes ResCompare)}
   | BIT0                                {tadorn (EBit false)}
   | BIT1                                {tadorn (EBit true)}

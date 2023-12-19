@@ -125,6 +125,7 @@ let string_of_token = function
     | SXNUMTYPE -> "SXNUMTYPE"
     | DOWNARROW -> "DOWNARROW"
     | RESSHOW   -> "RESSHOW"
+    | RESSHOWQ  -> "RESSHOWQ"
     | RESCOMPARE -> "RESCOMPARE"
   
 let get_linenum lexbuf = 
@@ -291,6 +292,7 @@ let rec make_token : Sedlexing.lexbuf -> Parser.token = fun lexbuf ->
   | 0x2193      -> DOWNARROW        (* ↓ *)
   
   | "show"      -> RESSHOW
+  | "showq"     -> RESSHOWQ
   | "compare"   -> RESCOMPARE
     
   | "'", Compl (Chars "'\\\n\r\t"), "'"

@@ -661,3 +661,26 @@ let rec qmeasure disposes pn gate q =
      if not disposes then ugstep_padded pn [q] gate gate;
      bit
     )
+
+(* ********************* Fancy ways of printing qubits ************************ *)
+
+(* _qval now shows sort-of-minimum entanglement, but the result is always +/- -- i.e. maybe the sign's `wrong`.
+   But that doesn't matter, because scalar factor ...
+ *)
+let _qval q =
+  let q = to_qubit q in
+  let qs,v = qval q in
+  let printit q qv = Printf.sprintf "%s:%s" (string_of_qubit q) (string_of_qval (qsort qv)) in
+  let rec findit qs v =
+    match try_split true qs v with
+    | Some (q',v,_,_) when q=q' -> printit q ([q],v)
+    | Some (_,_,qs',v')         -> findit qs' v'
+    | None                      -> printit q (qs,v)
+  in
+  if !showqsimplifies || oneprob v then findit qs v else printit q (qs,v)
+  
+let _qvals qs =
+  let qs = to_qubits qs in
+  let qv = qval_of_qs qs in
+  Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qubit qs) (string_of_qval (qsort qv)) (* oh the qsort ... *)
+

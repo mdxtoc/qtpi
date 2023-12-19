@@ -66,7 +66,7 @@ let memoise = ref true
 
 (* let pstep = ref false *)
 
-let qvalsimplifies = ref true
+let showqsimplifies = ref true
 
 let resourcecheck = ref true
 

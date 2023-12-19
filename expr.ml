@@ -66,7 +66,7 @@ and enode =
   | ESub of expr * expr
   | ELambda of pattern list * expr
   | EWhere of expr * edecl
-  | ERes of resword                       (* the Turner hack: see "the special function 'show'" in the Miranda manual *)
+  | ERes of resword                       (* the Turner hack: see "the special function 'show'" in the Miranda manual. Now extended to 'showq' *)
 
 and arithop =
   | Plus
@@ -101,7 +101,7 @@ and edeclnode =
   | EDFun of typedname * pattern list * _type option ref * expr 
 
 and resword =
-  | ResShow
+  | ResShow of bool     (* true: qubit/qubits/qstate allowed; false: classical only *)
   | ResCompare
 
 (* I've only just realised that I can't compare expressions for equality, because of tinst stuff *)  
@@ -235,7 +235,7 @@ let rec string_of_primary e =
   match tinst e with
   | EUnit           -> "()"
   | ENil            -> "[]"
-  | ERes w          -> (match w with ResShow -> "show" | ResCompare -> "compare")
+  | ERes w          -> (match w with ResShow q -> if q then "showq" else "show" | ResCompare -> "compare")
   | EVar x          -> string_of_name x
   | EBit b          -> if b then "0b1" else "0b0"
   | EBra b          -> string_of_braconst b

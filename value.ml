@@ -107,8 +107,8 @@ let to_matrix  : vt -> matrix       = Obj.magic
 let to_num     : vt -> num          = Obj.magic
 let to_nv      : vt -> nv           = Obj.magic
 let to_procv   : vt -> procv        = Obj.magic 
-let to_qubit    : vt -> qubit         = Obj.magic
-let to_qubits   : vt -> qubit list    = Obj.magic
+let to_qubit   : vt -> qubit        = Obj.magic
+let to_qubits  : vt -> qubit list   = Obj.magic
 let to_uchar   : vt -> Uchar.t      = Obj.magic
 let to_uchars  : vt -> Uchar.t list = Obj.magic
 let to_unit    : vt -> unit         = Obj.magic
@@ -128,8 +128,8 @@ let of_num     : num          -> vt = Obj.magic
 let of_angle = of_num
 let of_nv      : nv           -> vt = Obj.magic
 let of_procv   : procv        -> vt = Obj.magic
-let of_qubit    : qubit         -> vt = Obj.magic
-let of_qubits   : qubit list    -> vt = Obj.magic
+let of_qubit   : qubit        -> vt = Obj.magic
+let of_qubits  : qubit list   -> vt = Obj.magic
 let of_uchar   : Uchar.t      -> vt = Obj.magic
 let of_uchars  : Uchar.t list -> vt = Obj.magic
 let of_tuple   : vt list      -> vt = Obj.magic
@@ -168,7 +168,9 @@ let string_of_pqueue stringof sep pq =
 (* so_value takes an argument optf to winnow out those things we don't want it to deal with directly *)
 (* this is to allow the library function 'show' to work properly. The rest of the world can use string_of_value *)
 (* Since we no longer have run-time types, it has to have a type argument t *)
-let rec so_value optf t v =
+(* the sq parameter deals with showq/string_of_value differences. showq is fancier with qubits *)
+
+let rec so_value sq optf t v =
   match optf t with
   | Some s -> s
   | None   -> (match t.inst with
@@ -182,12 +184,12 @@ let rec so_value optf t v =
                | Matrix        -> string_of_matrix (to_matrix v)
                | Gate          -> string_of_gate (to_gate v)
                | Char          -> Printf.sprintf "'%s'" (Utf8.escaped (to_uchar v))
-               | Qubit          -> "Qubit " ^ string_of_qubit (to_qubit v)
-               | Qubits         -> "Qubits " ^ string_of_qubits (to_qubits v)
-               | Qstate        -> to_qstate v
-               | Channel t     -> "Chan " ^ so_chan optf t (to_chan v)
-               | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value optf)) "," (zip ts (to_list v)) ^ ")"
-               | List t        -> bracketed_string_of_list (so_value optf t) (to_list v)
+               | Qubit         
+               | Qubits        
+               | Qstate        -> sq t.inst v
+               | Channel t     -> "Chan " ^ so_chan sq optf t (to_chan v)
+               | Tuple ts      -> "(" ^ string_of_list (uncurry2 (so_value sq optf)) "," (zip ts (to_list v)) ^ ")"
+               | List t        -> bracketed_string_of_list (so_value sq optf t) (to_list v)
                | Process _    
                | Fun _         
                | Unknown _
@@ -195,73 +197,73 @@ let rec so_value optf t v =
                | Poly _       -> Printf.sprintf "?<vt type %s>" (string_of_type t)
               )
 
-and short_so_value optf t v =
+and short_so_value sq optf t v =
   match optf t with
   | Some s -> s
   | None   -> (match t.inst with
                | Qubit          -> "Qubit " ^ short_string_of_qubit (to_qubit v)
                | Qubits         -> "Qubits " ^ short_string_of_qubits (to_qubits v)
                | Channel t     -> let c = to_chan v in
-                                  "Chan " ^ short_so_chan optf t c ^ if c.traced then "" else "(untraced)"
-               | Tuple ts      -> "(" ^ string_of_list (uncurry2 (short_so_value optf)) "," (zip ts (to_list v)) ^ ")"
-               | List t        -> bracketed_string_of_list (short_so_value optf t) (to_list v)
-               | _             -> so_value optf t v
+                                  "Chan " ^ short_so_chan sq optf t c ^ if c.traced then "" else "(untraced)"
+               | Tuple ts      -> "(" ^ string_of_list (uncurry2 (short_so_value sq optf)) "," (zip ts (to_list v)) ^ ")"
+               | List t        -> bracketed_string_of_list (short_so_value sq optf t) (to_list v)
+               | _             -> so_value sq optf t v
               )
   
-and so_chan optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq} =
+and so_chan sq optf t {cname=i; traced=traced; stream=vs; rwaiters=rq; wwaiters=wq} =
     Printf.sprintf "%s %s = vs:{%s} rs:{%s} ws:{%s}"
                    (string_of_zint i)
                    (if traced then "" else "(untraced)")
-                   (string_of_queue (so_value optf t) "; " vs)
-                   (string_of_pqueue (short_so_rwaiter optf) "; " rq)
-                   (string_of_pqueue (short_so_wwaiter optf t) "; " wq)
+                   (string_of_queue (so_value sq optf t) "; " vs)
+                   (string_of_pqueue (short_so_rwaiter sq optf) "; " rq)
+                   (string_of_pqueue (short_so_wwaiter sq optf t) "; " wq)
 
-and short_so_chan optf t {cname=i} =
+and short_so_chan sq optf t {cname=i} =
     string_of_zint i
     
-and so_env optf (rtenv:rtenv) = 
+and so_env sq optf (rtenv:rtenv) = 
   Printf.sprintf "{%x❮%s❯}" 
                  (Obj.magic rtenv: int)
                  (String.concat "," (List.map (fun v -> Printf.sprintf "%x" (to_qubit v))(Array.to_list rtenv)))
 
-and short_so_env optf = so_env optf 
+and short_so_env sq optf = so_env sq optf 
   
-and so_runner optf (n, proc, rtenv) =
+and so_runner sq optf (n, proc, rtenv) =
   Printf.sprintf "%s = (%s) %s" 
                  (string_of_procname n)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf rtenv)
+                 (short_so_env sq optf rtenv)
                  
-and so_rwaiter optf ((n, pat, proc, rtenv),gsir) = 
+and so_rwaiter sq optf ((n, pat, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_procname n)
                  (string_of_cpattern pat)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf rtenv)
+                 (short_so_env sq optf rtenv)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_so_rwaiter optf ((n, pat, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
+and short_so_rwaiter sq optf ((n, pat, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_procname n)
                  (string_of_cpattern pat)
                  (if fst !gsir then "" else "[dead]")
                  
-and so_wwaiter optf t ((n, v, proc, rtenv),gsir) = 
+and so_wwaiter sq optf t ((n, v, proc, rtenv),gsir) = 
   Printf.sprintf "%s = (%s)%s %s%s" 
                  (string_of_procname n)
-                 (so_value optf t v)
+                 (so_value sq optf t v)
                  (short_string_of_cprocess proc)
-                 (short_so_env optf rtenv)
+                 (short_so_env sq optf rtenv)
                  (if fst !gsir then "" else "[dead]")
                  
-and short_so_wwaiter optf t ((n, v, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
+and short_so_wwaiter sq optf t ((n, v, proc, rtenv),gsir) = (* infinite loop if we print the environment *)
   Printf.sprintf "%s(%s)%s" 
                  (string_of_procname n)
-                 (so_value optf t v)
+                 (so_value sq optf t v)
                  (if fst !gsir then "" else "[dead]")
                  
-and so_runnerqueue optf sep rq =
-  string_of_pqueue (so_runner optf) sep rq
+and so_runnerqueue sq optf sep rq =
+  string_of_pqueue (so_runner sq optf) sep rq
 
 and string_of_gate g = 
   let nameopt = if !Settings.showsymbolicgate then
@@ -286,18 +288,22 @@ and string_of_gate g =
 (* ********************************************************************************************************** *)
 
 let doptf s = None
+let dsq = function | Qubit  -> (fun v -> "Qubit " ^ string_of_qubit (to_qubit v))
+                   | Qubits -> (fun v -> "Qubits " ^ string_of_qubits (to_qubits v))
+                   | Qstate -> to_qstate
+                   | _      -> (fun v -> "") (* by construction, no exception *)
 
-let string_of_value = so_value doptf
-let short_string_of_value = short_so_value doptf 
+let string_of_value = so_value dsq doptf
+let short_string_of_value = short_so_value dsq doptf 
 
-let string_of_env = so_env doptf
-let short_string_of_env = short_so_env doptf 
+let string_of_env = so_env dsq doptf
+let short_string_of_env = short_so_env dsq doptf 
 
-let string_of_chan = so_chan doptf
-let short_string_of_chan = short_so_chan doptf 
+let string_of_chan = so_chan dsq doptf
+let short_string_of_chan = short_so_chan dsq doptf 
 
-let string_of_runner r = so_runner doptf r
-let string_of_runnerqueue rq = so_runnerqueue doptf rq
+let string_of_runner r = so_runner dsq doptf r
+let string_of_runnerqueue rq = so_runnerqueue dsq doptf rq
 
 let string_of_procv (n, envf, cproc) = Printf.sprintf "(%s, <fun>, %s)"
                                                           (string_of_name n)

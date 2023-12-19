@@ -57,8 +57,6 @@ let opts = Arg.align
                     Printf.sprintf " measurement destroys a qubit (default %B)" !measuredestroys);
               ("-memoise"           , Arg.Bool (set_arg memoise), 
                     Printf.sprintf " memoise calculator operations mult and sum (default %B)" !memoise);
-              ("-qvalsimplifies"    , Arg.Bool (set_arg qvalsimplifies), 
-                    Printf.sprintf " qval shows simplified multi-qubit states when possible (default %B)" !qvalsimplifies);
               ("-resourcecheck"     , Arg.Bool (set_arg resourcecheck), 
 					 Printf.sprintf " static resource check of correct use of qubits (default %B)" !Settings.resourcecheck);
               ("-rootcombine"       , Arg.Bool (set_arg rootcombine),
@@ -73,6 +71,8 @@ let opts = Arg.align
                     Printf.sprintf " show matrices in dense form, not sparse or diag (default %B)" !showdensematrices); 
               ("-showsymbolicgate"  , Arg.Bool (set_arg showsymbolicgate), 
 					 Printf.sprintf " `show' displays symbolic name of gate (I, H, X etc.) where possible (default %B)" !showsymbolicgate);
+              ("-showqsimplifies"    , Arg.Bool (set_arg showqsimplifies), 
+                    Printf.sprintf " showq shows simplified multi-qubit states when possible (default %B)" !showqsimplifies);
               ("-showunknownparts"  , Arg.Bool (set_arg showunknownparts), 
                     Printf.sprintf " unnowns shown with real (𝕣) and imaginary (𝕚) parts (default %B)" !showunknownparts);
               ("-showstepcount"     , Arg.Set showstepcount, 

@@ -572,12 +572,13 @@ and assigntype_expr cxt t e =
      | ENil                 -> force_type e.pos t (adorn_x e (List (newclasstv false e.pos)))
      | ERes w               -> (let ft = 
                                   match w with
-                                  | ResShow    -> adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char))))
-                                  | ResCompare -> let ct = neweqtv e.pos in
-                                                  adorn_x e (Fun (ct,
-                                                                  adorn_x e (Fun (ct, adorn_x e Num))
-                                                                 )
-                                                            )
+                                  | ResShow false -> adorn_x e (Fun (ntv e.pos, adorn_x e (List (adorn_x e Char))))
+                                  | ResShow true  -> adorn_x e (Fun (ntv e.pos, adorn_x e Qstate))
+                                  | ResCompare    -> let ct = neweqtv e.pos in
+                                                     adorn_x e (Fun (ct,
+                                                                     adorn_x e (Fun (ct, adorn_x e Num))
+                                                                    )
+                                                               )
                                 in
                                 force_type e.pos t ft
                                )

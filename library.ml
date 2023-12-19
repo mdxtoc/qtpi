@@ -449,7 +449,7 @@ let _ = know ("print_string" , "string -> ()"       , of_fun (print_string))
 let _ = know ("print_strings", "[string] -> ()"     , of_fun (v_iter (of_fun print_string)))
 let _ = know ("print_qubit"   , "qubit -> ()"         , of_fun print_qubit)    (* yup, that's a qubit argument *)
 
-(* 'show' is now done in compile_expr *)  
+(* 'show' and 'showq' are now done in compile_expr *)  
 
 let _showf k n =    (* print n as float with k digits, rounded away from zero *)
   let k = mustbe_intv k in
@@ -494,28 +494,3 @@ module ThreeMap = MyMap.Make (struct type t        = vt*vt*vt
 let _memofun3 f = curry3 (ThreeMap.memofun id (uncurry3 (funv3 f)))
   
 let _ = know ("memofun3", "('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd", vfun4 _memofun3)
-
-(* ********************* special qubit functions ************************ *)
-
-(* qval now shows sort-of-minimum entanglement, but the result is always +/- -- i.e. maybe the sign's `wrong`.
-   But that doesn't matter, because scalar factor ...
- *)
-let _qval q =
-  let q = to_qubit q in
-  let qs,v = Qsim.qval q in
-  let printit q qv = Printf.sprintf "%s:%s" (string_of_qubit q) (Qsim.string_of_qval (Qsim.qsort qv)) in
-  let rec findit qs v =
-    match Qsim.try_split true qs v with
-    | Some (q',v,_,_) when q=q' -> printit q ([q],v)
-    | Some (_,_,qs',v')         -> findit qs' v'
-    | None                      -> printit q (qs,v)
-  in
-  if !qvalsimplifies || Qsim.oneprob v then findit qs v else printit q (qs,v)
-  
-let _qvals qs =
-  let qs = to_qubits qs in
-  let qv = Qsim.qval_of_qs qs in
-  Printf.sprintf "%s:%s" (bracketed_string_of_list string_of_qubit qs) (Qsim.string_of_qval (Qsim.qsort qv)) (* oh the qsort ... *)
-  
-let _ = know ("qval" , "qubit  -> qstate", of_fun (of_qstate <.> _qval))       (* yup, that's a qubit argument *)
-let _ = know ("qvals", "qubits -> qstate", of_fun (of_qstate <.> _qvals))      (* yup, that's a qubits argument *)

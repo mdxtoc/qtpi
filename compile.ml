@@ -362,10 +362,20 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
       (match et.inst with
        | Fun (t,_) ->
            (match w with
-            | ResShow -> 
+            | ResShow q -> 
+                let sq = if q then
+                           (function 
+                             | Qubit  -> Qsim._qval
+                             | Qubits -> Qsim._qvals
+                             | Qstate -> to_qstate 
+                             | _      -> (fun _ -> "")  (* by construction, no exception *)
+                           ) 
+                           else Value.dsq
+                in
                 let optf t = match t.inst with
-                                     | Qubits    -> Some "<qubit>"
-                                     | Qstate    -> Some "<qstate>"
+                                     | Qubit     -> if q then None else Some "<qubit>"
+                                     | Qubits    -> if q then None else Some "<qubits>"
+                                     | Qstate    -> if q then None else Some "<qstate>"
                                      | Fun     _ -> Some "<function>"
                                      | Channel _ -> Some "<channel>"
                                      | Process _ -> Some "<process>"
@@ -382,8 +392,9 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                                 warning e.pos (Printf.sprintf "'show' used with poly-type %s"  (string_of_type et))
                 );
                 
-                let f = so_value optf t in
-                ctenv, fun rtenv -> of_fun (hide_string <.> f)
+                let f = so_value sq optf t in
+                ctenv, fun rtenv -> if q then of_fun (of_qstate <.> f)
+                                         else of_fun (hide_string <.> f)
             | ResCompare ->
                 if is_polytype t then
                   raise (CompileError (e.pos, Printf.sprintf "'compare' used with poly-type %s" 
@@ -393,7 +404,7 @@ let rec compile_expr : ctenv -> expr -> ctenv * (rtenv -> vt) = fun ctenv e ->
                  let f = deepcompare t in
                  ctenv, fun rtenv -> of_fun (fun v -> of_fun (fun v' -> hide_int (f v v')))
            )
-       | _         -> raise (Can'tHappen (Printf.sprintf "%s %s" (string_of_expr e) (string_of_type et)))
+       | _         -> raise (Can'tHappen (Printf.sprintf "(compile ERes) %s %s" (string_of_expr e) (string_of_type et)))
       )
   | ECons (e1,e2)   ->
       let ctenv, f1 = compile_expr ctenv e1 in

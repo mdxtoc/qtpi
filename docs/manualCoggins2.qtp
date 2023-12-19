@@ -11,6 +11,6 @@ proc System () =
   . qA,qSum>>CNot  . qB,qSum>>CNot    . qCin,qSum>>CNot 
   . qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T 
   
-  . out!["qSum="] . outq!qval qSum . out!["; qCout="] . outq!qval qCout .  out!["\n"] 
+  . out!["qSum="] . outq!showq qSum . out!["; qCout="] . outq!showq qCout .  out!["\n"] 
 
   . 

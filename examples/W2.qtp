@@ -3,5 +3,5 @@ proc System () =
   . q0>>H
   . q1>>X
   . q0,q1>>CNot
-  . out!["q0 = "] . outq!qval q0 . out!["\n"]
+  . out!["q0 = "] . outq!showq q0 . out!["\n"]
   . 

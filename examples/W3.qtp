@@ -6,5 +6,5 @@ proc System() =
   . q0,q1,q2 >> T
   . q2,q0 >> CNot
   . q2,q1 >> CNot
-  . out!["q0 = "] . outq!qval q0 . out!["\n"]
+  . out!["q0 = "] . outq!showq q0 . out!["\n"]
   . 

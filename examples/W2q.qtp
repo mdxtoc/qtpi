@@ -15,9 +15,9 @@ proc W2q (c2) =
     . q0,anc>>CNot . ⁁1
     . c2!q0 . c2!q1 . dispose!anc
     . 
-                with 1: . out!["W2q q0 = "] . outq!qval q0 
-                        . out!["; q1 = "]   . outq!qval q1 
-                        . out!["; anc = "]  . outq!qval anc
+                with 1: . out!["W2q q0 = "] . outq!showq q0 
+                        . out!["; q1 = "]   . outq!showq q1 
+                        . out!["; anc = "]  . outq!showq anc
                         . out!["\n"]
                         . 
                     

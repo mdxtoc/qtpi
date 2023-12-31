@@ -1,10 +1,10 @@
 proc System() =
   (newq a = if randbit()=0b0 then |0> else |1>,   
         b = if randbit()=0b0 then |0> else |1>)  
-  out!["entangling "] . outq!(qval a) .
-  out![" and "] . outq!(qval b) .
+  out!["entangling "] . outq!(showq a) .
+  out![" and "] . outq!(showq b) .
   a>>H . a,b >> CNot . 
-  out![" gives "] . outq!(qval a) . out!["\n"] .
+  out![" gives "] . outq!(showq a) . out!["\n"] .
   | Alice (a) | Bob (b)
   
 Alice (a) =

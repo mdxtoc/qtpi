@@ -12,7 +12,7 @@ proc System () =
     c!vz,vx . 
      
                                                                                                       with 1: out!["\ninitially Alice's z is "] . 
-                                                                                                              outq!(qval z) . out!["\n"] . 
+                                                                                                              outq!(showq z) . out!["\n"] . 
   Bob(y:qubit, c:^(bit,bit)) = 
     c?(b1,b2) . 
     y >> match (b1,b2) . + (0b0,0b0) . I
@@ -22,4 +22,4 @@ proc System () =
                                                                                                     ⁁1
      
                                                                                                         with 1: out!["finally Bob's y is "] . 
-                                                                                                                outq!(qval y) . out!["\n"] . 
+                                                                                                                outq!(showq y) . out!["\n"] . 

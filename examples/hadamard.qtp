@@ -1,10 +1,10 @@
 proc System () = 
   (newq q) 
   out!["to prove to Raja that qtpi can calculate "; show H; "*"; show H; "="; show (H*H); "\n"] .
-  out!["initially "] . outq!(qval q) . out!["; "] .
+  out!["initially "] . outq!(showq q) . out!["; "] .
   q>>H . 
   q>>H . 
-  out!["finally "] . outq!(qval q) . out![".\n"] .
+  out!["finally "] . outq!(showq q) . out![".\n"] .
   (let den = bits2num (randbits 4)+1)
   (let numr = bits2num (randbits 10)+2)
   (let theta = numr/den)

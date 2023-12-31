@@ -29,7 +29,7 @@ proc
     
     . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . 
     
-    . out!["finally "] . outq!qvals qs . out!["\n"]
+    . out!["finally "] . outq!showq qs . out!["\n"]
     
     . qs⌢⃫(bs') 
     . out!["measurement says "; show bs'; 

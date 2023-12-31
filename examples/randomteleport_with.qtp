@@ -23,7 +23,7 @@ proc Alice (x:qubit, c:^(bit,bit)) =
     . c!vz,vx 
     .  
                                         with 1: out!["initially Alice's z is "] . 
-                                                outq!(qval z) . out!["\n"] .
+                                                outq!(showq z) . out!["\n"] .
                                                 
 
 proc Bob(y:qubit, c:^(bit,bit)) = 
@@ -35,7 +35,7 @@ proc Bob(y:qubit, c:^(bit,bit)) =
     . ⁁ 1
     .  
                                         with 1: out!["finally Bob's y is     "] . 
-                                                outq!(qval y) . out!["\n"] .
+                                                outq!(showq y) . out!["\n"] .
                                                 
     
 

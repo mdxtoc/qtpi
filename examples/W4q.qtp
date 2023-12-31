@@ -15,9 +15,9 @@ proc W2q (c2) =
     . q0,anc>>CNot . ⁁2
     . c2!q0 . c2!q1 . dispose!anc
     . 
-                with 2: . out!["W2q q0 = "] . outq!qval q0 
-                        . out!["; q1 = "]   . outq!qval q1 
-                        . out!["; anc = "]  . outq!qval anc
+                with 2: . out!["W2q q0 = "] . outq!showq q0 
+                        . out!["; q1 = "]   . outq!showq q1 
+                        . out!["; anc = "]  . outq!showq anc
                         . out!["\n"]
                         . 
                     
@@ -33,11 +33,11 @@ proc W4q (c4) =
    . q3,anc>>CNot . ⁁4
    . c4!q0 . c4!q1 . c4!q2 . c4!q3 . dispose!anc
    . 
-                with 4: . out!["W4q q0 = "] . outq!qval q0 . 
-                        . out!["; q1 = "]   . outq!qval q1 
-                        . out!["; q2 = "]   . outq!qval q2 
-                        . out!["; q3 = "]   . outq!qval q3 
-                        . out!["; anc = "]  . outq!qval anc
+                with 4: . out!["W4q q0 = "] . outq!showq q0 . 
+                        . out!["; q1 = "]   . outq!showq q1 
+                        . out!["; q2 = "]   . outq!showq q2 
+                        . out!["; q3 = "]   . outq!showq q3 
+                        . out!["; anc = "]  . outq!showq anc
                         . out!["\n"]
                         . 
 

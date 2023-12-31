@@ -48,20 +48,20 @@ proc
               . qs>>>Hn ⁁22
         .  𝄇
 
-    . out!["finally "] . outq!qvals qs . out!["\n"]
+    . out!["finally "] . outq!showq qs . out!["\n"]
     
     . qs⌢⃫(bs') 
     . out!["measurement says "; show bs'; 
            if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
     . 
 
-            with 1: out!["iterated oracle\n"] . out!["before oracle "; show i; " "] . outq!qvals qs . out!["\n"] . 
-                 10: out!["iterated diffuser\n"] . out!["before diffuser "; show i; " "] . outq!qvals qs . out!["\n"] . 
-                 11: out!["after diffuser "; show i; "'s  H⊗⊗n "] . outq!qvals qs . out!["\n"] . 
-                 12: out!["after diffuser "; show i; "'s  X⊗⊗n "] . outq!qvals qs . out!["\n"] . 
-                 20: out!["after diffuser "; show i; "'s  MCX "] . outq!qvals qs . out!["\n"] . 
-                 21: out!["after diffuser "; show i; "'s  second X⊗⊗n "] . outq!qvals qs . out!["\n"] . 
-                 22: out!["after diffuser "; show i; "'s  second H⊗⊗n "] . outq!qvals qs . out!["\n"] . 
+            with 1: out!["iterated oracle\n"] . out!["before oracle "; show i; " "] . outq!showq qs . out!["\n"] . 
+                 10: out!["iterated diffuser\n"] . out!["before diffuser "; show i; " "] . outq!showq qs . out!["\n"] . 
+                 11: out!["after diffuser "; show i; "'s  H⊗⊗n "] . outq!showq qs . out!["\n"] . 
+                 12: out!["after diffuser "; show i; "'s  X⊗⊗n "] . outq!showq qs . out!["\n"] . 
+                 20: out!["after diffuser "; show i; "'s  MCX "] . outq!showq qs . out!["\n"] . 
+                 21: out!["after diffuser "; show i; "'s  second X⊗⊗n "] . outq!showq qs . out!["\n"] . 
+                 22: out!["after diffuser "; show i; "'s  second H⊗⊗n "] . outq!showq qs . out!["\n"] . 
 (* multiple controlled Toffoli ... *)
 (* proc MCU () 
 

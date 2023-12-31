@@ -5,9 +5,9 @@ proc P(s:^qubit, log) =
                         else out!["P turns; "]   . y>>X . s!y . log!() . 
                      
 proc Q(q: qubit, s:^qubit, log) = 
-  out!["initially "] . outq!(qval q) . out!["; "] .
+  out!["initially "] . outq!(showq q) . out!["; "] .
   q>>H . s!q . s?(q') . q'>>H . 
-  out!["finally "] . outq!(qval q') . out!["\n"] .
+  out!["finally "] . outq!(showq q') . out!["\n"] .
   log!() .  
 
 proc System() = (let k = read_num "number of trials")

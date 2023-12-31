@@ -190,7 +190,7 @@ The sort of qubits that CQP and qtpi simulate are physical things -- atoms, mole
 \item No peeking at the simulation.
 \begin{itemize}
 \item Qubits can't be compared.
-\item The library function \verbtt{show}, applied to a qubit, doesn't give information about its state; the function \verbtt{qval} does, but there are no operations on its result type \verbtt{qstate} other than send and receive.
+\item The pseudo-function \verbtt{show}, applied to a qubit, doesn't give information about its state; the pseudo-function \verbtt{showq} does, but there are no operations on its result type \verbtt{qstate} other than send and receive.
 \end{itemize}
 \item No gating silliness.
 \begin{itemize}
@@ -229,7 +229,7 @@ Type syntax is in \figref{typesyntax}.
 \item \verbtt{sxnum} is the type of symbolic complex numbers, the values that qtpi's symbolic quantum calculator manipulates.
 \item \verbtt{bra} is the type of unitary row vectors of \verbtt{sxnum}; \verbtt{ket} of unitary column vectors of \verbtt{sxnum}. A qubit state is a ket.
 \item \verbtt{matrix}  is the type of matrices of \verbtt{sxnum}; \verbtt{gate} is the type of unitary square matrices.
-\item \verbtt{qstate}  is the type of the result of the \setvar{qval}  function (see \secref{specialio}). It's a peek at the simulator state. But a \verbtt{qstate} can't be compared or manipulated in any way. The only useful thing you can do with a \verbtt{qstate}  is to send it down the \setvar{outq} output channel, which prints it out.
+\item \verbtt{qstate}  is the type of the result of the \setvar{showq} pseudo-function (see \secref{specialio}). It's a peek at the simulator state. But a \verbtt{qstate} can't be compared or manipulated in any way. The only useful thing you can do with a \verbtt{qstate}  is to send it down the \setvar{outq} output channel, which prints it out.
 \item \verbtt{process} types are necessary in typechecking, but I think they are otherwise useless.
 \item The syntactic precedence of types is more or less as listed, or so I hope and intend. 
 \item Classical types are everything except \verbtt{qubit}  or those involving \verbtt{qubit}  (but function, process and channel types are classical whatever their internal types).  
@@ -321,7 +321,7 @@ Expressions can mention qubits, but because of the need to police sharing and du
 \end{itemize}
 
 
-\section{Built-in i/o channels, \verbtt{show} and \verbtt{qval}}
+\section{Built-in i/o channels, \verbtt{show} and \verbtt{showq}}
 \seclabel{specialio}
 
 There's an input channel $\verbtt{in}:\; \caret{}\verbtt{string}$; there are output channels $\verbtt{out}: \caret{}[\verbtt{string}]$ and $\verbtt{outq}: \caret{}\verbtt{qstate}$. Writing to the input channel, or reading from an output channel, is a run-time error because I don't know how to do the typechecking.
@@ -329,12 +329,12 @@ There's an input channel $\verbtt{in}:\; \caret{}\verbtt{string}$; there are out
 \item \verbtt{in?(s)} reads a line from standard input and delivers it as a string. 
 \item \verbtt{out![s1; .. ;s2]} writes strings on standard output. 
 \item $\verbtt{show}:\; '{*}t->\verbtt{string}$ takes any value and produces a string. It produces `\verbtt{<qubit>}' for a qubit, `\verbtt{<qstate>}' for a qstate, to stop computational cheating. It treats functions, processes and channels similarly opaquely, but for more familiar reasons.
-\item $\verbtt{qval}:\; \verbtt{qubit} ->\verbtt{qstate}$ takes a qubit and produces a description of its state. Useful for tracing and debugging, but to stop cheating the only thing you can usefully do with a qstate is to send it out along the \verbtt{outq} channel.
+\item $\verbtt{showq}:\; \verbtt{qubit} ->\verbtt{qstate}$ takes a qubit and produces a description of its state. Useful for tracing and debugging, but to stop cheating the only thing you can usefully do with a qstate is to send it out along the \verbtt{outq} channel.
 \item \verbtt{outq!qs} writes a string representing qubit state \verbtt{qs} on standard output; a string $\#i:V$, the qubit's index $i$ and a representation $V$ of its state as a symbolic-number vector in the computational basis -- including, if there is entanglement, a list of the indices of the qubits it's entangled with.
 .
 \end{itemize}
 
-The \verbtt{outq} chanel is peculiar for good reason. It allows logging of a qubit's state, but it couldn't be a channel which takes a qubit, because if you send a qubit down a channel, you lose it. So there's \verbtt{qval} to help out: `\verbtt{outq!qval q}' is safe, though verbose. 
+The \verbtt{outq} chanel is peculiar for good reason. It allows logging of a qubit's state, but it couldn't be a channel which takes a qubit, because if you send a qubit down a channel, you lose it. So there's \verbtt{showq} to help out: `\verbtt{outq!showq q}' is safe, though verbose. 
 
 \section{Symbolic calculation}
 

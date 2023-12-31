@@ -5,7 +5,7 @@ proc System () = (newq x=|+>, y=|0>) x,y>>CNot .
                                      | Choose(cz)
                                      | cz?(z).
                                        out!["\ninitially Alice's z is "] . 
-                                       outq!(qval z) . out!["\n"] .
+                                       outq!(showq z) . out!["\n"] .
                                        z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . 
                                        c!vz,vx . 
                                         
@@ -16,7 +16,7 @@ proc System () = (newq x=|+>, y=|0>) x,y>>CNot .
                                                     + (0b1,0b0) . Z
                                                     + (0b1,0b1) . Z*X    .
                                   out!["finally Bob's y is "] . 
-                                  outq!(qval y) . out!["\n"] .
+                                  outq!(showq y) . out!["\n"] .
                                    
 
      Choose (cz:^qubit) = 

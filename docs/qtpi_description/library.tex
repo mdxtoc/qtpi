@@ -85,7 +85,7 @@ Qtpi doesn't have an \verbtt{int} type, but several of the library functions ins
 \libitem{read\_num: string $->$ num}{$read\_num\;prompt$ returns the number which the user inputs (it insists on a number).}
 \libitem{read\_string: string $->$ string}{$read\_string\;prompt$ returns the string which the user inputs (an input line, without the newline).}  
 \libitem{print\_qubit: qubit $->$ unit}
-	    {$print\_qubit\;q$ has the same effect as \verbtt{outq!(qval q)}. (I think it's still possible to use it, but barely so.)}
+	    {$print\_qubit\;q$ has the same effect as \verbtt{outq!(showq q)}. (I think it's still possible to use it, but barely so.)}
 \libitem{print\_string: string $->$ unit}
 	    {$print\_string\;E$ has the same effect as \verbtt{out![E]}.}
 \libitem{print\_strings: [string] $->$ unit}
@@ -97,7 +97,6 @@ Qtpi doesn't have an \verbtt{int} type, but several of the library functions ins
 	{\verbtt{compare a b} returns 0 for $a=b$, -1 for $a<b$, 1 for $a>b$ (as C/OCaml)}
 \libitem{const: 'a $->$ 'b $->$ 'a}{$const\; k\; x = k$}
 \libitem{memofun: ('a $->$ 'b) $->$ 'a $->$ 'b}{makes a `memo function' of its argument: a function which remembers arguments with which it has been called and avoids recalculation. (Oh dear.)}
-\libitem{qval: qubit $->$ qstate}{constructs an opaque value, of type \verbtt{qstate}, which describes the state of a qubit. The only thing you can usefully do with the value is send it down the \verbtt{outq} channel.}
-\libitem{qvals: qubits $->$ qstate}{\verbtt{qval} for qubit collections. See \secref{specialio}.}
 \libitem{show: '{*}a $->$ string}{converts a value, of arbitrary type, to a string. Gives a deliberately opaque result if applied to a qubit, function, process, channel or qstate. (Actually it's not really a function, more a sort of macro description for a family of functions, one for each type.)} 
+\libitem{showq: '{*}a $->$ qstate}{converts a value, of arbitrary type, to a string. Like show, but works for quantum values as well (but not function, process or channel values). (Actually it's not really a function, more a sort of macro description for a family of functions, one for each type.)} 
 \libitem{showf: num $->$ num $->$ string}{$showf\;i\;n$ returns a string representing $n$ as a decimal fraction to $i$ decimal places.} 

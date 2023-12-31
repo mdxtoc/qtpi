@@ -33,13 +33,13 @@ proc Wmake (c,n) =
   (let k = powerceiling 2 n)
   | W (c,k)
   | . c?(qs)
-    . out!["W "; show k; " = "] . outq!qvals qs . out!["\n"]
+    . out!["W "; show k; " = "] . outq!showq qs . out!["\n"]
     . if k=n then 
       else 
         . out!["discarding "; show (k-n); " qubits "]
         . (splitqs qs → q0s(k-n),qs)
         . q0s⌢⃫(bs)
-        . out!["which measured "; show bs; ", leaving "] . outq!qvals qs 
+        . out!["which measured "; show bs; ", leaving "] . outq!showq qs 
         . if forall (λ b . b=0b0) bs then out!["\n"] .  else out![" -- round again!\n"] . Wmake (c,n)  
                
 

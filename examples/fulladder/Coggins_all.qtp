@@ -19,5 +19,5 @@ proc System () =
         
   . 
   
-            with 1: out!["full adder sum of (A="] . outq!qval qA . out![", B="] . outq!qval qB . out![", Cin="] . outq!qval qCin . out![")"] .
-                 2: out![" is (Cout="] . outq!qval qCout . out![", sum="] . outq!qval qSum . out![")\n"] . 
+            with 1: out!["full adder sum of (A="] . outq!showq qA . out![", B="] . outq!showq qB . out![", Cin="] . outq!showq qCin . out![")"] .
+                 2: out![" is (Cout="] . outq!showq qCout . out![", sum="] . outq!showq qSum . out![")\n"] . 

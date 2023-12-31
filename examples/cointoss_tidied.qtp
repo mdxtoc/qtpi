@@ -3,9 +3,9 @@ proc P(s:^qubit) =
                           else y>>X . out!["(P turns); "]. s!y . 
                      
 proc Q(q: qubit, s:^qubit) = 
-  out!["initially "] . outq!(qval q) . out!["; "] .
+  out!["initially "] . outq!(showq q) . out!["; "] .
   q>>H . s!q . s?(q') . q'>>H . 
-  out!["finally "] . outq!(qval q') . out!["\n"] .
+  out!["finally "] . outq!(showq q') . out!["\n"] .
    
 
 proc System() = (newq q = |0>) (new s:^qubit)

@@ -1,6 +1,6 @@
 
 proc Alice (x:qubit, c:^(bit,bit), z:qubit) = 
-    out!["initially Alice's z is "] . outq!(qval z) . out!["; "] .
+    out!["initially Alice's z is "] . outq!(showq z) . out!["; "] .
     z,x>>CNot . z>>H . z-/-(vz) . x-/-(vx) . c!vz,vx .  
 
 proc Bob(y:qubit, c:^(bit,bit)) = 
@@ -10,7 +10,7 @@ proc Bob(y:qubit, c:^(bit,bit)) =
                          + (0b1,0b0) . 2 (* i.e. Y *)
                          + (0b1,0b1) . 3 (* i.e. Z *) (* this doesn't work *)
                         ) . 
-    out!["finally Bob's y is "] .  outq!(qval y) . out!["\n"] .
+    out!["finally Bob's y is "] .  outq!(showq y) . out!["\n"] .
     
   
 proc Alice'(s:^qubit,c:^(bit,bit),z:qubit) = s?(x:qubit) . Alice(x,c,z)

@@ -14,7 +14,7 @@ proc
     cAB!vz,vx . 
      
                                         with 1: out!["initially Alice's z is "] . 
-                                                outq!(qval z) . out!["\n"] . 
+                                                outq!(showq z) . out!["\n"] . 
 
   Bob(cB:^qubit, cAB:^(bit,bit)) = 
     cB?(y) .
@@ -26,4 +26,4 @@ proc
     ⁁2
      
                                         with 2: out!["finally Bob's y is "] . 
-                                                outq!(qval y) . out!["\n"] . 
+                                                outq!(showq y) . out!["\n"] . 

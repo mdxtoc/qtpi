@@ -1,6 +1,7 @@
 % !TEX root = ./qtpi_description.tex
 
 \chapter{Some worked examples}
+\chaplabel{byexamples}
 
 \section{An example using gates and interaction}
 
@@ -84,13 +85,7 @@ System (#1:|1⟩,#2:|1⟩,#4:|0⟩) >> T; result (#1:|1⟩,#2:|1⟩,#4:|1⟩)
 \figlabel{Cogginszerooneonetrace}
 \end{figure}
 
-So far, so simple. But qtpi is a programming language, and you can use input functions to control what a program does (and we'll come to output functions in just a moment). A more useful version of the full-adder program is shown in \figref{Cogginswithinput}. The istate function takes a prompt string and calls read\_alternative, which takes the prompt string plus a list of response/result pairs and delivers the result corresponding to the user's response; in this program it asks the user to type 0 or 1 and returns a ket which is correspondingly either \zero{} or \one{}. So the three calls of istate in System initialise the three inputs, and the rest of the program is unchanged. That makes it easy to try out sample sums of classical values: you'll see, if you try it, that it always gets the right answers according to the trace. 
-%The next-to-last line of the program outputs the final states of the qCout and qSum qubits, down the channels out (which takes lists of strings) and outq (which takes the special `qstate' value that encodes the state of a qubit).\footnote{Qtpi has to be very careful about qubit values. You can send a classical value down the `out' channel to print it, and it's cloned just as it would be in a classical assignment: sending the value doesn't throw it away. But if a qubit is sent down a channel it will be lost: not what we intend. Qtpi's solution is to use the special function `qval' to peek at a qubit's value, and to output the result. Note first that `qval' has no real-world equivalent, because you can't ever ever ever tell what a qubit's value is. And because of \emph{that}, the result of `qval' can't be processed in a Qtpi program other than to send it down a channel.} The `\verbtt{ch!E}' step sends the value of the expression \verbtt{E} down the channel \verbtt{ch}. Channels are strongly typed: `\verbtt{out}' accepts lists of strings which it prints out; `\verbtt{outq}' accepts a single `\verbtt{qstate}' value and prints it out, and `\verbtt{qval q}' delivers such a value. So the `\verbtt{outq!qval q}' step prints out the state of a qubit without revealing it to the program because there's nothing a qtpi program can do to interrogate a \verbtt{qstate}. The last line terminates the process with a blank step. 
-
-\subsection{Printing outputs, including qubit values}
-\seclabel{printingqubits}
-
-In generating a trace, qtpi peeks at the values of simulated qubits and prints them out. So, surely, there ought to be a way to print out the value of a qubit. There is, but it's peculiar because qubits are peculiar. 
+So far, so simple. But qtpi is a programming language, and you can use input functions to control what a program does (we'll come to output functions in just a moment). A more useful version of the full-adder program is shown in \figref{Cogginswithinput}. The istate function takes a prompt string and calls read\_alternative, which takes the prompt string plus a list of response/result pairs and delivers the result corresponding to the user's response; in this program it asks the user to type 0 or 1 and returns a ket which is correspondingly either \zero{} or \one{}. The three calls of istate in System initialise the three inputs, and the rest of the program is unchanged. That makes it easy to try out sample sums of classical values: \figref{Cogginszerooneonetrace} shows one example and you'll see, if you try it, that it always gets the right answers according to the trace. 
 
 \mvb{\Cogginswithinput}
 fun istate x = 
@@ -111,13 +106,81 @@ proc System () =
 \begin{figure}
 \centering
 \Cogginswithinput
-\caption{A full adder with user input}
+\caption{A full adder with user input, choosing classical-simulating values}
 \figlabel{Cogginswithinput}
 \end{figure}
 
-In the real world it is impossible to peek at the value of a qubit, and there is no way to compare the values of two qubits. Not `nobody knows how', but \emph{literally impossible} according to quantum mechanics. If a qtpi simulation could peek at the value of qubit X and peek again at qubit Y it could simulate something impossible by comparing the peeks, and impossible solutions can't be allowed. Two possible solutions: either no peeking, or no comparing the peeks. Qtpi takes the second alternative: a simulation can peek, but it can't compare peeks. Just to be safe, there's \emph{absolutely nothing} a simulation can do with a peek, except send it down a special channel to be printed out. 
+\mvb{\Cogginswithinputresult}
+qA (0,1)? 1
+qB (0,1)? 1
+qCin (0,1)? 1
 
-Qtpi does communication via channels, and has two standard output channels. The first, called `out', accepts lists of strings, which are printed out. There's a special function `show' which converts any \emph{classical} value to a string, so most stuff can be printed through `out'. The second channel, called `outq', takes peeks, constructed by the `showq' function, which are also printed out. So it's possible  
+Event Trace:
+
+System creates #0:|1⟩
+
+System creates #1:|1⟩
+
+System creates #2:|1⟩
+
+System creates #3:|0⟩
+
+System creates #4:|0⟩
+
+System (#0:|1⟩,#3:|0⟩) >> Cnot; result (#0:|1⟩,#3:|1⟩)
+
+System (#1:|1⟩,#3:|1⟩) >> Cnot; result (#1:|1⟩,#3:|0⟩)
+
+System (#2:|1⟩,#3:|0⟩) >> Cnot; result (#2:|1⟩,#3:|1⟩)
+
+System (#0:|1⟩,#1:|1⟩,#4:|0⟩) >> T; result (#0:|1⟩,#1:|1⟩,#4:|1⟩)
+
+System (#0:|1⟩,#2:|1⟩,#4:|1⟩) >> T; result (#0:|1⟩,#2:|1⟩,#4:|0⟩)
+
+System (#1:|1⟩,#2:|1⟩,#4:|0⟩) >> T; result (#1:|1⟩,#2:|1⟩,#4:|1⟩)
+\end{myverbbox} %can't be a macro
+\begin{figure}
+\centering
+\Cogginswithinputresult
+\caption{Full-adder simulation trace with classical-simulating input}
+\figlabel{Cogginswithinputresult}
+\end{figure}
+
+\subsection{Printing values, including qubit states}
+\seclabel{printingqubits}
+
+So far the examples have shown the effect of a simulation by generating a trace. But that's not always a good idea, especially with examples that generate a very long trace. If we could print out the final values of Sum and Cout, we could make a more compact output. But the solution is peculiar because real-world qubits are peculiar. 
+
+First of all, output is by sending values down channels. There's a channel `out' which takes a list of strings, and prints them out one after the other. There's a special pseudo-function `show' which converts any classical value to a string, and that makes it easy to print classical stuff out.\footnote{`show' is borrowed from Miranda. It's a pseudo-function because its result depends on the type of its input. So, just as in Miranda, it can't be used without an argument.} But `show' for a qubit argument just gives ``\textless{}qubit\textgreater{}'' -- i.e. it doesn't peek at the value, like the trace does. That's unhelpful, but deliberately so.
+
+%The next-to-last line of the program outputs the final states of the qCout and qSum qubits, down the channels out (which takes lists of strings) and outq (which takes the special `qstate' value that encodes the state of a qubit).\footnote{Qtpi has to be very careful about qubit values. You can send a classical value down the `out' channel to print it, and it's cloned just as it would be in a classical assignment: sending the value doesn't throw it away. But if a qubit is sent down a channel it will be lost: not what we intend. Qtpi's solution is to use the special function `qval' to peek at a qubit's value, and to output the result. Note first that `qval' has no real-world equivalent, because you can't ever ever ever tell what a qubit's value is. And because of \emph{that}, the result of `qval' can't be processed in a Qtpi program other than to send it down a channel.} The `\verbtt{ch!E}' step sends the value of the expression \verbtt{E} down the channel \verbtt{ch}. Channels are strongly typed: `\verbtt{out}' accepts lists of strings which it prints out; `\verbtt{outq}' accepts a single `\verbtt{qstate}' value and prints it out, and `\verbtt{qval q}' delivers such a value. So the `\verbtt{outq!qval q}' step prints out the state of a qubit without revealing it to the program because there's nothing a qtpi program can do to interrogate a \verbtt{qstate}. The last line terminates the process with a blank step. 
+In the real world it is impossible to peek at the value of a qubit, and there is no way to compare the values of two qubits. Not `nobody knows how', but \emph{literally impossible} according to quantum mechanics. So qtpi doesn't allow a program to directly compare qubits, in order to keep simulations as real as possible. \emph{But}, if a simulation could peek at the value of qubit X and peek again at qubit Y it could do the impossible by comparing the peeks. That can't be allowed, and there are two possible solutions: either no peeking, or no comparing the peeks. Qtpi takes the second alternative: a simulation can peek, generating a special result of type `qstate', but it can do \emph{absolutely nothing} with a qstate value, except send it down the special `outq' channel to be printed out. 
+
+\mvb{\Cogginswithouput}
+fun istate x = 
+  read_alternative x "," [("0",|0>); ("1",|1>)]
+
+proc System () =
+  .(newq qA   = istate "qA", 
+         qB   = istate "qB",
+         qCin = istate "qCin").
+  
+  . (newq qSum=|0>, qCout=|0>) 
+  
+  . qA,qSum>>CNot  . qB,qSum>>CNot    . qCin,qSum>>CNot 
+  . qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T 
+  
+  . out!["qSum="] . outq!showq qSum . out!["; qCout="] . outq!showq qCout .  out!["\n"] 
+
+  . 
+\end{myverbbox} %can't be a macro
+\begin{figure}
+\centering
+\Cogginswithouput
+\caption{A full adder with user input and output of results}
+\figlabel{Cogginswithouput}
+\end{figure}
+
 \mvb{\Cogginswithoutputresult}
 qA (0,1,+,-)? 1
 qB (0,1,+,-)? 1
@@ -127,17 +190,26 @@ qSum=#3:|1⟩; qCout=#4:|1⟩
 \begin{figure}
 \centering
 \Cogginswithoutputresult
-\caption{Full-adder simulation output with classical-simulating input}
+\caption{Full-adder simulation with printed results}
 \figlabel{Cogginswithoutputresult}
 \end{figure}
 
+\Figref{Cogginswithouput} shows the program with some output steps: otherwise it's unchanged from \figref{Cogginswithinput}. It prints the names of the result qubits, peeks at their values and prints them out. The output construction is peculiar, but that's because it has to be.
+
 \subsection{Addition with non-classical inputs}
 
-What's interesting about the full adder is that it can work with quantum superpositions as input. If we start, for example, with qA=$\plus{}=\frac{1}{\sqrt2}(\zero+\one)$, an equal-probability superposition of \zero{} and \one{}, but we make qB=\one{} and qCin=\zero{}, we discover that the outputs are not a simple classical-simulating \zero{} or \one{}, but instead a three-way entangled superposition, as shown by \figref{Cogginswithinputplusout}. The states of qSum and Cout are a multi-qubit state combining the states of \#0, \#3 and \#4 (qA, qSum, qCout). That state is an equal-probability superposition of \zeroonezero{} or \onezeroone{}, with probability $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$ in each case. 
+What's interesting about the full adder is that it can work with quantum superpositions as input. If we modify the read\_alternative call in the istate function to read
+\mvb{\inputwithplusminus}
+  read_alternative x "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)]
+\end{myverbbox} %can't be a macro
+\begin{quote}\inputwithplusminus\end{quote}
+then we can deal with inputs which are well-known superpositions.
+
+If we start, for example, with qA=$\plus{}=\frac{1}{\sqrt2}(\zero+\one)$, an equal-probability superposition of \zero{} and \one{}, but we make qB=\one{} and qCin=\zero{}, we discover that the outputs are not a simple classical-simulating \zero{} or \one{}, but instead a three-way entangled superposition, as shown in \figref{Cogginswithinputplusout}. The states of qSum and Cout are a multi-qubit state combining the states of \#0, \#3 and \#4 (qA, qSum, qCout). That state is an equal-probability superposition of \zeroonezero{} or \onezeroone{}, with probability $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$ in each case. 
 
 Notice that you can read this superposition as a superposition of possible classical inputs and corresponding classical answers. If \#0 (qA) is \zero{}, then \#3 (qSum) has to be \one{} and \#4 (qCout) \zero{}; if \#0 is \one{}, then \#3 has to be \zero{} and \#4 \one{}. Given that qB is \one{}, those are the two possible correct answers.
 
-If we turn tracing on we can see how all this arises,\footnote{To produce this trace I used \verbtt{-trace -gatingsimplifies true} which asks for a trace but also asks that unnecessarily large multi-qubit states are simplified after each gating step. Qtpi doesn't do that sort of simplification by default.} in \figref{Cogginswithinputplustrace}. There's quite a lot in there: it will take some unpicking.
+If we turn tracing on we can see how all this arises in \figref{Cogginswithinputplustrace}\footnote{To produce this trace I used \verbtt{-trace -gatingsimplifies true} which asks for a trace but also asks that unnecessarily large multi-qubit states are simplified after each gating step. Qtpi doesn't do that sort of simplification by default.}. There's quite a lot in there: it will take some unpicking.
 \mvb{\Cogginswithinputplusout}
 qA (0,1,+,-)? +
 qB (0,1,+,-)? 1
@@ -188,9 +260,9 @@ System (#1:|1⟩,#2:|0⟩,#4:[#0;#3;#4]1/√2(|010⟩+|101⟩)) >> T;
 
 \subsection{Entanglement in the full-adder simulation}
 
-The first CNot line in \figref{Cogginswithinputplustrace} entangles qubits \#0 and \#3 (qA and qSum). It's inevitable: the probability that qA is \zero{} is $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$, so with that probability both qubits are \zero{}; with the same probability qA is \one{}, qSum is flipped and both qubits are \one{}.\footnote{Whether or not that explanation matches physical reality, that's the way the matrix arithmetic works. It's possible that quantum reality is wierder than quantum computation.} That entanglement, one of the famous Bell states, can't be separated unless one of the qubits is measured.
+The first CNot line in \figref{Cogginswithinputplustrace} entangles qubits \#0 and \#3 (qA and qSum). It's inevitable: the probability that qA is \zero{} is $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$, so with that probability both qubits are \zero{}; with the same probability qA is \one{}, qSum is flipped and both qubits are \one{}.\footnote{Whether or not that explanation matches physical reality, that's the way the matrix arithmetic works. It's possible that quantum reality is wierder than quantum computation says it is.} That entanglement, one of the famous Bell states, can't be separated unless one of the qubits is measured.
 
-The second CNot line flips qSum, because qB in this example is \one{}; technically the result is a three-qubit state combining \#0, \#1 and \#3 as $\frac{1}{\sqrt2}(\zerooneone+\oneonezero)$, but because \#1 (qB) is \one{} in both the equal-probability it's reasonable to separate it out to give the result shown, \#1 listed separately from the entanglement of \#0 and \#3. The new entanglement, $\frac{1}{\sqrt2}(\zeroone+\onezero)$, is another of the Bell states, and also inseparable.
+The second CNot line flips qSum, because qB in this example is \one{}; technically the result is a three-qubit state combining \#0, \#1 and \#3 as $\frac{1}{\sqrt2}(\zerooneone+\oneonezero)$, but because \#1 (qB) is \one{} in both the equal-probability alternatives it's reasonable to separate it out to give the result shown, \#1 listed separately from the entanglement of \#0 and \#3. The new entanglement, $\frac{1}{\sqrt2}(\zeroone+\onezero)$, is another of the Bell states, and also inseparable.
 
 The third CNot line doesn't flip qSum, so no change.
 
@@ -223,9 +295,9 @@ Qtpi does that sort of calculation easily, without making mistakes. I used to fi
 
 \subsection{Measuring the full-adder result}
 
-I haven't completely exhausted the lessons I can draw from the simulated full adder. Notice that the program in \figref{Cogginswithinput} doesn't do any quantum measurement. Instead it uses the `\verbtt{outq!qval q}' step to print out the state of a simulated qubit. \Figref{Cogginswithinputandmeasurement} measures qSum and qCout using the `\verbtt{q⌢̸(b)}' step to measure a qubit q and call the result b; then it prints out what the measurements produced using the \verbtt{out} channel (`show E' translates any qtpi value, except for qubits, functions and processes, into a string) and prints the states of the input qubits. 
+I haven't completely exhausted the lessons I can draw from the simulated full adder. Notice that the examples so far do any quantum measurement. Instead they use the `\verbtt{outq!showq q}' step to print out the state of a simulated qubit (or use -trace to show the same states). \Figref{Cogginswithinputandmeasurement} measures qSum and qCout using the `\verbtt{q⌢̸(b)}' step to measure a qubit q and call the result b; then it prints out what the measurements produced using the \verbtt{out} channel and prints the states of the input qubits. 
 
-This program doesn't always print the same result even though given the same inputs, because measurement affects the state of the measured qubit, thereby unpicking any entanglement it's involved in. One result of running this program, with the same inputs as before, is shown in \figref{Cogginswithinputandmeasurementoutput}. It says the sum is 0 and the carry out is 1. That comes from the second element of the entanglement: by measuring qSum, it forced the simulation to choose, and the simulation flipped a coin and chose \onezeroone{}. The measurement thus collapses the entanglement, choosing one of the superposed states, forcing qA and qCout each to be \one{}. That effect is shown in the measurement result of qCout (it's bound to be 1), and in the state of qA (it's \one{}, and not the superposition it started as). Run it again, with the same inputs, and you might get the other superposed state \zeroonezero{}, which would force qA to be \zero{}, qSum to be \one{}, and qCout to be \zero{}.
+Measurement, which can be done in the real world and therefore can be simulated, isn't peeking. Measurement doesn't show the actual state of a qubit, merely one of its possible states given the probabilities in its quantum state. And measurement is destructive: afterwards, the qubit has the value that measurement reported. So this program doesn't always print the same result even though given the same inputs, because measurement can change the state of the measured qubit and unpick any entanglement it's involved in. One result of running this program, with the same inputs as before, is shown in \figref{Cogginswithinputandmeasurementoutput}. It says the sum is 0 and the carry out is 1. That comes from the second element of the entanglement: by measuring qSum, it forced the simulation to choose, and the simulation flipped a coin and chose \onezeroone{}. The measurement thus collapses the entanglement, choosing one of the superposed states, forcing qA and qCout each to be \one{}. That effect is shown in the measurement result of qCout (it's bound to be 1), and in the state of qA (it's \one{}, and not the superposition it started as). Run it again, with the same inputs, and you might get the other superposed state \zeroonezero{}, which would force qA to be \zero{}, qSum to be \one{}, and qCout to be \zero{}.
  
 \mvb{\Cogginswithinputandmeasurement}
 fun istate x = 
@@ -241,13 +313,13 @@ proc System () =
   . qA,qSum>>CNot  . qB,qSum>>CNot    . qCin,qSum>>CNot 
   . qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T 
   
-  . out!["qSum="] . outq!qval qSum . out!["; qCout="] . outq!qval qCout .  out!["\n"] 
+  . out!["qSum="] . outq!showq qSum . out!["; qCout="] . outq!showq qCout .  out!["\n"] 
   
   . qSum⌢̸(sum) . qCout⌢̸(cout)
   
   . out!["qSum measured "; show sum; ", and qCout measured "; show cout; "\n"]
-  . out!["now qA="] . outq!qval qA . out![", qB="] . outq!qval qB 
-  . out![", and qCin="] . outq!qval qCin . out!["\n"]
+  . out!["now qA="] . outq!showq qA . out![", qB="] . outq!showq qB 
+  . out![", and qCin="] . outq!showq qCin . out!["\n"]
   . 
 \end{myverbbox} %can't be a macro
 \begin{figure}
@@ -286,7 +358,7 @@ The starship \textit{Enterprise} is facing some imminent -- and apparently inesc
 \end{quote}
 Picard takes the bet. But he really shouldn't.
 
-In the classical world there's no winning strategy for Q: if he flips once, he loses if Picard passes; if he flips twice or passes twice, he loses if Picard flips. So classically he has 50\% chance of winning. But Meyer is making a point about game theory in a quantum world: if the coin is a qubit, if `heads' is \zero{} and `tails' \one{}, if `flipping' is putting the qubit through an X gate which changes \zero{} to \one{} and vice-versa, then is there a way to cheat?
+In the classical world there's no certain winning strategy for Q: if he flips once, he loses if Picard passes; if he flips twice or passes twice, he loses if Picard flips. So classically he has 50\% chance of winning. But Meyer is making a point about game theory in a quantum world: if the coin is a qubit, if `heads' is \zero{} and `tails' \one{}, if `flipping' is putting the qubit through an X gate which changes \zero{} to \one{} and vice-versa, then is there a way to cheat?
 
 Yes, there is. The H gate changes \zero{} to $\plus{}=\frac{1}{\sqrt2}(\zero+\one)$ and vice-versa. and is certainly not `flipping' as Picard understands it. Picard's X-flips do nothing to \plus{}. Q does H first; then whether Picard X-flips or not the coin is still \plus{}; Q does H again, the coin will be \zero{}, and Q wins. An ear full of cider.
 

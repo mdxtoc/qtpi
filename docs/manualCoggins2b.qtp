@@ -12,10 +12,5 @@ proc System () =
   . qA,qB,qCout>>T . qA,qCin,qCout>>T . qB,qCin,qCout>>T 
   
   . out!["qSum="] . outq!showq qSum . out!["; qCout="] . outq!showq qCout .  out!["\n"] 
-  
-  . qSum⌢̸(sum) . qCout⌢̸(cout)
-  
-  . out!["qSum measured "; show sum; ", and qCout measured "; show cout; "\n"]
-  . out!["now qA="] . outq!showq qA . out![", qB="] . outq!showq qB 
-  . out![", and qCin="] . outq!showq qCin . out!["\n"]
+
   . 

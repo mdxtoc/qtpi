@@ -160,7 +160,8 @@ time ./Qtpi examples/fulladder/Coggins.qtp
 time ./Qtpi examples/fulladder/inspire.qtp
 time ./Qtpi examples/fulladder/inspire_all.qtp
 ./Qtpi docs/manualCoggins1.qtp -trace
-./Qtpi docs/manualCoggins2.qtp -trace
+./Qtpi docs/manualCoggins2a.qtp -trace
+./Qtpi docs/manualCoggins2b.qtp
 ./Qtpi docs/manualCoggins3.qtp 
 
 ./Qtpi examples/fulladder/commutetest.qtp

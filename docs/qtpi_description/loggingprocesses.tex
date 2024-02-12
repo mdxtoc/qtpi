@@ -26,14 +26,15 @@ proc System () =
     out!["finally Bob's y is "] . 
     outq!(qval y) . out!["\n"] .out!["finally Bob's y is "] . 
     outq!(qval y) . out!["\n"] . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportwithlogging
 \caption{A quantum teleport simulation, with logging statements}
 \figlabel{teleportwithlogging}
 \end{figure}
 
-So I wondered if I could find a way of separating the logging commands from the program. This is what I devised: \emph{logging processes} which attach to the program at special \emph{logging points}, identified with a number. The logging point is shown with an insertion caret (⁁) plus the process identifier, which you can attach before or after a declaration or a process step. The logging processes attached to a process are written at the end of the process itself, preceded by \verbtt{with}. \Figref{teleportwithloggingprocesses} shows the same program as \figref{teleportwithlogging}, but with the logging separated out. A little bit clearer, at any rate. 
+So I wondered if I could find a way of separating the logging commands from the program. I devised \emph{logging processes} which attach to the program at special \emph{logging points}, identified with a number. The logging point is shown with an insertion caret (⁁) plus the process identifier, which you can attach before or after a declaration or a process step. The logging processes attached to a process are written at the end of the process itself, preceded by \verbtt{with}. \Figref{teleportwithloggingprocesses} shows the same program as \figref{teleportwithlogging}, but with the logging separated out. A little bit clearer, at any rate. 
 
 \mvb{\teleportwithloggingprocesses}
 proc System () = 
@@ -56,7 +57,8 @@ proc System () =
      
                                                 with 1: out!["finally Bob's y is "] . 
                                                         outq!(qval y) . out!["\n"] . 
-\end{myverbbox} %can't be a macro\begin{figure}
+\end{myverbbox} %can't be a macro
+\begin{figure}
 \centering
 \teleportwithloggingprocesses
 \caption{A quantum teleport simulation, with logging processes}
@@ -71,6 +73,4 @@ A logging process acts like code inserted at the logging point, so it can use an
 \item invoke a process;
 \item split into parallel subprocesses.
 \end{itemize*}
-So: not much really, apart from sending classical values down channels. Just what is needed to do a simple job of logging, and not taking over any of the protocol-description work of the process to which it is attached.
-
-I don't think it's necessary to define the syntax formally.
+So: not much at all, apart from sending classical values down channels. Just what is needed to do a simple job of logging, and not taking over any of the protocol-description work of the process to which it is attached.

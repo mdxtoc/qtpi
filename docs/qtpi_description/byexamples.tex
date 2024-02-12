@@ -22,7 +22,7 @@
 \caption{A quantum full adder, adapted from \citep{quantumfulladderquantumdaily}}
 \figlabel{Cogginsfulladdercircuit}
 \end{figure}
-The diagram, read left-to-right, takes A, B and Cin, in states \bv{\alpha}, \bv{\beta} and \bv{\gamma} as inputs. Sum and Cout each start in state \zero{} but finish in states \ket{\phi} and \ket{\psi}. Suppose for a moment that \bv{\alpha}, \bv{\beta} and \bv{\gamma} are each \zero{} or \one{}. The first three gates each combine one of the inputs with Sum using CNot which will flip Sum \zero{}$<->$\one{} if the input qubit (A, B or Cin) is \one{}, or leave it unchanged if the input is \zero{}. So Sum can be flipped zero, one, two or three times, becoming respectively \zero{} (meaning 0), \one{} (meaning 1), \zero{} or \one{} respectively. That's definitely what a half-adder should do. The next three gates are Toffoli gates: flip the target qubit (Cout) if \emph{both} inputs are \one{}. So again, supposing A, B and Cin are each \zero{} or \one{}, Cout gets flipped zero times if they are all \zero{}, once if there are two \one{}s, and three times if they are all \one{}, becoming respectively \zero{}, \one{} and \one{}. That's also what a full adder should do. And it leaves A, B and Cin unchanged whatever they were: that's what a full adder should do.
+The diagram, read left-to-right, takes A, B and Cin, in states \bv{\alpha}, \bv{\beta} and \bv{\gamma}, as inputs. Sum and Cout each start in state \zero{} but finish in states \ket{\phi} and \ket{\psi}. Suppose for a moment that \bv{\alpha}, \bv{\beta} and \bv{\gamma} are each \zero{} or \one{}. The first three gates each combine one of the inputs with Sum using CNot which will flip Sum \zero{}$<->$\one{} if the input qubit (A, B or Cin) is \one{}, or leave it unchanged if the input is \zero{}. So Sum can be flipped zero, one, two or three times, becoming respectively \zero{} (meaning 0), \one{} (meaning 1), \zero{} or \one{} respectively. That's definitely what a half-adder should do. The next three gates are Toffoli gates: flip the target qubit (Cout) if \emph{both} inputs are \one{}. So again, supposing A, B and Cin are each \zero{} or \one{}, Cout gets flipped zero times if they are all \zero{}, once if there are two \one{}s, and three times if they are all \one{}, becoming respectively \zero{}, \one{} and \one{}. That's also what a full adder should do. And it leaves A, B and Cin unchanged whatever they were: that's what a full adder should do.
 
 \mvb{\Cogginszerooneone}
 proc System () =
@@ -49,7 +49,7 @@ We can put this program in a file called \verbtt{manualCoggins1.qtp}, and if we 
 \begin{quote}
 \verbtt{qtpi manualCoggins.qtp -trace}
 \end{quote}
-we can see what the program does. \Figref{Cogginszerooneonetrace} shows that trace. The first five lines record the setup of the qubits: qubit \#0 is qA, \#1 is qB, \#2 is qCin, \#3 is qSum, and \#4 is qCout. The fifth line is the first gating step, which doesn't flip qSum, because qA is \zero{}; the sixth and seventh each flip qSum because qB and qCin are each \one{}. The next two lines don't flip qCout, because qA and qB aren't both \one{}, and neither are qA and qCin; the last line does flip qCout because qB and qCin are both \one{}. So in classical terms, from inputs 0 and 1 with carry-in 1 it's produced sum 0 and carry-out 1, as a full adder should. 
+we can see what the program does. \Figref{Cogginszerooneonetrace} shows the trace. The first five lines record the setup of the qubits: qubit \#0 is qA, \#1 is qB, \#2 is qCin, \#3 is qSum, and \#4 is qCout. The fifth line is the first gating step, which doesn't flip qSum, because qA is \zero{}; the sixth and seventh each flip qSum because qB and qCin are each \one{}. The next two lines don't flip qCout, because qA and qB aren't both \one{}, and neither are qA and qCin; the last line does flip qCout because qB and qCin are both \one{}. So in classical terms, from inputs 0 and 1 with carry-in 1 it's produced sum 0 and carry-out 1, as a full adder should. 
 
 \begin{mdframed}[style=exampledefault,frametitle={}] 
 Note: tracing isn't part of the programming language, because you can't do it in real life. There is absolutely \emph{no way} to discover the state of a real-life qubit. The implementation of qtpi can peek, because it's a simulation, but you can't write a program that peeks. See also \secref{printingqubits} below.
@@ -202,7 +202,9 @@ What's interesting about the full adder is that it can work with quantum superpo
 \mvb{\inputwithplusminus}
   read_alternative x "," [("0",|0>); ("1",|1>); ("+",|+>); ("-",|->)]
 \end{myverbbox} %can't be a macro
-\begin{quote}\inputwithplusminus\end{quote}
+\begin{quote}
+\inputwithplusminus
+\end{quote}
 then we can deal with inputs which are well-known superpositions.
 
 If we start, for example, with qA=$\plus{}=\frac{1}{\sqrt2}(\zero+\one)$, an equal-probability superposition of \zero{} and \one{}, but we make qB=\one{} and qCin=\zero{}, we discover that the outputs are not a simple classical-simulating \zero{} or \one{}, but instead a three-way entangled superposition, as shown in \figref{Cogginswithinputplusout}. The states of qSum and Cout are a multi-qubit state combining the states of \#0, \#3 and \#4 (qA, qSum, qCout). That state is an equal-probability superposition of \zeroonezero{} or \onezeroone{}, with probability $|\frac{1}{\sqrt2}|^{2}=\frac{1}{2}$ in each case. 

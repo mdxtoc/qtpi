@@ -1,22 +1,97 @@
 % !TEX root = ./qtpi_description.tex
 
-\chapter{Qubit collections}
+\chapter{Qubit collections and iteration}
 \chaplabel{qubitcollections}
 
-Lots of algorithms work with arbitrary-sized groups of qubits. Grover's algorithm is an obvious example. The core notation of \chapref{corenotation} allows only single bits. Qubit collections fill the gap, but to preserve qtpi's guarantee of no sharing, no duplication there are some restrictions on their use.
+Lots of algorithms work with arbitrary-sized groups of qubits. Grover's algorithm is an obvious example; so is the W algorithm. The core notation of \chapref{corenotation} allows only single bits. \emph{Qubit collections} fill the gap, but to preserve qtpi's guarantee of `no sharing, no duplication' there are some restrictions on their use.
+
+The original idea was that a collection of \setvar{n} qubits is a unit of resource: you create it as a whole, you send it as a whole, you receive it as a whole, and if you use \verbtt{measuredestroys} then you must measure it as a whole. Given those conditions, it is possible to use the same calculation as for single qubits to ensure no sharing and no duplication. 
 
 \begin{itemize*}
 \item There is a type \verbtt{qubits} (note the s).
-\item There is a declaration $\verbtt{(newqs } x=Ex, \;...\; ,z=Ex )$. Names $x, ... ,z$ are of type \verbtt{qubits}, and the sizes of the collections they name are determined by the initialising expressions $Ex, ..., Ez$.
+\item There is a declaration $\verbtt{(newqs } x=Ex, \;...\; ,z=Ez )$. Names $x, ... ,z$ are of type \verbtt{qubits}, and the sizes of the collections they name are determined by the initialising expressions $Ex, ..., Ez$.
 \item A collection can be gated \verbtt{qs>>>E} (note the triple chevron).
 \item A collection can me measured \verbtt{qs⌢⃫(bpat)} (note the double meter needle); the result is a bit list, bound to names by the pattern bpat.
 \item The elements of a qubit collection are qubits. They are indexed \verbtt{qs↓index}; indices are $0..n-1$ for an n-qubit collection. 
 \begin{itemize*}
-\item an element can be used, perhaps with other qubits, in a normal (\verbtt{>>}) gating step;
-\item an indexed element can't be sent in a message, used as an argument in a process invocation, or measured.
-\item if you measure an indexed element, the whole collection is measured.
+\item An element can be used, perhaps with other qubits, in a normal (\verbtt{>>}) gating step.
+\item An element can't be sent in a message or used as an argument in a process invocation.
+\item If you use \verb|-measuredestroys true| then you can't measure an indexed element.
 \end{itemize*}
 \item collections can be joined: $(\verbtt{joinqs } \setvar{qas}, ... , \setvar{qzs} → \setvar{qs})$. Each of \setvar{qas}, ... , \setvar{qzs} is a collection, used up in the joining (can't be used again, as if sent away); \setvar{qs} is their concatenation.
 \item A collection can be split: $(\verbtt{splitqs } \setvar{qs} → \setvar{qas}(\setvar{ka}), ... , \setvar{qzs}(\setvar{kz}))$. The collection \setvar{qs} is used up; the new collections \setvar{qas}, ... , \setvar{qzs} are created, each of the length given by the lengths \setvar{ka}, ... , \setvar{kz}. The final length \setvar{kz} is optional.
 \end{itemize*}
 
+Note that indexing may cause an out-of-bounds error at run time. Note that gating multiple elements may cause an out-of-bounds error if the tuple of qubits is not disjoint.
+
+\section{Iterative constructions}
+
+I've probably overstepped the mark here: I'm not an inspired language designer. But it seems to me that iteration is not always best described by recursion: the mechanics overwhelms the algorithm. Grover's algorithm, for example, includes an iterative process: apply gating operations to a collection of qubits a predetermined number of times. \Figref{Groverrecursive} is a recursive version (definition of functions omitted). It creates \setvar{n} random bits and a collection of \setvar{n} random qubits, each set to \plus. Then it counts down recursively to perform the gating steps, and ends the recursion by measuring the qubits.
+
+\mvb{\Groverrecursive}
+  System () =
+    . (let n = read_min_int 2 "number of bits")
+    . (let bs = randbits n)
+    . (newqs qs = |+>⊗⊗n)  
+
+    . (let G = groverG n)
+    . (let U = groverU bs)
+    . (let iters = floor (𝝅*sqrt(2**n)/4+0.5))
+    . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
+    . Grover(G,U,qs,bs,n)
+  
+  Grover(G,U,qs,bs,n) =
+    if n=0 then
+      . out!["finally "] . outq!showq qs . out!["\n"]
+        
+      . qs⌢⃫(bs') 
+      . out!["measurement says "; show bs'; 
+               if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
+      . 
+    else
+      . qs>>>U . qs>>>G
+      . Grover(G,U,qs,bs,n-1)
+
+\end{myverbbox} %can't be a macro\begin{figure}
+\centering
+\Groverrecursive
+\caption{Grover's algorithm, expressed recursively}
+\figlabel{Groverrecursive}
+\end{figure}
+
+An iterative step is a simple `for' loop in musical da capo brackets 𝄆 ... 𝄇 (where the closing bracket is, as usual, optional). It executes the process \setvar{P} with successive values of the list \setvar{L} bound to the name \setvar{x}.\footnote{Miranda enthusiasts will recognise this as a clumsy analogue of a list comprehension.}
+\begin{equation*}𝄆 x \ ← \ \setvar{list}\  : \ P \  𝄇
+\end{equation*}
+
+\Figref{Groveriterative} includes the iterative step
+\mvb{\iterexample}
+𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . 
+\end{myverbbox}
+\begin{quote}\iterexample\end{quote}
+and then continues with the steps that naturally follow the repetition. Much clearer than the recursive version, IMO.
+\mvb{\Groveriterative}
+  System () =
+    . (let n = read_min_int 2 "number of bits")
+    . (let bs = randbits n)
+    . (newqs qs = |+>⊗⊗n)  
+
+    . (let G = groverG n)
+    . (let U = groverU bs)
+    . (let iters = floor (𝝅*sqrt(2**n)/4+0.5))
+    . out!["grover "; show n; " bs = "; show bs; "; "; show iters; " iterations"; "\n"]
+    
+    . 𝄆 i←tabulate iters (λ i. i): qs>>>U . qs>>>G . 
+    
+    . out!["finally "] . outq!showq qs . out!["\n"]
+    
+    . qs⌢⃫(bs') 
+    . out!["measurement says "; show bs'; 
+           if bs=bs' then " ok" else " ** WRONG **"; "\n"] 
+    . 
+
+\end{myverbbox} %can't be a macro\begin{figure}
+\centering
+\Groveriterative
+\caption{Grover's algorithm, expressed iteratively}
+\figlabel{Groveriterative}
+\end{figure}

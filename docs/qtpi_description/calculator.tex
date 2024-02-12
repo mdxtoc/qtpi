@@ -1,0 +1,79 @@
+% !TEX root = ./qtpi_description.tex
+
+\chapter{The symbolic calculator}
+\chaplabel{calculator}
+\chaplabel{symboliccalculator}
+
+Apart from the deep dark mystery of quantum measurement, quantum computation is about matrix arithmetic using matrices, column and row vectors all containing complex numbers. When I began to work on qtpi, I wanted to avoid approximations, because I was afraid of accumulating calculation errors. Luckily GNU has produced a library called gmp that implements arithmetic on unbounded-precision rationals, and that avoids having to approximate, say, $1/3$. But that doesn't solve the whole problem: there are irrationals, notably square roots and trigonometric values, that crop up. And there are variables, as for example $a$ and $b$ in the teleportation example. 
+
+After experimenting for a while with powers of square roots, I found a treatment based on trig functions and square roots.  
+
+\section{The symbolic calculator}
+
+A symbolic numeral is a sum of real part $x$ and imaginary part $y$, each a symbolic real, representing $x+iy$.
+
+A symbolic real is a sum of symbolic real products. 
+
+A symbolic real product is a rational (a fraction with unbounded integer numerator and denominator) and a sequence of elements. The elements are 
+\begin{itemize*}
+\item square roots of rationals;
+\item single trigonometric functions $\sin{}$ and $\cos{}$ with rational arguments representing angles;
+\item real and imaginary parts of variables $a_{i}$ and $b_{i}$.
+\end{itemize*}
+
+The rationals are provided by OCaml's Q package, itself an interface to the GNU multi-precision arithmetic library libgmp. The whole-number numerator and denominator in a rational are of unbounded length -- constrained, of course, by the physical quantities of memory of the computer running the library.  In practice, a usefully very very very large range.
+
+Real and imaginary parts of a variable are shown, as infrequently as possible, as $a_{i}\mathbb{r}$ and $a_{i}\mathbb{i}$.
+
+Arguments of trigonometric functions are interpreted as degrees (see \secref{degreesorradians}).
+
+\subsection{Simplification}
+
+Trigonemetric function arguments are reduced in construction to the interval $(0,45]$ (which doesn't include 0, but does include 45) by using the identities
+\begin{itemize*}
+\item $\cos\theta->\cos{(\theta\mod360)}$, $\sin\theta->\sin{(\theta\mod360)}$;
+\item if $\theta>180$ then $\cos\theta-> \cos{(360-\theta)}$, $\sin\theta-> -\sin{(360-\theta)}$
+\item if $\theta>90$ then $\cos\theta-> -\cos{(180-\theta)}$, $\sin\theta-> \sin{(180-\theta)}$
+\item $\cos0->1$, $\sin90->1$, $\cos{90}->0$, $\sin0->0$
+\item $\cos60->\frac{1}{2}$, $\sin30->\frac{1}{2}$
+\item if $\theta>45$ then $\cos\theta->\sin{(90-\theta)}$, $\sin\theta->\cos{(90-\theta)}$
+\item $\sin45->\cos45$
+\end{itemize*}
+ 
+$cos(45)$ is printed as $\frac{1}{\sqrt2}$, and $\frac{1}{\sqrt2}$ is replaced by $\cos{45}$; likewise $\frac{1}{\sqrt3}$ is represented by $\frac{2}{3}\cos{30}$.
+
+Sums are simplified by:
+\begin{itemize*}
+\item $n*P+m*P=(n+m)*P$ -- sum the rationals if the element sequences are the same
+\item $|a_{i}|^{2}+|b^{i}|^{2}$ -- if there are elements $n*P*a_{i}\mathbb{r}$, $n*P*a_{i}\mathbb{i}$, $n*P*b_{i}\mathbb{r}$, $n*P*b_{i}\mathbb{i}$, replace by $n*P$.
+\end{itemize*}
+
+Products are simplified by
+\begin{itemize*}
+\item $\sqrt{x}\times\sqrt{x}=x$
+\item trigonometric identities, where $\theta\leq\phi$ (thanks to Wikipedia)
+\begin{itemize*}
+\item $2\cos\theta\cos\phi = \cos(\phi-\theta)+\cos(\theta+\phi)$
+\item $2\sin\theta\sin\phi = \cos(\phi-\theta)-\cos(\theta+\phi)$
+\item $2\sin\theta\cos\phi = \sin(\theta+\phi)-\sin(\phi-\theta)$
+\item $2\cos\theta\sin\phi = \sin(\theta+\phi)+\sin(\phi-\theta)$
+\end{itemize*}
+\end{itemize*}
+
+\subsection{Measurement}
+
+The measurement mechanism calculates a probability from symbolic amplitudes, and to do so must approximate $\sin{}$, $\cos{}$ and $\sqrt{}$. That calculation also has access to the secret values of variables.
+
+\section{Sparse-matrix optimisation}
+
+One day I'll write about that. Functional representation of matrices allows huge gates to be represented: for example creating a W state with 1024 qubits requires a matrix of $2^{1024}*2^{1024}$ elements. But it's mostly a structure of functions, so takes up very little space.
+
+\section{Constructing sxnum values}
+
+Matrices and vectors contain complex numbers, pairs of symbolic reals, of type sxnum. Qtpi provides some useful constants and functions:
+\begin{itemize}\item \verb|sx_0|: sxnum, \verb|sx_1|: sxnum;
+\item \verb|sx_i|: sxnum;
+\item \verb|sx_sqrt|: num $->$ sxnum;\item \verb|sx_sin|: num $->$ sxnum;\item \verb|sx_cos|: num $->$ sxnum;\end{itemize}
+The arithmetic operators +, -, and * are overloaded to include sxnum $->$ sxnum $->$ sxnum. 
+
+(Perhaps there should be an \verb|sx_num| function; I think I can't extend the arithmetic operators to include num $->$ sxnum $->$ sxnum and sxnum $->$ num $->$ sxnum.)

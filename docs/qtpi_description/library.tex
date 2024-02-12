@@ -79,20 +79,20 @@ Qtpi doesn't have an \verbtt{int} type, but several of the library functions ins
 
 \subsection{Input-output functions}
 \libitem{read\_alternative: string $->$ string $->$ [(string,'a)] $->$ 'a}
-	    {$read\_alternative\;prompt\;sep\;[(s_{0},v_{0});\,(s_{0},v_{0});\,..]$ prints $prompt$ followed by the $s_{i}$s separated by $sep$; it insists that the user inputs one of the $s_{i}$s, and returns the corresponding $v_{i}$.}
+	    {$read\_alternative\;prompt\;sep\;[(s_{0},v_{0});\,(s_{1},v_{1});\,..]$ prints $prompt$ followed by the $s_{i}$s separated by $sep$; it insists that the user inputs one of the $s_{i}$s, and returns the corresponding $v_{i}$.}
 \libitem{read\_bool: string $->$ string $->$ string $->$ bool}
 	    {$read\_bool\;prompt\;y\;n$ is a version of $read\_alternative$ in which $y$ is the $s_{i}$ which returns \verbtt{true} and $n$ the one which returns \verbtt{false}.}
 \libitem{read\_num: string $->$ num}{$read\_num\;prompt$ returns the number which the user inputs (it insists on a number).}
 \libitem{read\_string: string $->$ string}{$read\_string\;prompt$ returns the string which the user inputs (an input line, without the newline).}  
-\libitem{print\_qubit: qubit $->$ unit}
-	    {$print\_qubit\;q$ has the same effect as \verbtt{outq!(showq q)}. (I think it's still possible to use it, but barely so.)}
+%\libitem{print\_qubit: qubit $->$ unit}
+%	    {$print\_qubit\;q$ has the same effect as \verbtt{outq!(showq q)}. (I think it's still possible to use it, but barely so.)}
 \libitem{print\_string: string $->$ unit}
 	    {$print\_string\;E$ has the same effect as \verbtt{out![E]}.}
 \libitem{print\_strings: [string] $->$ unit}
 	    {$print\_strings\;Es$ has the same effect as \verbtt{out!Es}.}
 
 \subsection{Miscellaneous}
-\libitem{abandon: [string] $->$ '*t}{stops the program, printing its argument, and doesn't return. For typechecking purposes, pretends to returns a value (which might be any type).}
+\libitem{abandon: [string] $->$ 't}{stops the program, printing its argument, and doesn't return. For typechecking purposes, pretends to returns a classical value.}
 \libitem{compare: ''a $->$ ''a $->$ num}
 	{\verbtt{compare a b} returns 0 for $a=b$, -1 for $a<b$, 1 for $a>b$ (as C/OCaml)}
 \libitem{const: 'a $->$ 'b $->$ 'a}{$const\; k\; x = k$}

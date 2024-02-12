@@ -71,7 +71,7 @@
 \newcommand{\verbtt}[1]{\texttt{\small{}#1}}
 \newcommand{\verbttf}[1]{\texttt{\footnotesize{}#1}}
 
-\var{prog,pdef,fdef,pat,bpat,Pname[Pn],Fname[fn],E,P,Q,IO,T,TV[tv],Const}
+\var{prog,progel,pdef,fdef,pat,bpat,Pname[Pn],Fname[fn],E,P,Q,Qstep,C,G,IO,T,TV[tv],Const}
 
 \usepackage{mdframed}
 \global\mdfdefinestyle{exampledefault}{ linecolor=red,linewidth=3pt,%
@@ -94,9 +94,9 @@ leftmargin=42cm,rightmargin=2cm }
 \input{corenotation}
 \input{library}
 \input{byexamples}
+\input{calculator}
 \input{qubitcollections}
 \input{loggingprocesses}
-\input{implementation}
 
 \bibliographystyle{plainnat}
 \bibliography{qtpi_description} 
